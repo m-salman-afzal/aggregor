@@ -9,6 +9,7 @@
   "type": "module",
   "main": "./dist/extension.js",
   "scripts": {
+    "prepare": "husky",
     "vscode:prepublish": "pnpm run package",
     "compile": "pnpm run check-types && pnpm run lint && node esbuild.config.mts",
     "watch": "npm-run-all -p watch:*",
