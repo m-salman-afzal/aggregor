@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="#C5C5C5">
+  <!-- 4-point sparkle, top half of the icon -->
+  <path d="M 8 0.5 L 8.9 4.1 L 12.5 5 L 8.9 5.9 L 8 9.5 L 7.1 5.9 L 3.5 5 L 7.1 4.1 Z"/>
+  <!-- Y-fork from sparkle bottom to commit dots -->
+  <path d="M 8 9.5 L 4 13" stroke="#C5C5C5" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+  <path d="M 8 9.5 L 12 13" stroke="#C5C5C5" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+  <!-- Commit dots -->
+  <circle cx="4" cy="13" r="1.6"/>
+  <circle cx="12" cy="13" r="1.6"/>
+</svg>

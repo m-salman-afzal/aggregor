@@ -1,0 +1,72 @@
+{
+  "compilerOptions": {
+    // base
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ESNext", "DOM"],
+    "types": ["node"],
+
+    // building
+    "incremental": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "preserveConstEnums": true,
+    "removeComments": true,
+    "sourceMap": false,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "jsx": "preserve",
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "isolatedDeclarations": false,
+    "newLine": "lf",
+    "useDefineForClassFields": false,
+    "rewriteRelativeImportExtensions": true,
+    "allowArbitraryExtensions": true,
+    "composite": true,
+    "declaration": true,
+    "verbatimModuleSyntax": true,
+
+    // formatting
+    "pretty": true,
+    "traceResolution": false,
+
+    // paths
+    "paths": {"*": ["./*"]},
+
+    // Strictness
+    "strict": true,
+    "strictBindCallApply": true,
+    "strictFunctionTypes": true,
+    "strictPropertyInitialization": true,
+    "alwaysStrict": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
+    "exactOptionalPropertyTypes": true,
+    "strictNullChecks": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": false,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": false,
+    "noUncheckedSideEffectImports": true,
+    "noUnusedParameters": false,
+    "checkJs": true,
+    "noImplicitAny": false,
+    "noErrorTruncation": true,
+    "useUnknownInCatchVariables": true,
+    "strictBuiltinIteratorReturn": true
+  },
+
+  "include": ["**/*.ts", "**/*.tsx", "**/*.mts"],
+  "exclude": ["node_modules"]
+}

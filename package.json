@@ -1,0 +1,84 @@
+{
+  "name": "yamac",
+  "displayName": "yamac",
+  "version": "0.0.1",
+  "description": "Yet Another Multi Agent Code",
+  "categories": [
+    "Other"
+  ],
+  "type": "module",
+  "main": "./dist/extension.js",
+  "scripts": {
+    "vscode:prepublish": "pnpm run package",
+    "compile": "pnpm run check-types && pnpm run lint && node esbuild.config.mts",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.config.mts --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "pnpm run check-types && pnpm run lint && node esbuild.config.mts --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
+    "check-types": "tsc --noEmit",
+    "fmt": "prettier --write . --cache",
+    "fmt:check": "prettier --check . --cache",
+    "lint": "eslint --cache",
+    "lint:fix": "eslint --fix . --cache",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@eslint/css": "1.2.0",
+    "@eslint/js": "10.0.1",
+    "@eslint/json": "1.2.0",
+    "@eslint/markdown": "8.0.1",
+    "@ianvs/prettier-plugin-sort-imports": "4.7.1",
+    "@types/mocha": "10.0.10",
+    "@types/node": "25.x",
+    "@types/react": "19.2.14",
+    "@types/vscode": "1.118.0",
+    "@vscode/test-cli": "0.0.12",
+    "@vscode/test-electron": "2.5.2",
+    "esbuild": "0.28.0",
+    "eslint": "10.3.0",
+    "eslint-plugin-import-x": "4.16.2",
+    "eslint-plugin-perfectionist": "5.9.0",
+    "eslint-plugin-prettier": "5.5.5",
+    "eslint-plugin-promise": "7.3.0",
+    "eslint-plugin-react": "7.37.5",
+    "globals": "17.6.0",
+    "husky": "9.1.7",
+    "jiti": "2.7.0",
+    "lint-staged": "17.0.2",
+    "npm-run-all": "4.1.5",
+    "prettier": "3.8.3",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.59.2"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,mjs,cjs}": "pnpm run fmt && pnpm run lint"
+  },
+  "contributes": {
+    "menus": {
+      "scm/title": [
+        {
+          "command": "yamac.generateCommitMessage",
+          "group": "navigation"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "title": "Generate auto commit message with AI",
+        "command": "yamac.generateCommitMessage",
+        "shortTitle": "Auto commit message",
+        "icon": {
+          "dark": "./assets/gitCommitLightIcon.svg",
+          "light": "./assets/gitCommitDarkIcon.svg"
+        }
+      }
+    ]
+  },
+  "activationEvents": [],
+  "engines": {
+    "vscode": "^1.118.0"
+  }
+}
