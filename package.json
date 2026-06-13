@@ -38,7 +38,7 @@
     "@types/vscode": "1.118.0",
     "@vscode/test-cli": "0.0.12",
     "@vscode/test-electron": "2.5.2",
-    "esbuild": "0.28.0",
+    "esbuild": "0.28.1",
     "eslint": "10.3.0",
     "eslint-plugin-import-x": "4.16.2",
     "eslint-plugin-perfectionist": "5.9.0",
