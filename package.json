@@ -1,8 +1,8 @@
 {
-  "name": "yamac",
-  "displayName": "yamac",
+  "name": "aggregor",
+  "displayName": "aggregor",
   "version": "0.0.1",
-  "description": "Yet Another Multi Agent Code",
+  "description": "Combines multiple coding agents.",
   "categories": [
     "Other"
   ],
@@ -58,10 +58,19 @@
     "*.{js,jsx,ts,tsx,mjs,cjs}": "pnpm run fmt && pnpm run lint"
   },
   "contributes": {
+    "chatParticipants": [
+      {
+        "id": "aggregor.claude",
+        "fullName": "Claude Code",
+        "name": "aggregor",
+        "description": "choose claude code as coding agent",
+        "isSticky": true
+      }
+    ],
     "menus": {
       "scm/title": [
         {
-          "command": "yamac.generateCommitMessage",
+          "command": "aggregor.generateCommitMessage",
           "group": "navigation"
         }
       ]
@@ -69,7 +78,7 @@
     "commands": [
       {
         "title": "Generate auto commit message with AI",
-        "command": "yamac.generateCommitMessage",
+        "command": "aggregor.generateCommitMessage",
         "shortTitle": "Auto commit message",
         "icon": {
           "dark": "./assets/gitCommitLightIcon.svg",
@@ -80,6 +89,6 @@
   },
   "activationEvents": [],
   "engines": {
-    "vscode": "^1.118.0"
+    "vscode": "^1.125.0"
   }
 }
