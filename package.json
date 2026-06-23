@@ -1,8 +1,8 @@
 {
-  "name": "yamac",
-  "displayName": "yamac",
+  "name": "aggregor",
+  "displayName": "aggregor",
   "version": "0.0.1",
-  "description": "Yet Another Multi Agent Code",
+  "description": "Combines multiple coding agents.",
   "categories": [
     "Other"
   ],
@@ -67,32 +67,26 @@
   "contributes": {
     "chatParticipants": [
       {
-        "id": "chat-tutorial.code-tutor",
-        "fullName": "Code Tutor",
-        "name": "tutor",
-        "description": "What can I teach you?",
+        "id": "aggregor.claude",
+        "fullName": "Claude Code",
+        "name": "aggregor",
+        "description": "choose claude code as coding agent",
         "isSticky": true
       }
     ],
     "menus": {
       "scm/title": [
         {
-          "command": "yamac.generateCommitMessage",
-          "group": "navigation",
-          "when": "!yamac.isGeneratingCommitMessage"
-        },
-        {
-          "command": "yamac.generatingCommitMessage",
-          "group": "navigation",
-          "when": "yamac.isGeneratingCommitMessage"
+          "command": "aggregor.generateCommitMessage",
+          "group": "navigation"
         }
       ]
     },
     "commands": [
       {
-        "title": "Generate commit message",
-        "command": "yamac.generateCommitMessage",
-        "shortTitle": "Gen commit msg",
+        "title": "Generate auto commit message with AI",
+        "command": "aggregor.generateCommitMessage",
+        "shortTitle": "Auto commit message",
         "icon": {
           "dark": "./assets/gitCommitLightIcon.svg",
           "light": "./assets/gitCommitDarkIcon.svg"
@@ -109,13 +103,8 @@
       }
     ]
   },
-  "extensionDependencies": [
-    "vscode.git"
-  ],
-  "activationEvents": [
-    "onStartupFinished"
-  ],
-  "dependencies": {
-    "@agentclientprotocol/sdk": "^0.29.0"
+  "activationEvents": [],
+  "engines": {
+    "vscode": "^1.125.0"
   }
 }
