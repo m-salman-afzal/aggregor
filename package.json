@@ -8,9 +8,6 @@
   ],
   "type": "module",
   "main": "./dist/extension.js",
-  "engines": {
-    "vscode": "^1.123.0"
-  },
   "scripts": {
     "prepare": "husky",
     "vscode:prepublish": "pnpm run package",
@@ -67,10 +64,10 @@
   "contributes": {
     "chatParticipants": [
       {
-        "id": "aggregor.claude",
-        "fullName": "Claude Code",
-        "name": "aggregor",
-        "description": "choose claude code as coding agent",
+        "id": "aggregor.cursor",
+        "fullName": "Cursor",
+        "name": "cursor",
+        "description": "Run Cursor as coding agent",
         "isSticky": true
       }
     ],
