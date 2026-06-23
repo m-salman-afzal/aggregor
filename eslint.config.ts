@@ -62,7 +62,7 @@ const config: Config[] = defineConfig([
       perfectionist.configs["recommended-alphabetical"]
     ],
     files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
-    ignores: ["node_modules", ".prettierignore"],
+    ignores: ["node_modules", ".prettierignore", "./src/typings/**/*.d.ts"],
     languageOptions: {
       globals: {...globals.browser, ...globals.node},
       parserOptions: {
@@ -93,6 +93,17 @@ const config: Config[] = defineConfig([
       "@typescript-eslint/prefer-readonly-parameter-types": "off",
       "capitalized-comments": "off",
       "import-x/consistent-type-specifier-style": ["error", "prefer-top-level"],
+      "max-lines-per-function": [
+        "off",
+        {
+          IIFEs: true,
+          max: 50,
+          skipBlankLines: true,
+          skipComments: true
+        }
+      ],
+      "max-statements": ["off", {max: 20}, {ignoreTopLevelFunctions: true}],
+      "new-cap": "off",
       "newline-before-return": ["error"],
       "no-console": "warn",
       "no-constant-condition": "error",

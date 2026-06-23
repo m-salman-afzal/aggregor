@@ -5,3 +5,5 @@ assets/
 .gitignore
 
 .husky/
+
+src/typings/
