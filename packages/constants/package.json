@@ -1,0 +1,10 @@
+{
+  "name": "@pkg/constants",
+  "type": "module",
+  "exports": {
+    "./*": "./*"
+  },
+  "dependencies": {
+    "@pkg/tsconfigs": "workspace:*"
+  }
+}

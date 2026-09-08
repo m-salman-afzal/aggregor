@@ -1,0 +1,10 @@
+{
+  "name": "@pkg/services",
+  "type": "module",
+  "exports": {
+    "./*": "./*"
+  },
+  "dependencies": {
+    "@pkg/tsconfigs": "workspace:*"
+  }
+}

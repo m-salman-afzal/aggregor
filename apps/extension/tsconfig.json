@@ -1,0 +1,9 @@
+{
+  "extends": "@pkg/tsconfigs/tsconfig.node.json",
+
+  "compilerOptions": {
+    //base
+    "types": ["node"]
+  },
+  "include": ["**/*.ts", "**/*.mts"]
+}

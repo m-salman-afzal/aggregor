@@ -1,0 +1,7 @@
+{
+  "name": "@pkg/tsconfigs",
+  "type": "module",
+  "exports": {
+    "./*": "./*"
+  }
+}

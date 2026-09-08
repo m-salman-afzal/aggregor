@@ -1,23 +1,34 @@
+import e18e from "@e18e/eslint-plugin";
 import css from "@eslint/css";
 import js from "@eslint/js";
-// Import pluginReact from "eslint-plugin-react";
 import json from "@eslint/json";
 import markdown from "@eslint/markdown";
+// import packageJson from "eslint-package-json";
 import importX from "eslint-plugin-import-x";
 import perfectionist from "eslint-plugin-perfectionist";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
-import pluginPromise from "eslint-plugin-promise";
+// import pluginPromise from "eslint-plugin-promise";
+import reactHooks from "eslint-plugin-react-hooks";
+import reactRefresh from "eslint-plugin-react-refresh";
+// import unicorn from "eslint-plugin-unicorn";
 import {defineConfig} from "eslint/config";
 import globals from "globals";
-import tseslint from "typescript-eslint";
+import tsEslint from "typescript-eslint";
 
 import type {Config} from "eslint/config";
 
 const config: Config[] = defineConfig([
+  // {
+  //   extends: ["package-json/recommended"],
+  //   files: ["**/package.json"],
+  //   plugins: {
+  //     "package-json": packageJson
+  //   }
+  // },
   {
     extends: ["json/recommended"],
     files: ["**/*.json"],
-    ignores: ["package.json"],
+    ignores: ["**/package.json", "**/tsconfig*.json", "./.vscode/*.json"],
     language: "json/json",
     plugins: {json},
     rules: {
@@ -26,7 +37,7 @@ const config: Config[] = defineConfig([
   },
   {
     extends: ["json/recommended"],
-    files: ["**/*.jsonc"],
+    files: ["**/*.jsonc", "**/tsconfig*.json"],
     language: "json/jsonc",
     plugins: {json}
   },
@@ -48,18 +59,19 @@ const config: Config[] = defineConfig([
     language: "css/css",
     plugins: {css}
   },
-  // PluginReact.configs.flat,
-  // eslintPluginPrettierRecommended,
+  e18e.configs.recommended,
+  // pluginPromise.configs["flat/recommended"],
   {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     extends: [
       js.configs.all,
-      tseslint.configs.all,
+      tsEslint.configs.all,
       eslintPluginPrettierRecommended,
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      pluginPromise.configs["flat/recommended"],
-      perfectionist.configs["recommended-alphabetical"]
+      perfectionist.configs["recommended-alphabetical"],
+
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite
+      // unicorn.configs.all
     ],
     files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
     ignores: ["node_modules", ".prettierignore", "./src/typings/**/*.d.ts"],
@@ -125,20 +137,8 @@ const config: Config[] = defineConfig([
             {newlinesBetween: 1},
             "unknown"
           ],
-          // customGroups: [],
-          // environment: "node",
-          // fallbackSort: {type: "unsorted"},
-          // IgnoreCase: true,
-          // // InternalPattern: ["^~/.+", "^@/.+", "^#.+"],
-          // MaxLineLength: undefined,
-          // NewlinesBetween: 1,
-          // NewlinesInside: 0,
           order: "asc",
-          // PartitionByNewLine: true,
           sortBy: "path"
-          // SpecialCharacters: "keep",
-          // Type: "alphabetical",
-          // UseExperimentalDependencyDetection: true
         }
       ],
       "sort-imports": "off"
