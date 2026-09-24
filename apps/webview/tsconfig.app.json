@@ -1,5 +1,0 @@
-{
-  "extends": "@pkg/tsconfigs/tsconfig.app.json",
-  "compilerOptions": {"types": ["vite/client"]},
-  "include": ["./src"]
-}

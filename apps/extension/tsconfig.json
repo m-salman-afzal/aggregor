@@ -3,7 +3,12 @@
 
   "compilerOptions": {
     //base
-    "types": ["node"]
+    "types": ["node"],
+
+    // paths
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": ["**/*.ts", "**/*.mts"]
 }

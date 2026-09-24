@@ -1,9 +1,7 @@
 assets/
-
-*.yaml
-
+pnpm-lock.yaml
 .gitignore
-
 .husky/
 
-src/typings/
+# Synced from upstream vscode by `pnpm --filter @pkg/typings sync:git-types`; not ours to format.
+packages/typings/src/git.d.ts

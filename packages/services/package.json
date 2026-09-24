@@ -1,5 +1,6 @@
 {
   "name": "@pkg/services",
+  "private": true,
   "type": "module",
   "exports": {
     "./*": "./*"

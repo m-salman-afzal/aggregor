@@ -30,11 +30,12 @@
     "isolatedDeclarations": false,
     "newLine": "lf",
     "useDefineForClassFields": false,
-    "rewriteRelativeImportExtensions": true,
+    // "rewriteRelativeImportExtensions": true,
     "allowArbitraryExtensions": true,
     "composite": true,
     "declaration": true,
     "verbatimModuleSyntax": true,
+    // "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
 
     // formatting
     "pretty": true,

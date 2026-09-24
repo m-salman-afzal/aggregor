@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import {builtinModules} from "node:module";
 import {defineConfig} from "vite";
 
@@ -33,7 +34,7 @@ export default defineConfig(({mode}) => {
       // vscode is the host; node builtins (bare `fs` + every `node:` form) stay external.
       // everything else (incl. @agentclientprotocol/sdk) is bundled
       rolldownOptions: {external: ["vscode", externalNode, ...builtinModules]},
-      sourcemap: production,
+      sourcemap: !production,
       target: "node24"
     },
     plugins: [problemMatcherPlugin]

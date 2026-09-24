@@ -3,7 +3,7 @@ import css from "@eslint/css";
 import js from "@eslint/js";
 import json from "@eslint/json";
 import markdown from "@eslint/markdown";
-// import packageJson from "eslint-package-json";
+import packageJson from "eslint-package-json";
 import importX from "eslint-plugin-import-x";
 import perfectionist from "eslint-plugin-perfectionist";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
@@ -11,20 +11,37 @@ import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended"
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 // import unicorn from "eslint-plugin-unicorn";
-import {defineConfig} from "eslint/config";
+import {defineConfig, globalIgnores} from "eslint/config";
 import globals from "globals";
 import tsEslint from "typescript-eslint";
 
 import type {Config} from "eslint/config";
 
 const config: Config[] = defineConfig([
-  // {
-  //   extends: ["package-json/recommended"],
-  //   files: ["**/package.json"],
-  //   plugins: {
-  //     "package-json": packageJson
-  //   }
-  // },
+  // ESLint does not read .gitignore. git.d.ts is synced from upstream vscode (also in .prettierignore).
+  // .vscode-test.mjs imports @vscode/test-cli, which is not installed, so typed rules cannot resolve it.
+  globalIgnores(["**/dist/**", "packages/typings/src/git.d.ts"]),
+  {
+    extends: ["package-json/recommended"],
+    files: ["**/package.json"],
+    plugins: {
+      "package-json": packageJson
+    },
+    rules: {
+      // The repo pins exact versions on purpose (savePrefix: "" in pnpm-workspace.yaml).
+      "package-json/dependency-version-range": ["error", {range: "exact"}],
+      // Any manifest below cwd counts as "nested"; the rule has no pnpm-workspace awareness.
+      "package-json/no-nested-exports": "off",
+      // @types/vscode has no runtime package: the extension host provides `vscode`.
+      "package-json/no-orphan-types": "off",
+      // VS Code extensions pin `engines.vscode` with a caret and are loaded via `main`.
+      "package-json/prefer-engines-range": "off",
+      "package-json/prefer-exports": "off",
+      // Private workspace packages: nothing is published, so no bundler hints or node ranges.
+      "package-json/prefer-side-effects-field": "off",
+      "package-json/require-engines": "off"
+    }
+  },
   {
     extends: ["json/recommended"],
     files: ["**/*.json"],
@@ -57,7 +74,11 @@ const config: Config[] = defineConfig([
     extends: ["css/recommended"],
     files: ["**/*.css"],
     language: "css/css",
-    plugins: {css}
+    plugins: {css},
+    rules: {
+      // --vscode-* variables are injected into the webview at runtime; the rule cannot resolve them.
+      "css/no-invalid-properties": ["error", {allowUnknownVariables: true}]
+    }
   },
   e18e.configs.recommended,
   // pluginPromise.configs["flat/recommended"],
@@ -74,7 +95,6 @@ const config: Config[] = defineConfig([
       // unicorn.configs.all
     ],
     files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
-    ignores: ["node_modules", ".prettierignore", "./src/typings/**/*.d.ts"],
     languageOptions: {
       globals: {...globals.browser, ...globals.node},
       parserOptions: {
@@ -104,6 +124,7 @@ const config: Config[] = defineConfig([
       ],
       "@typescript-eslint/prefer-readonly-parameter-types": "off",
       "capitalized-comments": "off",
+      "func-names": ["error", "always", {generators: "never"}],
       "import-x/consistent-type-specifier-style": ["error", "prefer-top-level"],
       "max-lines-per-function": [
         "off",

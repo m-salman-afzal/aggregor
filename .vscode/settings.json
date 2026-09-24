@@ -38,9 +38,11 @@
   },
   "peacock.color": "#140003",
 
-  // Effect LSP: point the TS7 native server at the effect-tsgo-patched workspace tsc
+  // Effect LSP: point the TS7 native server at the effect-tsgo-patched native exe.
+  // ponytail: the exe, not ./node_modules/@typescript/native/bin/tsc — that shim is
+  // #!/usr/bin/env node and the extension host has no node on PATH (nvm).
   "js/ts.experimental.useTsgo": true,
-  "js/ts.tsdk.path": "./node_modules/@typescript/native/bin",
+  "js/ts.tsdk.path": "./node_modules/.pnpm/node_modules/@typescript/typescript-linux-x64/lib",
   "js/ts.tsdk.promptToUseWorkspaceVersion": true,
-  "js/ts.tsdk.additionalLocations": ["./node_modules/@typescript/native/bin"]
+  "js/ts.tsdk.additionalLocations": ["./node_modules/.pnpm/node_modules/@typescript/typescript-linux-x64/lib"]
 }
