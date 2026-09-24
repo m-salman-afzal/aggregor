@@ -1,0 +1,26 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # pnpm-workspace.yaml sets savePrefix: "", so rewrite the exact pin rather than leaving it untouched.
+    versioning-strategy: increase
+    # Wait a week after a release before proposing it; compromised npm releases are usually pulled within days.
+    cooldown:
+      default-days: 7
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
