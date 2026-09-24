@@ -3,6 +3,7 @@ packages:
   - "packages/*"
 
 allowBuilds:
+  "@vscode/vsce-sign": true
   esbuild: true
   msgpackr-extract: true
   unrs-resolver: true

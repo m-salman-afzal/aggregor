@@ -1,5 +1,5 @@
 {
-  "name": "aggregor",
+  "name": "aggregor-monorepo",
   "version": "0.0.1",
   "private": true,
   "description": "Combines multiple coding agents.",
@@ -22,17 +22,18 @@
   "packageManager": "pnpm@12.6.0",
   "scripts": {
     "prepare": "husky & effect-tsgo patch --typescript",
-    "watch:extension": "pnpm run --filter=extension",
-    "watch:webview": "pnpm run --filter=webview",
-    "watch:vite": "pnpm run --filter=extension watch:vite",
-    "watch:tsc": "pnpm run --filter=extension watch:tsc",
-    "watch": "concurrently \"pnpm run watch:extension\" \"pnpm run watch:webview\"",
+    "watch:vite": "pnpm --filter=aggregor watch:vite",
+    "watch:tsc": "pnpm --filter=aggregor watch:tsc",
+    "watch": "pnpm --filter=aggregor watch",
     "lint:check": "eslint . --max-warnings 0 --cache --cache-strategy content --concurrency=auto",
     "lint:fix": "eslint . --max-warnings 0 --cache --cache-strategy content --concurrency=auto --fix",
     "format:check": "prettier --check . --cache --cache-strategy content",
     "format:fix": "prettier --write . --cache --cache-strategy content",
     "typecheck": "pnpm -r run typecheck",
-    "quality": "pnpm run \"/^(lint:check|format:check|typecheck)$/\""
+    "quality": "pnpm run \"/^(lint:check|format:check|typecheck)$/\"",
+    "build": "pnpm --filter=aggregor package",
+    "vsix": "pnpm --filter=aggregor vsix",
+    "publish:vsce": "pnpm --filter=aggregor publish:vsce"
   },
   "devDependencies": {
     "@e18e/eslint-plugin": "0.8.1",
@@ -61,10 +62,6 @@
     "typescript": "npm:@typescript/typescript6@6.0.2",
     "typescript-eslint": "8.70.1"
   },
-  "categories": [
-    "Other"
-  ],
-  "displayName": "Aggregor",
   "lint-staged": {
     "*": [
       [

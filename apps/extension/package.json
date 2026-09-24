@@ -1,7 +1,9 @@
 {
-  "name": "extension",
+  "name": "aggregor",
   "version": "0.0.1",
   "private": true,
+  "description": "Combines multiple coding agents.",
+  "repository": "github:m-salman-afzal/aggregor",
   "type": "module",
   "main": "./dist/extension.js",
   "engines": {
@@ -18,7 +20,9 @@
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "pnpm run compile-tests && pnpm run compile",
     "typecheck": "tsc --noEmit",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "vsix": "vsce package --no-dependencies --skip-license",
+    "publish:vsce": "vsce publish --no-dependencies --skip-license"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.5.0",
@@ -31,10 +35,12 @@
   "devDependencies": {
     "@pkg/tsconfigs": "workspace:*",
     "@types/node": "26.6.2",
-    "@types/vscode": "1.138.0",
+    "@types/vscode": "1.136.0",
+    "@vscode/vsce": "4.0.0",
     "npm-run-all2": "9.0.3",
     "vite": "8.3.0"
   },
+  "publisher": "SalmanAfzal",
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -77,5 +83,11 @@
         }
       }
     ]
-  }
+  },
+  "displayName": "Aggregor",
+  "categories": [
+    "AI",
+    "Chat",
+    "Other"
+  ]
 }
