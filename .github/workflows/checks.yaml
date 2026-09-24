@@ -1,0 +1,33 @@
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+
+# A newer push to the same branch or PR cancels the run in flight.
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # One job per check so they run in parallel and fail independently.
+  Check:
+    name: ${{ matrix.script }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        script: [lint:check, format:check, typecheck]
+    steps:
+      - uses: actions/checkout@v7
+      # Installs pnpm and Node from package.json (packageManager, devEngines.runtime), then runs pnpm install.
+      - uses: pnpm/setup@v3
+        with:
+          cache: true
+          require-lockfile: true
+      - run: pnpm run ${{ matrix.script }}

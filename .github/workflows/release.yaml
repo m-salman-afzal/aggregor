@@ -1,0 +1,35 @@
+name: Release
+
+# Pushing a v* tag (pnpm release:tag) builds the .vsix and creates the GitHub release with it attached.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ github.ref_name }}
+
+jobs:
+  Release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v3
+        with:
+          cache: true
+          require-lockfile: true
+      # The .vsix is named from package.json, so a tag that disagrees would ship a mislabeled build.
+      - name: Check tag matches extension version
+        run: |
+          version=$(pnpm --silent release:version)
+          [ "${TAG#v}" = "$version" ] || { echo "::error::Tag $TAG does not match apps/extension version $version"; exit 1; }
+      # vsce runs vscode:prepublish, which typechecks, lints and builds first.
+      - name: Package extension
+        run: pnpm vsix
+      - name: Create release
+        run: gh release create "$TAG" apps/extension/*.vsix --verify-tag --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
