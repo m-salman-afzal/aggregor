@@ -1,15 +1,18 @@
 name: Release
 
-# Builds the .vsix and attaches it to the GitHub release, next to the source code archives.
+# Pushing a v* tag (pnpm release:tag) builds the .vsix and creates the GitHub release with it attached.
 on:
-  release:
-    types: [published]
+  push:
+    tags: ["v*"]
 
 permissions:
   contents: write
 
+env:
+  TAG: ${{ github.ref_name }}
+
 jobs:
-  Attach-VSIX:
+  Release:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -21,15 +24,12 @@ jobs:
       # The .vsix is named from package.json, so a tag that disagrees would ship a mislabeled build.
       - name: Check tag matches extension version
         run: |
-          version=$(node -p "require('./apps/extension/package.json').version")
+          version=$(pnpm --silent release:version)
           [ "${TAG#v}" = "$version" ] || { echo "::error::Tag $TAG does not match apps/extension version $version"; exit 1; }
-        env:
-          TAG: ${{ github.event.release.tag_name }}
       # vsce runs vscode:prepublish, which typechecks, lints and builds first.
       - name: Package extension
         run: pnpm vsix
-      - name: Upload to release
-        run: gh release upload "$TAG" apps/extension/*.vsix --clobber
+      - name: Create release
+        run: gh release create "$TAG" apps/extension/*.vsix --verify-tag --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
