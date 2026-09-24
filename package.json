@@ -1,85 +1,73 @@
 {
-  "name": "yamac",
-  "displayName": "yamac",
+  "name": "aggregor-monorepo",
   "version": "0.0.1",
-  "description": "Yet Another Multi Agent Code",
-  "categories": [
-    "Other"
-  ],
+  "private": true,
+  "description": "Combines multiple coding agents.",
   "type": "module",
-  "main": "./dist/extension.js",
+  "engines": {
+    "node": ">=26.8.1"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "26.8.1",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.6.0",
+      "onFail": "error"
+    }
+  },
+  "packageManager": "pnpm@12.6.0",
   "scripts": {
-    "prepare": "husky",
-    "vscode:prepublish": "pnpm run package",
-    "compile": "pnpm run check-types && pnpm run lint && node esbuild.config.mts",
-    "watch": "npm-run-all -p watch:*",
-    "watch:esbuild": "node esbuild.config.mts --watch",
-    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "pnpm run check-types && pnpm run lint && node esbuild.config.mts --production",
-    "compile-tests": "tsc -p . --outDir out",
-    "watch-tests": "tsc -p . -w --outDir out",
-    "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
-    "check-types": "tsc --noEmit",
-    "fmt": "prettier --write . --cache",
-    "fmt:check": "prettier --check . --cache",
-    "lint": "eslint --cache",
-    "lint:fix": "eslint --fix . --cache",
-    "test": "vscode-test"
+    "prepare": "husky & effect-tsgo patch --typescript",
+    "watch:vite": "pnpm --filter=aggregor watch:vite",
+    "watch:tsc": "pnpm --filter=aggregor watch:tsc",
+    "watch": "pnpm --filter=aggregor watch",
+    "lint:check": "eslint . --max-warnings 0 --cache --cache-strategy content --concurrency=auto",
+    "lint:fix": "eslint . --max-warnings 0 --cache --cache-strategy content --concurrency=auto --fix",
+    "format:check": "prettier --check . --cache --cache-strategy content",
+    "format:fix": "prettier --write . --cache --cache-strategy content",
+    "typecheck": "pnpm -r run typecheck",
+    "quality": "pnpm run \"/^(lint:check|format:check|typecheck)$/\"",
+    "build": "pnpm --filter=aggregor package",
+    "vsix": "pnpm --filter=aggregor vsix",
+    "publish:vsce": "pnpm --filter=aggregor publish:vsce"
   },
   "devDependencies": {
-    "@eslint/css": "1.3.0",
+    "@e18e/eslint-plugin": "0.8.1",
+    "@effect/tsgo": "0.45.0",
+    "@eslint/css": "2.0.0",
     "@eslint/js": "10.0.1",
-    "@eslint/json": "2.0.0",
-    "@eslint/markdown": "8.0.2",
-    "@ianvs/prettier-plugin-sort-imports": "4.7.1",
-    "@types/mocha": "10.0.10",
-    "@types/node": "26.x",
-    "@types/react": "19.2.17",
-    "@types/vscode": "1.125.0",
-    "@vscode/test-cli": "0.0.12",
-    "@vscode/test-electron": "3.0.0",
-    "esbuild": "0.28.1",
-    "eslint": "10.5.0",
-    "eslint-plugin-import-x": "4.16.2",
-    "eslint-plugin-perfectionist": "5.9.1",
+    "@eslint/json": "2.1.0",
+    "@eslint/markdown": "8.0.3",
+    "@types/eslint-plugin-promise": "7.3.0",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "concurrently": "10.0.5",
+    "eslint": "10.11.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-package-json": "1.0.0",
+    "eslint-plugin-import-x": "4.17.1",
+    "eslint-plugin-perfectionist": "5.12.0",
     "eslint-plugin-prettier": "5.5.6",
     "eslint-plugin-promise": "7.3.0",
-    "eslint-plugin-react": "7.37.5",
-    "globals": "17.6.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "eslint-plugin-unicorn": "76.0.0",
+    "globals": "17.12.0",
     "husky": "9.1.7",
-    "jiti": "2.7.0",
-    "lint-staged": "17.0.8",
-    "npm-run-all": "4.1.5",
-    "prettier": "3.8.4",
-    "typescript": "6.0.3",
-    "typescript-eslint": "8.61.1"
+    "lint-staged": "17.5.1",
+    "prettier": "3.9.9",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
+    "typescript-eslint": "8.70.1"
   },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx,mjs,cjs}": "pnpm run fmt && pnpm run lint"
-  },
-  "contributes": {
-    "menus": {
-      "scm/title": [
-        {
-          "command": "yamac.generateCommitMessage",
-          "group": "navigation"
-        }
+    "*": [
+      [
+        "prettier --check --ignore-unknown",
+        "eslint --max-warnings 0 --no-warn-ignored --concurrency=auto"
       ]
-    },
-    "commands": [
-      {
-        "title": "Generate auto commit message with AI",
-        "command": "yamac.generateCommitMessage",
-        "shortTitle": "Auto commit message",
-        "icon": {
-          "dark": "./assets/gitCommitLightIcon.svg",
-          "light": "./assets/gitCommitDarkIcon.svg"
-        }
-      }
     ]
-  },
-  "activationEvents": [],
-  "engines": {
-    "vscode": "^1.118.0"
   }
 }

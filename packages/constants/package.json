@@ -1,0 +1,11 @@
+{
+  "name": "@pkg/constants",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./*"
+  },
+  "dependencies": {
+    "@pkg/tsconfigs": "workspace:*"
+  }
+}

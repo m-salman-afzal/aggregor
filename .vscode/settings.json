@@ -1,11 +1,48 @@
 // Place your settings in this file to overwrite default and user settings.
 {
-    "files.exclude": {
-        "out": false, // set this to true to hide the "out" folder with the compiled JS files
-        "dist": false // set this to true to hide the "dist" folder with the compiled JS files
-    },
-    "search.exclude": {
-        "out": true, // set this to false to include "out" folder in search results
-        "dist": true // set this to false to include "dist" folder in search results
-    }
+  "files.exclude": {
+    "out": false, // set this to true to hide the "out" folder with the compiled JS files
+    "dist": false // set this to true to hide the "dist" folder with the compiled JS files
+  },
+  "search.exclude": {
+    "out": true, // set this to false to include "out" folder in search results
+    "dist": true // set this to false to include "dist" folder in search results
+  },
+  "workbench.colorCustomizations": {
+    "activityBar.activeBackground": "#47000b",
+    "activityBar.background": "#47000b",
+    "activityBar.foreground": "#e7e7e7",
+    "activityBar.inactiveForeground": "#e7e7e799",
+    "activityBarBadge.background": "#0f6000",
+    "activityBarBadge.foreground": "#e7e7e7",
+    "commandCenter.border": "#e7e7e799",
+    "sash.hoverBorder": "#47000b",
+    "statusBar.background": "#140003",
+    "statusBar.foreground": "#e7e7e7",
+    "statusBarItem.hoverBackground": "#47000b",
+    "statusBarItem.remoteBackground": "#0e6000",
+    "statusBarItem.remoteForeground": "#e7e7e7",
+    "titleBar.activeBackground": "#140003",
+    "titleBar.activeForeground": "#e7e7e7",
+    "titleBar.inactiveBackground": "#14000399",
+    "titleBar.inactiveForeground": "#e7e7e799",
+    "activityBarTop.activeBackground": "#47000b",
+    "activityBarTop.background": "#47000b",
+    "activityBarTop.foreground": "#e7e7e7",
+    "activityBarTop.inactiveForeground": "#e7e7e799",
+    "commandCenter.foreground": "#e7e7e7",
+    "statusBar.debuggingBackground": "#140003",
+    "statusBar.debuggingForeground": "#e7e7e7",
+    "activityBar.activeBorder": "#e7e7e7",
+    "activityBarTop.activeBorder": "#e7e7e7"
+  },
+  "peacock.color": "#140003",
+
+  // Effect LSP: point the TS7 native server at the effect-tsgo-patched native exe.
+  // ponytail: the exe, not ./node_modules/@typescript/native/bin/tsc — that shim is
+  // #!/usr/bin/env node and the extension host has no node on PATH (nvm).
+  "js/ts.experimental.useTsgo": true,
+  "js/ts.tsdk.path": "./node_modules/.pnpm/node_modules/@typescript/typescript-linux-x64/lib",
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "js/ts.tsdk.additionalLocations": ["./node_modules/.pnpm/node_modules/@typescript/typescript-linux-x64/lib"]
 }

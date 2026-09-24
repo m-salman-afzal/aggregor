@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "display": "Node",
+
+  "compilerOptions": {
+    // base
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ESNext"],
+
+    // building
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo"
+  }
+}

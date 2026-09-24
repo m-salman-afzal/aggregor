@@ -1,0 +1,14 @@
+{
+  "extends": "@pkg/tsconfigs/tsconfig.node.json",
+
+  "compilerOptions": {
+    //base
+    "types": ["node"],
+
+    // paths
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.mts"]
+}

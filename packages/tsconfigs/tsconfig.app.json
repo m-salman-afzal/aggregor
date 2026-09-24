@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "display": "App",
+  "compilerOptions": {
+    // base
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ESNext", "DOM"],
+
+    // building
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "jsx": "react-jsx"
+  }
+}
