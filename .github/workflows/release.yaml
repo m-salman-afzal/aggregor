@@ -1,6 +1,6 @@
 name: Release
 
-# Merging the release PR (dev -> main, opened by pnpm release:pr) tags the merge commit with v<version>,
+# Merging the release PR (dev -> main, opened by auto-pr.yaml) tags the merge commit with v<version>,
 # builds the .vsix and creates the GitHub release with it attached.
 on:
   pull_request:

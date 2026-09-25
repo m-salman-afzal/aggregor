@@ -3,7 +3,7 @@ name: Checks
 on:
   pull_request:
   push:
-    branches: [main, dev]
+    branches: [main]
 
 # A newer push to the same branch or PR cancels the run in flight.
 concurrency:
