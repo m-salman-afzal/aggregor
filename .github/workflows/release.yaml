@@ -1,35 +1,35 @@
 name: Release
 
-# Pushing a v* tag (pnpm release:tag) builds the .vsix and creates the GitHub release with it attached.
+# Merging the release PR (dev -> main, opened by pnpm release:pr) tags the merge commit with v<version>,
+# builds the .vsix and creates the GitHub release with it attached.
 on:
-  push:
-    tags: ["v*"]
+  pull_request:
+    types: [closed]
+    branches: [main]
 
 permissions:
   contents: write
 
-env:
-  TAG: ${{ github.ref_name }}
-
 jobs:
   Release:
+    if: github.event.pull_request.merged && github.head_ref == 'dev'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
       - uses: pnpm/setup@v3
         with:
           cache: true
           require-lockfile: true
-      # The .vsix is named from package.json, so a tag that disagrees would ship a mislabeled build.
-      - name: Check tag matches extension version
-        run: |
-          version=$(pnpm --silent release:version)
-          [ "${TAG#v}" = "$version" ] || { echo "::error::Tag $TAG does not match apps/extension version $version"; exit 1; }
       # vsce runs vscode:prepublish, which typechecks, lints and builds first.
       - name: Package extension
         run: pnpm vsix
+      # Creates the tag on the merge commit too. Fails if v<version> already exists, i.e. the version was not bumped.
       - name: Create release
-        run: gh release create "$TAG" apps/extension/*.vsix --verify-tag --generate-notes
+        run:
+          gh release create "v$(pnpm --silent release:version)" apps/extension/*.vsix --target "$(git rev-parse HEAD)"
+          --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}
