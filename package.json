@@ -34,8 +34,7 @@
     "build": "pnpm --filter=aggregor package",
     "vsix": "pnpm --filter=aggregor vsix",
     "publish:vsce": "pnpm --filter=aggregor publish:vsce",
-    "release:version": "pnpm pkg get version",
-    "release:pr": "gh pr create --base main --head dev --fill --title v$(pnpm --silent release:version)"
+    "release:version": "pnpm pkg get version"
   },
   "devDependencies": {
     "@e18e/eslint-plugin": "0.8.1",
