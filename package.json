@@ -35,8 +35,7 @@
     "vsix": "pnpm --filter=aggregor vsix",
     "publish:vsce": "pnpm --filter=aggregor publish:vsce",
     "release:version": "pnpm pkg get version",
-    "release:pr": "gh pr create --base main --head dev --fill --title v$(pnpm --silent release:version)",
-    "release:tag": "git fetch origin main && v=v$(pnpm --silent release:version) && git tag \"$v\" origin/main && git push origin \"$v\""
+    "release:pr": "gh pr create --base main --head dev --fill --title v$(pnpm --silent release:version)"
   },
   "devDependencies": {
     "@e18e/eslint-plugin": "0.8.1",
