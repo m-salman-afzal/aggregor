@@ -8,8 +8,8 @@ import importX from "eslint-plugin-import-x";
 import perfectionist from "eslint-plugin-perfectionist";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 // import pluginPromise from "eslint-plugin-promise";
-import reactHooks from "eslint-plugin-react-hooks";
-import reactRefresh from "eslint-plugin-react-refresh";
+// import reactHooks from "eslint-plugin-react-hooks";
+// import reactRefresh from "eslint-plugin-react-refresh";
 // import unicorn from "eslint-plugin-unicorn";
 import {defineConfig, globalIgnores} from "eslint/config";
 import globals from "globals";
@@ -88,10 +88,10 @@ const config: Config[] = defineConfig([
       tsEslint.configs.all,
       eslintPluginPrettierRecommended,
 
-      perfectionist.configs["recommended-alphabetical"],
+      perfectionist.configs["recommended-alphabetical"]
 
-      reactHooks.configs.flat.recommended,
-      reactRefresh.configs.vite
+      // reactHooks.configs.flat.recommended,
+      // reactRefresh.configs.vite
       // unicorn.configs.all
     ],
     files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
@@ -111,6 +111,7 @@ const config: Config[] = defineConfig([
       "@typescript-eslint/explicit-module-boundary-types": "off",
       "@typescript-eslint/naming-convention": "off",
       "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-magic-numbers": "off",
       "@typescript-eslint/no-unused-vars": [
         "warn",
         {
@@ -125,6 +126,7 @@ const config: Config[] = defineConfig([
       "@typescript-eslint/prefer-readonly-parameter-types": "off",
       "capitalized-comments": "off",
       "func-names": ["error", "always", {generators: "never"}],
+      "id-length": "off",
       "import-x/consistent-type-specifier-style": ["error", "prefer-top-level"],
       "max-lines-per-function": [
         "off",
@@ -141,7 +143,10 @@ const config: Config[] = defineConfig([
       "no-console": "warn",
       "no-constant-condition": "error",
       "no-duplicate-imports": ["error", {allowSeparateTypeImports: true}],
+      "no-magic-numbers": "off",
+      "no-ternary": "off",
       "no-undefined": "off",
+      "no-underscore-dangle": "off",
       "no-unused-expressions": "warn",
       "one-var": "off",
       "perfectionist/sort-imports": [

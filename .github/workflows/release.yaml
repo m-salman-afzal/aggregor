@@ -23,7 +23,7 @@ jobs:
         with:
           cache: true
           require-lockfile: true
-      # vsce runs vscode:prepublish, which typechecks, lints and builds first.
+      # vsce runs vscode:prepublish, which only builds. Lint and typecheck already ran in checks.yaml on every branch.
       - name: Package extension
         run: pnpm vsix
       # Creates the tag on the merge commit too. Fails if v<version> already exists, i.e. the version was not bumped.

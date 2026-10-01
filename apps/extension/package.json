@@ -7,10 +7,10 @@
   "type": "module",
   "main": "./dist/extension.js",
   "engines": {
-    "vscode": "^1.136.0"
+    "vscode": "^1.138.0"
   },
   "scripts": {
-    "vscode:prepublish": "pnpm run package",
+    "vscode:prepublish": "vite build --mode production",
     "compile": "pnpm run typecheck && pnpm -w run lint:check && vite build",
     "watch": "npm-run-all -p watch:*",
     "watch:vite": "vite build --watch --mode development",
@@ -35,10 +35,10 @@
   "devDependencies": {
     "@pkg/tsconfigs": "workspace:*",
     "@types/node": "26.6.2",
-    "@types/vscode": "1.136.0",
+    "@types/vscode": "1.138.0",
     "@vscode/vsce": "4.0.0",
     "npm-run-all2": "9.0.3",
-    "vite": "8.3.0"
+    "vite": "8.3.1"
   },
   "publisher": "SalmanAfzal",
   "activationEvents": [
