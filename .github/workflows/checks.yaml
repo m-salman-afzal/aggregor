@@ -1,11 +1,11 @@
 name: Checks
 
+# Every branch push except main and dev. Those two only receive code that was already checked on its branch.
 on:
-  pull_request:
   push:
-    branches: [main]
+    branches-ignore: [main, dev]
 
-# A newer push to the same branch or PR cancels the run in flight.
+# A newer push to the same branch cancels the run in flight.
 concurrency:
   group: checks-${{ github.ref }}
   cancel-in-progress: true
