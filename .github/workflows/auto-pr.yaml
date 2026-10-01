@@ -21,6 +21,8 @@ jobs:
       GH_TOKEN: ${{ secrets.PR_TOKEN || github.token }}
       GH_REPO: ${{ github.repository }}
       HEAD: ${{ github.ref_name }}
+      # Whoever pushed the branch owns its PR.
+      ASSIGNEE: ${{ github.actor }}
     steps:
       # --fill reads the commits between base and head, so it needs both branches' history locally.
       - uses: actions/checkout@v7
@@ -45,7 +47,7 @@ jobs:
             # Keeps the release PR title in step with a version bumped after it was opened.
             if [ -n "$title" ]; then gh pr edit "$pr" --title "$title"; fi
           elif [ -n "$title" ]; then
-            gh pr create --base "$base" --head "$HEAD" --fill --title "$title"
+            gh pr create --base "$base" --head "$HEAD" --fill --title "$title" --assignee "$ASSIGNEE"
           else
-            gh pr create --base "$base" --head "$HEAD" --fill
+            gh pr create --base "$base" --head "$HEAD" --fill --assignee "$ASSIGNEE"
           fi
