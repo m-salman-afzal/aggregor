@@ -1,5 +1,5 @@
 {
-  "name": "aggregor",
+  "name": "aggregor-app",
   "version": "0.0.1",
   "private": true,
   "description": "Combines multiple coding agents.",
