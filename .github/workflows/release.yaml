@@ -1,7 +1,7 @@
 name: Release
 
 # Merging the release PR (dev -> main, opened by auto-pr.yaml) tags the merge commit with v<version>,
-# builds the .vsix and creates the GitHub release with it attached.
+# builds the .vsix, publishes it to the Marketplace and creates the GitHub release with it attached.
 on:
   pull_request:
     types: [closed]
@@ -9,11 +9,13 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   Release:
     if: github.event.pull_request.merged && github.head_ref == 'dev'
     runs-on: ubuntu-latest
+    environment: marketplace
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -26,6 +28,16 @@ jobs:
       # vsce runs vscode:prepublish, which only builds. Lint and typecheck already ran in checks.yaml on every branch.
       - name: Package extension
         run: pnpm vsix
+      # Signs in as the Azure managed identity that is a member of the Marketplace publisher.
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+      # Before the release, so a failed run can be re-run: --skip-duplicate skips an already published version.
+      - name: Publish to Marketplace
+        working-directory: apps/extension
+        run: pnpm exec vsce publish --packagePath *.vsix --skip-duplicate --azure-credential
       # Creates the tag on the merge commit too. Fails if v<version> already exists, i.e. the version was not bumped.
       - name: Create release
         run:
