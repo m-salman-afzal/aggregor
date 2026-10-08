@@ -25,26 +25,41 @@
     "publish:vsce": "vsce publish --no-dependencies --skip-license"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "1.5.0",
-    "@effect/platform-node": "4.0.0-rc.117",
+    "@agentclientprotocol/sdk": "1.7.0",
+    "@effect/platform-node": "4.0.2",
     "@pkg/constants": "workspace:*",
     "@pkg/services": "workspace:*",
     "@pkg/typings": "workspace:*",
-    "effect": "4.0.0-rc.117"
+    "effect": "4.0.2"
   },
   "devDependencies": {
     "@pkg/tsconfigs": "workspace:*",
-    "@types/node": "26.6.2",
-    "@types/vscode": "1.138.0",
+    "@types/node": "26.6.4",
+    "@types/vscode": "1.140.0",
     "@vscode/vsce": "4.0.0",
     "npm-run-all2": "9.0.3",
-    "vite": "8.3.1"
+    "vite": "8.3.3"
   },
   "publisher": "SalmanAfzal",
   "activationEvents": [
     "onStartupFinished"
   ],
   "contributes": {
+    "configuration": {
+      "title": "Aggregor",
+      "properties": {
+        "aggregor.commitCommand": {
+          "type": "string",
+          "default": "claude -p \"Write the commit message for this staged diff.\" --system-prompt \"You write git commit messages. Reply with only the message as <type>(<scope>): <subject>. No prose, no code fences.\" --tools \"\" --no-session-persistence --model haiku",
+          "markdownDescription": "Shell command that generates the commit message. It runs in the repository root, receives the staged diff on stdin and must print the message to stdout."
+        },
+        "aggregor.autoCommit": {
+          "type": "boolean",
+          "default": false,
+          "description": "Commit the staged changes right after generating the commit message."
+        }
+      }
+    },
     "menus": {
       "scm/title": [
         {

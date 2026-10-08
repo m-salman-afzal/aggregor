@@ -3,3 +3,5 @@ export const EXTENSION_VERSIONS = {
 } as const;
 
 export const APP_NAME = "Aggregor";
+
+export const SETTINGS_SECTION = "aggregor";
