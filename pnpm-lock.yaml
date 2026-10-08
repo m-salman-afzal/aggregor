@@ -188,7 +188,7 @@ importers:
         specifier: 7.3.0
         version: 7.3.0
       '@typescript/native':
-        specifier: npm:typescript@^7.0.2
+        specifier: npm:typescript@7.0.2
         version: typescript@7.0.2
       concurrently:
         specifier: 10.0.5

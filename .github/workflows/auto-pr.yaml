@@ -42,7 +42,8 @@ jobs:
           ahead=$(gh api "repos/$GH_REPO/compare/$base...$HEAD" -q .ahead_by)
           [ "$ahead" -gt 0 ] || { echo "Nothing to merge from $HEAD into $base"; exit 0; }
 
-          pr=$(gh pr list --head "$HEAD" --base "$base" --state open --json number -q '.[0].number')
+          # No --base: a stacked PR retargeted onto its parent branch must still be found, not reopened into dev.
+          pr=$(gh pr list --head "$HEAD" --state open --json number -q '.[0].number')
           if [ -n "$pr" ]; then
             # Keeps the release PR title in step with a version bumped after it was opened.
             if [ -n "$title" ]; then gh pr edit "$pr" --title "$title"; fi

@@ -1,14 +1,18 @@
 # aggregor
 
-## Working mode: learning Effect
+## Working mode: you implement, the user decides
 
-The user is learning Effect (v4 rc) while building this extension. **Do not edit files under `apps/` or `packages/`
-unless explicitly asked.** Answer with code in chat and let the user type it themselves. Explaining _why_ an Effect API
-is the right one is the deliverable, not the diff.
+The agent writes the code; the user makes the architecture decisions (where code goes, which APIs, how a thing is
+implemented). Before writing a PR's code, post its decision list with a recommended default per item and wait for the
+user to approve or change it. Call out any deviation from an agreed decision when handing the work back.
 
-Effect here is `4.0.0-rc.117`. Most Effect material online is v3 and the names differ (`Option.fromNullable` ->
+Work lands as small, feature-sliced, stacked PRs: each branch starts from the previous one and its PR is retargeted with
+`gh pr edit <n> --base <parent-branch>`. Merge bottom-up with merge commits, never squash. The roadmap lives in
+`README.md`. Commit and push only when the user asks.
+
+Effect here is `4.0.1`. Most Effect material online is v3 and the names differ (`Option.fromNullable` ->
 `Option.fromNullishOr`, `Option` is no longer a subtype of `Effect`). Check `node_modules/effect/dist/*.d.ts` and
-`node_modules/effect/ai-docs/` before quoting an API.
+`node_modules/effect/ai-docs/` before using an API.
 
 ## Commands
 

@@ -12,14 +12,16 @@ import {
 import {ErrorService} from "@/services/git/error.service.ts";
 import {ScmService} from "@/services/git/scm.service.ts";
 import {SettingsService} from "@/services/settings.service.ts";
-import {EXTENSION_VERSIONS} from "@pkg/constants/src/extension.constant.ts";
+import {VscService} from "@/services/vsc.service.ts";
+import {setContext, withProgress} from "@/services/vsc.utils.ts";
+import {COMMANDS, CONTEXT_KEYS, EXTENSION_VERSIONS} from "@pkg/constants/src/extension.constant.ts";
 import {EXIT_CODES} from "@pkg/constants/src/process.constant.ts";
 import {Effect, Match, Result, Stream} from "effect";
 import {ChildProcess} from "effect/process";
 import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
-import * as vsc from "vscode";
 
 import type {API, GitExtension, Repository} from "@pkg/typings/src/git.js";
+import type * as vsc from "vscode";
 
 const getRootUri = Effect.fn("getRootUri")(function* () {
   const scm = yield* (yield* ScmService).scm;
@@ -28,8 +30,9 @@ const getRootUri = Effect.fn("getRootUri")(function* () {
 });
 
 const getGitExtension = Effect.fn("getGitExtension")(function* () {
+  const {extensions} = yield* VscService;
   const gitExtension = yield* Effect.fromResult(
-    Result.fromNullishOr(vsc.extensions.getExtension<GitExtension>("vscode.git"), () => new GitExtensionUnavailable())
+    Result.fromNullishOr(extensions.getExtension<GitExtension>("vscode.git"), () => new GitExtensionUnavailable())
   );
 
   return yield* Effect.try({
@@ -119,12 +122,13 @@ export const writeCommitMessage = Effect.fn("writeCommitMessage")(
 const STAGE_ALL_ACTION = "Stage All & Generate";
 
 const offerStageAll = Effect.fn("offerStageAll")(function* () {
-  const scm = yield* ScmService;
+  const {commands} = yield* VscService;
+  const scm = yield* (yield* ScmService).scm;
   const choice = yield* ErrorService.use((s) => s.show("Nothing is staged.", STAGE_ALL_ACTION));
   if (choice !== STAGE_ALL_ACTION) return;
 
-  yield* Effect.promise(async () => vsc.commands.executeCommand("git.stageAll", scm));
-  yield* Effect.promise(async () => vsc.commands.executeCommand("aggregor.generateCommitMessage", scm));
+  yield* Effect.promise(async () => commands.executeCommand("git.stageAll", scm));
+  yield* Effect.promise(async () => commands.executeCommand(COMMANDS.GENERATE_COMMIT_MESSAGE, scm));
 });
 
 export const toMessage = Effect.fn("toMessage")(function* () {
@@ -152,3 +156,16 @@ export const toMessage = Effect.fn("toMessage")(function* () {
     )
   );
 });
+
+export const generateCommitMessage = Effect.fn("generateCommitMessage")(
+  function* (scm: vsc.SourceControl) {
+    const {ProgressLocation} = yield* VscService;
+
+    yield* setContext(CONTEXT_KEYS.IS_GENERATING_COMMIT_MESSAGE, true);
+    yield* withProgress(
+      {location: ProgressLocation.SourceControl, title: "Generating commit message..."},
+      toMessage().pipe(Effect.provideService(ScmService, {scm: Effect.sync(() => scm)}))
+    );
+  },
+  (effect) => effect.pipe(Effect.ensuring(setContext(CONTEXT_KEYS.IS_GENERATING_COMMIT_MESSAGE, false)))
+);
