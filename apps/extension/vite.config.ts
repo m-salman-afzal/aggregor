@@ -32,7 +32,7 @@ export default defineConfig(({mode}) => {
       minify: production,
       outDir: "dist",
       // vscode is the host; node builtins (bare `fs` + every `node:` form) stay external.
-      // everything else (incl. @agentclientprotocol/sdk) is bundled
+      // everything else (effect included) is bundled
       rolldownOptions: {external: ["vscode", externalNode, ...builtinModules]},
       sourcemap: !production,
       target: "node24"

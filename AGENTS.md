@@ -23,7 +23,7 @@ pnpm lint:check    # ESLint over the whole repo (--max-warnings 0); reports only
 pnpm lint:fix      # Same, with --fix
 pnpm format:check  # Prettier over the whole repo; reports only
 pnpm format:fix    # Same, writing the changes
-pnpm typecheck     # tsc --noEmit in the apps (extension, webview); packages are covered through the apps that import them
+pnpm typecheck     # tsc --noEmit in the apps (extension); packages are covered through the apps that import them
 pnpm quality       # lint:check + format:check + typecheck, in parallel
 pnpm lint-staged   # Same lint and format checks on staged files only (the husky pre-commit hook)
 ```

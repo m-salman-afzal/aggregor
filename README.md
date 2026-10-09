@@ -22,13 +22,16 @@ Each item is one small PR, stacked on the previous one. Releases wait for the en
 
 - [x] Sessions sidebar: start Claude in an editor tab, list and focus sessions
 - [x] Persist and resume: sessions survive reloads; clicking a closed one runs `claude --resume`
-- [ ] Cleanup before the first release: remove dead ACP and webview code, align `@types/vscode` with `engines`
-- [ ] Needs-input alerts: activity-bar badge and a notification for background sessions
+- [x] Cleanup before the first release: remove dead ACP, webview and React code, align `@types/vscode` with `engines`
 - [ ] Live status: running, needs input, idle and exited, from Claude Code hooks
+
+### M2: alerts, multi-repo
+
+- [ ] Needs-input alerts: activity-bar badge and a notification for background sessions
 - [ ] tmux persistence: closing a tab detaches instead of killing the agent; clicking reattaches
 - [ ] Repos: an extension-owned repo list, tree grouped as repo > session
 
-### M2: worktrees and review
+### M3: worktrees and review
 
 - [ ] Worktree mode: start a session in the repo root or in a new git worktree
 - [ ] Changed files under each session, opening git's diff with per-hunk staging

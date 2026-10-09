@@ -70,7 +70,19 @@
     "strictBuiltinIteratorReturn": true,
 
     // plugins
-    "plugins": [{"name": "@effect/language-service"}]
+    // Unstable Effect APIs we use on purpose; any other unstable API still fails typecheck.
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "allowedUnstableApis": [
+          "@effect/platform-node/NodeServices",
+          "effect/ByteSize",
+          "effect/FileSystem",
+          "effect/Path",
+          "effect/process"
+        ]
+      }
+    ]
   },
 
   "exclude": ["node_modules", "dist", "out"]
