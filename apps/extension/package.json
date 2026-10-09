@@ -80,9 +80,20 @@
           "when": "view == aggregorApp.sessions"
         }
       ],
+      "view/item/context": [
+        {
+          "command": "aggregorApp.removeSession",
+          "group": "inline",
+          "when": "view == aggregorApp.sessions && viewItem == session"
+        }
+      ],
       "commandPalette": [
         {
-          "command": "aggregorApp.focusSession",
+          "command": "aggregorApp.openSession",
+          "when": "false"
+        },
+        {
+          "command": "aggregorApp.removeSession",
           "when": "false"
         }
       ]
@@ -141,9 +152,15 @@
         "icon": "$(add)"
       },
       {
-        "title": "Focus Session",
-        "command": "aggregorApp.focusSession",
+        "title": "Open Session",
+        "command": "aggregorApp.openSession",
         "category": "Aggregor App"
+      },
+      {
+        "title": "Remove Session",
+        "command": "aggregorApp.removeSession",
+        "category": "Aggregor App",
+        "icon": "$(close)"
       }
     ]
   },

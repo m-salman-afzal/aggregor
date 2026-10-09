@@ -10,7 +10,7 @@ Work lands as small, feature-sliced, stacked PRs: each branch starts from the pr
 `gh pr edit <n> --base <parent-branch>`. Merge bottom-up with merge commits, never squash. The roadmap lives in
 `README.md`. Commit and push only when the user asks.
 
-Effect here is `4.0.1`. Most Effect material online is v3 and the names differ (`Option.fromNullable` ->
+Effect here is `4.0.2`. Most Effect material online is v3 and the names differ (`Option.fromNullable` ->
 `Option.fromNullishOr`, `Option` is no longer a subtype of `Effect`). Check `node_modules/effect/dist/*.d.ts` and
 `node_modules/effect/ai-docs/` before using an API.
 

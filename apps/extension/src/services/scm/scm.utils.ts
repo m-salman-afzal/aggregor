@@ -9,12 +9,13 @@ import {
   NothingStaged,
   RootUriUnavailable
 } from "@/errors/git.error.ts";
-import {ErrorService} from "@/services/git/error.service.ts";
-import {ScmService} from "@/services/git/scm.service.ts";
+import {ErrorService} from "@/services/error.service.ts";
+import {ScmService} from "@/services/scm/scm.service.ts";
 import {SettingsService} from "@/services/settings.service.ts";
 import {VscService} from "@/services/vsc.service.ts";
 import {setContext, withProgress} from "@/services/vsc.utils.ts";
 import {COMMANDS, CONTEXT_KEYS, EXTENSION_VERSIONS} from "@pkg/constants/src/extension.constant.ts";
+import {ACTIONS, COMMIT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {EXIT_CODES} from "@pkg/constants/src/process.constant.ts";
 import {Effect, Match, Result, Stream} from "effect";
 import {ChildProcess} from "effect/process";
@@ -119,19 +120,17 @@ export const writeCommitMessage = Effect.fn("writeCommitMessage")(
   (effect) => effect.pipe(Effect.scoped)
 );
 
-const STAGE_ALL_ACTION = "Stage All & Generate";
-
 const offerStageAll = Effect.fn("offerStageAll")(function* () {
   const {commands} = yield* VscService;
   const scm = yield* (yield* ScmService).scm;
-  const choice = yield* ErrorService.use((s) => s.show("Nothing is staged.", STAGE_ALL_ACTION));
-  if (choice !== STAGE_ALL_ACTION) return;
+  const choice = yield* ErrorService.use((s) => s.show(COMMIT_MESSAGES.NOTHING_STAGED, ACTIONS.STAGE_ALL));
+  if (choice !== ACTIONS.STAGE_ALL) return;
 
   yield* Effect.promise(async () => commands.executeCommand("git.stageAll", scm));
   yield* Effect.promise(async () => commands.executeCommand(COMMANDS.GENERATE_COMMIT_MESSAGE, scm));
 });
 
-export const toMessage = Effect.fn("toMessage")(function* () {
+const toMessage = Effect.fn("toMessage")(function* () {
   return yield* writeCommitMessage().pipe(
     Effect.catchTag("NothingStaged", () => Effect.forkDetach(offerStageAll())),
     Effect.catch((error) =>
@@ -139,16 +138,16 @@ export const toMessage = Effect.fn("toMessage")(function* () {
         ErrorService.use((s) =>
           s.show(
             Match.valueTags(error, {
-              CommitCliError: ({exitCode, stderr}) => `Commit command exited with code ${exitCode}. ${stderr}`,
-              CommitFailed: () => "Commit failed. Check the Git output for details.",
-              EmptyCommitMessage: () => "Commit command printed an empty message.",
-              GitDiffError: () => "Could not read the staged diff.",
-              GitExtensionDisabled: () => "The built-in Git extension is disabled. Enable it and try again.",
-              GitExtensionUnavailable: () => "The built-in Git extension was not found.",
-              GitRepositoryUnavailable: () => "No Git repository found for this source control.",
-              InvalidSettings: ({reason}) => `Invalid settings: ${reason}`,
-              PlatformError: (platformError) => `Could not run the Claude CLI: ${platformError.message}`,
-              RootUriUnavailable: () => "This source control has no root folder."
+              CommitCliError: ({exitCode, stderr}) => COMMIT_MESSAGES.COMMIT_CLI_FAILED(exitCode, stderr),
+              CommitFailed: () => COMMIT_MESSAGES.COMMIT_FAILED,
+              EmptyCommitMessage: () => COMMIT_MESSAGES.EMPTY_COMMIT_MESSAGE,
+              GitDiffError: () => COMMIT_MESSAGES.GIT_DIFF_FAILED,
+              GitExtensionDisabled: () => COMMIT_MESSAGES.GIT_EXTENSION_DISABLED,
+              GitExtensionUnavailable: () => COMMIT_MESSAGES.GIT_EXTENSION_UNAVAILABLE,
+              GitRepositoryUnavailable: () => COMMIT_MESSAGES.GIT_REPOSITORY_UNAVAILABLE,
+              InvalidSettings: ({reason}) => COMMIT_MESSAGES.INVALID_SETTINGS(reason),
+              PlatformError: (platformError) => COMMIT_MESSAGES.CLAUDE_CLI_FAILED(platformError.message),
+              RootUriUnavailable: () => COMMIT_MESSAGES.ROOT_URI_UNAVAILABLE
             })
           )
         )
@@ -163,7 +162,7 @@ export const generateCommitMessage = Effect.fn("generateCommitMessage")(
 
     yield* setContext(CONTEXT_KEYS.IS_GENERATING_COMMIT_MESSAGE, true);
     yield* withProgress(
-      {location: ProgressLocation.SourceControl, title: "Generating commit message..."},
+      {location: ProgressLocation.SourceControl, title: COMMIT_MESSAGES.GENERATING},
       toMessage().pipe(Effect.provideService(ScmService, {scm: Effect.sync(() => scm)}))
     );
   },

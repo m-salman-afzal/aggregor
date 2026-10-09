@@ -1,5 +1,5 @@
 import {VscService} from "@/services/vsc.service.ts";
-import {PRODUCT_ICONS} from "@pkg/constants/src/extension.constant.ts";
+import {MODEL_ICONS} from "@pkg/constants/src/extension.constant.ts";
 import {Effect, Queue, Stream} from "effect";
 
 import type {Event, ProgressOptions} from "vscode";
@@ -50,12 +50,9 @@ export const withProgress = Effect.fn("withProgress")(function* <A, R>(
   return yield* Effect.promise(async () => window.withProgress(options, async () => run(effect)));
 });
 
-// Icon files are named by their colour, so dark themes get the light one.
-export const getProductIcon = Effect.fn("getProductIcon")(function* () {
+// Claude's brand orange reads on light and dark themes, so one file serves both.
+export const getClaudeIcon = Effect.fn("getClaudeIcon")(function* () {
   const {extensionUri, Uri} = yield* VscService;
 
-  return {
-    dark: Uri.joinPath(extensionUri, PRODUCT_ICONS.LIGHT),
-    light: Uri.joinPath(extensionUri, PRODUCT_ICONS.DARK)
-  };
+  return Uri.joinPath(extensionUri, MODEL_ICONS.CLAUDE);
 });
