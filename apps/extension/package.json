@@ -54,6 +54,13 @@
         }
       }
     },
+    "submenus": [
+      {
+        "id": "aggregorApp.sessionActions",
+        "label": "More Actions...",
+        "icon": "$(ellipsis)"
+      }
+    ],
     "menus": {
       "scm/title": [
         {
@@ -76,9 +83,14 @@
       ],
       "view/item/context": [
         {
-          "command": "aggregorApp.removeSession",
+          "submenu": "aggregorApp.sessionActions",
           "group": "inline",
           "when": "view == aggregorApp.sessions && viewItem == session"
+        }
+      ],
+      "aggregorApp.sessionActions": [
+        {
+          "command": "aggregorApp.removeSession"
         }
       ],
       "commandPalette": [
@@ -149,8 +161,7 @@
       {
         "title": "Remove Session",
         "command": "aggregorApp.removeSession",
-        "category": "Aggregor App",
-        "icon": "$(close)"
+        "category": "Aggregor App"
       }
     ]
   },

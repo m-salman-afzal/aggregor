@@ -1,5 +1,6 @@
 import {FolderPickCancelled, NoWorkspaceFolder, RemoveCancelled} from "@/errors/session.error.ts";
 import {ErrorService} from "@/services/error.service.ts";
+import {StatusService} from "@/services/session/status.service.ts";
 import {addSession, deleteSession, findSession} from "@/services/session/store.utils.ts";
 import {TerminalService} from "@/services/session/terminal.service.ts";
 import {TranscriptService} from "@/services/session/transcript.service.ts";
@@ -90,6 +91,9 @@ const removeAndStop = Effect.fn("removeAndStop")(function* (session: Session) {
       Effect.catchTag("TerminalNotFound", () => Effect.void)
     );
   }
+  // ponytail: the dying agent's SessionEnd hook can rewrite the file after this; a few bytes per removed running
+  // session. Wait for the process to exit first if the folder ever matters.
+  yield* StatusService.use((service) => service.clear(session.id));
 });
 
 export const newSession = Effect.fn("newSession")(function* () {
