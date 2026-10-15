@@ -5,7 +5,7 @@ import {Effect, Result, SubscriptionRef} from "effect";
 import type {Session} from "@/services/session/store.service.ts";
 import type {WorkspaceFolder} from "vscode";
 
-// Lowest free "<folder> #n", so closing #1 frees the name for the next session.
+// Lowest free "<folder> #n", so removing #1 frees the name for the next session.
 const nameFor = (folder: WorkspaceFolder, all: readonly Session[]) => {
   const taken = new Set(all.map((session) => session.name));
   let index = 1;
@@ -13,6 +13,22 @@ const nameFor = (folder: WorkspaceFolder, all: readonly Session[]) => {
 
   return `${folder.name} #${index}`;
 };
+
+// Read-modify-write against globalState under the ref's permit, so a change never drops what another window saved.
+const modifyStored = Effect.fn("modifyStored")(function* <B>(
+  change: (stored: readonly Session[]) => readonly [B, readonly Session[]]
+) {
+  const {load, save, sessions} = yield* SessionStore;
+
+  const writeChange = Effect.fn("writeChange")(function* () {
+    const [result, next] = change(yield* load());
+    yield* save(next);
+
+    return [result, next] as const;
+  });
+
+  return yield* SubscriptionRef.modifyEffect(sessions, () => writeChange());
+});
 
 export const listSessions = Effect.fn("listSessions")(function* () {
   const {sessions} = yield* SessionStore;
@@ -32,18 +48,15 @@ export const findSession = Effect.fn("findSession")(function* (id: string) {
 });
 
 export const addSession = Effect.fn("addSession")(function* (folder: WorkspaceFolder) {
-  const {sessions} = yield* SessionStore;
   const id = yield* Effect.sync(() => crypto.randomUUID());
 
-  return yield* SubscriptionRef.modify(sessions, (all) => {
-    const session: Session = {cwd: folder.uri.fsPath, id, name: nameFor(folder, all)};
+  return yield* modifyStored((stored) => {
+    const session: Session = {cwd: folder.uri.fsPath, id, name: nameFor(folder, stored)};
 
-    return [session, [...all, session]] as const;
+    return [session, [...stored, session]] as const;
   });
 });
 
-export const removeSession = Effect.fn("removeSession")(function* (id: string) {
-  const {sessions} = yield* SessionStore;
-
-  yield* SubscriptionRef.update(sessions, (all) => all.filter((session) => session.id !== id));
+export const deleteSession = Effect.fn("deleteSession")(function* (id: string) {
+  yield* modifyStored((stored) => [id, stored.filter((session) => session.id !== id)] as const);
 });

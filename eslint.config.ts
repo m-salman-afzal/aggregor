@@ -1,5 +1,4 @@
 import e18e from "@e18e/eslint-plugin";
-import css from "@eslint/css";
 import js from "@eslint/js";
 import json from "@eslint/json";
 import markdown from "@eslint/markdown";
@@ -8,8 +7,6 @@ import importX from "eslint-plugin-import-x";
 import perfectionist from "eslint-plugin-perfectionist";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 // import pluginPromise from "eslint-plugin-promise";
-// import reactHooks from "eslint-plugin-react-hooks";
-// import reactRefresh from "eslint-plugin-react-refresh";
 // import unicorn from "eslint-plugin-unicorn";
 import {defineConfig, globalIgnores} from "eslint/config";
 import globals from "globals";
@@ -19,7 +16,6 @@ import type {Config} from "eslint/config";
 
 const config: Config[] = defineConfig([
   // ESLint does not read .gitignore. git.d.ts is synced from upstream vscode (also in .prettierignore).
-  // .vscode-test.mjs imports @vscode/test-cli, which is not installed, so typed rules cannot resolve it.
   globalIgnores(["**/dist/**", "packages/typings/src/git.d.ts"]),
   {
     extends: ["package-json/recommended"],
@@ -70,16 +66,6 @@ const config: Config[] = defineConfig([
     language: "markdown/gfm",
     plugins: {markdown}
   },
-  {
-    extends: ["css/recommended"],
-    files: ["**/*.css"],
-    language: "css/css",
-    plugins: {css},
-    rules: {
-      // --vscode-* variables are injected into the webview at runtime; the rule cannot resolve them.
-      "css/no-invalid-properties": ["error", {allowUnknownVariables: true}]
-    }
-  },
   e18e.configs.recommended,
   // pluginPromise.configs["flat/recommended"],
   {
@@ -90,13 +76,11 @@ const config: Config[] = defineConfig([
 
       perfectionist.configs["recommended-alphabetical"]
 
-      // reactHooks.configs.flat.recommended,
-      // reactRefresh.configs.vite
       // unicorn.configs.all
     ],
-    files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
+    files: ["**/*.{js,mjs,cjs,ts,mts,cts}"],
     languageOptions: {
-      globals: {...globals.browser, ...globals.node},
+      globals: globals.node,
       parserOptions: {
         projectService: true
       }

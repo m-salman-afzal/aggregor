@@ -10,6 +10,7 @@ export class VscService extends Context.Service<
     readonly extensions: typeof vscode.extensions;
     readonly extensionUri: vscode.Uri;
     readonly getConfiguration: (section: string) => Effect.Effect<vscode.WorkspaceConfiguration>;
+    readonly globalState: vscode.Memento;
     readonly ProgressLocation: typeof vscode.ProgressLocation;
     readonly TreeItem: typeof vscode.TreeItem;
     readonly Uri: typeof vscode.Uri;
@@ -26,6 +27,7 @@ export class VscService extends Context.Service<
       extensions: vscode.extensions,
       extensionUri: context.extensionUri,
       getConfiguration: (section) => Effect.sync(() => vscode.workspace.getConfiguration(section)),
+      globalState: context.globalState,
       ProgressLocation: vscode.ProgressLocation,
       TreeItem: vscode.TreeItem,
       Uri: vscode.Uri,

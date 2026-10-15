@@ -1,8 +1,9 @@
-import {ErrorService} from "@/services/git/error.service.ts";
-import {generateCommitMessage} from "@/services/git/scm.utils.ts";
+import {ErrorService} from "@/services/error.service.ts";
+import {generateCommitMessage} from "@/services/scm/scm.utils.ts";
 import {SessionStore} from "@/services/session/store.service.ts";
 import {TerminalService} from "@/services/session/terminal.service.ts";
-import {focusSession, newSession} from "@/services/session/terminal.utils.ts";
+import {newSession, openSession, removeSession} from "@/services/session/terminal.utils.ts";
+import {TranscriptService} from "@/services/session/transcript.service.ts";
 import {SettingsService} from "@/services/settings.service.ts";
 import {VscService} from "@/services/vsc.service.ts";
 import {registerCommand} from "@/services/vsc.utils.ts";
@@ -17,12 +18,14 @@ const CommandsLayer = Layer.effectDiscard(
   Effect.all([
     registerCommand(COMMANDS.GENERATE_COMMIT_MESSAGE, generateCommitMessage),
     registerCommand(COMMANDS.NEW_SESSION, newSession),
-    registerCommand(COMMANDS.FOCUS_SESSION, focusSession)
+    registerCommand(COMMANDS.OPEN_SESSION, openSession),
+    registerCommand(COMMANDS.REMOVE_SESSION, removeSession)
   ])
 );
 
 const AppLayer = Layer.mergeAll(CommandsLayer, SessionsView).pipe(
   Layer.provideMerge(TerminalService.layer),
+  Layer.provideMerge(TranscriptService.layer),
   Layer.provideMerge(SessionStore.layer),
   Layer.provideMerge(Layer.mergeAll(ErrorService.layer, SettingsService.layer, NodeServices.layer))
 );

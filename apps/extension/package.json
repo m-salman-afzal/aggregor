@@ -7,7 +7,7 @@
   "type": "module",
   "main": "./dist/extension.js",
   "engines": {
-    "vscode": "^1.138.0"
+    "vscode": "^1.140.0"
   },
   "scripts": {
     "vscode:prepublish": "vite build --mode production",
@@ -16,19 +16,13 @@
     "watch:vite": "vite build --watch --mode development",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "package": "pnpm run typecheck && pnpm -w run lint:check && vite build --mode production",
-    "compile-tests": "tsc -p . --outDir out",
-    "watch-tests": "tsc -p . -w --outDir out",
-    "pretest": "pnpm run compile-tests && pnpm run compile",
     "typecheck": "tsc --noEmit",
-    "test": "vscode-test",
     "vsix": "vsce package --no-dependencies --skip-license",
     "publish:vsce": "vsce publish --no-dependencies --skip-license"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "1.7.0",
     "@effect/platform-node": "4.0.2",
     "@pkg/constants": "workspace:*",
-    "@pkg/services": "workspace:*",
     "@pkg/typings": "workspace:*",
     "effect": "4.0.2"
   },
@@ -80,9 +74,20 @@
           "when": "view == aggregorApp.sessions"
         }
       ],
+      "view/item/context": [
+        {
+          "command": "aggregorApp.removeSession",
+          "group": "inline",
+          "when": "view == aggregorApp.sessions && viewItem == session"
+        }
+      ],
       "commandPalette": [
         {
-          "command": "aggregorApp.focusSession",
+          "command": "aggregorApp.openSession",
+          "when": "false"
+        },
+        {
+          "command": "aggregorApp.removeSession",
           "when": "false"
         }
       ]
@@ -113,10 +118,6 @@
     ],
     "commands": [
       {
-        "command": "react-webview-vite.openPanel",
-        "title": "Open React Webview"
-      },
-      {
         "title": "Generate auto commit message with AI",
         "command": "aggregorApp.generateCommitMessage",
         "shortTitle": "Auto commit message",
@@ -141,9 +142,15 @@
         "icon": "$(add)"
       },
       {
-        "title": "Focus Session",
-        "command": "aggregorApp.focusSession",
+        "title": "Open Session",
+        "command": "aggregorApp.openSession",
         "category": "Aggregor App"
+      },
+      {
+        "title": "Remove Session",
+        "command": "aggregorApp.removeSession",
+        "category": "Aggregor App",
+        "icon": "$(close)"
       }
     ]
   },

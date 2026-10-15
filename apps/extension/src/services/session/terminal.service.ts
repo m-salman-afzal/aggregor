@@ -1,36 +1,53 @@
 import {TerminalLaunchFailed, TerminalNotFound, UntrackedTerminal} from "@/errors/session.error.ts";
-import {removeSession} from "@/services/session/store.utils.ts";
 import {VscService} from "@/services/vsc.service.ts";
-import {fromEvent, getProductIcon} from "@/services/vsc.utils.ts";
-import {Context, Effect, Layer, Result, Stream} from "effect";
+import {fromEvent, getClaudeIcon} from "@/services/vsc.utils.ts";
+import {Context, Effect, Layer, Option, Result, Stream, SubscriptionRef} from "effect";
 
 import type {Session} from "@/services/session/store.service.ts";
 import type {Terminal} from "vscode";
 
+// The tab is named once, when it opens: VS Code's stable API cannot rename a terminal afterwards.
+export interface TerminalLaunch {
+  readonly name: string;
+  readonly shellArgs: readonly string[];
+}
+
 export class TerminalService extends Context.Service<
   TerminalService,
   {
+    readonly close: (id: string) => Effect.Effect<void, TerminalNotFound>;
     readonly focus: (id: string) => Effect.Effect<void, TerminalNotFound>;
-    readonly open: (session: Session) => Effect.Effect<void, TerminalLaunchFailed>;
+    readonly isOpen: (id: string) => Effect.Effect<boolean>;
+    readonly open: (session: Session, launch: TerminalLaunch) => Effect.Effect<void, TerminalLaunchFailed>;
     readonly sessionIdOf: (terminal: Terminal) => Effect.Effect<string, UntrackedTerminal>;
+    readonly terminals: SubscriptionRef.SubscriptionRef<ReadonlyMap<string, Terminal>>;
   }
 >()("aggregor/services/session/terminal.service/TerminalService") {
   public static readonly layer = Layer.effect(
     TerminalService,
     Effect.gen(function* () {
       const {ViewColumn, window} = yield* VscService;
-      const iconPath = yield* getProductIcon();
-      const terminals = new Map<string, Terminal>();
+      const iconPath = yield* getClaudeIcon();
+      const terminals = yield* SubscriptionRef.make<ReadonlyMap<string, Terminal>>(new Map());
 
       const findTerminal = Effect.fn("findTerminal")(function* (id: string) {
-        return yield* Effect.fromResult(Result.fromNullishOr(terminals.get(id), () => new TerminalNotFound({id})));
+        const open = yield* SubscriptionRef.get(terminals);
+
+        return yield* Effect.fromResult(Result.fromNullishOr(open.get(id), () => new TerminalNotFound({id})));
+      });
+
+      const isOpen = Effect.fn("isOpen")(function* (id: string) {
+        const open = yield* SubscriptionRef.get(terminals);
+
+        return open.has(id);
       });
 
       // ponytail: linear scan, a window holds a handful of sessions
       const sessionIdOf = Effect.fn("sessionIdOf")(function* (terminal: Terminal) {
+        const open = yield* SubscriptionRef.get(terminals);
         const [id] = yield* Effect.fromResult(
           Result.fromNullishOr(
-            [...terminals].find(([, open]) => open === terminal),
+            [...open].find(([, candidate]) => candidate === terminal),
             () => new UntrackedTerminal()
           )
         );
@@ -38,7 +55,7 @@ export class TerminalService extends Context.Service<
         return id;
       });
 
-      const launchTerminal = Effect.fn("launchTerminal")(function* (session: Session) {
+      const launchTerminal = Effect.fn("launchTerminal")(function* (session: Session, launch: TerminalLaunch) {
         return yield* Effect.try({
           catch: (cause) => new TerminalLaunchFailed({cause}),
           try: () =>
@@ -47,36 +64,65 @@ export class TerminalService extends Context.Service<
               iconPath,
               isTransient: true,
               location: {viewColumn: ViewColumn.Active},
-              name: session.name,
-              shellArgs: ["--session-id", session.id],
+              name: launch.name,
+              shellArgs: [...launch.shellArgs],
               shellPath: "claude"
             })
         });
       });
 
+      const showTerminal = Effect.fn("showTerminal")(function* (terminal: Terminal) {
+        yield* Effect.sync(() => {
+          terminal.show();
+        });
+      });
+
       const focus = Effect.fn("focus")(function* (id: string) {
+        yield* showTerminal(yield* findTerminal(id));
+      });
+
+      // The session's terminal if this window already has one, otherwise a newly launched one.
+      const reuseOrLaunch = Effect.fn("reuseOrLaunch")(function* (
+        current: ReadonlyMap<string, Terminal>,
+        session: Session,
+        launch: TerminalLaunch
+      ) {
+        const existing = Option.fromNullishOr(current.get(session.id));
+        if (Option.isSome(existing)) return [existing.value, current] as const;
+
+        const launched = yield* launchTerminal(session, launch);
+
+        return [launched, new Map(current).set(session.id, launched)] as const;
+      });
+
+      // Serialized on the map's permit, so a double-click shows the terminal the first click launched.
+      const open = Effect.fn("open")(function* (session: Session, launch: TerminalLaunch) {
+        const terminal = yield* SubscriptionRef.modifyEffect(terminals, (current) =>
+          reuseOrLaunch(current, session, launch)
+        );
+
+        yield* showTerminal(terminal);
+      });
+
+      // Disposing fires onDidCloseTerminal, which drops the map entry.
+      const close = Effect.fn("close")(function* (id: string) {
         const terminal = yield* findTerminal(id);
 
         yield* Effect.sync(() => {
-          terminal.show();
+          terminal.dispose();
         });
       });
 
-      const open = Effect.fn("open")(function* (session: Session) {
-        const terminal = yield* launchTerminal(session);
-
-        yield* Effect.sync(() => {
-          terminals.set(session.id, terminal);
-          terminal.show();
-        });
-      });
-
-      // Closing the tab kills the agent, so the session goes with it (until persistence + resume).
+      // A closed tab ends the agent but keeps the session listed, so clicking it can resume.
       const forget = Effect.fn("forget")(function* (terminal: Terminal) {
         const id = yield* sessionIdOf(terminal);
 
-        yield* Effect.sync(() => terminals.delete(id));
-        yield* removeSession(id);
+        yield* SubscriptionRef.update(terminals, (current) => {
+          const next = new Map(current);
+          next.delete(id);
+
+          return next;
+        });
       });
 
       yield* Effect.forkScoped(
@@ -85,7 +131,7 @@ export class TerminalService extends Context.Service<
         )
       );
 
-      return TerminalService.of({focus, open, sessionIdOf});
+      return TerminalService.of({close, focus, isOpen, open, sessionIdOf, terminals});
     })
   );
 }
