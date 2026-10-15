@@ -9,9 +9,13 @@ Control and diffs.
 - **Sessions sidebar.** The Aggregor App activity-bar view starts Claude Code in an editor-tab terminal for a workspace
   folder and lists its sessions. Clicking a session focuses its tab; switching tabs selects the session.
 - **Persistent sessions.** Sessions survive reloads and restarts and are shared by every window. Closing a tab keeps the
-  session as "closed"; clicking it resumes the conversation. The row's close button removes a session.
+  session listed as exited; clicking it resumes the conversation. The row's … menu removes a session.
 - **Claude's session names.** Each row shows the name Claude gives the conversation (or the one set with `/rename`),
   updated live as Claude renames it.
+- **Live status.** Each row ends with a status badge: a blue spinner while Claude runs and a yellow dot when it needs
+  input (a permission prompt or a question). A turn that finishes while you are looking elsewhere leaves a green dot
+  until you open that session's tab; a session you have seen shows no badge, and a grey hollow dot means it has exited.
+  The status comes from Claude Code hooks the extension passes with `--settings`.
 - **AI commit messages.** A Source Control button writes the commit message for the staged diff.
 
 ## Roadmap
@@ -23,7 +27,7 @@ Each item is one small PR, stacked on the previous one. Releases wait for the en
 - [x] Sessions sidebar: start Claude in an editor tab, list and focus sessions
 - [x] Persist and resume: sessions survive reloads; clicking a closed one runs `claude --resume`
 - [x] Cleanup before the first release: remove dead ACP, webview and React code, align `@types/vscode` with `engines`
-- [ ] Live status: running, needs input, idle and exited, from Claude Code hooks
+- [x] Live status: running, needs input, idle and exited, from Claude Code hooks
 
 ### M2: alerts, multi-repo
 

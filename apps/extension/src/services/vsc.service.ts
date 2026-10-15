@@ -9,9 +9,13 @@ export class VscService extends Context.Service<
     readonly EventEmitter: typeof vscode.EventEmitter;
     readonly extensions: typeof vscode.extensions;
     readonly extensionUri: vscode.Uri;
+    readonly FileDecoration: typeof vscode.FileDecoration;
     readonly getConfiguration: (section: string) => Effect.Effect<vscode.WorkspaceConfiguration>;
     readonly globalState: vscode.Memento;
+    readonly globalStorageUri: vscode.Uri;
     readonly ProgressLocation: typeof vscode.ProgressLocation;
+    readonly TabInputTerminal: typeof vscode.TabInputTerminal;
+    readonly ThemeColor: typeof vscode.ThemeColor;
     readonly TreeItem: typeof vscode.TreeItem;
     readonly Uri: typeof vscode.Uri;
     readonly ViewColumn: typeof vscode.ViewColumn;
@@ -26,9 +30,13 @@ export class VscService extends Context.Service<
       EventEmitter: vscode.EventEmitter,
       extensions: vscode.extensions,
       extensionUri: context.extensionUri,
+      FileDecoration: vscode.FileDecoration,
       getConfiguration: (section) => Effect.sync(() => vscode.workspace.getConfiguration(section)),
       globalState: context.globalState,
+      globalStorageUri: context.globalStorageUri,
       ProgressLocation: vscode.ProgressLocation,
+      TabInputTerminal: vscode.TabInputTerminal,
+      ThemeColor: vscode.ThemeColor,
       TreeItem: vscode.TreeItem,
       Uri: vscode.Uri,
       ViewColumn: vscode.ViewColumn,

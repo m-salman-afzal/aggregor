@@ -19,9 +19,19 @@ export const COMMIT_MESSAGES = {
 } as const;
 
 export const SESSION_LABELS = {
-  DESCRIPTION: (folder: string, closed: boolean) => (closed ? `${folder} · closed` : folder),
+  ACCESSIBLE: (label: string, folder: string, status: string | undefined) =>
+    status === undefined ? `${label}, ${folder}` : `${label}, ${folder}, ${status}`,
   OPEN_SESSION: "Open Session",
-  TOOLTIP: (name: string, cwd: string) => `${name}\n${cwd}`
+  TOOLTIP: (name: string, cwd: string, status: string | undefined) =>
+    status === undefined ? `${name}\n${cwd}` : `${name} · ${status}\n${cwd}`
+} as const;
+
+export const STATUS_LABELS = {
+  exited: "exited",
+  idle: "idle",
+  "needs-input": "needs input",
+  running: "running",
+  unread: "finished"
 } as const;
 
 export const SESSION_MESSAGES = {

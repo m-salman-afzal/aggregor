@@ -25,6 +25,25 @@ export const MODEL_ICONS = {
   CLAUDE: "assets/models/claude.svg"
 } as const;
 
+// Claude settings passed with --settings: hooks that write the session's status to the file named in STATUS_ENV.
+export const HOOKS_FILE = "assets/hooks.json";
+
+export const STATUS_ENV = "AGGREGOR_STATUS_FILE";
+
+// Each Sessions row gets a URI in this scheme so a FileDecorationProvider can draw its status badge.
+export const SESSION_URI_SCHEME = "aggregor-session";
+
+// The badge at the end of a session row; an idle session the user has seen has none. Running steps through its frames,
+// one per SPINNER_INTERVAL_MS. Colors are theme color ids, and VS Code tints the row's label with them too.
+export const STATUS_BADGES = {
+  exited: {color: "disabledForeground", frames: ["○"]},
+  "needs-input": {color: "charts.yellow", frames: ["●"]},
+  running: {color: "charts.blue", frames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]},
+  unread: {color: "charts.green", frames: ["●"]}
+} as const;
+
+export const SPINNER_INTERVAL_MS = 120;
+
 export const STORAGE_KEYS = {
   SESSIONS: "sessions"
 } as const;

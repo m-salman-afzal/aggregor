@@ -1,0 +1,21 @@
+{
+  "hooks": {
+    "Notification": [
+      {"hooks": [{"command": "printf idle > \"$AGGREGOR_STATUS_FILE\"", "type": "command"}], "matcher": "idle_prompt"}
+    ],
+    "PermissionRequest": [{"hooks": [{"command": "printf needs-input > \"$AGGREGOR_STATUS_FILE\"", "type": "command"}]}],
+    "PostToolUse": [{"hooks": [{"command": "printf running > \"$AGGREGOR_STATUS_FILE\"", "type": "command"}]}],
+    "PostToolUseFailure": [{"hooks": [{"command": "printf running > \"$AGGREGOR_STATUS_FILE\"", "type": "command"}]}],
+    "PreToolUse": [
+      {
+        "hooks": [{"command": "printf needs-input > \"$AGGREGOR_STATUS_FILE\"", "type": "command"}],
+        "matcher": "AskUserQuestion"
+      }
+    ],
+    "SessionEnd": [{"hooks": [{"command": "printf exited > \"$AGGREGOR_STATUS_FILE\"", "type": "command"}]}],
+    "SessionStart": [{"hooks": [{"command": "printf idle > \"$AGGREGOR_STATUS_FILE\"", "type": "command"}]}],
+    "Stop": [{"hooks": [{"command": "printf idle > \"$AGGREGOR_STATUS_FILE\"", "type": "command"}]}],
+    "StopFailure": [{"hooks": [{"command": "printf idle > \"$AGGREGOR_STATUS_FILE\"", "type": "command"}]}],
+    "UserPromptSubmit": [{"hooks": [{"command": "printf running > \"$AGGREGOR_STATUS_FILE\"", "type": "command"}]}]
+  }
+}
