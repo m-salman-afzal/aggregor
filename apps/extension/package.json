@@ -7,84 +7,165 @@
   "type": "module",
   "main": "./dist/extension.js",
   "engines": {
-    "vscode": "^1.138.0"
+    "vscode": "^1.140.0"
   },
   "scripts": {
     "vscode:prepublish": "vite build --mode production",
-    "compile": "pnpm run typecheck && pnpm -w run lint:check && vite build",
-    "watch": "npm-run-all -p watch:*",
+    "compile": "pnpm run typecheck && pnpm --workspace-root run lint:check && vite build",
+    "watch": "npm-run-all --parallel watch:*",
     "watch:vite": "vite build --watch --mode development",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "pnpm run typecheck && pnpm -w run lint:check && vite build --mode production",
-    "compile-tests": "tsc -p . --outDir out",
-    "watch-tests": "tsc -p . -w --outDir out",
-    "pretest": "pnpm run compile-tests && pnpm run compile",
+    "package": "pnpm run typecheck && pnpm --workspace-root run lint:check && vite build --mode production",
     "typecheck": "tsc --noEmit",
-    "test": "vscode-test",
     "vsix": "vsce package --no-dependencies --skip-license",
     "publish:vsce": "vsce publish --no-dependencies --skip-license"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "1.5.0",
-    "@effect/platform-node": "4.0.0-rc.117",
+    "@effect/platform-node": "4.0.5",
     "@pkg/constants": "workspace:*",
-    "@pkg/services": "workspace:*",
     "@pkg/typings": "workspace:*",
-    "effect": "4.0.0-rc.117"
+    "effect": "4.0.5"
   },
   "devDependencies": {
     "@pkg/tsconfigs": "workspace:*",
-    "@types/node": "26.6.2",
-    "@types/vscode": "1.138.0",
+    "@types/node": "26.6.5",
+    "@types/vscode": "1.140.0",
     "@vscode/vsce": "4.0.0",
     "npm-run-all2": "9.0.3",
-    "vite": "8.3.1"
+    "vite": "8.3.4"
   },
   "publisher": "SalmanAfzal",
   "activationEvents": [
     "onStartupFinished"
   ],
   "contributes": {
+    "configuration": {
+      "title": "Aggregor App",
+      "properties": {
+        "aggregorApp.commitCommand": {
+          "type": "string",
+          "default": "claude -p \"Write the commit message for this staged diff.\" --system-prompt \"You write git commit messages. Reply with only the message as <type>(<scope>): <subject>. No prose, no code fences.\" --tools \"\" --no-session-persistence --model haiku",
+          "markdownDescription": "Shell command that generates the commit message. It runs in the repository root, receives the staged diff on stdin and must print the message to stdout."
+        },
+        "aggregorApp.autoCommit": {
+          "type": "boolean",
+          "default": false,
+          "description": "Commit the staged changes right after generating the commit message."
+        }
+      }
+    },
+    "submenus": [
+      {
+        "id": "aggregorApp.sessionActions",
+        "label": "More Actions...",
+        "icon": "$(ellipsis)"
+      }
+    ],
     "menus": {
       "scm/title": [
         {
-          "command": "aggregor.generateCommitMessage",
+          "command": "aggregorApp.generateCommitMessage",
           "group": "navigation",
-          "when": "scmProvider == git && !aggregor.isGeneratingCommitMessage"
+          "when": "scmProvider == git && !aggregorApp.isGeneratingCommitMessage"
         },
         {
-          "command": "aggregor.generatingCommitMessage",
+          "command": "aggregorApp.generatingCommitMessage",
           "group": "navigation",
-          "when": "scmProvider == git && aggregor.isGeneratingCommitMessage"
+          "when": "scmProvider == git && aggregorApp.isGeneratingCommitMessage"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "aggregorApp.newSession",
+          "group": "navigation",
+          "when": "view == aggregorApp.sessions"
+        }
+      ],
+      "view/item/context": [
+        {
+          "submenu": "aggregorApp.sessionActions",
+          "group": "inline",
+          "when": "view == aggregorApp.sessions && viewItem == session"
+        }
+      ],
+      "aggregorApp.sessionActions": [
+        {
+          "command": "aggregorApp.removeSession"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "aggregorApp.openSession",
+          "when": "false"
+        },
+        {
+          "command": "aggregorApp.removeSession",
+          "when": "false"
         }
       ]
     },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aggregorApp",
+          "title": "Aggregor App",
+          "icon": "./assets/aggregorLightIcon.svg"
+        }
+      ]
+    },
+    "views": {
+      "aggregorApp": [
+        {
+          "id": "aggregorApp.sessions",
+          "name": "Sessions",
+          "icon": "./assets/aggregorLightIcon.svg"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "aggregorApp.sessions",
+        "contents": "No sessions yet.\n[New Claude Session](command:aggregorApp.newSession)"
+      }
+    ],
     "commands": [
       {
-        "command": "react-webview-vite.openPanel",
-        "title": "Open React Webview"
-      },
-      {
         "title": "Generate auto commit message with AI",
-        "command": "aggregor.generateCommitMessage",
+        "command": "aggregorApp.generateCommitMessage",
         "shortTitle": "Auto commit message",
         "icon": {
-          "dark": "./assets/gitCommitLightIcon.svg",
-          "light": "./assets/gitCommitDarkIcon.svg"
+          "dark": "./assets/aggregorLightIcon.svg",
+          "light": "./assets/aggregorDarkIcon.svg"
         }
       },
       {
         "title": "Generating commit message...",
-        "command": "aggregor.generatingCommitMessage",
+        "command": "aggregorApp.generatingCommitMessage",
         "shortTitle": "Gen commit msg...",
         "icon": {
-          "dark": "./assets/gitCommitLoadingLightIcon.svg",
-          "light": "./assets/gitCommitLoadingDarkIcon.svg"
+          "dark": "./assets/aggregorLoadingLightIcon.svg",
+          "light": "./assets/aggregorLoadingDarkIcon.svg"
         }
+      },
+      {
+        "title": "New Claude Session",
+        "command": "aggregorApp.newSession",
+        "category": "Aggregor App",
+        "icon": "$(add)"
+      },
+      {
+        "title": "Open Session",
+        "command": "aggregorApp.openSession",
+        "category": "Aggregor App"
+      },
+      {
+        "title": "Remove Session",
+        "command": "aggregorApp.removeSession",
+        "category": "Aggregor App"
       }
     ]
   },
-  "displayName": "Aggregor",
+  "displayName": "Aggregor App",
   "categories": [
     "AI",
     "Chat",

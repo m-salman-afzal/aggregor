@@ -1,5 +1,5 @@
 {
-  "extends": "@pkg/tsconfigs/tsconfig.app.json",
+  "extends": "@pkg/tsconfigs/tsconfig.node.json",
 
   "include": ["**/*.ts", "**/*.mts"]
 }

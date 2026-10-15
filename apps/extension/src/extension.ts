@@ -1,37 +1,44 @@
-import {toMessage} from "@/services/git/commit.service.ts";
-import {ErrorService} from "@/services/git/error.service.ts";
+import {ErrorService} from "@/services/error.service.ts";
+import {generateCommitMessage} from "@/services/scm/scm.utils.ts";
+import {StatusService} from "@/services/session/status.service.ts";
+import {SessionStore} from "@/services/session/store.service.ts";
+import {TerminalService} from "@/services/session/terminal.service.ts";
+import {newSession, openSession, removeSession} from "@/services/session/terminal.utils.ts";
+import {TranscriptService} from "@/services/session/transcript.service.ts";
+import {SettingsService} from "@/services/settings.service.ts";
+import {VscService} from "@/services/vsc.service.ts";
+import {registerCommand} from "@/services/vsc.utils.ts";
+import {SessionsView} from "@/views/sessions.view.ts";
 import {NodeServices} from "@effect/platform-node";
-import {APP_NAME} from "@pkg/constants/src/extension.constant.ts";
-import {Effect} from "effect";
-import * as vsc from "vscode";
+import {COMMANDS} from "@pkg/constants/src/extension.constant.ts";
+import {Effect, Layer, ManagedRuntime} from "effect";
 
-const activate = (ctx: vsc.ExtensionContext) => {
-  const d1 = vsc.commands.registerCommand("aggregor.generateCommitMessage", async (scm: vsc.SourceControl) => {
-    await vsc.commands.executeCommand("setContext", "aggregor.isGeneratingCommitMessage", true);
+import type {ExtensionContext} from "vscode";
 
-    await vsc.window.withProgress(
-      {location: vsc.ProgressLocation.SourceControl, title: "Generating commit message..."},
+const CommandsLayer = Layer.effectDiscard(
+  Effect.all([
+    registerCommand(COMMANDS.GENERATE_COMMIT_MESSAGE, generateCommitMessage),
+    registerCommand(COMMANDS.NEW_SESSION, newSession),
+    registerCommand(COMMANDS.OPEN_SESSION, openSession),
+    registerCommand(COMMANDS.REMOVE_SESSION, removeSession)
+  ])
+);
 
-      async () => {
-        await Effect.runPromise(
-          toMessage(scm).pipe(
-            Effect.ensuring(
-              Effect.promise(async () =>
-                vsc.commands.executeCommand("setContext", "aggregor.isGeneratingCommitMessage", false)
-              )
-            ),
-            Effect.provide(NodeServices.layer),
-            Effect.provideService(ErrorService, {
-              show: (message, ...actions) =>
-                Effect.promise(async () => vsc.window.showErrorMessage(`${APP_NAME}: ${message}`, ...actions))
-            })
-          )
-        );
-      }
-    );
-  });
+const IndependentLayers = Layer.mergeAll(ErrorService.layer, SettingsService.layer, NodeServices.layer);
 
-  ctx.subscriptions.push(d1);
+const AppLayer = Layer.mergeAll(CommandsLayer, SessionsView).pipe(
+  Layer.provideMerge(TerminalService.layer),
+  Layer.provideMerge(StatusService.layer),
+  Layer.provideMerge(TranscriptService.layer),
+  Layer.provideMerge(SessionStore.layer),
+  Layer.provideMerge(IndependentLayers)
+);
+
+const activate = async (ctx: ExtensionContext) => {
+  const runtime = ManagedRuntime.make(AppLayer.pipe(Layer.provideMerge(VscService.layer(ctx))));
+  ctx.subscriptions.push({dispose: async () => runtime.dispose()});
+  // The runtime builds lazily; build it now so commands and views exist before activation finishes.
+  await runtime.context();
 };
 
 const deactivate = () => {
