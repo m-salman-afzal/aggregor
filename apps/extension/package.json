@@ -11,28 +11,28 @@
   },
   "scripts": {
     "vscode:prepublish": "vite build --mode production",
-    "compile": "pnpm run typecheck && pnpm -w run lint:check && vite build",
-    "watch": "npm-run-all -p watch:*",
+    "compile": "pnpm run typecheck && pnpm --workspace-root run lint:check && vite build",
+    "watch": "npm-run-all --parallel watch:*",
     "watch:vite": "vite build --watch --mode development",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "pnpm run typecheck && pnpm -w run lint:check && vite build --mode production",
+    "package": "pnpm run typecheck && pnpm --workspace-root run lint:check && vite build --mode production",
     "typecheck": "tsc --noEmit",
     "vsix": "vsce package --no-dependencies --skip-license",
     "publish:vsce": "vsce publish --no-dependencies --skip-license"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.2",
+    "@effect/platform-node": "4.0.5",
     "@pkg/constants": "workspace:*",
     "@pkg/typings": "workspace:*",
-    "effect": "4.0.2"
+    "effect": "4.0.5"
   },
   "devDependencies": {
     "@pkg/tsconfigs": "workspace:*",
-    "@types/node": "26.6.4",
+    "@types/node": "26.6.5",
     "@types/vscode": "1.140.0",
     "@vscode/vsce": "4.0.0",
     "npm-run-all2": "9.0.3",
-    "vite": "8.3.3"
+    "vite": "8.3.4"
   },
   "publisher": "SalmanAfzal",
   "activationEvents": [
