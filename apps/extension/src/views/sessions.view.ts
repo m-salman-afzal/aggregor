@@ -1,4 +1,6 @@
 import {NoActiveTerminal, RevealFailed} from "@/errors/session.error.ts";
+import {RepoStore} from "@/services/repo/repo.service.ts";
+import {listRepos} from "@/services/repo/repo.utils.ts";
 import {StatusService} from "@/services/session/status.service.ts";
 import {SessionStore} from "@/services/session/store.service.ts";
 import {findSession, listSessions} from "@/services/session/store.utils.ts";
@@ -9,6 +11,7 @@ import {fromEvent, getClaudeIcon} from "@/services/vsc.utils.ts";
 import {
   COMMANDS,
   CONTEXT_VALUES,
+  REPO_ICON,
   SESSION_URI_SCHEME,
   SPINNER_INTERVAL_MS,
   STATUS_BADGES,
@@ -18,13 +21,19 @@ import {SESSION_LABELS, STATUS_LABELS} from "@pkg/constants/src/message.constant
 import {Clock, Effect, Layer, Option, Ref, Result, Schedule, Stream, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
+import type {Repo} from "@/services/repo/repo.service.ts";
 import type {Status} from "@/services/session/status.service.ts";
 import type {Session} from "@/services/session/store.service.ts";
 import type {Terminal, TreeView, Uri} from "vscode";
 
+// Repos at the top level, each with the sessions started in it.
+type Row = Repo | Session;
+
 // What a row shows. "unread" is an idle session whose last turn ended while it was out of view; undefined is a
 // terminal whose hooks have not fired yet.
 type RowStatus = "unread" | Status;
+
+const isRepo = (row: Row): row is Repo => "added" in row;
 
 // Without a terminal in this window the agent is gone; with one, the hooks say what it is doing.
 const rowStatus = Effect.fn("rowStatus")(function* (id: string, unread: ReadonlySet<string>) {
@@ -44,7 +53,7 @@ const sessionUri = Effect.fn("sessionUri")(function* (id: string) {
   return Uri.from({path: `/${id}`, scheme: SESSION_URI_SCHEME});
 });
 
-const toTreeItem = Effect.fn("toTreeItem")(function* (session: Session, status: RowStatus | undefined) {
+const toSessionItem = Effect.fn("toSessionItem")(function* (session: Session, status: RowStatus | undefined) {
   const {TreeItem} = yield* VscService;
   const path = yield* Path;
   const statusText = status === undefined ? undefined : STATUS_LABELS[status];
@@ -55,11 +64,22 @@ const toTreeItem = Effect.fn("toTreeItem")(function* (session: Session, status: 
   item.id = session.id;
   item.iconPath = yield* getClaudeIcon();
   item.resourceUri = yield* sessionUri(session.id);
-  item.description = folder;
   item.tooltip = SESSION_LABELS.TOOLTIP(session.name, session.cwd, statusText);
   item.accessibilityInformation = {label: SESSION_LABELS.ACCESSIBLE(label, folder, statusText)};
   item.contextValue = CONTEXT_VALUES.SESSION;
   item.command = {arguments: [session.id], command: COMMANDS.OPEN_SESSION, title: SESSION_LABELS.OPEN_SESSION};
+
+  return item;
+});
+
+// The id is the path, which never collides with a session's UUID.
+const toRepoItem = Effect.fn("toRepoItem")(function* (repo: Repo) {
+  const {ThemeIcon, TreeItem, TreeItemCollapsibleState} = yield* VscService;
+  const item = new TreeItem(repo.name, TreeItemCollapsibleState.Expanded);
+  item.id = repo.path;
+  item.iconPath = new ThemeIcon(REPO_ICON);
+  item.tooltip = repo.path;
+  item.contextValue = repo.added ? CONTEXT_VALUES.ADDED_REPO : CONTEXT_VALUES.REPO;
 
   return item;
 });
@@ -74,8 +94,27 @@ const toDecoration = Effect.fn("toDecoration")(function* (status: RowStatus | un
   return new FileDecoration(frames[frame], STATUS_LABELS[status], new ThemeColor(color));
 });
 
+// Every repo is listed, even one without sessions, so adding a repo always shows. A session sits under the repo whose
+// path is its cwd; one whose repo is not in this window is not shown here.
+const childrenOf = Effect.fn("childrenOf")(function* (row: Row | undefined) {
+  if (row === undefined) return yield* listRepos();
+  if (!isRepo(row)) return [];
+
+  const all = yield* listSessions();
+
+  return all.filter((session) => session.cwd === row.path);
+});
+
+const parentOf = Effect.fn("parentOf")(function* (row: Row) {
+  if (isRepo(row)) return undefined;
+
+  const repos = yield* listRepos();
+
+  return repos.find((repo) => repo.path === row.cwd);
+});
+
 // Selects the session whose tab became active. Skipped while the view is hidden, since reveal would open it.
-const revealSession = Effect.fn("revealSession")(function* (view: TreeView<Session>, terminal: Terminal | undefined) {
+const revealSession = Effect.fn("revealSession")(function* (view: TreeView<Row>, terminal: Terminal | undefined) {
   const active = yield* Effect.fromResult(Result.fromNullishOr(terminal, () => new NoActiveTerminal()));
   const id = yield* TerminalService.use((service) => service.sessionIdOf(active));
   const session = yield* findSession(id);
@@ -90,13 +129,16 @@ const revealSession = Effect.fn("revealSession")(function* (view: TreeView<Sessi
 // Registers the Sessions tree for the lifetime of the runtime; disposing the runtime unregisters it.
 export const SessionsView = Layer.effectDiscard(
   Effect.gen(function* () {
-    const {EventEmitter, window} = yield* VscService;
+    const {EventEmitter, window, workspace} = yield* VscService;
+    const {added} = yield* RepoStore;
     const {sessions} = yield* SessionStore;
     const {terminals, viewed} = yield* TerminalService;
     const {titles} = yield* TranscriptService;
     const {statuses} = yield* StatusService;
     const run = Effect.runSyncWith(
-      yield* Effect.context<Path | SessionStore | StatusService | TerminalService | TranscriptService | VscService>()
+      yield* Effect.context<
+        Path | RepoStore | SessionStore | StatusService | TerminalService | TranscriptService | VscService
+      >()
     );
 
     // What each row was last drawn with; the tree and the badges both render from it. Only rows whose status moved are
@@ -137,11 +179,11 @@ export const SessionsView = Layer.effectDiscard(
     );
     const view = yield* Effect.acquireRelease(
       Effect.sync(() =>
-        window.createTreeView<Session>(VIEWS.SESSIONS, {
+        window.createTreeView<Row>(VIEWS.SESSIONS, {
           treeDataProvider: {
-            getChildren: (element) => (element ? [] : [...run(listSessions())]),
-            getParent: () => undefined,
-            getTreeItem: (session) => run(toTreeItem(session, shownStatus(session.id))),
+            getChildren: (row) => [...run(childrenOf(row))],
+            getParent: (row) => run(parentOf(row)),
+            getTreeItem: (row) => (isRepo(row) ? run(toRepoItem(row)) : run(toSessionItem(row, shownStatus(row.id)))),
             onDidChangeTreeData: changed.event
           }
         })
@@ -202,15 +244,18 @@ export const SessionsView = Layer.effectDiscard(
       });
     });
 
-    // Rows change when a session is added or removed, when its tab opens or closes, when Claude renames it, when its
-    // status changes, and when it comes into view, which marks it read.
-    const rowChanges = Stream.merge(
-      Stream.merge(SubscriptionRef.changes(sessions), SubscriptionRef.changes(terminals)),
-      Stream.merge(
-        SubscriptionRef.changes(titles),
-        Stream.merge(SubscriptionRef.changes(statuses), SubscriptionRef.changes(viewed))
-      )
-    );
+    // Rows change when a repo or workspace folder is added or removed, when a session is added or removed, when its tab
+    // opens or closes, when Claude renames it, when its status changes, and when it comes into view, which marks it read.
+    const changes: readonly Stream.Stream<unknown>[] = [
+      SubscriptionRef.changes(added),
+      fromEvent(workspace.onDidChangeWorkspaceFolders),
+      SubscriptionRef.changes(sessions),
+      SubscriptionRef.changes(terminals),
+      SubscriptionRef.changes(titles),
+      SubscriptionRef.changes(statuses),
+      SubscriptionRef.changes(viewed)
+    ];
+    const rowChanges = Stream.mergeAll(changes, {concurrency: "unbounded"});
     yield* Effect.forkScoped(Stream.runForEach(rowChanges, () => refresh()));
     yield* Effect.forkScoped(Effect.repeat(tickSpinners(), Schedule.spaced(SPINNER_INTERVAL_MS)));
     yield* Effect.forkScoped(
