@@ -10,6 +10,7 @@ import {
   RootUriUnavailable
 } from "@/errors/git.error.ts";
 import {ErrorService} from "@/services/error.service.ts";
+import {RepoStore} from "@/services/repo/repo.service.ts";
 import {ScmService} from "@/services/scm/scm.service.ts";
 import {SettingsService} from "@/services/settings.service.ts";
 import {VscService} from "@/services/vsc.service.ts";
@@ -17,7 +18,7 @@ import {setContext, withProgress} from "@/services/vsc.utils.ts";
 import {COMMANDS, CONTEXT_KEYS, EXTENSION_VERSIONS} from "@pkg/constants/src/extension.constant.ts";
 import {ACTIONS, COMMIT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {EXIT_CODES} from "@pkg/constants/src/process.constant.ts";
-import {Effect, Match, Result, Stream} from "effect";
+import {Effect, Layer, Match, Ref, Result, Stream, SubscriptionRef} from "effect";
 import {ChildProcess} from "effect/process";
 import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 
@@ -167,4 +168,49 @@ export const generateCommitMessage = Effect.fn("generateCommitMessage")(
     );
   },
   (effect) => effect.pipe(Effect.ensuring(setContext(CONTEXT_KEYS.IS_GENERATING_COMMIT_MESSAGE, false)))
+);
+
+// A folder that is not a git repo, or git being off, leaves the repo in our sidebar only.
+const openInGit = Effect.fn("openInGit")(function* (api: API, path: string) {
+  const {Uri} = yield* VscService;
+
+  yield* Effect.ignore(Effect.tryPromise(async () => api.openRepository(Uri.file(path))));
+});
+
+// The git API cannot close a repo, so this runs git.close, which closes whichever repo contains the path and asks the
+// user to pick one when none does. It only runs for a repo whose root is exactly the path.
+// ponytail: a path inside a repo, or reached through a symlink, stays in Source Control until the next reload.
+const closeInGit = Effect.fn("closeInGit")(function* (api: API, path: string) {
+  const {commands, Uri} = yield* VscService;
+  const repository = api.getRepository(Uri.file(path));
+  if (repository?.rootUri.fsPath !== path) return;
+
+  yield* Effect.ignore(Effect.tryPromise(async () => commands.executeCommand("git.close", repository.rootUri)));
+});
+
+// Keeps Source Control in step with the added repos: each opens there, at startup too, and closes when removed. The git
+// extension does not remember repos opened this way, so every startup opens them again.
+export const GitReposLayer = Layer.effectDiscard(
+  Effect.gen(function* () {
+    const {added} = yield* RepoStore;
+    const synced = yield* Ref.make<ReadonlySet<string>>(new Set());
+
+    const syncGit = Effect.fn("syncGit")(function* (paths: readonly string[]) {
+      const before = yield* Ref.getAndSet(synced, new Set(paths));
+      const api = yield* getGitExtension();
+
+      yield* Effect.forEach(
+        paths.filter((path) => !before.has(path)),
+        (path) => openInGit(api, path)
+      );
+      yield* Effect.forEach(
+        [...before].filter((path) => !paths.includes(path)),
+        (path) => closeInGit(api, path)
+      );
+    });
+
+    yield* Effect.forkScoped(
+      Stream.runForEach(SubscriptionRef.changes(added), (paths) => Effect.ignore(syncGit(paths)))
+    );
+  })
 );

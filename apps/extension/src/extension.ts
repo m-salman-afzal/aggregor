@@ -1,5 +1,7 @@
 import {ErrorService} from "@/services/error.service.ts";
-import {generateCommitMessage} from "@/services/scm/scm.utils.ts";
+import {RepoStore} from "@/services/repo/repo.service.ts";
+import {addRepo, removeRepo} from "@/services/repo/repo.utils.ts";
+import {generateCommitMessage, GitReposLayer} from "@/services/scm/scm.utils.ts";
 import {StatusService} from "@/services/session/status.service.ts";
 import {SessionStore} from "@/services/session/store.service.ts";
 import {TerminalService} from "@/services/session/terminal.service.ts";
@@ -17,20 +19,23 @@ import type {ExtensionContext} from "vscode";
 
 const CommandsLayer = Layer.effectDiscard(
   Effect.all([
+    registerCommand(COMMANDS.ADD_REPO, addRepo),
     registerCommand(COMMANDS.GENERATE_COMMIT_MESSAGE, generateCommitMessage),
     registerCommand(COMMANDS.NEW_SESSION, newSession),
     registerCommand(COMMANDS.OPEN_SESSION, openSession),
+    registerCommand(COMMANDS.REMOVE_REPO, removeRepo),
     registerCommand(COMMANDS.REMOVE_SESSION, removeSession)
   ])
 );
 
 const IndependentLayers = Layer.mergeAll(ErrorService.layer, SettingsService.layer, NodeServices.layer);
 
-const AppLayer = Layer.mergeAll(CommandsLayer, SessionsView).pipe(
+const AppLayer = Layer.mergeAll(CommandsLayer, GitReposLayer, SessionsView).pipe(
   Layer.provideMerge(TerminalService.layer),
   Layer.provideMerge(StatusService.layer),
   Layer.provideMerge(TranscriptService.layer),
   Layer.provideMerge(SessionStore.layer),
+  Layer.provideMerge(RepoStore.layer),
   Layer.provideMerge(IndependentLayers)
 );
 

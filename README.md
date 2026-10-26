@@ -6,10 +6,14 @@ Control and diffs.
 
 ## What works today
 
-- **Sessions sidebar.** The Aggregor App activity-bar view starts Claude Code in an editor-tab terminal for a workspace
-  folder and lists its sessions. Clicking a session focuses its tab; switching tabs selects the session.
-- **Persistent sessions.** Sessions survive reloads and restarts and are shared by every window. Closing a tab keeps the
-  session listed as exited; clicking it resumes the conversation. The row's … menu removes a session.
+- **Sessions sidebar.** The Aggregor App activity-bar view lists the window's repos, each with its sessions, and starts
+  Claude Code in an editor-tab terminal. Clicking a session focuses its tab; switching tabs selects the session.
+- **Repos.** The window's workspace folders are always listed; Add Repo lists any other folder without adding it to the
+  workspace, and opens it in Source Control if it is a git repo. Added repos are kept per workspace, so other windows
+  don't see them or their sessions. A repo row's + starts a session in it, and an added repo's … menu removes it.
+- **Persistent sessions.** Sessions survive reloads and restarts, and every window that lists their repo shows them.
+  Closing a tab keeps the session listed as exited; clicking it resumes the conversation. The row's … menu removes a
+  session.
 - **Claude's session names.** Each row shows the name Claude gives the conversation (or the one set with `/rename`),
   updated live as Claude renames it.
 - **Live status.** Each row ends with a status badge: a blue spinner while Claude runs and a yellow dot when it needs
@@ -33,7 +37,7 @@ Each item is one small PR, stacked on the previous one. Releases wait for the en
 
 - [ ] Needs-input alerts: activity-bar badge and a notification for background sessions
 - [ ] tmux persistence: closing a tab detaches instead of killing the agent; clicking reattaches
-- [ ] Repos: an extension-owned repo list, tree grouped as repo > session
+- [x] Repos: an extension-owned repo list, tree grouped as repo > session
 
 ### M3: worktrees and review
 

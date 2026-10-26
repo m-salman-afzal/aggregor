@@ -59,6 +59,11 @@
         "id": "aggregorApp.sessionActions",
         "label": "More Actions...",
         "icon": "$(ellipsis)"
+      },
+      {
+        "id": "aggregorApp.repoActions",
+        "label": "More Actions...",
+        "icon": "$(ellipsis)"
       }
     ],
     "menus": {
@@ -77,7 +82,12 @@
       "view/title": [
         {
           "command": "aggregorApp.newSession",
-          "group": "navigation",
+          "group": "navigation@1",
+          "when": "view == aggregorApp.sessions"
+        },
+        {
+          "command": "aggregorApp.addRepo",
+          "group": "navigation@2",
           "when": "view == aggregorApp.sessions"
         }
       ],
@@ -86,11 +96,26 @@
           "submenu": "aggregorApp.sessionActions",
           "group": "inline",
           "when": "view == aggregorApp.sessions && viewItem == session"
+        },
+        {
+          "command": "aggregorApp.newSession",
+          "group": "inline@1",
+          "when": "view == aggregorApp.sessions && viewItem =~ /^(repo|addedRepo)$/"
+        },
+        {
+          "submenu": "aggregorApp.repoActions",
+          "group": "inline@2",
+          "when": "view == aggregorApp.sessions && viewItem == addedRepo"
         }
       ],
       "aggregorApp.sessionActions": [
         {
           "command": "aggregorApp.removeSession"
+        }
+      ],
+      "aggregorApp.repoActions": [
+        {
+          "command": "aggregorApp.removeRepo"
         }
       ],
       "commandPalette": [
@@ -100,6 +125,10 @@
         },
         {
           "command": "aggregorApp.removeSession",
+          "when": "false"
+        },
+        {
+          "command": "aggregorApp.removeRepo",
           "when": "false"
         }
       ]
@@ -125,7 +154,7 @@
     "viewsWelcome": [
       {
         "view": "aggregorApp.sessions",
-        "contents": "No sessions yet.\n[New Claude Session](command:aggregorApp.newSession)"
+        "contents": "No repos yet.\n[Add Repo](command:aggregorApp.addRepo)\n[Open Folder](command:workbench.action.files.openFolder)"
       }
     ],
     "commands": [
@@ -161,6 +190,17 @@
       {
         "title": "Remove Session",
         "command": "aggregorApp.removeSession",
+        "category": "Aggregor App"
+      },
+      {
+        "title": "Add Repo",
+        "command": "aggregorApp.addRepo",
+        "category": "Aggregor App",
+        "icon": "$(new-folder)"
+      },
+      {
+        "title": "Remove Repo",
+        "command": "aggregorApp.removeRepo",
         "category": "Aggregor App"
       }
     ]

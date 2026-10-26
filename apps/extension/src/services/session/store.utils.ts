@@ -2,16 +2,16 @@ import {SessionNotFound} from "@/errors/session.error.ts";
 import {SessionStore} from "@/services/session/store.service.ts";
 import {Effect, Result, SubscriptionRef} from "effect";
 
+import type {Repo} from "@/services/repo/repo.service.ts";
 import type {Session} from "@/services/session/store.service.ts";
-import type {WorkspaceFolder} from "vscode";
 
-// Lowest free "<folder> #n", so removing #1 frees the name for the next session.
-const nameFor = (folder: WorkspaceFolder, all: readonly Session[]) => {
+// Lowest free "<repo> #n", so removing #1 frees the name for the next session.
+const nameFor = (repo: Repo, all: readonly Session[]) => {
   const taken = new Set(all.map((session) => session.name));
   let index = 1;
-  while (taken.has(`${folder.name} #${index}`)) index += 1;
+  while (taken.has(`${repo.name} #${index}`)) index += 1;
 
-  return `${folder.name} #${index}`;
+  return `${repo.name} #${index}`;
 };
 
 // Read-modify-write against globalState under the ref's permit, so a change never drops what another window saved.
@@ -47,11 +47,11 @@ export const findSession = Effect.fn("findSession")(function* (id: string) {
   );
 });
 
-export const addSession = Effect.fn("addSession")(function* (folder: WorkspaceFolder) {
+export const addSession = Effect.fn("addSession")(function* (repo: Repo) {
   const id = yield* Effect.sync(() => crypto.randomUUID());
 
   return yield* modifyStored((stored) => {
-    const session: Session = {cwd: folder.uri.fsPath, id, name: nameFor(folder, stored)};
+    const session: Session = {cwd: repo.path, id, name: nameFor(repo, stored)};
 
     return [session, [...stored, session]] as const;
   });

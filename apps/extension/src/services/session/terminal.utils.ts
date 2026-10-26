@@ -1,5 +1,6 @@
-import {FolderPickCancelled, NoWorkspaceFolder, RemoveCancelled} from "@/errors/session.error.ts";
+import {RemoveCancelled} from "@/errors/session.error.ts";
 import {ErrorService} from "@/services/error.service.ts";
+import {pickRepo} from "@/services/repo/repo.utils.ts";
 import {StatusService} from "@/services/session/status.service.ts";
 import {addSession, deleteSession, findSession} from "@/services/session/store.utils.ts";
 import {TerminalService} from "@/services/session/terminal.service.ts";
@@ -7,29 +8,10 @@ import {TranscriptService} from "@/services/session/transcript.service.ts";
 import {findTranscript} from "@/services/session/transcript.utils.ts";
 import {VscService} from "@/services/vsc.service.ts";
 import {ACTIONS, SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
-import {Effect, Match, Option, Result} from "effect";
+import {Effect, Match, Option} from "effect";
 
+import type {Repo} from "@/services/repo/repo.service.ts";
 import type {Session} from "@/services/session/store.service.ts";
-
-const getWorkspaceFolders = Effect.fn("getWorkspaceFolders")(function* () {
-  const {workspace} = yield* VscService;
-
-  return yield* Effect.fromResult(Result.fromNullishOr(workspace.workspaceFolders, () => new NoWorkspaceFolder()));
-});
-
-const showFolderPick = Effect.fn("showFolderPick")(function* () {
-  const {window} = yield* VscService;
-  const picked = yield* Effect.promise(async () => window.showWorkspaceFolderPick());
-
-  return yield* Effect.fromResult(Result.fromNullishOr(picked, () => new FolderPickCancelled()));
-});
-
-const pickFolder = Effect.fn("pickFolder")(function* () {
-  const folders = yield* getWorkspaceFolders();
-  if (folders.length > 1) return yield* showFolderPick();
-
-  return yield* Effect.fromResult(Result.fromNullishOr(folders[0], () => new NoWorkspaceFolder()));
-});
 
 // The name Claude gave the conversation, or ours until it has one.
 const displayName = Effect.fn("displayName")(function* (session: Session) {
@@ -51,9 +33,9 @@ const claudeArgs = Effect.fn("claudeArgs")(function* (session: Session) {
   return resumable ? ["--resume", session.id] : ["--session-id", session.id];
 });
 
-const startSession = Effect.fn("startSession")(function* () {
-  const folder = yield* pickFolder();
-  const session = yield* addSession(folder);
+const startSession = Effect.fn("startSession")(function* (target: Repo | undefined) {
+  const repo = target ?? (yield* pickRepo());
+  const session = yield* addSession(repo);
 
   yield* TerminalService.use((service) =>
     service.open(session, {name: session.name, shellArgs: ["--session-id", session.id]})
@@ -96,15 +78,16 @@ const removeAndStop = Effect.fn("removeAndStop")(function* (session: Session) {
   yield* StatusService.use((service) => service.clear(session.id));
 });
 
-export const newSession = Effect.fn("newSession")(function* () {
-  return yield* startSession().pipe(
-    Effect.catchTag("FolderPickCancelled", () => Effect.void),
+// A repo row's inline button passes its Repo; the title-bar button and the palette pass nothing, so the user picks one.
+export const newSession = Effect.fn("newSession")(function* (repo?: Repo) {
+  return yield* startSession(repo).pipe(
+    Effect.catchTag("RepoPickCancelled", () => Effect.void),
     Effect.catch((error) =>
       Effect.forkDetach(
         ErrorService.use((service) =>
           service.show(
             Match.valueTags(error, {
-              NoWorkspaceFolder: () => SESSION_MESSAGES.FOLDER_REQUIRED,
+              NoRepo: () => SESSION_MESSAGES.REPO_REQUIRED,
               SessionsCorrupt: () => SESSION_MESSAGES.UNREADABLE,
               SessionsSaveFailed: () => SESSION_MESSAGES.SAVE_FAILED,
               TerminalLaunchFailed: () => SESSION_MESSAGES.LAUNCH_FAILED
