@@ -7,9 +7,11 @@ export const APP_NAME = "Aggregor App";
 export const SETTINGS_SECTION = "aggregorApp";
 
 export const COMMANDS = {
+  ADD_REPO: "aggregorApp.addRepo",
   GENERATE_COMMIT_MESSAGE: "aggregorApp.generateCommitMessage",
   NEW_SESSION: "aggregorApp.newSession",
   OPEN_SESSION: "aggregorApp.openSession",
+  REMOVE_REPO: "aggregorApp.removeRepo",
   REMOVE_SESSION: "aggregorApp.removeSession"
 } as const;
 
@@ -17,9 +19,14 @@ export const CONTEXT_KEYS = {
   IS_GENERATING_COMMIT_MESSAGE: "aggregorApp.isGeneratingCommitMessage"
 } as const;
 
+// A workspace folder is a "repo"; only an "addedRepo" can be removed from the sidebar.
 export const CONTEXT_VALUES = {
+  ADDED_REPO: "addedRepo",
+  REPO: "repo",
   SESSION: "session"
 } as const;
+
+export const REPO_ICON = "repo";
 
 export const MODEL_ICONS = {
   CLAUDE: "assets/models/claude.svg"
@@ -45,6 +52,7 @@ export const STATUS_BADGES = {
 export const SPINNER_INTERVAL_MS = 120;
 
 export const STORAGE_KEYS = {
+  REPOS: "repos",
   SESSIONS: "sessions"
 } as const;
 

@@ -16,11 +16,14 @@ export class VscService extends Context.Service<
     readonly ProgressLocation: typeof vscode.ProgressLocation;
     readonly TabInputTerminal: typeof vscode.TabInputTerminal;
     readonly ThemeColor: typeof vscode.ThemeColor;
+    readonly ThemeIcon: typeof vscode.ThemeIcon;
     readonly TreeItem: typeof vscode.TreeItem;
+    readonly TreeItemCollapsibleState: typeof vscode.TreeItemCollapsibleState;
     readonly Uri: typeof vscode.Uri;
     readonly ViewColumn: typeof vscode.ViewColumn;
     readonly window: typeof vscode.window;
     readonly workspace: typeof vscode.workspace;
+    readonly workspaceState: vscode.Memento;
   }
 >()("aggregor/services/vsc.service/VscService") {
   /* eslint-disable sort-keys */
@@ -37,10 +40,13 @@ export class VscService extends Context.Service<
       ProgressLocation: vscode.ProgressLocation,
       TabInputTerminal: vscode.TabInputTerminal,
       ThemeColor: vscode.ThemeColor,
+      ThemeIcon: vscode.ThemeIcon,
       TreeItem: vscode.TreeItem,
+      TreeItemCollapsibleState: vscode.TreeItemCollapsibleState,
       Uri: vscode.Uri,
       ViewColumn: vscode.ViewColumn,
       window: vscode.window,
-      workspace: vscode.workspace
+      workspace: vscode.workspace,
+      workspaceState: context.workspaceState
     });
 }

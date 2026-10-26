@@ -1,4 +1,5 @@
 export const ACTIONS = {
+  ADD_REPO: "Add Repo",
   REMOVE: "Remove",
   STAGE_ALL: "Stage All & Generate"
 } as const;
@@ -16,6 +17,15 @@ export const COMMIT_MESSAGES = {
   INVALID_SETTINGS: (reason: string) => `Invalid settings: ${reason}`,
   NOTHING_STAGED: "Nothing is staged.",
   ROOT_URI_UNAVAILABLE: "This source control has no root folder."
+} as const;
+
+export const REPO_LABELS = {
+  PICK: "Repo for the new session"
+} as const;
+
+export const REPO_MESSAGES = {
+  SAVE_FAILED: "Could not save repos.",
+  UNREADABLE: "Saved repos could not be read. They may come from a newer version; reload the window."
 } as const;
 
 export const SESSION_LABELS = {
@@ -36,9 +46,9 @@ export const STATUS_LABELS = {
 
 export const SESSION_MESSAGES = {
   CONFIRM_REMOVE_RUNNING: (name: string) => `Remove "${name}"? Its agent is still running and will be stopped.`,
-  FOLDER_REQUIRED: "Open a folder to start a session.",
   LAUNCH_FAILED: "Could not open a terminal for the session.",
   NOT_FOUND: "This session no longer exists.",
+  REPO_REQUIRED: "Add a repo or open a folder to start a session.",
   SAVE_FAILED: "Could not save sessions.",
   UNREADABLE: "Saved sessions could not be read. They may come from a newer version; reload the window."
 } as const;
