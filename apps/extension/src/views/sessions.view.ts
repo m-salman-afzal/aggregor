@@ -67,7 +67,7 @@ const toSessionItem = Effect.fn("toSessionItem")(function* (session: Session, st
   item.tooltip = SESSION_LABELS.TOOLTIP(session.name, session.cwd, statusText);
   item.accessibilityInformation = {label: SESSION_LABELS.ACCESSIBLE(label, folder, statusText)};
   item.contextValue = CONTEXT_VALUES.SESSION;
-  item.command = {arguments: [session.id], command: COMMANDS.OPEN_SESSION, title: SESSION_LABELS.OPEN_SESSION};
+  item.command = {arguments: [session.id], command: COMMANDS.SESSION_ROW.OPEN, title: SESSION_LABELS.OPEN_SESSION};
 
   return item;
 });

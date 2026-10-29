@@ -6,13 +6,24 @@ export const APP_NAME = "Aggregor App";
 
 export const SETTINGS_SECTION = "aggregorApp";
 
+// Grouped by where each command's button lives; the IDs are what users bind keys to, so they never change.
 export const COMMANDS = {
-  ADD_REPO: "aggregorApp.addRepo",
-  GENERATE_COMMIT_MESSAGE: "aggregorApp.generateCommitMessage",
-  NEW_SESSION: "aggregorApp.newSession",
-  OPEN_SESSION: "aggregorApp.openSession",
-  REMOVE_REPO: "aggregorApp.removeRepo",
-  REMOVE_SESSION: "aggregorApp.removeSession"
+  REPO_ROW: {
+    NEW_SESSION: "aggregorApp.newSession",
+    REMOVE: "aggregorApp.removeRepo"
+  },
+  SCM_TITLE: {
+    GENERATE_COMMIT_MESSAGE: "aggregorApp.generateCommitMessage"
+  },
+  SESSION_ROW: {
+    OPEN: "aggregorApp.openSession",
+    REMOVE: "aggregorApp.removeSession"
+  },
+  // The Sessions view's title bar (the manifest's view/title).
+  VIEW_TITLE: {
+    ADD_REPO: "aggregorApp.addRepo",
+    NEW_SESSION: "aggregorApp.newSessionInRepo"
+  }
 } as const;
 
 export const CONTEXT_KEYS = {
