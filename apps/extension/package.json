@@ -21,18 +21,18 @@
     "publish:vsce": "vsce publish --no-dependencies --skip-license"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.5",
+    "@effect/platform-node": "4.1.0",
     "@pkg/constants": "workspace:*",
     "@pkg/typings": "workspace:*",
-    "effect": "4.0.5"
+    "effect": "4.1.0"
   },
   "devDependencies": {
     "@pkg/tsconfigs": "workspace:*",
-    "@types/node": "26.6.5",
-    "@types/vscode": "1.140.0",
-    "@vscode/vsce": "4.0.0",
-    "npm-run-all2": "9.0.3",
-    "vite": "8.3.4"
+    "@types/node": "26.6.6",
+    "@types/vscode": "1.144.0",
+    "@vscode/vsce": "4.1.0",
+    "npm-run-all2": "9.0.4",
+    "vite": "8.3.5"
   },
   "publisher": "SalmanAfzal",
   "activationEvents": [
