@@ -128,7 +128,7 @@ const offerStageAll = Effect.fn("offerStageAll")(function* () {
   if (choice !== ACTIONS.STAGE_ALL) return;
 
   yield* Effect.promise(async () => commands.executeCommand("git.stageAll", scm));
-  yield* Effect.promise(async () => commands.executeCommand(COMMANDS.GENERATE_COMMIT_MESSAGE, scm));
+  yield* Effect.promise(async () => commands.executeCommand(COMMANDS.SCM_TITLE.GENERATE_COMMIT_MESSAGE, scm));
 });
 
 const toMessage = Effect.fn("toMessage")(function* () {

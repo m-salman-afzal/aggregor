@@ -78,7 +78,9 @@ const removeAndStop = Effect.fn("removeAndStop")(function* (session: Session) {
   yield* StatusService.use((service) => service.clear(session.id));
 });
 
-// A repo row's inline button passes its Repo; the title-bar button and the palette pass nothing, so the user picks one.
+// A repo row's inline button passes its Repo; the palette passes nothing, so the user picks one. Never bind this to a
+// view/title button: VS Code passes those the focused row, which can be a Session. VIEW_TITLE.NEW_SESSION is that
+// button.
 export const newSession = Effect.fn("newSession")(function* (repo?: Repo) {
   return yield* startSession(repo).pipe(
     Effect.catchTag("RepoPickCancelled", () => Effect.void),

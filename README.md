@@ -10,7 +10,8 @@ Control and diffs.
   Claude Code in an editor-tab terminal. Clicking a session focuses its tab; switching tabs selects the session.
 - **Repos.** The window's workspace folders are always listed; Add Repo lists any other folder without adding it to the
   workspace, and opens it in Source Control if it is a git repo. Added repos are kept per workspace, so other windows
-  don't see them or their sessions. A repo row's + starts a session in it, and an added repo's … menu removes it.
+  don't see them or their sessions. A repo row's + starts a session in it, the view's + asks which repo to use, and an
+  added repo's … menu removes it.
 - **Persistent sessions.** Sessions survive reloads and restarts, and every window that lists their repo shows them.
   Closing a tab keeps the session listed as exited; clicking it resumes the conversation. The row's … menu removes a
   session.
