@@ -19,12 +19,14 @@ import type {ExtensionContext} from "vscode";
 
 const CommandsLayer = Layer.effectDiscard(
   Effect.all([
-    registerCommand(COMMANDS.ADD_REPO, addRepo),
-    registerCommand(COMMANDS.GENERATE_COMMIT_MESSAGE, generateCommitMessage),
-    registerCommand(COMMANDS.NEW_SESSION, newSession),
-    registerCommand(COMMANDS.OPEN_SESSION, openSession),
-    registerCommand(COMMANDS.REMOVE_REPO, removeRepo),
-    registerCommand(COMMANDS.REMOVE_SESSION, removeSession)
+    registerCommand(COMMANDS.REPO_ROW.NEW_SESSION, newSession),
+    registerCommand(COMMANDS.REPO_ROW.REMOVE, removeRepo),
+    registerCommand(COMMANDS.SCM_TITLE.GENERATE_COMMIT_MESSAGE, generateCommitMessage),
+    registerCommand(COMMANDS.SESSION_ROW.OPEN, openSession),
+    registerCommand(COMMANDS.SESSION_ROW.REMOVE, removeSession),
+    registerCommand(COMMANDS.VIEW_TITLE.ADD_REPO, addRepo),
+    // VS Code passes title-bar buttons the focused row, so drop the args and always ask for the repo.
+    registerCommand(COMMANDS.VIEW_TITLE.NEW_SESSION, () => newSession())
   ])
 );
 

@@ -1,6 +1,6 @@
 {
   "name": "aggregor-app",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "Combines multiple coding agents.",
   "repository": "github:m-salman-afzal/aggregor",
@@ -21,18 +21,18 @@
     "publish:vsce": "vsce publish --no-dependencies --skip-license"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.5",
+    "@effect/platform-node": "4.1.0",
     "@pkg/constants": "workspace:*",
     "@pkg/typings": "workspace:*",
-    "effect": "4.0.5"
+    "effect": "4.1.0"
   },
   "devDependencies": {
     "@pkg/tsconfigs": "workspace:*",
-    "@types/node": "26.6.5",
-    "@types/vscode": "1.140.0",
-    "@vscode/vsce": "4.0.0",
-    "npm-run-all2": "9.0.3",
-    "vite": "8.3.4"
+    "@types/node": "26.6.6",
+    "@types/vscode": "1.144.0",
+    "@vscode/vsce": "4.1.0",
+    "npm-run-all2": "9.0.4",
+    "vite": "8.3.5"
   },
   "publisher": "SalmanAfzal",
   "activationEvents": [
@@ -72,16 +72,11 @@
           "command": "aggregorApp.generateCommitMessage",
           "group": "navigation",
           "when": "scmProvider == git && !aggregorApp.isGeneratingCommitMessage"
-        },
-        {
-          "command": "aggregorApp.generatingCommitMessage",
-          "group": "navigation",
-          "when": "scmProvider == git && aggregorApp.isGeneratingCommitMessage"
         }
       ],
       "view/title": [
         {
-          "command": "aggregorApp.newSession",
+          "command": "aggregorApp.newSessionInRepo",
           "group": "navigation@1",
           "when": "view == aggregorApp.sessions"
         },
@@ -119,6 +114,10 @@
         }
       ],
       "commandPalette": [
+        {
+          "command": "aggregorApp.newSessionInRepo",
+          "when": "false"
+        },
         {
           "command": "aggregorApp.openSession",
           "when": "false"
@@ -168,17 +167,14 @@
         }
       },
       {
-        "title": "Generating commit message...",
-        "command": "aggregorApp.generatingCommitMessage",
-        "shortTitle": "Gen commit msg...",
-        "icon": {
-          "dark": "./assets/aggregorLoadingLightIcon.svg",
-          "light": "./assets/aggregorLoadingDarkIcon.svg"
-        }
-      },
-      {
         "title": "New Claude Session",
         "command": "aggregorApp.newSession",
+        "category": "Aggregor App",
+        "icon": "$(add)"
+      },
+      {
+        "title": "New Session...",
+        "command": "aggregorApp.newSessionInRepo",
         "category": "Aggregor App",
         "icon": "$(add)"
       },
