@@ -11,9 +11,21 @@ one below it. The `stack` skill (`.claude/skills/stack`) creates them; on push, 
 the branch below and joins them into a GitHub stack. Land a stack by merging its top PR with a merge commit, never
 squash. The roadmap lives in `README.md`. Commit and push only when the user asks.
 
-Effect here is `4.0.2`. Most Effect material online is v3 and the names differ (`Option.fromNullable` ->
+Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (`Option.fromNullable` ->
 `Option.fromNullishOr`, `Option` is no longer a subtype of `Effect`). Check `node_modules/effect/dist/*.d.ts` and
 `node_modules/effect/ai-docs/` before using an API.
+
+## Engineering rules
+
+- **YAGNI.** Don't build anything until you need it.
+- **DRY.** Extract a pattern after its second duplication, not before.
+- **Fail fast.** Explicit errors beat silent failures.
+- **Delete aggressively.** Less code means fewer bugs.
+- **Semantic naming.** Name variables, parameters, functions and APIs with verbose, self-explanatory names that optimize
+  for comprehension by both humans and LLMs, not brevity: `sessionId`, not `id`; `stagedDiff`, not `diff`. The commit
+  message code in `apps/extension/src/services/scm` is the reference.
+- **No users before 0.1.0.** Until 0.1.0 ships, the author is the only user. Be brave: rename command IDs, setting keys
+  and storage keys, change stored data without migrations, and leave no compatibility shims or deprecation paths.
 
 ## Commands
 
