@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        script: [lint:check, format:check, typecheck]
+        script: [lint:check, format:check, typecheck, vsix]
     steps:
       - uses: actions/checkout@v7
       # Installs pnpm and Node from package.json (packageManager, devEngines.runtime), then runs pnpm install.
