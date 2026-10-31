@@ -28,16 +28,10 @@ jobs:
       # vsce runs vscode:prepublish, which only builds. Lint and typecheck already ran in checks.yaml on every branch.
       - name: Package extension
         run: pnpm vsix
-      # Signs in as the Azure managed identity that is a member of the Marketplace publisher.
-      - uses: azure/login@v3
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          allow-no-subscriptions: true
       # Before the release, so a failed run can be re-run: --skip-duplicate skips an already published version.
       - name: Publish to Marketplace
         working-directory: apps/extension
-        run: pnpm exec vsce publish --packagePath *.vsix --skip-duplicate --azure-credential
+        run: pnpm exec vsce publish --packagePath *.vsix --skip-duplicate --oidc
       # Creates the tag on the merge commit too. Fails if v<version> already exists, i.e. the version was not bumped.
       - name: Create release
         run:
