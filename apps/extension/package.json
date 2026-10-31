@@ -1,6 +1,6 @@
 {
   "name": "aggregor-app",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": true,
   "description": "Combines multiple coding agents.",
   "repository": "github:m-salman-afzal/aggregor",
@@ -71,7 +71,7 @@
         {
           "command": "aggregorApp.generateCommitMessage",
           "group": "navigation",
-          "when": "scmProvider == git && !aggregorApp.isGeneratingCommitMessage"
+          "when": "scmProvider == git"
         }
       ],
       "view/title": [
@@ -161,6 +161,7 @@
         "title": "Generate auto commit message with AI",
         "command": "aggregorApp.generateCommitMessage",
         "shortTitle": "Auto commit message",
+        "enablement": "!aggregorApp.isGeneratingCommitMessage",
         "icon": {
           "dark": "./assets/aggregorLightIcon.svg",
           "light": "./assets/aggregorDarkIcon.svg"
