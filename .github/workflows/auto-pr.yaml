@@ -1,9 +1,10 @@
 name: Auto PR
 
 # Any branch push opens a PR into dev; a push to dev opens (or retitles) the release PR into main.
+# Renovate branches are skipped: Renovate opens its own PRs.
 on:
   push:
-    branches-ignore: [main, "dependabot/**"]
+    branches-ignore: [main, "renovate/**"]
 
 concurrency:
   group: auto-pr-${{ github.ref }}

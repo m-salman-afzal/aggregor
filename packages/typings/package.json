@@ -6,7 +6,7 @@
     "./*": "./*"
   },
   "scripts": {
-    "sync:git-types": "curl -o src/git.d.ts https://raw.githubusercontent.com/microsoft/vscode/main/extensions/git/src/api/git.d.ts"
+    "sync:git-types": "curl --output src/git.d.ts https://raw.githubusercontent.com/microsoft/vscode/main/extensions/git/src/api/git.d.ts"
   },
   "dependencies": {
     "@pkg/tsconfigs": "workspace:*"

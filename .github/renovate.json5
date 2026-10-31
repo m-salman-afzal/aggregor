@@ -1,0 +1,52 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    // config:recommended (Dependency Dashboard issue, monorepo groups like effect and typescript-eslint, deprecated
+    // package replacements) plus GitHub Actions pinned to commit digests, config migration PRs, abandoned package
+    // warnings and weekly lock file maintenance.
+    "config:best-practices",
+    "schedule:weekly",
+    // Dependency bumps land as `build(deps): ...`, like the hand-written `build: bump ...` commits. Forced on because
+    // auto-detection reads the latest commits, which on dev are mostly "Merge pull request" merges.
+    ":semanticCommits",
+    ":semanticCommitTypeAll(build)",
+    // All minor and patch bumps share one PR, as with Dependabot. Majors still get a PR each.
+    "group:allNonMajor"
+  ],
+  // schedule:weekly means early Monday morning, local time. Security fixes skip the schedule.
+  timezone: "Asia/Karachi",
+  // Runs `pnpm dedupe` after each lockfile update, so older duplicate versions drop out where a newer one fits.
+  postUpdateOptions: ["pnpmDedupe"],
+  // Also raise fix PRs for vulnerabilities in osv.dev, on top of GitHub's Dependabot alerts, and list the open ones on
+  // the dashboard.
+  osvVulnerabilityAlerts: true,
+  dependencyDashboardOSVVulnerabilitySummary: "unresolved",
+  packageRules: [
+    {
+      // Wait a week after a release before proposing it; compromised npm releases are usually pulled within days.
+      // config:best-practices waits 3 days, for npm only. Pins, digests and lock file maintenance are left out: they have
+      // no release date to age against.
+      matchUpdateTypes: ["major", "minor", "patch"],
+      minimumReleaseAge: "7 days"
+    },
+    {
+      // Workflow actions in one PR, majors included, with `ci` commits.
+      groupName: "GitHub Actions",
+      matchManagers: ["github-actions"],
+      semanticCommitType: "ci"
+    },
+    {
+      // vsce refuses to package when @types/vscode is newer than engines.vscode, so the two move together. `bump` raises
+      // the ^ range even though the new release already satisfies it, which is what keeps the minimum VS Code current.
+      groupName: "VS Code",
+      matchDepNames: ["vscode", "@types/vscode"],
+      rangeStrategy: "bump"
+    },
+    {
+      // VS Code patch releases add no API, so raising the minimum for them would only lock users out.
+      matchDepNames: ["vscode"],
+      matchUpdateTypes: ["patch"],
+      enabled: false
+    }
+  ]
+}
