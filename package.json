@@ -1,25 +1,25 @@
 {
   "name": "aggregor-monorepo",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "Combines multiple coding agents.",
   "type": "module",
   "engines": {
-    "node": ">=26.12.0"
+    "node": ">=26.13.0"
   },
   "devEngines": {
     "runtime": {
       "name": "node",
-      "version": "26.12.0",
+      "version": "26.13.0",
       "onFail": "error"
     },
     "packageManager": {
       "name": "pnpm",
-      "version": "12.11.1",
+      "version": "12.16.1",
       "onFail": "error"
     }
   },
-  "packageManager": "pnpm@12.11.2",
+  "packageManager": "pnpm@12.16.1",
   "scripts": {
     "prepare": "husky & effect-tsgo patch --typescript",
     "watch:vite": "pnpm --filter=aggregor-app watch:vite",
@@ -38,26 +38,26 @@
   },
   "devDependencies": {
     "@e18e/eslint-plugin": "0.8.1",
-    "@effect/tsgo": "0.53.0",
+    "@effect/tsgo": "0.63.0",
     "@eslint/js": "10.0.1",
     "@eslint/json": "2.1.1",
     "@eslint/markdown": "8.0.3",
     "@types/eslint-plugin-promise": "7.3.0",
     "@typescript/native": "npm:typescript@7.0.2",
-    "eslint": "10.12.0",
+    "eslint": "10.13.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-package-json": "3.0.0",
     "eslint-plugin-import-x": "4.17.1",
-    "eslint-plugin-perfectionist": "5.12.1",
+    "eslint-plugin-perfectionist": "5.13.0",
     "eslint-plugin-prettier": "5.5.7",
     "eslint-plugin-promise": "7.3.0",
-    "eslint-plugin-unicorn": "78.0.0",
+    "eslint-plugin-unicorn": "79.0.0",
     "globals": "17.13.0",
     "husky": "9.1.7",
     "lint-staged": "17.6.0",
     "prettier": "3.9.10",
     "typescript": "npm:@typescript/typescript6@6.0.2",
-    "typescript-eslint": "8.71.2"
+    "typescript-eslint": "8.72.1"
   },
   "lint-staged": {
     "*": [
