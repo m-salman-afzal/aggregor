@@ -6,9 +6,10 @@ The agent writes the code; the user makes the architecture decisions (where code
 implemented). Before writing a PR's code, post its decision list with a recommended default per item and wait for the
 user to approve or change it. Call out any deviation from an agreed decision when handing the work back.
 
-Work lands as small, feature-sliced, stacked PRs: each branch starts from the previous one and its PR is retargeted with
-`gh pr edit <n> --base <parent-branch>`. Merge bottom-up with merge commits, never squash. The roadmap lives in
-`README.md`. Commit and push only when the user asks.
+Work lands as small, feature-sliced, stacked PRs on `stack/<name>/<n>/<type>/<slug>` branches, each starting from the
+one below it. The `stack` skill (`.claude/skills/stack`) creates them; on push, the Auto PR workflow opens each PR into
+the branch below and joins them into a GitHub stack. Land a stack by merging its top PR with a merge commit, never
+squash. The roadmap lives in `README.md`. Commit and push only when the user asks.
 
 Effect here is `4.0.2`. Most Effect material online is v3 and the names differ (`Option.fromNullable` ->
 `Option.fromNullishOr`, `Option` is no longer a subtype of `Effect`). Check `node_modules/effect/dist/*.d.ts` and

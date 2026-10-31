@@ -23,11 +23,17 @@
   dependencyDashboardOSVVulnerabilitySummary: "unresolved",
   packageRules: [
     {
-      // Wait a week after a release before proposing it; compromised npm releases are usually pulled within days.
-      // config:best-practices waits 3 days, for npm only. Pins, digests and lock file maintenance are left out: they have
-      // no release date to age against.
+      // Wait 3 days after a release before proposing it; compromised npm releases are usually pulled within days.
+      // config:best-practices already does this for npm only; this rule covers every manager. Pins, digests and lock
+      // file maintenance are left out: they have no release date to age against.
       matchUpdateTypes: ["major", "minor", "patch"],
-      minimumReleaseAge: "7 days"
+      minimumReleaseAge: "3 days"
+    },
+    {
+      // husky is a finished shell shim with no release since Nov 2024; don't flag it as abandoned. Every other
+      // package still gets the 1-year abandonment warning from config:best-practices.
+      matchDepNames: ["husky"],
+      abandonmentThreshold: null
     },
     {
       // Workflow actions in one PR, majors included, with `ci` commits.
