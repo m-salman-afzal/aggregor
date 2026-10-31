@@ -1,6 +1,6 @@
 {
   "name": "aggregor-app",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "private": true,
   "description": "Combines multiple coding agents.",
   "repository": "github:m-salman-afzal/aggregor",

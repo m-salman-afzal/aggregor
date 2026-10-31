@@ -1,7 +1,8 @@
 name: Auto PR
 
 # Any branch push opens a PR into dev; a push to dev opens (or retitles) the release PR into main.
-# Renovate branches are skipped: Renovate opens its own PRs.
+# Stack branches (stack/<name>/<n>/<type>/<slug>, see .claude/skills/stack) from n = 1 open into the stack's branch below
+# instead, and join its GitHub stack. Renovate branches are skipped: Renovate opens its own PRs.
 on:
   push:
     branches-ignore: [main, "renovate/**"]
@@ -39,6 +40,19 @@ jobs:
             title=
           fi
 
+          # A stack branch above 0 targets the stack's one branch at n - 1.
+          parent=
+          if [[ $HEAD =~ ^stack/([^/]+)/([1-9][0-9]*)/ ]]; then
+            n=${BASH_REMATCH[2]}
+            below="stack/${BASH_REMATCH[1]}/$((n - 1))/"
+            parent=$(gh api "repos/$GH_REPO/git/matching-refs/heads/$below" -q '.[].ref | ltrimstr("refs/heads/")')
+            if [ "$(wc -w <<< "$parent")" -ne 1 ]; then
+              echo "::error::$HEAD needs exactly one ${below}* branch, found: ${parent:-none}"
+              exit 1
+            fi
+            base=$parent
+          fi
+
           # A fresh branch with no commits of its own can't have a PR yet.
           ahead=$(gh api "repos/$GH_REPO/compare/$base...$HEAD" -q .ahead_by)
           [ "$ahead" -gt 0 ] || { echo "Nothing to merge from $HEAD into $base"; exit 0; }
@@ -52,4 +66,20 @@ jobs:
             gh pr create --base "$base" --head "$HEAD" --fill --title "$title" --assignee "$ASSIGNEE"
           else
             gh pr create --base "$base" --head "$HEAD" --fill --assignee "$ASSIGNEE"
+          fi
+
+          # The PR also joins its parent's GitHub stack. Every push retries, so a link skipped because the branch below
+          # had no PR yet is made on a later push.
+          [ -n "$parent" ] || exit 0
+          pr=${pr:-$(gh pr list --head "$HEAD" --state open --json number -q '.[0].number')}
+          [ -z "$(gh api "repos/$GH_REPO/stacks?pull_request=$pr" -q '.[0].number')" ] || exit 0
+          parent_pr=$(gh pr list --head "$parent" --state open --json number -q '.[0].number')
+          [ -n "$parent_pr" ] || { echo "$parent has no open PR yet; $HEAD joins the stack on a later push"; exit 0; }
+          stack=$(gh api "repos/$GH_REPO/stacks?pull_request=$parent_pr" -q '.[0].number')
+          if [ -n "$stack" ]; then
+            gh api --method POST "repos/$GH_REPO/stacks/$stack/add" -F "pull_requests[]=$pr"
+          elif [ "$n" -eq 1 ]; then
+            gh api --method POST "repos/$GH_REPO/stacks" -F "pull_requests[]=$parent_pr" -F "pull_requests[]=$pr"
+          else
+            echo "$parent isn't in a stack yet; push it again, then $HEAD"
           fi
