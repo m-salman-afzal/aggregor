@@ -27,6 +27,15 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
 - **No users before 0.1.0.** Until 0.1.0 ships, the author is the only user. Be brave: rename command IDs, setting keys
   and storage keys, change stored data without migrations, and leave no compatibility shims or deprecation paths.
 
+## Traces
+
+Every command runs as a root span named by its command ID, and each `Effect.fn` it calls is a child span. Finished spans
+and Effect logs go to the **Aggregor App** output channel, one trace-level line per span:
+`aggregorApp.newSessionInRepo > newSession > startSession 3.1ms ok`. F5 starts the extension at trace level; elsewhere,
+pick it with **Developer: Set Log Level...**. VS Code also writes the channel to
+`<logs>/window<n>/exthost/SalmanAfzal.aggregor-app/Aggregor App.log`, so a test run's trace can be read from disk.
+Callbacks VS Code makes per row or per spinner frame (tree items, badges, the spinner) run untraced.
+
 ## Commands
 
 Lint, format and type checks run from the repo root. `:check` scripts only report, `:fix` scripts write.
