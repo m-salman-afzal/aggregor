@@ -13,8 +13,8 @@ import {ErrorService} from "@/services/error.service.ts";
 import {RepoStore} from "@/services/repo/repo.service.ts";
 import {ScmService} from "@/services/scm/scm.service.ts";
 import {SettingsService} from "@/services/settings.service.ts";
-import {VscService} from "@/services/vsc.service.ts";
-import {setContext, withProgress} from "@/services/vsc.utils.ts";
+import {VsCodeService} from "@/services/vscode.service.ts";
+import {setContext, withProgress} from "@/services/vscode.utils.ts";
 import {COMMANDS, CONTEXT_KEYS, EXTENSION_VERSIONS} from "@pkg/constants/src/extension.constant.ts";
 import {ACTIONS, COMMIT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {EXIT_CODES} from "@pkg/constants/src/process.constant.ts";
@@ -25,43 +25,52 @@ import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 import type {API, GitExtension, Repository} from "@pkg/typings/src/git.js";
 import type * as vsc from "vscode";
 
-const getRootUri = Effect.fn("getRootUri")(function* () {
+const getSourceControlRootUri = Effect.fn("getSourceControlRootUri")(function* () {
   const scm = yield* (yield* ScmService).scm;
 
   return yield* Effect.fromResult(Result.fromNullishOr(scm.rootUri, () => new RootUriUnavailable()));
 });
 
-const getGitExtension = Effect.fn("getGitExtension")(function* () {
-  const {extensions} = yield* VscService;
+const getGitApi = Effect.fn("getGitApi")(function* () {
+  const {extensions} = yield* VsCodeService;
   const gitExtension = yield* Effect.fromResult(
     Result.fromNullishOr(extensions.getExtension<GitExtension>("vscode.git"), () => new GitExtensionUnavailable())
   );
+  // We can activate before git does (an open Sessions view activates us at startup), and git has no exports until it
+  // is active. activate() returns them, at once when git is already active.
+  const gitExports = yield* Effect.tryPromise({
+    catch: () => new GitExtensionUnavailable(),
+    try: async () => gitExtension.activate()
+  });
 
+  // getAPI throws when git is turned off in the settings.
   return yield* Effect.try({
     catch: () => new GitExtensionDisabled(),
-    try: () => gitExtension.exports.getAPI(EXTENSION_VERSIONS.git)
+    try: () => gitExports.getAPI(EXTENSION_VERSIONS.git)
   });
 });
 
-const getRepository = Effect.fn("getRepository")(function* (api: API, uri: vsc.Uri) {
-  return yield* Effect.fromResult(Result.fromNullishOr(api.getRepository(uri), () => new GitRepositoryUnavailable()));
+const findGitRepository = Effect.fn("findGitRepository")(function* (gitApi: API, rootUri: vsc.Uri) {
+  return yield* Effect.fromResult(
+    Result.fromNullishOr(gitApi.getRepository(rootUri), () => new GitRepositoryUnavailable())
+  );
 });
 
-const getGitRepository = Effect.fn("getGitRepository")(function* () {
-  const [api, uri] = yield* Effect.all([getGitExtension(), getRootUri()]);
+const getSourceControlRepository = Effect.fn("getSourceControlRepository")(function* () {
+  const [gitApi, rootUri] = yield* Effect.all([getGitApi(), getSourceControlRootUri()]);
 
-  return yield* getRepository(api, uri);
+  return yield* findGitRepository(gitApi, rootUri);
 });
 
-const getStagedRepository = Effect.fn("getStagedRepository")(function* () {
+const getRepositoryWithStagedChanges = Effect.fn("getRepositoryWithStagedChanges")(function* () {
   return yield* Effect.filterOrFail(
-    getGitRepository(),
-    (repo) => repo.state.indexChanges.length > 0,
+    getSourceControlRepository(),
+    (repository) => repository.state.indexChanges.length > 0,
     () => new NothingStaged()
   );
 });
 
-export const getGitDiff = Effect.fn("getGitDiff")(function* (repository: Repository) {
+export const getStagedDiff = Effect.fn("getStagedDiff")(function* (repository: Repository) {
   return yield* Effect.tryPromise({
     catch: () => new GitDiffError(),
     try: async () => repository.diff(true)
@@ -72,9 +81,9 @@ export const getCommitMessage = Effect.fn("getCommitMessage")(function* (
   repository: Repository,
   commitCommand: string
 ) {
-  const stagedDiff = yield* getGitDiff(repository);
-  const spawner = yield* ChildProcessSpawner;
-  const handle = yield* spawner.spawn(
+  const stagedDiff = yield* getStagedDiff(repository);
+  const childProcessSpawner = yield* ChildProcessSpawner;
+  const commitCommandProcess = yield* childProcessSpawner.spawn(
     ChildProcess.make(commitCommand, {
       cwd: repository.rootUri.fsPath,
       shell: true,
@@ -84,9 +93,9 @@ export const getCommitMessage = Effect.fn("getCommitMessage")(function* (
 
   const [stdout, stderr, exitCode] = yield* Effect.all(
     [
-      Stream.mkString(Stream.decodeText(handle.stdout)),
-      Stream.mkString(Stream.decodeText(handle.stderr)),
-      handle.exitCode
+      Stream.mkString(Stream.decodeText(commitCommandProcess.stdout)),
+      Stream.mkString(Stream.decodeText(commitCommandProcess.stderr)),
+      commitCommandProcess.exitCode
     ],
     {concurrency: "unbounded"}
   );
@@ -98,7 +107,7 @@ export const getCommitMessage = Effect.fn("getCommitMessage")(function* (
   return commitMessage;
 });
 
-const commitStaged = Effect.fn("commitStaged")(function* (repository: Repository, commitMessage: string) {
+const commitStagedChanges = Effect.fn("commitStagedChanges")(function* (repository: Repository, commitMessage: string) {
   yield* Effect.tryPromise({
     catch: (cause) => new CommitFailed({cause}),
     try: async () => repository.commit(commitMessage)
@@ -107,8 +116,8 @@ const commitStaged = Effect.fn("commitStaged")(function* (repository: Repository
 
 export const writeCommitMessage = Effect.fn("writeCommitMessage")(
   function* () {
-    const {autoCommit, commitCommand} = yield* SettingsService.use((settingsService) => settingsService.read);
-    const stagedRepository = yield* getStagedRepository();
+    const {autoCommit, commitCommand} = yield* SettingsService.use((settingsService) => settingsService.readSettings);
+    const stagedRepository = yield* getRepositoryWithStagedChanges();
     const commitMessage = yield* getCommitMessage(stagedRepository, commitCommand);
 
     const scm = yield* (yield* ScmService).scm;
@@ -116,29 +125,31 @@ export const writeCommitMessage = Effect.fn("writeCommitMessage")(
       scm.inputBox.value = commitMessage;
     });
 
-    if (autoCommit) yield* commitStaged(stagedRepository, commitMessage);
+    if (autoCommit) yield* commitStagedChanges(stagedRepository, commitMessage);
   },
   (effect) => effect.pipe(Effect.scoped)
 );
 
-const offerStageAll = Effect.fn("offerStageAll")(function* () {
-  const {commands} = yield* VscService;
+const offerToStageAllChanges = Effect.fn("offerToStageAllChanges")(function* () {
+  const {commands} = yield* VsCodeService;
   const scm = yield* (yield* ScmService).scm;
-  const choice = yield* ErrorService.use((s) => s.show(COMMIT_MESSAGES.NOTHING_STAGED, ACTIONS.STAGE_ALL));
-  if (choice !== ACTIONS.STAGE_ALL) return;
+  const pickedAction = yield* ErrorService.use((errorService) =>
+    errorService.showErrorMessage(COMMIT_MESSAGES.NOTHING_STAGED, ACTIONS.STAGE_ALL)
+  );
+  if (pickedAction !== ACTIONS.STAGE_ALL) return;
 
   yield* Effect.promise(async () => commands.executeCommand("git.stageAll", scm));
   yield* Effect.promise(async () => commands.executeCommand(COMMANDS.SCM_TITLE.GENERATE_COMMIT_MESSAGE, scm));
 });
 
-const toMessage = Effect.fn("toMessage")(function* () {
+const writeCommitMessageOrShowError = Effect.fn("writeCommitMessageOrShowError")(function* () {
   return yield* writeCommitMessage().pipe(
-    Effect.catchTag("NothingStaged", () => Effect.forkDetach(offerStageAll())),
-    Effect.catch((error) =>
+    Effect.catchTag("NothingStaged", () => Effect.forkDetach(offerToStageAllChanges())),
+    Effect.catch((commitMessageError) =>
       Effect.forkDetach(
-        ErrorService.use((s) =>
-          s.show(
-            Match.valueTags(error, {
+        ErrorService.use((errorService) =>
+          errorService.showErrorMessage(
+            Match.valueTags(commitMessageError, {
               CommitCliError: ({exitCode, stderr}) => COMMIT_MESSAGES.COMMIT_CLI_FAILED(exitCode, stderr),
               CommitFailed: () => COMMIT_MESSAGES.COMMIT_FAILED,
               EmptyCommitMessage: () => COMMIT_MESSAGES.EMPTY_COMMIT_MESSAGE,
@@ -159,36 +170,36 @@ const toMessage = Effect.fn("toMessage")(function* () {
 
 export const generateCommitMessage = Effect.fn("generateCommitMessage")(
   function* (scm: vsc.SourceControl) {
-    const {ProgressLocation} = yield* VscService;
+    const {ProgressLocation} = yield* VsCodeService;
 
     yield* setContext(CONTEXT_KEYS.IS_GENERATING_COMMIT_MESSAGE, true);
     yield* withProgress(
       {location: ProgressLocation.SourceControl, title: COMMIT_MESSAGES.GENERATING},
-      toMessage().pipe(Effect.provideService(ScmService, {scm: Effect.sync(() => scm)}))
+      writeCommitMessageOrShowError().pipe(Effect.provideService(ScmService, {scm: Effect.sync(() => scm)}))
     );
   },
   (effect) => effect.pipe(Effect.ensuring(setContext(CONTEXT_KEYS.IS_GENERATING_COMMIT_MESSAGE, false)))
 );
 
 // A folder that is not a git repo, or git being off, leaves the repo in our sidebar only.
-const openInGit = Effect.fn("openInGit")(function* (api: API, path: string) {
-  const {Uri} = yield* VscService;
+const openRepoInSourceControl = Effect.fn("openRepoInSourceControl")(function* (gitApi: API, repoPath: string) {
+  const {Uri} = yield* VsCodeService;
 
-  yield* Effect.tryPromise(async () => api.openRepository(Uri.file(path))).pipe(
-    Effect.ignore({log: "Warn", message: `Could not open ${path} in Source Control`})
+  yield* Effect.tryPromise(async () => gitApi.openRepository(Uri.file(repoPath))).pipe(
+    Effect.ignore({log: "Warn", message: `Could not open ${repoPath} in Source Control`})
   );
 });
 
 // The git API cannot close a repo, so this runs git.close, which closes whichever repo contains the path and asks the
 // user to pick one when none does. It only runs for a repo whose root is exactly the path.
 // ponytail: a path inside a repo, or reached through a symlink, stays in Source Control until the next reload.
-const closeInGit = Effect.fn("closeInGit")(function* (api: API, path: string) {
-  const {commands, Uri} = yield* VscService;
-  const repository = api.getRepository(Uri.file(path));
-  if (repository?.rootUri.fsPath !== path) return;
+const closeRepoInSourceControl = Effect.fn("closeRepoInSourceControl")(function* (gitApi: API, repoPath: string) {
+  const {commands, Uri} = yield* VsCodeService;
+  const repository = gitApi.getRepository(Uri.file(repoPath));
+  if (repository?.rootUri.fsPath !== repoPath) return;
 
   yield* Effect.tryPromise(async () => commands.executeCommand("git.close", repository.rootUri)).pipe(
-    Effect.ignore({log: "Warn", message: `Could not close ${path} in Source Control`})
+    Effect.ignore({log: "Warn", message: `Could not close ${repoPath} in Source Control`})
   );
 });
 
@@ -196,26 +207,30 @@ const closeInGit = Effect.fn("closeInGit")(function* (api: API, path: string) {
 // extension does not remember repos opened this way, so every startup opens them again.
 export const GitReposLayer = Layer.effectDiscard(
   Effect.gen(function* () {
-    const {added} = yield* RepoStore;
-    const synced = yield* Ref.make<ReadonlySet<string>>(new Set());
+    const {addedRepoPaths} = yield* RepoStore;
+    const syncedRepoPaths = yield* Ref.make<ReadonlySet<string>>(new Set());
 
-    const syncGit = Effect.fn("syncGit")(function* (paths: readonly string[]) {
-      const before = yield* Ref.getAndSet(synced, new Set(paths));
-      const api = yield* getGitExtension();
+    const syncAddedReposWithSourceControl = Effect.fn("GitReposLayer.syncAddedReposWithSourceControl")(function* (
+      currentAddedRepoPaths: readonly string[]
+    ) {
+      const previouslySyncedRepoPaths = yield* Ref.getAndSet(syncedRepoPaths, new Set(currentAddedRepoPaths));
+      const gitApi = yield* getGitApi();
 
       yield* Effect.forEach(
-        paths.filter((path) => !before.has(path)),
-        (path) => openInGit(api, path)
+        currentAddedRepoPaths.filter((repoPath) => !previouslySyncedRepoPaths.has(repoPath)),
+        (repoPath) => openRepoInSourceControl(gitApi, repoPath)
       );
       yield* Effect.forEach(
-        [...before].filter((path) => !paths.includes(path)),
-        (path) => closeInGit(api, path)
+        [...previouslySyncedRepoPaths].filter((repoPath) => !currentAddedRepoPaths.includes(repoPath)),
+        (repoPath) => closeRepoInSourceControl(gitApi, repoPath)
       );
     });
 
     yield* Effect.forkScoped(
-      Stream.runForEach(SubscriptionRef.changes(added), (paths) =>
-        syncGit(paths).pipe(Effect.ignore({log: "Warn", message: "Could not sync added repos with Source Control"}))
+      Stream.runForEach(SubscriptionRef.changes(addedRepoPaths), (currentAddedRepoPaths) =>
+        syncAddedReposWithSourceControl(currentAddedRepoPaths).pipe(
+          Effect.ignore({log: "Warn", message: "Could not sync added repos with Source Control"})
+        )
       )
     );
   })

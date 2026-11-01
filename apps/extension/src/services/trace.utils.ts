@@ -1,4 +1,4 @@
-import {VscService} from "@/services/vsc.service.ts";
+import {VsCodeService} from "@/services/vscode.service.ts";
 import {APP_NAME} from "@pkg/constants/src/extension.constant.ts";
 import {Cause, Effect, Exit, Layer, Logger, Option, Predicate, References, Tracer} from "effect";
 import {format} from "node:util";
@@ -66,12 +66,12 @@ const makeOutputChannelLogger = (outputChannel: LogOutputChannel) =>
 // Spans and logs go to the "Aggregor App" output channel, which VS Code also writes to a log file on disk.
 export const TraceLogLayer = Layer.unwrap(
   Effect.gen(function* () {
-    const {window} = yield* VscService;
+    const {window} = yield* VsCodeService;
     const outputChannel = yield* Effect.acquireRelease(
       Effect.sync(() => window.createOutputChannel(APP_NAME, {log: true})),
-      (channel) =>
+      (createdOutputChannel) =>
         Effect.sync(() => {
-          channel.dispose();
+          createdOutputChannel.dispose();
         })
     );
 

@@ -9,8 +9,8 @@ import {newSession, openSession, removeSession} from "@/services/session/termina
 import {TranscriptService} from "@/services/session/transcript.service.ts";
 import {SettingsService} from "@/services/settings.service.ts";
 import {TraceLogLayer} from "@/services/trace.utils.ts";
-import {VscService} from "@/services/vsc.service.ts";
-import {registerCommand} from "@/services/vsc.utils.ts";
+import {VsCodeService} from "@/services/vscode.service.ts";
+import {registerCommand} from "@/services/vscode.utils.ts";
 import {SessionsView} from "@/views/sessions.view.ts";
 import {NodeServices} from "@effect/platform-node";
 import {COMMANDS} from "@pkg/constants/src/extension.constant.ts";
@@ -26,7 +26,7 @@ const CommandsLayer = Layer.effectDiscard(
     registerCommand(COMMANDS.SESSION_ROW.OPEN, openSession),
     registerCommand(COMMANDS.SESSION_ROW.REMOVE, removeSession),
     registerCommand(COMMANDS.VIEW_TITLE.ADD_REPO, addRepo),
-    // VS Code passes title-bar buttons the focused row, so drop the args and always ask for the repo.
+    // VS Code passes title-bar buttons the focused row, so drop the arguments and always ask for the repo.
     registerCommand(COMMANDS.VIEW_TITLE.NEW_SESSION, () => newSession())
   ])
 );
@@ -42,12 +42,12 @@ const AppLayer = Layer.mergeAll(CommandsLayer, GitReposLayer, SessionsView).pipe
   Layer.provideMerge(IndependentLayers)
 );
 
-const activate = async (ctx: ExtensionContext) => {
+const activate = async (extensionContext: ExtensionContext) => {
   // TraceLogLayer goes under everything, so every layer's startup work is traced and logged too.
   const runtime = ManagedRuntime.make(
-    AppLayer.pipe(Layer.provide(TraceLogLayer), Layer.provideMerge(VscService.layer(ctx)))
+    AppLayer.pipe(Layer.provide(TraceLogLayer), Layer.provideMerge(VsCodeService.layer(extensionContext)))
   );
-  ctx.subscriptions.push({dispose: async () => runtime.dispose()});
+  extensionContext.subscriptions.push({dispose: async () => runtime.dispose()});
   // The runtime builds lazily; build it now so commands and views exist before activation finishes.
   await runtime.context();
 };

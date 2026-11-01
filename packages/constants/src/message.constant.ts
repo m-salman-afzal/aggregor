@@ -29,11 +29,13 @@ export const REPO_MESSAGES = {
 } as const;
 
 export const SESSION_LABELS = {
-  ACCESSIBLE: (label: string, folder: string, status: string | undefined) =>
-    status === undefined ? `${label}, ${folder}` : `${label}, ${folder}, ${status}`,
+  ACCESSIBLE: (rowLabel: string, repoFolderName: string, statusLabel: string | undefined) =>
+    statusLabel === undefined ? `${rowLabel}, ${repoFolderName}` : `${rowLabel}, ${repoFolderName}, ${statusLabel}`,
   OPEN_SESSION: "Open Session",
-  TOOLTIP: (name: string, cwd: string, status: string | undefined) =>
-    status === undefined ? `${name}\n${cwd}` : `${name} · ${status}\n${cwd}`
+  TOOLTIP: (sessionName: string, workingDirectory: string, statusLabel: string | undefined) =>
+    statusLabel === undefined
+      ? `${sessionName}\n${workingDirectory}`
+      : `${sessionName} · ${statusLabel}\n${workingDirectory}`
 } as const;
 
 export const STATUS_LABELS = {
@@ -45,7 +47,8 @@ export const STATUS_LABELS = {
 } as const;
 
 export const SESSION_MESSAGES = {
-  CONFIRM_REMOVE_RUNNING: (name: string) => `Remove "${name}"? Its agent is still running and will be stopped.`,
+  CONFIRM_REMOVE_RUNNING: (displayName: string) =>
+    `Remove "${displayName}"? Its agent is still running and will be stopped.`,
   LAUNCH_FAILED: "Could not open a terminal for the session.",
   NOT_FOUND: "This session no longer exists.",
   REPO_REQUIRED: "Add a repo or open a folder to start a session.",

@@ -14,59 +14,72 @@ const TitleEntry = Schema.Union([
 const decodeTitleLine = Schema.decodeUnknownResult(Schema.fromJsonString(TitleEntry));
 
 export interface Titles {
-  readonly ai: Option.Option<string>;
-  readonly custom: Option.Option<string>;
+  readonly aiTitle: Option.Option<string>;
+  readonly customTitle: Option.Option<string>;
 }
 
 // How far into a transcript we have read, so each refresh only scans what Claude appended since.
 export interface TranscriptProgress {
-  readonly file: string;
-  readonly offset: bigint;
+  readonly byteOffset: bigint;
   readonly titles: Titles;
+  readonly transcriptFilePath: string;
 }
 
-export const NO_TITLES: Titles = {ai: Option.none(), custom: Option.none()};
+export const NO_TITLES: Titles = {aiTitle: Option.none(), customTitle: Option.none()};
 
-export const getProjectsDir = Effect.fn("getProjectsDir")(function* () {
+export const getClaudeProjectsDirectoryPath = Effect.fn("getClaudeProjectsDirectoryPath")(function* () {
   const path = yield* Path;
-  const configDir = yield* Config.withDefault(Config.String("CLAUDE_CONFIG_DIR"), path.join(homedir(), ".claude"));
+  const claudeConfigDirectoryPath = yield* Config.withDefault(
+    Config.String("CLAUDE_CONFIG_DIR"),
+    path.join(homedir(), ".claude")
+  );
 
-  return path.join(configDir, "projects");
+  return path.join(claudeConfigDirectoryPath, "projects");
 });
 
-// Claude writes <projects>/<encoded cwd>/<id>.jsonl after the first message. Scanning every project folder
+// Claude writes <projects>/<encoded cwd>/<session id>.jsonl after the first message. Scanning every project folder
 // instead of encoding the cwd ourselves keeps symlinked and very long paths working.
-export const findTranscript = Effect.fn("findTranscript")(function* (id: string) {
-  const fs = yield* FileSystem;
+export const findTranscriptFilePath = Effect.fn("findTranscriptFilePath")(function* (sessionId: string) {
+  const fileSystem = yield* FileSystem;
   const path = yield* Path;
-  const projects = yield* getProjectsDir();
-  const folders = yield* fs.readDirectory(projects);
-  const found = yield* Effect.findFirst(folders, (folder) => fs.exists(path.join(projects, folder, `${id}.jsonl`)));
-  const folder = yield* Effect.fromResult(Result.fromOption(found, () => new TranscriptNotFound({id})));
+  const projectsDirectoryPath = yield* getClaudeProjectsDirectoryPath();
+  const projectFolderNames = yield* fileSystem.readDirectory(projectsDirectoryPath);
+  const matchingFolderName = yield* Effect.findFirst(projectFolderNames, (projectFolderName) =>
+    fileSystem.exists(path.join(projectsDirectoryPath, projectFolderName, `${sessionId}.jsonl`))
+  );
+  const projectFolderName = yield* Effect.fromResult(
+    Result.fromOption(matchingFolderName, () => new TranscriptNotFound({sessionId}))
+  );
 
-  return path.join(projects, folder, `${id}.jsonl`);
+  return path.join(projectsDirectoryPath, projectFolderName, `${sessionId}.jsonl`);
 });
 
 // A custom title (/rename) beats Claude's own; within each kind the latest wins.
-export const titleOf = (titles: Titles) => Option.orElse(titles.custom, () => titles.ai);
+export const getPreferredTitle = (titles: Titles) => Option.orElse(titles.customTitle, () => titles.aiTitle);
 
-const addTitle = (current: Titles, entry: typeof TitleEntry.Type): Titles =>
-  entry.type === "ai-title"
-    ? {...current, ai: Option.some(entry.aiTitle)}
-    : {...current, custom: Option.some(entry.customTitle)};
+const addTitleEntry = (currentTitles: Titles, titleEntry: typeof TitleEntry.Type): Titles =>
+  titleEntry.type === "ai-title"
+    ? {...currentTitles, aiTitle: Option.some(titleEntry.aiTitle)}
+    : {...currentTitles, customTitle: Option.some(titleEntry.customTitle)};
 
-// Scans the bytes between the last read and `size`. A line cut off by a concurrent write is never a title: titles
-// are short lines written in one go.
-export const readTitles = Effect.fn("readTitles")(function* (progress: TranscriptProgress, size: bigint) {
-  const fs = yield* FileSystem;
-  const titles = yield* Stream.decodeText(
-    fs.stream(progress.file, {bytesToRead: ByteSize.bytes(size - progress.offset), offset: progress.offset})
+// Scans the bytes between the last read and `transcriptSize`. A line cut off by a concurrent write is never a title:
+// titles are short lines written in one go.
+export const readNewTitles = Effect.fn("readNewTitles")(function* (
+  transcriptProgress: TranscriptProgress,
+  transcriptSize: bigint
+) {
+  const fileSystem = yield* FileSystem;
+  const updatedTitles = yield* Stream.decodeText(
+    fileSystem.stream(transcriptProgress.transcriptFilePath, {
+      bytesToRead: ByteSize.bytes(transcriptSize - transcriptProgress.byteOffset),
+      offset: transcriptProgress.byteOffset
+    })
   ).pipe(
     Stream.splitLines,
-    Stream.filter((line) => line.includes('-title"')),
-    Stream.filterMap((line) => decodeTitleLine(line)),
-    Stream.runFold(() => progress.titles, addTitle)
+    Stream.filter((transcriptLine) => transcriptLine.includes('-title"')),
+    Stream.filterMap((transcriptLine) => decodeTitleLine(transcriptLine)),
+    Stream.runFold(() => transcriptProgress.titles, addTitleEntry)
   );
 
-  return {...progress, offset: size, titles};
+  return {...transcriptProgress, byteOffset: transcriptSize, titles: updatedTitles};
 });

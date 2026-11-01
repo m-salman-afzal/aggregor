@@ -1,5 +1,5 @@
 import e18e from "@e18e/eslint-plugin";
-import js from "@eslint/js";
+import javascript from "@eslint/js";
 import json from "@eslint/json";
 import markdown from "@eslint/markdown";
 import packageJson from "eslint-package-json";
@@ -7,7 +7,7 @@ import importX from "eslint-plugin-import-x";
 import perfectionist from "eslint-plugin-perfectionist";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 // import pluginPromise from "eslint-plugin-promise";
-// import unicorn from "eslint-plugin-unicorn";
+import unicorn from "eslint-plugin-unicorn";
 import {defineConfig, globalIgnores} from "eslint/config";
 import globals from "globals";
 import tsEslint from "typescript-eslint";
@@ -70,7 +70,7 @@ const config: Config[] = defineConfig([
   // pluginPromise.configs["flat/recommended"],
   {
     extends: [
-      js.configs.all,
+      javascript.configs.all,
       tsEslint.configs.all,
       eslintPluginPrettierRecommended,
 
@@ -85,7 +85,7 @@ const config: Config[] = defineConfig([
         projectService: true
       }
     },
-    plugins: {"import-x": importX, js},
+    plugins: {"import-x": importX, js: javascript, unicorn},
     rules: {
       "@typescript-eslint/consistent-type-imports": [
         "error",
@@ -110,7 +110,7 @@ const config: Config[] = defineConfig([
       "@typescript-eslint/prefer-readonly-parameter-types": "off",
       "capitalized-comments": "off",
       "func-names": ["error", "always", {generators: "never"}],
-      "id-length": "off",
+      "id-length": ["error", {min: 3, properties: "never"}],
       "import-x/consistent-type-specifier-style": ["error", "prefer-top-level"],
       "max-lines-per-function": [
         "off",
@@ -151,7 +151,8 @@ const config: Config[] = defineConfig([
           sortBy: "path"
         }
       ],
-      "sort-imports": "off"
+      "sort-imports": "off",
+      "unicorn/name-replacements": ["error", {checkFilenames: false, replacements: {repo: false}}]
     }
   }
 ]);
