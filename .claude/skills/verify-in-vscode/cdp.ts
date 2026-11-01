@@ -64,7 +64,7 @@ export const evaluate = async (expression: string) => {
   });
   if (isRecord(exceptionDetails)) {
     const exception = isRecord(exceptionDetails.exception) ? exceptionDetails.exception : {};
-    throw new Error(String(exception.description ?? exceptionDetails.text));
+    throw new Error(String(exception.description === undefined ? exceptionDetails.text : exception.description));
   }
 
   process.stdout.write(`${JSON.stringify(isRecord(result) ? result.value : undefined)}\n`);

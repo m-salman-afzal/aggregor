@@ -36,7 +36,9 @@ export const findClaudeProcessId = () => {
   const exportedProcessId = Number(process.env.CLAUDE_PID);
   if (exportedProcessId > 0 && isClaudeProcess(exportedProcessId)) return exportedProcessId;
 
-  return listAncestorProcessIds(process.ppid).find(isClaudeProcess) ?? null;
+  const ancestorClaudeProcessId = listAncestorProcessIds(process.ppid).find(isClaudeProcess);
+
+  return ancestorClaudeProcessId === undefined ? null : ancestorClaudeProcessId;
 };
 
 const addDescendantProcessIds = (

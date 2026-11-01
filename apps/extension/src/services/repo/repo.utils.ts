@@ -1,9 +1,9 @@
-import {NoRepo, RepoPickCancelled} from "@/errors/repo.error.ts";
+import {FolderPickCancelled, NoRepo, RepoPickCancelled} from "@/errors/repo.error.ts";
 import {showErrorInBackground} from "@/services/error.utils.ts";
 import {RepoStore} from "@/services/repo/repo.service.ts";
 import {VsCodeService} from "@/services/vscode.service.ts";
 import {ACTIONS, REPO_LABELS, REPO_MESSAGES} from "@pkg/constants/src/message.constant.ts";
-import {Effect, Match, Result, SubscriptionRef} from "effect";
+import {Effect, Match, Result, SubscriptionRef, UndefinedOr} from "effect";
 import {Path} from "effect/Path";
 
 import type {ReposCorrupt, ReposSaveFailed} from "@/errors/repo.error.ts";
@@ -16,7 +16,7 @@ const modifyAddedRepoPaths = Effect.fn("modifyAddedRepoPaths")(function* (
   const {addedRepoPaths, loadAddedRepoPaths, saveAddedRepoPaths} = yield* RepoStore;
 
   const writeAddedRepoPathsChange = Effect.fn("writeAddedRepoPathsChange")(function* () {
-    const nextAddedRepoPaths = changeAddedRepoPaths(yield* loadAddedRepoPaths);
+    const nextAddedRepoPaths = changeAddedRepoPaths(yield* loadAddedRepoPaths());
     yield* saveAddedRepoPaths(nextAddedRepoPaths);
 
     return nextAddedRepoPaths;
@@ -39,11 +39,15 @@ export const listRepos = Effect.fn("listRepos")(function* () {
   const {workspace} = yield* VsCodeService;
   const {addedRepoPaths} = yield* RepoStore;
   const path = yield* Path;
-  const workspaceFolderRepos = (workspace.workspaceFolders ?? []).map((workspaceFolder): Repo => ({
-    added: false,
-    name: workspaceFolder.name,
-    path: workspaceFolder.uri.fsPath
-  }));
+  const workspaceFolderRepos = UndefinedOr.match(workspace.workspaceFolders, {
+    onDefined: (workspaceFolders) =>
+      workspaceFolders.map((workspaceFolder): Repo => ({
+        added: false,
+        name: workspaceFolder.name,
+        path: workspaceFolder.uri.fsPath
+      })),
+    onUndefined: (): Repo[] => []
+  });
   const workspaceFolderPaths = new Set(workspaceFolderRepos.map((repo) => repo.path));
   const addedRepos = (yield* SubscriptionRef.get(addedRepoPaths))
     .filter((addedRepoPath) => !workspaceFolderPaths.has(addedRepoPath))
@@ -60,8 +64,9 @@ const showRepoQuickPick = Effect.fn("showRepoQuickPick")(function* (repos: reado
       {placeHolder: REPO_LABELS.PICK}
     )
   );
+  const {repo: pickedRepo} = yield* Effect.fromResult(Result.fromNullishOr(pickedItem, () => new RepoPickCancelled()));
 
-  return yield* Effect.fromResult(Result.fromNullishOr(pickedItem?.repo, () => new RepoPickCancelled()));
+  return pickedRepo;
 });
 
 // Asks only when the window has more than one repo.
@@ -83,23 +88,30 @@ const pickFolderPaths = Effect.fn("pickFolderPaths")(function* () {
     })
   );
 
-  return (pickedFolderUris ?? []).map((folderUri) => folderUri.fsPath);
+  const confirmedFolderUris = yield* Effect.fromResult(
+    Result.fromNullishOr(pickedFolderUris, () => new FolderPickCancelled())
+  );
+
+  return confirmedFolderUris.map((folderUri) => folderUri.fsPath);
 });
 
 // ponytail: any folder counts as a repo, no git check. Worktree mode (M3) is where a non-git folder would first break.
-export const addRepo = Effect.fn("addRepo")(function* () {
-  const pickedFolderPaths = yield* pickFolderPaths();
-  if (pickedFolderPaths.length === 0) return;
+export const addRepo = Effect.fn("addRepo")(
+  function* () {
+    const pickedFolderPaths = yield* pickFolderPaths();
 
-  yield* modifyAddedRepoPaths((storedAddedRepoPaths) => [
-    ...new Set([...storedAddedRepoPaths, ...pickedFolderPaths])
-  ]).pipe(Effect.catch(showRepoStoreError));
-});
+    yield* modifyAddedRepoPaths((storedAddedRepoPaths) => [
+      ...new Set([...storedAddedRepoPaths, ...pickedFolderPaths])
+    ]);
+  },
+  Effect.catchTag("FolderPickCancelled", () => Effect.void),
+  Effect.catch(showRepoStoreError)
+);
 
 // The repo row's … menu passes the Repo itself. Its sessions stay saved and their open tabs keep running; adding the
 // repo again lists them again.
 export const removeRepo = Effect.fn("removeRepo")(function* (repo: Repo) {
   yield* modifyAddedRepoPaths((storedAddedRepoPaths) =>
     storedAddedRepoPaths.filter((addedRepoPath) => addedRepoPath !== repo.path)
-  ).pipe(Effect.catch(showRepoStoreError));
-});
+  );
+}, Effect.catch(showRepoStoreError));

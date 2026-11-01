@@ -25,15 +25,18 @@ export const registerCommand = Effect.fn("registerCommand")(function* <R>(
 ) {
   const {commands} = yield* VsCodeService;
   const runPromise = Effect.runPromiseWith(yield* Effect.context<R>());
-  const runTracedHandler = async (...commandArguments: unknown[]) =>
-    runPromise(
-      handler(...commandArguments).pipe(
-        Effect.tapCause((cause) => Effect.logError(`Command ${commandId} failed`, cause)),
-        Effect.withSpan(commandId, {root: true})
-      )
-    );
+  const runCommand = Effect.fn(commandId, {root: true})(
+    function* (commandArguments: readonly unknown[]) {
+      return yield* handler(...commandArguments);
+    },
+    Effect.tapCause((cause) => Effect.logError(`Command ${commandId} failed`, cause))
+  );
 
-  yield* acquireDisposable(() => commands.registerCommand(commandId, runTracedHandler));
+  yield* acquireDisposable(() =>
+    commands.registerCommand(commandId, async (...commandArguments: unknown[]) =>
+      runPromise(runCommand(commandArguments))
+    )
+  );
 });
 
 export const setContext = Effect.fn("setContext")(function* (contextKey: string, contextValue: unknown) {

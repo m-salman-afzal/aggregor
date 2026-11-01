@@ -8,21 +8,24 @@ const Settings = Schema.Struct({
   commitCommand: Schema.NonEmptyString
 });
 
+const makeSettingsService = Effect.fn("SettingsService.make")(function* () {
+  const {getConfiguration} = yield* VsCodeService;
+
+  const readSettings = Effect.fn("SettingsService.readSettings")(
+    function* () {
+      const configuredSettings = yield* getConfiguration(SETTINGS_SECTION);
+
+      return yield* Schema.decodeUnknownEffect(Settings)(configuredSettings);
+    },
+    Effect.mapError((schemaError) => new InvalidSettings({reason: schemaError.message}))
+  );
+
+  return {readSettings};
+});
+
 export class SettingsService extends Context.Service<
   SettingsService,
-  {readonly readSettings: Effect.Effect<typeof Settings.Type, InvalidSettings>}
+  {readonly readSettings: () => Effect.Effect<typeof Settings.Type, InvalidSettings>}
 >()("aggregor/services/settings.service/SettingsService") {
-  public static readonly layer = Layer.effect(
-    SettingsService,
-    Effect.gen(function* () {
-      const {getConfiguration} = yield* VsCodeService;
-
-      const readSettings = getConfiguration(SETTINGS_SECTION).pipe(
-        Effect.flatMap(Schema.decodeUnknownEffect(Settings)),
-        Effect.mapError((schemaError) => new InvalidSettings({reason: schemaError.message}))
-      );
-
-      return SettingsService.of({readSettings});
-    })
-  );
+  public static readonly layer = Layer.effect(SettingsService, makeSettingsService());
 }

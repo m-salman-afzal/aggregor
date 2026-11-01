@@ -96,6 +96,15 @@ const config: Config[] = defineConfig([
       "@typescript-eslint/naming-convention": "off",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-magic-numbers": "off",
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {importNames: ["Option"], message: "Use Result: its error says why a value is missing.", name: "effect"},
+            {message: "Use Result: its error says why a value is missing.", name: "effect/Option"}
+          ]
+        }
+      ],
       "@typescript-eslint/no-unused-vars": [
         "warn",
         {
@@ -107,6 +116,8 @@ const config: Config[] = defineConfig([
           varsIgnorePattern: "^_"
         }
       ],
+      "@typescript-eslint/prefer-nullish-coalescing": "off",
+      "@typescript-eslint/prefer-optional-chain": "off",
       "@typescript-eslint/prefer-readonly-parameter-types": "off",
       "capitalized-comments": "off",
       "func-names": ["error", "always", {generators: "never"}],
@@ -128,6 +139,20 @@ const config: Config[] = defineConfig([
       "no-constant-condition": "error",
       "no-duplicate-imports": ["error", {allowSeparateTypeImports: true}],
       "no-magic-numbers": "off",
+      "no-restricted-properties": [
+        "error",
+        {message: "Use Effect.fn: it adds the span itself.", object: "Effect", property: "gen"},
+        {message: "Use Effect.fn: it adds the span itself.", object: "Effect", property: "withSpan"}
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {message: "No optional chaining: check the value explicitly.", selector: "ChainExpression"},
+        {
+          message: "No ??: check the value explicitly, or take a default with Result.getOrElse or UndefinedOr.match.",
+          selector: "LogicalExpression[operator='??']"
+        },
+        {message: "No ??=: check the value explicitly.", selector: "AssignmentExpression[operator='??=']"}
+      ],
       "no-ternary": "off",
       "no-undefined": "off",
       "no-underscore-dangle": "off",
