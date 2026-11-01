@@ -9,7 +9,7 @@ import type {Session} from "@/services/session/store.service.ts";
 import type {Terminal} from "vscode";
 
 // The tab is named once, when it opens: VS Code's stable API cannot rename a terminal afterwards.
-export interface TerminalLaunch {
+interface TerminalLaunch {
   readonly claudeArguments: readonly string[];
   readonly tabName: string;
 }

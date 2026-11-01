@@ -10,8 +10,8 @@ import {
   RootUriUnavailable
 } from "@/errors/git.error.ts";
 import {ErrorService} from "@/services/error.service.ts";
+import {showErrorInBackground} from "@/services/error.utils.ts";
 import {RepoStore} from "@/services/repo/repo.service.ts";
-import {ScmService} from "@/services/scm/scm.service.ts";
 import {SettingsService} from "@/services/settings.service.ts";
 import {VsCodeService} from "@/services/vscode.service.ts";
 import {setContext, withProgress} from "@/services/vscode.utils.ts";
@@ -23,12 +23,10 @@ import {ChildProcess} from "effect/process";
 import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 
 import type {API, GitExtension, Repository} from "@pkg/typings/src/git.js";
-import type * as vsc from "vscode";
+import type {SourceControl, Uri} from "vscode";
 
-const getSourceControlRootUri = Effect.fn("getSourceControlRootUri")(function* () {
-  const scm = yield* (yield* ScmService).scm;
-
-  return yield* Effect.fromResult(Result.fromNullishOr(scm.rootUri, () => new RootUriUnavailable()));
+const getSourceControlRootUri = Effect.fn("getSourceControlRootUri")(function* (sourceControl: SourceControl) {
+  return yield* Effect.fromResult(Result.fromNullishOr(sourceControl.rootUri, () => new RootUriUnavailable()));
 });
 
 const getGitApi = Effect.fn("getGitApi")(function* () {
@@ -50,37 +48,36 @@ const getGitApi = Effect.fn("getGitApi")(function* () {
   });
 });
 
-const findGitRepository = Effect.fn("findGitRepository")(function* (gitApi: API, rootUri: vsc.Uri) {
+const findGitRepository = Effect.fn("findGitRepository")(function* (gitApi: API, rootUri: Uri) {
   return yield* Effect.fromResult(
     Result.fromNullishOr(gitApi.getRepository(rootUri), () => new GitRepositoryUnavailable())
   );
 });
 
-const getSourceControlRepository = Effect.fn("getSourceControlRepository")(function* () {
-  const [gitApi, rootUri] = yield* Effect.all([getGitApi(), getSourceControlRootUri()]);
+const getSourceControlRepository = Effect.fn("getSourceControlRepository")(function* (sourceControl: SourceControl) {
+  const [gitApi, rootUri] = yield* Effect.all([getGitApi(), getSourceControlRootUri(sourceControl)]);
 
   return yield* findGitRepository(gitApi, rootUri);
 });
 
-const getRepositoryWithStagedChanges = Effect.fn("getRepositoryWithStagedChanges")(function* () {
+const getRepositoryWithStagedChanges = Effect.fn("getRepositoryWithStagedChanges")(function* (
+  sourceControl: SourceControl
+) {
   return yield* Effect.filterOrFail(
-    getSourceControlRepository(),
+    getSourceControlRepository(sourceControl),
     (repository) => repository.state.indexChanges.length > 0,
     () => new NothingStaged()
   );
 });
 
-export const getStagedDiff = Effect.fn("getStagedDiff")(function* (repository: Repository) {
+const getStagedDiff = Effect.fn("getStagedDiff")(function* (repository: Repository) {
   return yield* Effect.tryPromise({
     catch: () => new GitDiffError(),
     try: async () => repository.diff(true)
   });
 });
 
-export const getCommitMessage = Effect.fn("getCommitMessage")(function* (
-  repository: Repository,
-  commitCommand: string
-) {
+const getCommitMessage = Effect.fn("getCommitMessage")(function* (repository: Repository, commitCommand: string) {
   const stagedDiff = yield* getStagedDiff(repository);
   const childProcessSpawner = yield* ChildProcessSpawner;
   const commitCommandProcess = yield* childProcessSpawner.spawn(
@@ -114,15 +111,14 @@ const commitStagedChanges = Effect.fn("commitStagedChanges")(function* (reposito
   });
 });
 
-export const writeCommitMessage = Effect.fn("writeCommitMessage")(
-  function* () {
+const writeCommitMessage = Effect.fn("writeCommitMessage")(
+  function* (sourceControl: SourceControl) {
     const {autoCommit, commitCommand} = yield* SettingsService.use((settingsService) => settingsService.readSettings);
-    const stagedRepository = yield* getRepositoryWithStagedChanges();
+    const stagedRepository = yield* getRepositoryWithStagedChanges(sourceControl);
     const commitMessage = yield* getCommitMessage(stagedRepository, commitCommand);
 
-    const scm = yield* (yield* ScmService).scm;
     yield* Effect.sync(() => {
-      scm.inputBox.value = commitMessage;
+      sourceControl.inputBox.value = commitMessage;
     });
 
     if (autoCommit) yield* commitStagedChanges(stagedRepository, commitMessage);
@@ -130,52 +126,49 @@ export const writeCommitMessage = Effect.fn("writeCommitMessage")(
   (effect) => effect.pipe(Effect.scoped)
 );
 
-const offerToStageAllChanges = Effect.fn("offerToStageAllChanges")(function* () {
+const offerToStageAllChanges = Effect.fn("offerToStageAllChanges")(function* (sourceControl: SourceControl) {
   const {commands} = yield* VsCodeService;
-  const scm = yield* (yield* ScmService).scm;
   const pickedAction = yield* ErrorService.use((errorService) =>
     errorService.showErrorMessage(COMMIT_MESSAGES.NOTHING_STAGED, ACTIONS.STAGE_ALL)
   );
   if (pickedAction !== ACTIONS.STAGE_ALL) return;
 
-  yield* Effect.promise(async () => commands.executeCommand("git.stageAll", scm));
-  yield* Effect.promise(async () => commands.executeCommand(COMMANDS.SCM_TITLE.GENERATE_COMMIT_MESSAGE, scm));
+  yield* Effect.promise(async () => commands.executeCommand("git.stageAll", sourceControl));
+  yield* Effect.promise(async () => commands.executeCommand(COMMANDS.SCM_TITLE.GENERATE_COMMIT_MESSAGE, sourceControl));
 });
 
-const writeCommitMessageOrShowError = Effect.fn("writeCommitMessageOrShowError")(function* () {
-  return yield* writeCommitMessage().pipe(
-    Effect.catchTag("NothingStaged", () => Effect.forkDetach(offerToStageAllChanges())),
+const writeCommitMessageOrShowError = Effect.fn("writeCommitMessageOrShowError")(function* (
+  sourceControl: SourceControl
+) {
+  return yield* writeCommitMessage(sourceControl).pipe(
+    Effect.catchTag("NothingStaged", () => Effect.forkDetach(offerToStageAllChanges(sourceControl))),
     Effect.catch((commitMessageError) =>
-      Effect.forkDetach(
-        ErrorService.use((errorService) =>
-          errorService.showErrorMessage(
-            Match.valueTags(commitMessageError, {
-              CommitCliError: ({exitCode, stderr}) => COMMIT_MESSAGES.COMMIT_CLI_FAILED(exitCode, stderr),
-              CommitFailed: () => COMMIT_MESSAGES.COMMIT_FAILED,
-              EmptyCommitMessage: () => COMMIT_MESSAGES.EMPTY_COMMIT_MESSAGE,
-              GitDiffError: () => COMMIT_MESSAGES.GIT_DIFF_FAILED,
-              GitExtensionDisabled: () => COMMIT_MESSAGES.GIT_EXTENSION_DISABLED,
-              GitExtensionUnavailable: () => COMMIT_MESSAGES.GIT_EXTENSION_UNAVAILABLE,
-              GitRepositoryUnavailable: () => COMMIT_MESSAGES.GIT_REPOSITORY_UNAVAILABLE,
-              InvalidSettings: ({reason}) => COMMIT_MESSAGES.INVALID_SETTINGS(reason),
-              PlatformError: (platformError) => COMMIT_MESSAGES.CLAUDE_CLI_FAILED(platformError.message),
-              RootUriUnavailable: () => COMMIT_MESSAGES.ROOT_URI_UNAVAILABLE
-            })
-          )
-        )
+      showErrorInBackground(
+        Match.valueTags(commitMessageError, {
+          CommitCliError: ({exitCode, stderr}) => COMMIT_MESSAGES.COMMIT_CLI_FAILED(exitCode, stderr),
+          CommitFailed: () => COMMIT_MESSAGES.COMMIT_FAILED,
+          EmptyCommitMessage: () => COMMIT_MESSAGES.EMPTY_COMMIT_MESSAGE,
+          GitDiffError: () => COMMIT_MESSAGES.GIT_DIFF_FAILED,
+          GitExtensionDisabled: () => COMMIT_MESSAGES.GIT_EXTENSION_DISABLED,
+          GitExtensionUnavailable: () => COMMIT_MESSAGES.GIT_EXTENSION_UNAVAILABLE,
+          GitRepositoryUnavailable: () => COMMIT_MESSAGES.GIT_REPOSITORY_UNAVAILABLE,
+          InvalidSettings: ({reason}) => COMMIT_MESSAGES.INVALID_SETTINGS(reason),
+          PlatformError: (platformError) => COMMIT_MESSAGES.CLAUDE_CLI_FAILED(platformError.message),
+          RootUriUnavailable: () => COMMIT_MESSAGES.ROOT_URI_UNAVAILABLE
+        })
       )
     )
   );
 });
 
 export const generateCommitMessage = Effect.fn("generateCommitMessage")(
-  function* (scm: vsc.SourceControl) {
+  function* (sourceControl: SourceControl) {
     const {ProgressLocation} = yield* VsCodeService;
 
     yield* setContext(CONTEXT_KEYS.IS_GENERATING_COMMIT_MESSAGE, true);
     yield* withProgress(
       {location: ProgressLocation.SourceControl, title: COMMIT_MESSAGES.GENERATING},
-      writeCommitMessageOrShowError().pipe(Effect.provideService(ScmService, {scm: Effect.sync(() => scm)}))
+      writeCommitMessageOrShowError(sourceControl)
     );
   },
   (effect) => effect.pipe(Effect.ensuring(setContext(CONTEXT_KEYS.IS_GENERATING_COMMIT_MESSAGE, false)))

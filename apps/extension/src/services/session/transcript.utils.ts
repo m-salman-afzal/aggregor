@@ -13,16 +13,16 @@ const TitleEntry = Schema.Union([
 
 const decodeTitleLine = Schema.decodeUnknownResult(Schema.fromJsonString(TitleEntry));
 
-export interface Titles {
-  readonly aiTitle: Option.Option<string>;
-  readonly customTitle: Option.Option<string>;
-}
-
 // How far into a transcript we have read, so each refresh only scans what Claude appended since.
 export interface TranscriptProgress {
   readonly byteOffset: bigint;
   readonly titles: Titles;
   readonly transcriptFilePath: string;
+}
+
+interface Titles {
+  readonly aiTitle: Option.Option<string>;
+  readonly customTitle: Option.Option<string>;
 }
 
 export const NO_TITLES: Titles = {aiTitle: Option.none(), customTitle: Option.none()};

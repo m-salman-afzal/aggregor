@@ -7,7 +7,7 @@ import {findSession, listSessions} from "@/services/session/store.utils.ts";
 import {TerminalService} from "@/services/session/terminal.service.ts";
 import {TranscriptService} from "@/services/session/transcript.service.ts";
 import {VsCodeService} from "@/services/vscode.service.ts";
-import {fromEvent, getClaudeIcon} from "@/services/vscode.utils.ts";
+import {acquireDisposable, fromEvent, getClaudeIcon} from "@/services/vscode.utils.ts";
 import {
   COMMANDS,
   CONTEXT_VALUES,
@@ -158,54 +158,30 @@ export const SessionsView = Layer.effectDiscard(
     const unreadSessionIds = yield* Ref.make<ReadonlySet<string>>(new Set());
     const previousSessionStatuses = yield* Ref.make<ReadonlyMap<string, Status>>(new Map());
 
-    const treeChangedEmitter = yield* Effect.acquireRelease(
-      Effect.sync(() => new EventEmitter<void>()),
-      (emitter) =>
-        Effect.sync(() => {
-          emitter.dispose();
-        })
+    const treeChangedEmitter = yield* acquireDisposable(() => new EventEmitter<void>());
+    const badgesChangedEmitter = yield* acquireDisposable(() => new EventEmitter<Uri[]>());
+    yield* acquireDisposable(() =>
+      window.registerFileDecorationProvider({
+        onDidChangeFileDecorations: badgesChangedEmitter.event,
+        // VS Code asks about every file it shows, so anything not ours returns before running an effect.
+        provideFileDecoration: (uri) =>
+          uri.scheme === SESSION_URI_SCHEME
+            ? runSyncUntraced(createStatusBadge(getDrawnRowStatus(uri.path.slice(1))))
+            : undefined
+      })
     );
-    const badgesChangedEmitter = yield* Effect.acquireRelease(
-      Effect.sync(() => new EventEmitter<Uri[]>()),
-      (emitter) =>
-        Effect.sync(() => {
-          emitter.dispose();
-        })
-    );
-    yield* Effect.acquireRelease(
-      Effect.sync(() =>
-        window.registerFileDecorationProvider({
-          onDidChangeFileDecorations: badgesChangedEmitter.event,
-          // VS Code asks about every file it shows, so anything not ours returns before running an effect.
-          provideFileDecoration: (uri) =>
-            uri.scheme === SESSION_URI_SCHEME
-              ? runSyncUntraced(createStatusBadge(getDrawnRowStatus(uri.path.slice(1))))
-              : undefined
-        })
-      ),
-      (decorationProvider) =>
-        Effect.sync(() => {
-          decorationProvider.dispose();
-        })
-    );
-    const sessionsTreeView = yield* Effect.acquireRelease(
-      Effect.sync(() =>
-        window.createTreeView<Row>(VIEWS.SESSIONS, {
-          treeDataProvider: {
-            getChildren: (parentRow) => [...runSyncUntraced(getChildRows(parentRow))],
-            getParent: (row) => runSyncUntraced(getParentRow(row)),
-            getTreeItem: (row) =>
-              isRepo(row)
-                ? runSyncUntraced(createRepoTreeItem(row))
-                : runSyncUntraced(createSessionTreeItem(row, getDrawnRowStatus(row.id))),
-            onDidChangeTreeData: treeChangedEmitter.event
-          }
-        })
-      ),
-      (treeView) =>
-        Effect.sync(() => {
-          treeView.dispose();
-        })
+    const sessionsTreeView = yield* acquireDisposable(() =>
+      window.createTreeView<Row>(VIEWS.SESSIONS, {
+        treeDataProvider: {
+          getChildren: (parentRow) => [...runSyncUntraced(getChildRows(parentRow))],
+          getParent: (row) => runSyncUntraced(getParentRow(row)),
+          getTreeItem: (row) =>
+            isRepo(row)
+              ? runSyncUntraced(createRepoTreeItem(row))
+              : runSyncUntraced(createSessionTreeItem(row, getDrawnRowStatus(row.id))),
+          onDidChangeTreeData: treeChangedEmitter.event
+        }
+      })
     );
 
     // A turn that ends while its session is out of view leaves it unread until it comes into view or starts another

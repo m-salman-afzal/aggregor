@@ -52,8 +52,4 @@ const activate = async (extensionContext: ExtensionContext) => {
   await runtime.context();
 };
 
-const deactivate = () => {
-  /* Empty */
-};
-
-export {activate, deactivate};
+export {activate};

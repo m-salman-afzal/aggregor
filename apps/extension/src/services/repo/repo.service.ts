@@ -1,5 +1,5 @@
 import {ReposCorrupt, ReposSaveFailed} from "@/errors/repo.error.ts";
-import {ErrorService} from "@/services/error.service.ts";
+import {showErrorInBackground} from "@/services/error.utils.ts";
 import {VsCodeService} from "@/services/vscode.service.ts";
 import {STORAGE_KEYS} from "@pkg/constants/src/extension.constant.ts";
 import {REPO_MESSAGES} from "@pkg/constants/src/message.constant.ts";
@@ -60,9 +60,7 @@ export class RepoStore extends Context.Service<
       });
 
       const showUnreadableReposError = Effect.fn("RepoStore.showUnreadableReposError")(function* () {
-        yield* Effect.forkDetach(
-          ErrorService.use((errorService) => errorService.showErrorMessage(REPO_MESSAGES.UNREADABLE))
-        );
+        yield* showErrorInBackground(REPO_MESSAGES.UNREADABLE);
         const noRepoPaths: readonly string[] = [];
 
         return noRepoPaths;

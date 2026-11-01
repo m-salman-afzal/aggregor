@@ -1,4 +1,5 @@
 import {VsCodeService} from "@/services/vscode.service.ts";
+import {acquireDisposable} from "@/services/vscode.utils.ts";
 import {APP_NAME} from "@pkg/constants/src/extension.constant.ts";
 import {Cause, Effect, Exit, Layer, Logger, Option, Predicate, References, Tracer} from "effect";
 import {format} from "node:util";
@@ -67,13 +68,7 @@ const makeOutputChannelLogger = (outputChannel: LogOutputChannel) =>
 export const TraceLogLayer = Layer.unwrap(
   Effect.gen(function* () {
     const {window} = yield* VsCodeService;
-    const outputChannel = yield* Effect.acquireRelease(
-      Effect.sync(() => window.createOutputChannel(APP_NAME, {log: true})),
-      (createdOutputChannel) =>
-        Effect.sync(() => {
-          createdOutputChannel.dispose();
-        })
-    );
+    const outputChannel = yield* acquireDisposable(() => window.createOutputChannel(APP_NAME, {log: true}));
 
     return Layer.mergeAll(
       Logger.layer([makeOutputChannelLogger(outputChannel)]),

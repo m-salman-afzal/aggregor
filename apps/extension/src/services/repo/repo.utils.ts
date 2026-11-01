@@ -1,5 +1,5 @@
 import {NoRepo, RepoPickCancelled} from "@/errors/repo.error.ts";
-import {ErrorService} from "@/services/error.service.ts";
+import {showErrorInBackground} from "@/services/error.utils.ts";
 import {RepoStore} from "@/services/repo/repo.service.ts";
 import {VsCodeService} from "@/services/vscode.service.ts";
 import {ACTIONS, REPO_LABELS, REPO_MESSAGES} from "@pkg/constants/src/message.constant.ts";
@@ -26,15 +26,11 @@ const modifyAddedRepoPaths = Effect.fn("modifyAddedRepoPaths")(function* (
 });
 
 const showRepoStoreError = Effect.fn("showRepoStoreError")(function* (repoStoreError: ReposCorrupt | ReposSaveFailed) {
-  yield* Effect.forkDetach(
-    ErrorService.use((errorService) =>
-      errorService.showErrorMessage(
-        Match.valueTags(repoStoreError, {
-          ReposCorrupt: () => REPO_MESSAGES.UNREADABLE,
-          ReposSaveFailed: () => REPO_MESSAGES.SAVE_FAILED
-        })
-      )
-    )
+  yield* showErrorInBackground(
+    Match.valueTags(repoStoreError, {
+      ReposCorrupt: () => REPO_MESSAGES.UNREADABLE,
+      ReposSaveFailed: () => REPO_MESSAGES.SAVE_FAILED
+    })
   );
 });
 

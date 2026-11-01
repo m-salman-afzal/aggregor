@@ -1,5 +1,5 @@
 import {RemoveCancelled} from "@/errors/session.error.ts";
-import {ErrorService} from "@/services/error.service.ts";
+import {showErrorInBackground} from "@/services/error.utils.ts";
 import {pickRepo} from "@/services/repo/repo.utils.ts";
 import {StatusService} from "@/services/session/status.service.ts";
 import {addSession, deleteSession, findSession} from "@/services/session/store.utils.ts";
@@ -96,17 +96,13 @@ export const newSession = Effect.fn("newSession")(function* (clickedRepo?: Repo)
   return yield* startSession(clickedRepo).pipe(
     Effect.catchTag("RepoPickCancelled", () => Effect.void),
     Effect.catch((startError) =>
-      Effect.forkDetach(
-        ErrorService.use((errorService) =>
-          errorService.showErrorMessage(
-            Match.valueTags(startError, {
-              NoRepo: () => SESSION_MESSAGES.REPO_REQUIRED,
-              SessionsCorrupt: () => SESSION_MESSAGES.UNREADABLE,
-              SessionsSaveFailed: () => SESSION_MESSAGES.SAVE_FAILED,
-              TerminalLaunchFailed: () => SESSION_MESSAGES.LAUNCH_FAILED
-            })
-          )
-        )
+      showErrorInBackground(
+        Match.valueTags(startError, {
+          NoRepo: () => SESSION_MESSAGES.REPO_REQUIRED,
+          SessionsCorrupt: () => SESSION_MESSAGES.UNREADABLE,
+          SessionsSaveFailed: () => SESSION_MESSAGES.SAVE_FAILED,
+          TerminalLaunchFailed: () => SESSION_MESSAGES.LAUNCH_FAILED
+        })
       )
     )
   );
@@ -117,15 +113,11 @@ export const openSession = Effect.fn("openSession")(function* (sessionId: string
   return yield* TerminalService.use((terminalService) => terminalService.focusSessionTerminal(sessionId)).pipe(
     Effect.catchTag("TerminalNotFound", () => relaunchSession(sessionId)),
     Effect.catch((openError) =>
-      Effect.forkDetach(
-        ErrorService.use((errorService) =>
-          errorService.showErrorMessage(
-            Match.valueTags(openError, {
-              SessionNotFound: () => SESSION_MESSAGES.NOT_FOUND,
-              TerminalLaunchFailed: () => SESSION_MESSAGES.LAUNCH_FAILED
-            })
-          )
-        )
+      showErrorInBackground(
+        Match.valueTags(openError, {
+          SessionNotFound: () => SESSION_MESSAGES.NOT_FOUND,
+          TerminalLaunchFailed: () => SESSION_MESSAGES.LAUNCH_FAILED
+        })
       )
     )
   );
@@ -136,15 +128,11 @@ export const removeSession = Effect.fn("removeSession")(function* (session: Sess
   return yield* removeSessionAndStopAgent(session).pipe(
     Effect.catchTag("RemoveCancelled", () => Effect.void),
     Effect.catch((removeError) =>
-      Effect.forkDetach(
-        ErrorService.use((errorService) =>
-          errorService.showErrorMessage(
-            Match.valueTags(removeError, {
-              SessionsCorrupt: () => SESSION_MESSAGES.UNREADABLE,
-              SessionsSaveFailed: () => SESSION_MESSAGES.SAVE_FAILED
-            })
-          )
-        )
+      showErrorInBackground(
+        Match.valueTags(removeError, {
+          SessionsCorrupt: () => SESSION_MESSAGES.UNREADABLE,
+          SessionsSaveFailed: () => SESSION_MESSAGES.SAVE_FAILED
+        })
       )
     )
   );
