@@ -174,7 +174,9 @@ export const generateCommitMessage = Effect.fn("generateCommitMessage")(
 const openInGit = Effect.fn("openInGit")(function* (api: API, path: string) {
   const {Uri} = yield* VscService;
 
-  yield* Effect.ignore(Effect.tryPromise(async () => api.openRepository(Uri.file(path))));
+  yield* Effect.tryPromise(async () => api.openRepository(Uri.file(path))).pipe(
+    Effect.ignore({log: "Warn", message: `Could not open ${path} in Source Control`})
+  );
 });
 
 // The git API cannot close a repo, so this runs git.close, which closes whichever repo contains the path and asks the
@@ -185,7 +187,9 @@ const closeInGit = Effect.fn("closeInGit")(function* (api: API, path: string) {
   const repository = api.getRepository(Uri.file(path));
   if (repository?.rootUri.fsPath !== path) return;
 
-  yield* Effect.ignore(Effect.tryPromise(async () => commands.executeCommand("git.close", repository.rootUri)));
+  yield* Effect.tryPromise(async () => commands.executeCommand("git.close", repository.rootUri)).pipe(
+    Effect.ignore({log: "Warn", message: `Could not close ${path} in Source Control`})
+  );
 });
 
 // Keeps Source Control in step with the added repos: each opens there, at startup too, and closes when removed. The git
@@ -210,7 +214,9 @@ export const GitReposLayer = Layer.effectDiscard(
     });
 
     yield* Effect.forkScoped(
-      Stream.runForEach(SubscriptionRef.changes(added), (paths) => Effect.ignore(syncGit(paths)))
+      Stream.runForEach(SubscriptionRef.changes(added), (paths) =>
+        syncGit(paths).pipe(Effect.ignore({log: "Warn", message: "Could not sync added repos with Source Control"}))
+      )
     );
   })
 );

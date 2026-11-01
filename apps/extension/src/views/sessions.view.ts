@@ -273,7 +273,11 @@ export const SessionsView = Layer.effectDiscard(
     );
     yield* Effect.forkScoped(
       Stream.runForEach(fromEvent(window.onDidChangeActiveTerminal), (terminal) =>
-        Effect.ignore(revealSession(view, terminal))
+        revealSession(view, terminal).pipe(
+          // No active terminal, or one that is not a session's: nothing to select.
+          Effect.catchTag(["NoActiveTerminal", "UntrackedTerminal"], () => Effect.void),
+          Effect.ignore({log: "Warn", message: "Could not select the active session in the Sessions view"})
+        )
       )
     );
   })

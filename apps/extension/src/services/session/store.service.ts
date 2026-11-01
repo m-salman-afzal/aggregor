@@ -76,7 +76,11 @@ export class SessionStore extends Context.Service<
       });
       yield* Effect.forkScoped(
         Stream.runForEach(fromEvent(window.onDidChangeWindowState), (state) =>
-          reloadOnFocus(state).pipe(Effect.catchTag("SessionsCorrupt", () => Effect.void))
+          reloadOnFocus(state).pipe(
+            Effect.catchTag("SessionsCorrupt", (error) =>
+              Effect.logError(SESSION_MESSAGES.UNREADABLE, error.cause).pipe(Effect.andThen(showUnreadable()))
+            )
+          )
         )
       );
 
