@@ -42,9 +42,10 @@ JSON the extension alone reads and writes.
 
 The same kind of key-value store as `globalState`, but one per workspace: only a window on that workspace sees it.
 
-### `repos`
+### `addedRepoPaths`
 
-- **Holds:** `{version: 1, repos: [path]}`, the absolute paths added with Add Repo. Workspace folders are not stored.
+- **Holds:** `{version: 1, addedRepoPaths: [path]}`, the absolute paths added with Add Repo. Workspace folders are not
+  stored.
 - **Written by:** `RepoStore`, with a read-modify-write on every Add Repo and Remove Repo.
 - **Read by:** `RepoStore` at startup and before every write.
 - **Why:** each window lists its own repos, so sessions started in one workspace don't show in the others.

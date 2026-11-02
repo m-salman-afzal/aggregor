@@ -1,4 +1,4 @@
-import {VscService} from "@/services/vsc.service.ts";
+import {VsCodeService} from "@/services/vscode.service.ts";
 import {MODEL_ICONS} from "@pkg/constants/src/extension.constant.ts";
 import {Effect, Queue, Stream} from "effect";
 
@@ -20,21 +20,21 @@ export const fromEvent = <A>(event: Event<A>) =>
 // logged before VS Code reports the command as failed. Each run is a root span named by the command ID.
 // VS Code passes command arguments untyped, so each handler declares its own parameter types.
 export const registerCommand = Effect.fn("registerCommand")(function* <R>(
-  command: string,
-  handler: (...args: any[]) => Effect.Effect<unknown, never, R>
+  commandId: string,
+  handler: (...commandArguments: any[]) => Effect.Effect<unknown, never, R>
 ) {
-  const {commands} = yield* VscService;
-  const run = Effect.runPromiseWith(yield* Effect.context<R>());
-  const runTraced = async (...args: unknown[]) =>
-    run(
-      handler(...args).pipe(
-        Effect.tapCause((cause) => Effect.logError(`Command ${command} failed`, cause)),
-        Effect.withSpan(command, {root: true})
+  const {commands} = yield* VsCodeService;
+  const runPromise = Effect.runPromiseWith(yield* Effect.context<R>());
+  const runTracedHandler = async (...commandArguments: unknown[]) =>
+    runPromise(
+      handler(...commandArguments).pipe(
+        Effect.tapCause((cause) => Effect.logError(`Command ${commandId} failed`, cause)),
+        Effect.withSpan(commandId, {root: true})
       )
     );
 
   yield* Effect.acquireRelease(
-    Effect.sync(() => commands.registerCommand(command, runTraced)),
+    Effect.sync(() => commands.registerCommand(commandId, runTracedHandler)),
     (disposable) =>
       Effect.sync(() => {
         disposable.dispose();
@@ -42,25 +42,25 @@ export const registerCommand = Effect.fn("registerCommand")(function* <R>(
   );
 });
 
-export const setContext = Effect.fn("setContext")(function* (key: string, value: unknown) {
-  const {commands} = yield* VscService;
+export const setContext = Effect.fn("setContext")(function* (contextKey: string, contextValue: unknown) {
+  const {commands} = yield* VsCodeService;
 
-  yield* Effect.promise(async () => commands.executeCommand("setContext", key, value));
+  yield* Effect.promise(async () => commands.executeCommand("setContext", contextKey, contextValue));
 });
 
 export const withProgress = Effect.fn("withProgress")(function* <A, R>(
-  options: ProgressOptions,
+  progressOptions: ProgressOptions,
   effect: Effect.Effect<A, never, R>
 ) {
-  const {window} = yield* VscService;
-  const run = Effect.runPromiseWith(yield* Effect.context<R>());
+  const {window} = yield* VsCodeService;
+  const runPromise = Effect.runPromiseWith(yield* Effect.context<R>());
 
-  return yield* Effect.promise(async () => window.withProgress(options, async () => run(effect)));
+  return yield* Effect.promise(async () => window.withProgress(progressOptions, async () => runPromise(effect)));
 });
 
 // Claude's brand orange reads on light and dark themes, so one file serves both.
 export const getClaudeIcon = Effect.fn("getClaudeIcon")(function* () {
-  const {extensionUri, Uri} = yield* VscService;
+  const {extensionUri, Uri} = yield* VsCodeService;
 
   return Uri.joinPath(extensionUri, MODEL_ICONS.CLAUDE);
 });
