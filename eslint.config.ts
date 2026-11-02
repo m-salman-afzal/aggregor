@@ -124,10 +124,10 @@ const config: Config[] = defineConfig([
       "id-length": ["error", {min: 3, properties: "never"}],
       "import-x/consistent-type-specifier-style": ["error", "prefer-top-level"],
       "max-lines-per-function": [
-        "off",
+        "error",
         {
           IIFEs: true,
-          max: 50,
+          max: 30,
           skipBlankLines: true,
           skipComments: true
         }
