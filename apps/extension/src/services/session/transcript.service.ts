@@ -61,7 +61,13 @@ export class TranscriptService extends Context.Service<
       });
 
       const refreshBatch = Effect.fn("refreshBatch")(function* (ids: readonly string[]) {
-        for (const id of new Set(ids)) yield* Effect.ignore(refreshIfTracked(id));
+        // A session has no transcript until its first message.
+        for (const id of new Set(ids)) {
+          yield* refreshIfTracked(id).pipe(
+            Effect.catchTag("TranscriptNotFound", () => Effect.void),
+            Effect.ignore({log: "Warn", message: `Could not read the title of session ${id}`})
+          );
+        }
       });
 
       const watchProjects = Effect.fn("watchProjects")(function* () {
@@ -79,7 +85,10 @@ export class TranscriptService extends Context.Service<
 
       yield* Effect.forkScoped(
         // ~/.claude/projects does not exist until Claude's first run, so the watcher keeps trying.
-        Stream.runForEach(batches, refreshBatch).pipe(Effect.retry(Schedule.spaced("30 seconds")))
+        Stream.runForEach(batches, refreshBatch).pipe(
+          Effect.tapError((error) => Effect.logWarning("Could not watch Claude's transcripts; retrying in 30s", error)),
+          Effect.retry(Schedule.spaced("30 seconds"))
+        )
       );
 
       const titleOfSession = Effect.fn("titleOf")(function* (id: string) {

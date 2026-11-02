@@ -57,11 +57,15 @@ export class StatusService extends Context.Service<
       });
 
       // Without the folder, rows show no status; the sessions themselves keep working.
-      yield* Effect.forkScoped(Effect.ignore(watchStatuses(), {log: true}));
+      yield* Effect.forkScoped(
+        watchStatuses().pipe(Effect.ignore({log: "Warn", message: "Could not watch session statuses"}))
+      );
 
       // Runs before each launch, so a word left by the last run never shows, and when a session is removed.
       const clear = Effect.fn("clear")(function* (id: string) {
-        yield* Effect.ignore(fs.remove(fileOf(id), {force: true}));
+        yield* fs
+          .remove(fileOf(id), {force: true})
+          .pipe(Effect.ignore({log: "Warn", message: `Could not clear the status file of session ${id}`}));
       });
 
       return StatusService.of({clear, fileOf, hooksFile, statuses});

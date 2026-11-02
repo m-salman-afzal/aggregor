@@ -20,15 +20,17 @@ const displayName = Effect.fn("displayName")(function* (session: Session) {
   return Option.getOrElse(title, () => session.name);
 });
 
-const isResumable = Effect.fn("isResumable")(function* (id: string) {
-  yield* findTranscript(id);
-
-  return true;
-});
-
 // A failed lookup counts as "no transcript": starting fresh is better than a resume that cannot work.
 const claudeArgs = Effect.fn("claudeArgs")(function* (session: Session) {
-  const resumable = yield* isResumable(session.id).pipe(Effect.orElseSucceed(() => false));
+  const resumable = yield* findTranscript(session.id).pipe(
+    Effect.as(true),
+    Effect.catchTag("TranscriptNotFound", () => Effect.succeed(false)),
+    Effect.catch((error) =>
+      Effect.logWarning(`Could not look up the transcript of session ${session.id}; starting it fresh`, error).pipe(
+        Effect.as(false)
+      )
+    )
+  );
 
   return resumable ? ["--resume", session.id] : ["--session-id", session.id];
 });
