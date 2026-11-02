@@ -16,7 +16,8 @@ export const fromEvent = <A>(event: Event<A>) =>
     )
   );
 
-// Registered for the lifetime of the surrounding scope. Handlers must handle their own errors (E = never).
+// Registered for the lifetime of the surrounding scope. Handlers must handle their own errors (E = never); a defect is
+// logged before VS Code reports the command as failed. Each run is a root span named by the command ID.
 // VS Code passes command arguments untyped, so each handler declares its own parameter types.
 export const registerCommand = Effect.fn("registerCommand")(function* <R>(
   command: string,
@@ -24,9 +25,16 @@ export const registerCommand = Effect.fn("registerCommand")(function* <R>(
 ) {
   const {commands} = yield* VscService;
   const run = Effect.runPromiseWith(yield* Effect.context<R>());
+  const runTraced = async (...args: unknown[]) =>
+    run(
+      handler(...args).pipe(
+        Effect.tapCause((cause) => Effect.logError(`Command ${command} failed`, cause)),
+        Effect.withSpan(command, {root: true})
+      )
+    );
 
   yield* Effect.acquireRelease(
-    Effect.sync(() => commands.registerCommand(command, async (...args: unknown[]) => run(handler(...args)))),
+    Effect.sync(() => commands.registerCommand(command, runTraced)),
     (disposable) =>
       Effect.sync(() => {
         disposable.dispose();

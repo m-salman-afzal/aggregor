@@ -9,7 +9,11 @@
       "name": "Run Extension",
       "type": "extensionHost",
       "request": "launch",
-      "args": ["--extensionDevelopmentPath=${workspaceFolder}/apps/extension"],
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/apps/extension",
+        // Turns on the extension's trace-level span lines in the Aggregor App output channel.
+        "--log=SalmanAfzal.aggregor-app:trace"
+      ],
       "outFiles": ["${workspaceFolder}/apps/extension/dist/**/*.js"],
       "preLaunchTask": "${defaultBuildTask}"
     }

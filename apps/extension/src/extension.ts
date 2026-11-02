@@ -8,6 +8,7 @@ import {TerminalService} from "@/services/session/terminal.service.ts";
 import {newSession, openSession, removeSession} from "@/services/session/terminal.utils.ts";
 import {TranscriptService} from "@/services/session/transcript.service.ts";
 import {SettingsService} from "@/services/settings.service.ts";
+import {TraceLogLayer} from "@/services/trace.utils.ts";
 import {VscService} from "@/services/vsc.service.ts";
 import {registerCommand} from "@/services/vsc.utils.ts";
 import {SessionsView} from "@/views/sessions.view.ts";
@@ -42,7 +43,10 @@ const AppLayer = Layer.mergeAll(CommandsLayer, GitReposLayer, SessionsView).pipe
 );
 
 const activate = async (ctx: ExtensionContext) => {
-  const runtime = ManagedRuntime.make(AppLayer.pipe(Layer.provideMerge(VscService.layer(ctx))));
+  // TraceLogLayer goes under everything, so every layer's startup work is traced and logged too.
+  const runtime = ManagedRuntime.make(
+    AppLayer.pipe(Layer.provide(TraceLogLayer), Layer.provideMerge(VscService.layer(ctx)))
+  );
   ctx.subscriptions.push({dispose: async () => runtime.dispose()});
   // The runtime builds lazily; build it now so commands and views exist before activation finishes.
   await runtime.context();

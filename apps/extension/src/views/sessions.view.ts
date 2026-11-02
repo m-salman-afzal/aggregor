@@ -135,17 +135,25 @@ export const SessionsView = Layer.effectDiscard(
     const {terminals, viewed} = yield* TerminalService;
     const {titles} = yield* TranscriptService;
     const {statuses} = yield* StatusService;
-    const run = Effect.runSyncWith(
+    const runSync = Effect.runSyncWith(
       yield* Effect.context<
         Path | RepoStore | SessionStore | StatusService | TerminalService | TranscriptService | VscService
       >()
     );
+    // VS Code calls the tree and badge callbacks for every row on every refresh and spinner frame, so they run untraced.
+    const runSyncUntraced = <A, E>(
+      effect: Effect.Effect<
+        A,
+        E,
+        Path | RepoStore | SessionStore | StatusService | TerminalService | TranscriptService | VscService
+      >
+    ) => runSync(Effect.withTracerEnabled(effect, false));
 
     // What each row was last drawn with; the tree and the badges both render from it. Only rows whose status moved are
     // named in the badge change event: one without URIs makes VS Code drop every cached badge, and all rows flash
     // plain until it fetches them again.
     const shown = yield* Ref.make<ReadonlyMap<string, RowStatus | undefined>>(new Map());
-    const shownStatus = (id: string) => run(Ref.get(shown)).get(id);
+    const shownStatus = (id: string) => runSync(Ref.get(shown)).get(id);
     const unread = yield* Ref.make<ReadonlySet<string>>(new Set());
     const lastStatuses = yield* Ref.make<ReadonlyMap<string, Status>>(new Map());
 
@@ -169,7 +177,9 @@ export const SessionsView = Layer.effectDiscard(
           onDidChangeFileDecorations: decorationsChanged.event,
           // VS Code asks about every file it shows, so anything not ours returns before running an effect.
           provideFileDecoration: (uri) =>
-            uri.scheme === SESSION_URI_SCHEME ? run(toDecoration(shownStatus(uri.path.slice(1)))) : undefined
+            uri.scheme === SESSION_URI_SCHEME
+              ? runSyncUntraced(toDecoration(shownStatus(uri.path.slice(1))))
+              : undefined
         })
       ),
       (provider) =>
@@ -181,9 +191,10 @@ export const SessionsView = Layer.effectDiscard(
       Effect.sync(() =>
         window.createTreeView<Row>(VIEWS.SESSIONS, {
           treeDataProvider: {
-            getChildren: (row) => [...run(childrenOf(row))],
-            getParent: (row) => run(parentOf(row)),
-            getTreeItem: (row) => (isRepo(row) ? run(toRepoItem(row)) : run(toSessionItem(row, shownStatus(row.id)))),
+            getChildren: (row) => [...runSyncUntraced(childrenOf(row))],
+            getParent: (row) => runSyncUntraced(parentOf(row)),
+            getTreeItem: (row) =>
+              isRepo(row) ? runSyncUntraced(toRepoItem(row)) : runSyncUntraced(toSessionItem(row, shownStatus(row.id))),
             onDidChangeTreeData: changed.event
           }
         })
@@ -257,7 +268,9 @@ export const SessionsView = Layer.effectDiscard(
     ];
     const rowChanges = Stream.mergeAll(changes, {concurrency: "unbounded"});
     yield* Effect.forkScoped(Stream.runForEach(rowChanges, () => refresh()));
-    yield* Effect.forkScoped(Effect.repeat(tickSpinners(), Schedule.spaced(SPINNER_INTERVAL_MS)));
+    yield* Effect.forkScoped(
+      Effect.repeat(tickSpinners(), Schedule.spaced(SPINNER_INTERVAL_MS)).pipe(Effect.withTracerEnabled(false))
+    );
     yield* Effect.forkScoped(
       Stream.runForEach(fromEvent(window.onDidChangeActiveTerminal), (terminal) =>
         Effect.ignore(revealSession(view, terminal))
