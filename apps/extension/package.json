@@ -1,6 +1,6 @@
 {
   "name": "aggregor-app",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "Combines multiple coding agents.",
   "repository": "github:m-salman-afzal/aggregor",
@@ -76,7 +76,7 @@
       ],
       "view/title": [
         {
-          "command": "aggregorApp.newSessionInRepo",
+          "command": "aggregorApp.newSessionAskingForRepo",
           "group": "navigation@1",
           "when": "view == aggregorApp.sessions"
         },
@@ -93,7 +93,7 @@
           "when": "view == aggregorApp.sessions && viewItem == session"
         },
         {
-          "command": "aggregorApp.newSession",
+          "command": "aggregorApp.newSessionInClickedRepo",
           "group": "inline@1",
           "when": "view == aggregorApp.sessions && viewItem =~ /^(repo|addedRepo)$/"
         },
@@ -115,7 +115,7 @@
       ],
       "commandPalette": [
         {
-          "command": "aggregorApp.newSessionInRepo",
+          "command": "aggregorApp.newSessionInClickedRepo",
           "when": "false"
         },
         {
@@ -169,13 +169,13 @@
       },
       {
         "title": "New Claude Session",
-        "command": "aggregorApp.newSession",
+        "command": "aggregorApp.newSessionInClickedRepo",
         "category": "Aggregor App",
         "icon": "$(add)"
       },
       {
         "title": "New Session...",
-        "command": "aggregorApp.newSessionInRepo",
+        "command": "aggregorApp.newSessionAskingForRepo",
         "category": "Aggregor App",
         "icon": "$(add)"
       },

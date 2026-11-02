@@ -6,10 +6,10 @@ export const APP_NAME = "Aggregor App";
 
 export const SETTINGS_SECTION = "aggregorApp";
 
-// Grouped by where each command's button lives; the IDs are what users bind keys to, so they never change.
+// Grouped by where each command's button lives.
 export const COMMANDS = {
   REPO_ROW: {
-    NEW_SESSION: "aggregorApp.newSession",
+    NEW_SESSION: "aggregorApp.newSessionInClickedRepo",
     REMOVE: "aggregorApp.removeRepo"
   },
   SCM_TITLE: {
@@ -22,7 +22,7 @@ export const COMMANDS = {
   // The Sessions view's title bar (the manifest's view/title).
   VIEW_TITLE: {
     ADD_REPO: "aggregorApp.addRepo",
-    NEW_SESSION: "aggregorApp.newSessionInRepo"
+    NEW_SESSION: "aggregorApp.newSessionAskingForRepo"
   }
 } as const;
 
@@ -63,7 +63,7 @@ export const STATUS_BADGES = {
 export const SPINNER_INTERVAL_MS = 120;
 
 export const STORAGE_KEYS = {
-  REPOS: "repos",
+  ADDED_REPO_PATHS: "addedRepoPaths",
   SESSIONS: "sessions"
 } as const;
 

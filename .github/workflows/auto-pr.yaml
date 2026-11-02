@@ -1,11 +1,11 @@
 name: Auto PR
 
-# Any branch push opens a PR into dev; a push to dev opens (or retitles) the release PR into main.
+# Any branch push opens a PR into dev.
 # Stack branches (stack/<name>/<n>/<type>/<slug>, see .claude/skills/stack) from n = 1 open into the stack's branch below
-# instead, and join its GitHub stack. Renovate branches are skipped: Renovate opens its own PRs.
+# instead, and join its GitHub stack. Renovate and `pnpm bump` open their own PRs.
 on:
   push:
-    branches-ignore: [main, "renovate/**"]
+    branches-ignore: [main, dev, "renovate/**", "chore/bump-v*"]
 
 concurrency:
   group: auto-pr-${{ github.ref }}
@@ -32,13 +32,7 @@ jobs:
           fetch-depth: 0
       - name: Open or update PR
         run: |
-          if [ "$HEAD" = dev ]; then
-            base=main
-            title="v$(gh api "repos/$GH_REPO/contents/package.json?ref=dev" -H 'Accept: application/vnd.github.raw' | jq -r .version)"
-          else
-            base=dev
-            title=
-          fi
+          base=dev
 
           # A stack branch above 0 targets the stack's one branch at n - 1.
           parent=
@@ -59,14 +53,7 @@ jobs:
 
           # No --base: a stacked PR retargeted onto its parent branch must still be found, not reopened into dev.
           pr=$(gh pr list --head "$HEAD" --state open --json number -q '.[0].number')
-          if [ -n "$pr" ]; then
-            # Keeps the release PR title in step with a version bumped after it was opened.
-            if [ -n "$title" ]; then gh pr edit "$pr" --title "$title"; fi
-          elif [ -n "$title" ]; then
-            gh pr create --base "$base" --head "$HEAD" --fill --title "$title" --assignee "$ASSIGNEE"
-          else
-            gh pr create --base "$base" --head "$HEAD" --fill --assignee "$ASSIGNEE"
-          fi
+          if [ -z "$pr" ]; then gh pr create --base "$base" --head "$HEAD" --fill --assignee "$ASSIGNEE"; fi
 
           # The PR also joins its parent's GitHub stack. Every push retries, so a link skipped because the branch below
           # had no PR yet is made on a later push.

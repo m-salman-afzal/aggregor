@@ -1,267 +1,234 @@
 import {NoActiveTerminal, RevealFailed} from "@/errors/session.error.ts";
 import {RepoStore} from "@/services/repo/repo.service.ts";
-import {listRepos} from "@/services/repo/repo.utils.ts";
 import {StatusService} from "@/services/session/status.service.ts";
 import {SessionStore} from "@/services/session/store.service.ts";
 import {findSession, listSessions} from "@/services/session/store.utils.ts";
 import {TerminalService} from "@/services/session/terminal.service.ts";
 import {TranscriptService} from "@/services/session/transcript.service.ts";
-import {VscService} from "@/services/vsc.service.ts";
-import {fromEvent, getClaudeIcon} from "@/services/vsc.utils.ts";
+import {VsCodeService} from "@/services/vscode.service.ts";
+import {acquireDisposable, fromEvent} from "@/services/vscode.utils.ts";
 import {
-  COMMANDS,
-  CONTEXT_VALUES,
-  REPO_ICON,
-  SESSION_URI_SCHEME,
-  SPINNER_INTERVAL_MS,
-  STATUS_BADGES,
-  VIEWS
-} from "@pkg/constants/src/extension.constant.ts";
-import {SESSION_LABELS, STATUS_LABELS} from "@pkg/constants/src/message.constant.ts";
-import {Clock, Effect, Layer, Option, Ref, Result, Schedule, Stream, SubscriptionRef} from "effect";
-import {Path} from "effect/Path";
+  createRepoTreeItem,
+  createSessionTreeItem,
+  createStatusBadge,
+  getChildRows,
+  getParentRow,
+  getRowStatus,
+  getSessionRowUri,
+  isRepo
+} from "@/views/sessions.utils.ts";
+import {SESSION_URI_SCHEME, SPINNER_INTERVAL_MS, VIEWS} from "@pkg/constants/src/extension.constant.ts";
+import {Effect, Layer, Ref, Result, Schedule, Stream, SubscriptionRef} from "effect";
 
-import type {Repo} from "@/services/repo/repo.service.ts";
 import type {Status} from "@/services/session/status.service.ts";
-import type {Session} from "@/services/session/store.service.ts";
-import type {Terminal, TreeView, Uri} from "vscode";
+import type {Row, RowStatus} from "@/views/sessions.utils.ts";
+import type {Path} from "effect/Path";
+import type {EventEmitter, Terminal, TreeView, Uri} from "vscode";
 
-// Repos at the top level, each with the sessions started in it.
-type Row = Repo | Session;
+type SessionsViewServices =
+  Path | RepoStore | SessionStore | StatusService | TerminalService | TranscriptService | VsCodeService;
 
-// What a row shows. "unread" is an idle session whose last turn ended while it was out of view; undefined is a
-// terminal whose hooks have not fired yet.
-type RowStatus = "unread" | Status;
+// A turn is in progress while its session runs or waits on the user.
+const TURN_IN_PROGRESS_STATUSES: ReadonlySet<Status | undefined> = new Set(["needs-input", "running"]);
 
-const isRepo = (row: Row): row is Repo => "added" in row;
+// Selects the session whose tab became active. Skipped while the view is hidden, since reveal would open it. No active
+// terminal, or one that is not a session's, leaves nothing to select.
+const revealSession = Effect.fn("revealSession")(
+  function* (sessionsTreeView: TreeView<Row>, activeTerminal: Terminal | undefined) {
+    const terminal = yield* Effect.fromResult(Result.fromNullishOr(activeTerminal, () => new NoActiveTerminal()));
+    const sessionId = yield* TerminalService.use((terminalService) => terminalService.findTerminalSessionId(terminal));
+    const session = yield* findSession(sessionId);
+    if (!sessionsTreeView.visible) return;
 
-// Without a terminal in this window the agent is gone; with one, the hooks say what it is doing.
-const rowStatus = Effect.fn("rowStatus")(function* (id: string, unread: ReadonlySet<string>) {
-  const open = yield* TerminalService.use((service) => service.isOpen(id));
-  if (!open) return "exited" satisfies RowStatus;
+    yield* Effect.tryPromise({
+      catch: (cause) => new RevealFailed({cause}),
+      try: async () => sessionsTreeView.reveal(session, {focus: false, select: true})
+    });
+  },
+  Effect.catchTag(["NoActiveTerminal", "UntrackedTerminal"], () => Effect.void),
+  Effect.ignore({log: "Warn", message: "Could not select the active session in the Sessions view"})
+);
 
-  const {statuses} = yield* StatusService;
-  const status = (yield* SubscriptionRef.get(statuses)).get(id);
+// The status each row was last drawn with, by session id.
+type DrawnRowStatus = (sessionId: string) => RowStatus | undefined;
 
-  return status === "idle" && unread.has(id) ? ("unread" satisfies RowStatus) : status;
+// VS Code calls the tree and badge callbacks for every row on every refresh and spinner frame, so they run untraced.
+type RunSyncUntraced = <A, E>(effect: Effect.Effect<A, E, SessionsViewServices>) => A;
+
+// What the view's functions share: the tree and its change events, and the statuses its rows were drawn from.
+interface SessionsViewParts {
+  readonly badgesChangedEmitter: EventEmitter<Uri[]>;
+  readonly drawnRowStatuses: Ref.Ref<ReadonlyMap<string, RowStatus | undefined>>;
+  readonly previousSessionStatuses: Ref.Ref<ReadonlyMap<string, Status>>;
+  readonly sessionsTreeView: TreeView<Row>;
+  readonly treeChangedEmitter: EventEmitter<void>;
+  readonly unreadSessionIds: Ref.Ref<ReadonlySet<string>>;
+}
+
+const makeUntracedRunner = Effect.fn("SessionsView.makeUntracedRunner")(function* () {
+  const runSync = Effect.runSyncWith(yield* Effect.context<SessionsViewServices>());
+  const runSyncUntraced: RunSyncUntraced = (effect) => runSync(Effect.withTracerEnabled(effect, false));
+
+  return runSyncUntraced;
 });
 
-// The handle the status badge hangs off; the decoration provider reads the session id back from the path.
-const sessionUri = Effect.fn("sessionUri")(function* (id: string) {
-  const {Uri} = yield* VscService;
+// Each session row's status badge is a file decoration on its URI.
+const registerStatusBadges = Effect.fn("SessionsView.registerStatusBadges")(function* (
+  getDrawnRowStatus: DrawnRowStatus,
+  runSyncUntraced: RunSyncUntraced
+) {
+  const {EventEmitter, window} = yield* VsCodeService;
+  const badgesChangedEmitter = yield* acquireDisposable(() => new EventEmitter<Uri[]>());
+  yield* acquireDisposable(() =>
+    window.registerFileDecorationProvider({
+      onDidChangeFileDecorations: badgesChangedEmitter.event,
+      // VS Code asks about every file it shows, so anything not ours returns before running an effect.
+      provideFileDecoration: (uri) =>
+        uri.scheme === SESSION_URI_SCHEME
+          ? runSyncUntraced(createStatusBadge(getDrawnRowStatus(uri.path.slice(1))))
+          : undefined
+    })
+  );
 
-  return Uri.from({path: `/${id}`, scheme: SESSION_URI_SCHEME});
+  return badgesChangedEmitter;
 });
 
-const toSessionItem = Effect.fn("toSessionItem")(function* (session: Session, status: RowStatus | undefined) {
-  const {TreeItem} = yield* VscService;
-  const path = yield* Path;
-  const statusText = status === undefined ? undefined : STATUS_LABELS[status];
-  const title = yield* TranscriptService.use((service) => service.titleOf(session.id));
-  const label = Option.getOrElse(title, () => session.name);
-  const folder = path.basename(session.cwd);
-  const item = new TreeItem(label);
-  item.id = session.id;
-  item.iconPath = yield* getClaudeIcon();
-  item.resourceUri = yield* sessionUri(session.id);
-  item.tooltip = SESSION_LABELS.TOOLTIP(session.name, session.cwd, statusText);
-  item.accessibilityInformation = {label: SESSION_LABELS.ACCESSIBLE(label, folder, statusText)};
-  item.contextValue = CONTEXT_VALUES.SESSION;
-  item.command = {arguments: [session.id], command: COMMANDS.SESSION_ROW.OPEN, title: SESSION_LABELS.OPEN_SESSION};
+const registerTreeView = Effect.fn("SessionsView.registerTreeView")(function* (
+  getDrawnRowStatus: DrawnRowStatus,
+  runSyncUntraced: RunSyncUntraced
+) {
+  const {EventEmitter, window} = yield* VsCodeService;
+  const treeChangedEmitter = yield* acquireDisposable(() => new EventEmitter<void>());
+  const sessionsTreeView = yield* acquireDisposable(() =>
+    window.createTreeView<Row>(VIEWS.SESSIONS, {
+      treeDataProvider: {
+        getChildren: (parentRow) => [...runSyncUntraced(getChildRows(parentRow))],
+        getParent: (row) => runSyncUntraced(getParentRow(row)),
+        getTreeItem: (row) =>
+          isRepo(row)
+            ? runSyncUntraced(createRepoTreeItem(row))
+            : runSyncUntraced(createSessionTreeItem(row, getDrawnRowStatus(row.id))),
+        onDidChangeTreeData: treeChangedEmitter.event
+      }
+    })
+  );
 
-  return item;
+  return {sessionsTreeView, treeChangedEmitter};
 });
 
-// The id is the path, which never collides with a session's UUID.
-const toRepoItem = Effect.fn("toRepoItem")(function* (repo: Repo) {
-  const {ThemeIcon, TreeItem, TreeItemCollapsibleState} = yield* VscService;
-  const item = new TreeItem(repo.name, TreeItemCollapsibleState.Expanded);
-  item.id = repo.path;
-  item.iconPath = new ThemeIcon(REPO_ICON);
-  item.tooltip = repo.path;
-  item.contextValue = repo.added ? CONTEXT_VALUES.ADDED_REPO : CONTEXT_VALUES.REPO;
+// A turn that ends while its session is out of view leaves it unread until it comes into view or starts another turn.
+// Ended means idle now, and running or waiting on the user at the previous look.
+const updateUnreadSessionIds = Effect.fn("SessionsView.updateUnreadSessionIds")(function* (
+  viewParts: SessionsViewParts
+) {
+  const {sessionStatuses} = yield* StatusService;
+  const {viewedSessionId} = yield* TerminalService;
+  const currentStatuses = yield* SubscriptionRef.get(sessionStatuses);
+  const previousStatuses = yield* Ref.getAndSet(viewParts.previousSessionStatuses, currentStatuses);
+  const currentViewedSessionId = Result.getOrUndefined(yield* SubscriptionRef.get(viewedSessionId));
+  const endedSessionIds = [...currentStatuses]
+    .filter(
+      ([sessionId, sessionStatus]) =>
+        sessionStatus === "idle" && TURN_IN_PROGRESS_STATUSES.has(previousStatuses.get(sessionId))
+    )
+    .map(([sessionId]) => sessionId);
+  const isIdleAndOutOfView = (sessionId: string) =>
+    currentStatuses.get(sessionId) === "idle" && sessionId !== currentViewedSessionId;
 
-  return item;
+  return yield* Ref.updateAndGet(
+    viewParts.unreadSessionIds,
+    (previousUnreadSessionIds) => new Set([...previousUnreadSessionIds, ...endedSessionIds].filter(isIdleAndOutOfView))
+  );
 });
 
-const toDecoration = Effect.fn("toDecoration")(function* (status: RowStatus | undefined) {
-  if (status === undefined || status === "idle") return undefined;
+const getChangedBadgeUris = Effect.fn("SessionsView.getChangedBadgeUris")(function* (
+  viewParts: SessionsViewParts,
+  currentUnreadSessionIds: ReadonlySet<string>
+) {
+  const allSessions = yield* listSessions();
+  const currentRowStatuses = new Map(
+    yield* Effect.forEach(allSessions, (session) =>
+      Effect.map(getRowStatus(session.id, currentUnreadSessionIds), (rowStatus) => [session.id, rowStatus] as const)
+    )
+  );
+  const previousRowStatuses = yield* Ref.getAndSet(viewParts.drawnRowStatuses, currentRowStatuses);
+  const changedRowStatuses = [...currentRowStatuses].filter(
+    ([sessionId, rowStatus]) => !previousRowStatuses.has(sessionId) || previousRowStatuses.get(sessionId) !== rowStatus
+  );
 
-  const {FileDecoration, ThemeColor} = yield* VscService;
-  const {color, frames} = STATUS_BADGES[status];
-  const frame = Math.floor((yield* Clock.currentTimeMillis) / SPINNER_INTERVAL_MS) % frames.length;
-
-  return new FileDecoration(frames[frame], STATUS_LABELS[status], new ThemeColor(color));
+  return yield* Effect.forEach(changedRowStatuses, ([sessionId]) => getSessionRowUri(sessionId));
 });
 
-// Every repo is listed, even one without sessions, so adding a repo always shows. A session sits under the repo whose
-// path is its cwd; one whose repo is not in this window is not shown here.
-const childrenOf = Effect.fn("childrenOf")(function* (row: Row | undefined) {
-  if (row === undefined) return yield* listRepos();
-  if (!isRepo(row)) return [];
+const refreshSessionsTree = Effect.fn("SessionsView.refreshSessionsTree")(function* (viewParts: SessionsViewParts) {
+  const changedBadgeUris = yield* getChangedBadgeUris(viewParts, yield* updateUnreadSessionIds(viewParts));
 
-  const all = yield* listSessions();
-
-  return all.filter((session) => session.cwd === row.path);
-});
-
-const parentOf = Effect.fn("parentOf")(function* (row: Row) {
-  if (isRepo(row)) return undefined;
-
-  const repos = yield* listRepos();
-
-  return repos.find((repo) => repo.path === row.cwd);
-});
-
-// Selects the session whose tab became active. Skipped while the view is hidden, since reveal would open it.
-const revealSession = Effect.fn("revealSession")(function* (view: TreeView<Row>, terminal: Terminal | undefined) {
-  const active = yield* Effect.fromResult(Result.fromNullishOr(terminal, () => new NoActiveTerminal()));
-  const id = yield* TerminalService.use((service) => service.sessionIdOf(active));
-  const session = yield* findSession(id);
-  if (!view.visible) return;
-
-  yield* Effect.tryPromise({
-    catch: (cause) => new RevealFailed({cause}),
-    try: async () => view.reveal(session, {focus: false, select: true})
+  yield* Effect.sync(() => {
+    viewParts.treeChangedEmitter.fire();
+    if (changedBadgeUris.length > 0) viewParts.badgesChangedEmitter.fire(changedBadgeUris);
   });
 });
 
+// ponytail: ticks for the view's whole life and returns at once when it is hidden or nothing runs. Start and stop it
+// on status changes if the idle wake-ups ever show up in a profile.
+const advanceSpinnerFrames = Effect.fn("SessionsView.advanceSpinnerFrames")(function* (viewParts: SessionsViewParts) {
+  const drawnRowStatuses = yield* Ref.get(viewParts.drawnRowStatuses);
+  const runningRows = [...drawnRowStatuses].filter(([, rowStatus]) => rowStatus === "running");
+  if (!viewParts.sessionsTreeView.visible || runningRows.length === 0) return;
+
+  const runningBadgeUris = yield* Effect.forEach(runningRows, ([sessionId]) => getSessionRowUri(sessionId));
+  yield* Effect.sync(() => {
+    viewParts.badgesChangedEmitter.fire(runningBadgeUris);
+  });
+});
+
+// Rows change when a repo or workspace folder is added or removed, when a session is added or removed, when its tab
+// opens or closes, when Claude renames it, when its status changes, and when it comes into view, which marks it read.
+const watchRowChanges = Effect.fn("SessionsView.watchRowChanges")(function* () {
+  const {workspace} = yield* VsCodeService;
+  const rowChangeSources: readonly Stream.Stream<unknown>[] = [
+    SubscriptionRef.changes((yield* RepoStore).addedRepoPaths),
+    fromEvent(workspace.onDidChangeWorkspaceFolders),
+    SubscriptionRef.changes((yield* SessionStore).sessions),
+    SubscriptionRef.changes((yield* TerminalService).sessionTerminals),
+    SubscriptionRef.changes((yield* TranscriptService).sessionTitles),
+    SubscriptionRef.changes((yield* StatusService).sessionStatuses),
+    SubscriptionRef.changes((yield* TerminalService).viewedSessionId)
+  ];
+
+  return Stream.mergeAll(rowChangeSources, {concurrency: "unbounded"});
+});
+
+const makeSessionsViewParts = Effect.fn("SessionsView.makeSessionsViewParts")(function* () {
+  const runSyncUntraced = yield* makeUntracedRunner();
+  const drawnRowStatuses = yield* Ref.make<ReadonlyMap<string, RowStatus | undefined>>(new Map());
+  const getDrawnRowStatus: DrawnRowStatus = (sessionId) => runSyncUntraced(Ref.get(drawnRowStatuses)).get(sessionId);
+  const viewParts: SessionsViewParts = {
+    badgesChangedEmitter: yield* registerStatusBadges(getDrawnRowStatus, runSyncUntraced),
+    drawnRowStatuses,
+    previousSessionStatuses: yield* Ref.make<ReadonlyMap<string, Status>>(new Map()),
+    unreadSessionIds: yield* Ref.make<ReadonlySet<string>>(new Set()),
+    ...(yield* registerTreeView(getDrawnRowStatus, runSyncUntraced))
+  };
+
+  return viewParts;
+});
+
 // Registers the Sessions tree for the lifetime of the runtime; disposing the runtime unregisters it.
-export const SessionsView = Layer.effectDiscard(
-  Effect.gen(function* () {
-    const {EventEmitter, window, workspace} = yield* VscService;
-    const {added} = yield* RepoStore;
-    const {sessions} = yield* SessionStore;
-    const {terminals, viewed} = yield* TerminalService;
-    const {titles} = yield* TranscriptService;
-    const {statuses} = yield* StatusService;
-    const run = Effect.runSyncWith(
-      yield* Effect.context<
-        Path | RepoStore | SessionStore | StatusService | TerminalService | TranscriptService | VscService
-      >()
-    );
+const registerSessionsView = Effect.fn("registerSessionsView")(function* () {
+  const {window} = yield* VsCodeService;
+  const viewParts = yield* makeSessionsViewParts();
+  yield* Effect.forkScoped(Stream.runForEach(yield* watchRowChanges(), () => refreshSessionsTree(viewParts)));
+  yield* Effect.forkScoped(
+    Effect.withTracerEnabled(
+      Effect.repeat(advanceSpinnerFrames(viewParts), Schedule.spaced(SPINNER_INTERVAL_MS)),
+      false
+    )
+  );
+  yield* Effect.forkScoped(
+    Stream.runForEach(fromEvent(window.onDidChangeActiveTerminal), (activeTerminal) =>
+      revealSession(viewParts.sessionsTreeView, activeTerminal)
+    )
+  );
+});
 
-    // What each row was last drawn with; the tree and the badges both render from it. Only rows whose status moved are
-    // named in the badge change event: one without URIs makes VS Code drop every cached badge, and all rows flash
-    // plain until it fetches them again.
-    const shown = yield* Ref.make<ReadonlyMap<string, RowStatus | undefined>>(new Map());
-    const shownStatus = (id: string) => run(Ref.get(shown)).get(id);
-    const unread = yield* Ref.make<ReadonlySet<string>>(new Set());
-    const lastStatuses = yield* Ref.make<ReadonlyMap<string, Status>>(new Map());
-
-    const changed = yield* Effect.acquireRelease(
-      Effect.sync(() => new EventEmitter<void>()),
-      (emitter) =>
-        Effect.sync(() => {
-          emitter.dispose();
-        })
-    );
-    const decorationsChanged = yield* Effect.acquireRelease(
-      Effect.sync(() => new EventEmitter<Uri[]>()),
-      (emitter) =>
-        Effect.sync(() => {
-          emitter.dispose();
-        })
-    );
-    yield* Effect.acquireRelease(
-      Effect.sync(() =>
-        window.registerFileDecorationProvider({
-          onDidChangeFileDecorations: decorationsChanged.event,
-          // VS Code asks about every file it shows, so anything not ours returns before running an effect.
-          provideFileDecoration: (uri) =>
-            uri.scheme === SESSION_URI_SCHEME ? run(toDecoration(shownStatus(uri.path.slice(1)))) : undefined
-        })
-      ),
-      (provider) =>
-        Effect.sync(() => {
-          provider.dispose();
-        })
-    );
-    const view = yield* Effect.acquireRelease(
-      Effect.sync(() =>
-        window.createTreeView<Row>(VIEWS.SESSIONS, {
-          treeDataProvider: {
-            getChildren: (row) => [...run(childrenOf(row))],
-            getParent: (row) => run(parentOf(row)),
-            getTreeItem: (row) => (isRepo(row) ? run(toRepoItem(row)) : run(toSessionItem(row, shownStatus(row.id)))),
-            onDidChangeTreeData: changed.event
-          }
-        })
-      ),
-      (treeView) =>
-        Effect.sync(() => {
-          treeView.dispose();
-        })
-    );
-
-    // A turn that ends while its session is out of view leaves it unread until it comes into view or starts another
-    // turn. Ended means idle now, and running or waiting on the user at the previous look.
-    const syncUnread = Effect.fn("syncUnread")(function* () {
-      const now = yield* SubscriptionRef.get(statuses);
-      const before = yield* Ref.getAndSet(lastStatuses, now);
-      const inView = Option.getOrUndefined(yield* SubscriptionRef.get(viewed));
-      const ended = [...now]
-        .filter(([id, status]) => status === "idle" && ["needs-input", "running"].includes(before.get(id) ?? ""))
-        .map(([id]) => id);
-
-      return yield* Ref.updateAndGet(
-        unread,
-        (current) => new Set([...current, ...ended].filter((id) => now.get(id) === "idle" && id !== inView))
-      );
-    });
-
-    const changedRows = Effect.fn("changedRows")(function* (unreadNow: ReadonlySet<string>) {
-      const all = yield* listSessions();
-      const now = new Map(
-        yield* Effect.forEach(all, (session) =>
-          Effect.map(rowStatus(session.id, unreadNow), (status) => [session.id, status] as const)
-        )
-      );
-      const before = yield* Ref.getAndSet(shown, now);
-      const moved = [...now].filter(([id, status]) => !before.has(id) || before.get(id) !== status);
-
-      return yield* Effect.forEach(moved, ([id]) => sessionUri(id));
-    });
-
-    const refresh = Effect.fn("refreshSessionsTree")(function* () {
-      const uris = yield* changedRows(yield* syncUnread());
-
-      yield* Effect.sync(() => {
-        changed.fire();
-        if (uris.length > 0) decorationsChanged.fire(uris);
-      });
-    });
-
-    // ponytail: ticks for the view's whole life and returns at once when it is hidden or nothing runs. Start and stop
-    // it on status changes if the idle wake-ups ever show up in a profile.
-    const tickSpinners = Effect.fn("tickSpinners")(function* () {
-      const running = [...(yield* Ref.get(shown))].filter(([, status]) => status === "running");
-      if (!view.visible || running.length === 0) return;
-
-      const uris = yield* Effect.forEach(running, ([id]) => sessionUri(id));
-      yield* Effect.sync(() => {
-        decorationsChanged.fire(uris);
-      });
-    });
-
-    // Rows change when a repo or workspace folder is added or removed, when a session is added or removed, when its tab
-    // opens or closes, when Claude renames it, when its status changes, and when it comes into view, which marks it read.
-    const changes: readonly Stream.Stream<unknown>[] = [
-      SubscriptionRef.changes(added),
-      fromEvent(workspace.onDidChangeWorkspaceFolders),
-      SubscriptionRef.changes(sessions),
-      SubscriptionRef.changes(terminals),
-      SubscriptionRef.changes(titles),
-      SubscriptionRef.changes(statuses),
-      SubscriptionRef.changes(viewed)
-    ];
-    const rowChanges = Stream.mergeAll(changes, {concurrency: "unbounded"});
-    yield* Effect.forkScoped(Stream.runForEach(rowChanges, () => refresh()));
-    yield* Effect.forkScoped(Effect.repeat(tickSpinners(), Schedule.spaced(SPINNER_INTERVAL_MS)));
-    yield* Effect.forkScoped(
-      Stream.runForEach(fromEvent(window.onDidChangeActiveTerminal), (terminal) =>
-        Effect.ignore(revealSession(view, terminal))
-      )
-    );
-  })
-);
+export const SessionsView = Layer.effectDiscard(registerSessionsView());

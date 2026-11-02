@@ -1,5 +1,5 @@
 import e18e from "@e18e/eslint-plugin";
-import js from "@eslint/js";
+import javascript from "@eslint/js";
 import json from "@eslint/json";
 import markdown from "@eslint/markdown";
 import packageJson from "eslint-package-json";
@@ -7,7 +7,7 @@ import importX from "eslint-plugin-import-x";
 import perfectionist from "eslint-plugin-perfectionist";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 // import pluginPromise from "eslint-plugin-promise";
-// import unicorn from "eslint-plugin-unicorn";
+import unicorn from "eslint-plugin-unicorn";
 import {defineConfig, globalIgnores} from "eslint/config";
 import globals from "globals";
 import tsEslint from "typescript-eslint";
@@ -70,7 +70,7 @@ const config: Config[] = defineConfig([
   // pluginPromise.configs["flat/recommended"],
   {
     extends: [
-      js.configs.all,
+      javascript.configs.all,
       tsEslint.configs.all,
       eslintPluginPrettierRecommended,
 
@@ -85,7 +85,7 @@ const config: Config[] = defineConfig([
         projectService: true
       }
     },
-    plugins: {"import-x": importX, js},
+    plugins: {"import-x": importX, js: javascript, unicorn},
     rules: {
       "@typescript-eslint/consistent-type-imports": [
         "error",
@@ -96,6 +96,15 @@ const config: Config[] = defineConfig([
       "@typescript-eslint/naming-convention": "off",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-magic-numbers": "off",
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {importNames: ["Option"], message: "Use Result: its error says why a value is missing.", name: "effect"},
+            {message: "Use Result: its error says why a value is missing.", name: "effect/Option"}
+          ]
+        }
+      ],
       "@typescript-eslint/no-unused-vars": [
         "warn",
         {
@@ -107,16 +116,18 @@ const config: Config[] = defineConfig([
           varsIgnorePattern: "^_"
         }
       ],
+      "@typescript-eslint/prefer-nullish-coalescing": "off",
+      "@typescript-eslint/prefer-optional-chain": "off",
       "@typescript-eslint/prefer-readonly-parameter-types": "off",
       "capitalized-comments": "off",
       "func-names": ["error", "always", {generators: "never"}],
-      "id-length": "off",
+      "id-length": ["error", {min: 3, properties: "never"}],
       "import-x/consistent-type-specifier-style": ["error", "prefer-top-level"],
       "max-lines-per-function": [
-        "off",
+        "error",
         {
           IIFEs: true,
-          max: 50,
+          max: 30,
           skipBlankLines: true,
           skipComments: true
         }
@@ -128,6 +139,20 @@ const config: Config[] = defineConfig([
       "no-constant-condition": "error",
       "no-duplicate-imports": ["error", {allowSeparateTypeImports: true}],
       "no-magic-numbers": "off",
+      "no-restricted-properties": [
+        "error",
+        {message: "Use Effect.fn: it adds the span itself.", object: "Effect", property: "gen"},
+        {message: "Use Effect.fn: it adds the span itself.", object: "Effect", property: "withSpan"}
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {message: "No optional chaining: check the value explicitly.", selector: "ChainExpression"},
+        {
+          message: "No ??: check the value explicitly, or take a default with Result.getOrElse or UndefinedOr.match.",
+          selector: "LogicalExpression[operator='??']"
+        },
+        {message: "No ??=: check the value explicitly.", selector: "AssignmentExpression[operator='??=']"}
+      ],
       "no-ternary": "off",
       "no-undefined": "off",
       "no-underscore-dangle": "off",
@@ -151,7 +176,8 @@ const config: Config[] = defineConfig([
           sortBy: "path"
         }
       ],
-      "sort-imports": "off"
+      "sort-imports": "off",
+      "unicorn/name-replacements": ["error", {checkFilenames: false, replacements: {repo: false}}]
     }
   }
 ]);

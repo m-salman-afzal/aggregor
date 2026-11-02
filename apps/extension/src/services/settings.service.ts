@@ -1,5 +1,5 @@
 import {InvalidSettings} from "@/errors/settings.error.ts";
-import {VscService} from "@/services/vsc.service.ts";
+import {VsCodeService} from "@/services/vscode.service.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/extension.constant.ts";
 import {Context, Effect, Layer, Schema} from "effect";
 
@@ -8,21 +8,24 @@ const Settings = Schema.Struct({
   commitCommand: Schema.NonEmptyString
 });
 
+const makeSettingsService = Effect.fn("SettingsService.make")(function* () {
+  const {getConfiguration} = yield* VsCodeService;
+
+  const readSettings = Effect.fn("SettingsService.readSettings")(
+    function* () {
+      const configuredSettings = yield* getConfiguration(SETTINGS_SECTION);
+
+      return yield* Schema.decodeUnknownEffect(Settings)(configuredSettings);
+    },
+    Effect.mapError((schemaError) => new InvalidSettings({reason: schemaError.message}))
+  );
+
+  return {readSettings};
+});
+
 export class SettingsService extends Context.Service<
   SettingsService,
-  {readonly read: Effect.Effect<typeof Settings.Type, InvalidSettings>}
+  {readonly readSettings: () => Effect.Effect<typeof Settings.Type, InvalidSettings>}
 >()("aggregor/services/settings.service/SettingsService") {
-  public static readonly layer = Layer.effect(
-    SettingsService,
-    Effect.gen(function* () {
-      const vscService = yield* VscService;
-
-      const read = vscService.getConfiguration(SETTINGS_SECTION).pipe(
-        Effect.flatMap(Schema.decodeUnknownEffect(Settings)),
-        Effect.mapError((schemaError) => new InvalidSettings({reason: schemaError.message}))
-      );
-
-      return SettingsService.of({read});
-    })
-  );
+  public static readonly layer = Layer.effect(SettingsService, makeSettingsService());
 }

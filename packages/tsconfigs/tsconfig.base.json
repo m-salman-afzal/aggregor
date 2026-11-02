@@ -74,6 +74,8 @@
     "plugins": [
       {
         "name": "@effect/language-service",
+        // Every effectful function is an Effect.fn, zero-argument ones included, so each call gets its own span.
+        "diagnosticSeverity": {"lazyEffect": "off"},
         "allowedUnstableApis": [
           "@effect/platform-node/NodeServices",
           "effect/ByteSize",

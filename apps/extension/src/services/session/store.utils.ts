@@ -6,28 +6,28 @@ import type {Repo} from "@/services/repo/repo.service.ts";
 import type {Session} from "@/services/session/store.service.ts";
 
 // Lowest free "<repo> #n", so removing #1 frees the name for the next session.
-const nameFor = (repo: Repo, all: readonly Session[]) => {
-  const taken = new Set(all.map((session) => session.name));
-  let index = 1;
-  while (taken.has(`${repo.name} #${index}`)) index += 1;
+const getLowestFreeSessionName = (repo: Repo, allSessions: readonly Session[]) => {
+  const takenSessionNames = new Set(allSessions.map((session) => session.name));
+  let sessionNumber = 1;
+  while (takenSessionNames.has(`${repo.name} #${sessionNumber}`)) sessionNumber += 1;
 
-  return `${repo.name} #${index}`;
+  return `${repo.name} #${sessionNumber}`;
 };
 
 // Read-modify-write against globalState under the ref's permit, so a change never drops what another window saved.
-const modifyStored = Effect.fn("modifyStored")(function* <B>(
-  change: (stored: readonly Session[]) => readonly [B, readonly Session[]]
+const modifyStoredSessions = Effect.fn("modifyStoredSessions")(function* <ChangeResult>(
+  changeSessions: (storedSessions: readonly Session[]) => readonly [ChangeResult, readonly Session[]]
 ) {
-  const {load, save, sessions} = yield* SessionStore;
+  const {loadSessions, saveSessions, sessions} = yield* SessionStore;
 
-  const writeChange = Effect.fn("writeChange")(function* () {
-    const [result, next] = change(yield* load());
-    yield* save(next);
+  const writeSessionsChange = Effect.fn("writeSessionsChange")(function* () {
+    const [changeResult, nextSessions] = changeSessions(yield* loadSessions());
+    yield* saveSessions(nextSessions);
 
-    return [result, next] as const;
+    return [changeResult, nextSessions] as const;
   });
 
-  return yield* SubscriptionRef.modifyEffect(sessions, () => writeChange());
+  return yield* SubscriptionRef.modifyEffect(sessions, () => writeSessionsChange());
 });
 
 export const listSessions = Effect.fn("listSessions")(function* () {
@@ -36,27 +36,33 @@ export const listSessions = Effect.fn("listSessions")(function* () {
   return yield* SubscriptionRef.get(sessions);
 });
 
-export const findSession = Effect.fn("findSession")(function* (id: string) {
-  const all = yield* listSessions();
+export const findSession = Effect.fn("findSession")(function* (sessionId: string) {
+  const allSessions = yield* listSessions();
 
   return yield* Effect.fromResult(
     Result.fromNullishOr(
-      all.find((session) => session.id === id),
-      () => new SessionNotFound({id})
+      allSessions.find((session) => session.id === sessionId),
+      () => new SessionNotFound({sessionId})
     )
   );
 });
 
 export const addSession = Effect.fn("addSession")(function* (repo: Repo) {
-  const id = yield* Effect.sync(() => crypto.randomUUID());
+  const sessionId = yield* Effect.sync(() => crypto.randomUUID());
 
-  return yield* modifyStored((stored) => {
-    const session: Session = {cwd: repo.path, id, name: nameFor(repo, stored)};
+  return yield* modifyStoredSessions((storedSessions) => {
+    const addedSession: Session = {
+      cwd: repo.path,
+      id: sessionId,
+      name: getLowestFreeSessionName(repo, storedSessions)
+    };
 
-    return [session, [...stored, session]] as const;
+    return [addedSession, [...storedSessions, addedSession]] as const;
   });
 });
 
-export const deleteSession = Effect.fn("deleteSession")(function* (id: string) {
-  yield* modifyStored((stored) => [id, stored.filter((session) => session.id !== id)] as const);
+export const deleteSession = Effect.fn("deleteSession")(function* (sessionId: string) {
+  yield* modifyStoredSessions(
+    (storedSessions) => [sessionId, storedSessions.filter((session) => session.id !== sessionId)] as const
+  );
 });
