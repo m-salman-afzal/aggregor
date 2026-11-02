@@ -21,58 +21,59 @@ const StoredAddedRepoPaths = Schema.Struct({
 
 const NO_ADDED_REPO_PATHS: typeof StoredAddedRepoPaths.Encoded = {addedRepoPaths: [], version: 1};
 
+const makeRepoStore = Effect.fn("RepoStore.make")(function* () {
+  const {workspaceState} = yield* VsCodeService;
+
+  // Re-reads workspaceState on every call.
+  const loadAddedRepoPaths = Effect.fn("RepoStore.loadAddedRepoPaths")(
+    function* () {
+      const storedValue = yield* Effect.sync(() =>
+        workspaceState.get<unknown>(STORAGE_KEYS.ADDED_REPO_PATHS, NO_ADDED_REPO_PATHS)
+      );
+      const storedAddedRepoPaths = yield* Schema.decodeUnknownEffect(StoredAddedRepoPaths)(storedValue);
+
+      return storedAddedRepoPaths.addedRepoPaths;
+    },
+    Effect.mapError((cause) => new ReposCorrupt({cause}))
+  );
+
+  const saveAddedRepoPaths = Effect.fn("RepoStore.saveAddedRepoPaths")(function* (addedRepoPaths: readonly string[]) {
+    const storedValue: typeof StoredAddedRepoPaths.Encoded = {addedRepoPaths, version: 1};
+
+    yield* Effect.tryPromise({
+      catch: (cause) => new ReposSaveFailed({cause}),
+      try: async () => workspaceState.update(STORAGE_KEYS.ADDED_REPO_PATHS, storedValue)
+    });
+  });
+
+  const showUnreadableReposError = Effect.fn("RepoStore.showUnreadableReposError")(function* () {
+    yield* showErrorInBackground(REPO_MESSAGES.UNREADABLE);
+    const noRepoPaths: readonly string[] = [];
+
+    return noRepoPaths;
+  });
+
+  // Unreadable data starts the list empty; every write re-reads first, so it is never overwritten.
+  const loadInitialAddedRepoPaths = Effect.fn("RepoStore.loadInitialAddedRepoPaths")(
+    function* () {
+      return yield* loadAddedRepoPaths();
+    },
+    Effect.catchTag("ReposCorrupt", () => showUnreadableReposError())
+  );
+  const addedRepoPaths = yield* SubscriptionRef.make<readonly string[]>(yield* loadInitialAddedRepoPaths());
+
+  return {addedRepoPaths, loadAddedRepoPaths, saveAddedRepoPaths};
+});
+
 // The paths added with Add Repo. workspaceState belongs to this workspace, so other windows never see them; workspace
 // folders are not stored, VS Code already lists them.
 export class RepoStore extends Context.Service<
   RepoStore,
   {
     readonly addedRepoPaths: SubscriptionRef.SubscriptionRef<readonly string[]>;
-    readonly loadAddedRepoPaths: Effect.Effect<readonly string[], ReposCorrupt>;
+    readonly loadAddedRepoPaths: () => Effect.Effect<readonly string[], ReposCorrupt>;
     readonly saveAddedRepoPaths: (addedRepoPaths: readonly string[]) => Effect.Effect<void, ReposSaveFailed>;
   }
 >()("aggregor/services/repo/repo.service/RepoStore") {
-  public static readonly layer = Layer.effect(
-    RepoStore,
-    Effect.gen(function* () {
-      const {workspaceState} = yield* VsCodeService;
-
-      // Re-reads workspaceState on every run.
-      const loadAddedRepoPaths = Effect.gen(function* () {
-        const storedValue = yield* Effect.sync(() =>
-          workspaceState.get<unknown>(STORAGE_KEYS.ADDED_REPO_PATHS, NO_ADDED_REPO_PATHS)
-        );
-        const storedAddedRepoPaths = yield* Schema.decodeUnknownEffect(StoredAddedRepoPaths)(storedValue).pipe(
-          Effect.catchTag("SchemaError", (cause) => Effect.fail(new ReposCorrupt({cause})))
-        );
-
-        return storedAddedRepoPaths.addedRepoPaths;
-      }).pipe(Effect.withSpan("RepoStore.loadAddedRepoPaths"));
-
-      const saveAddedRepoPaths = Effect.fn("RepoStore.saveAddedRepoPaths")(function* (
-        addedRepoPaths: readonly string[]
-      ) {
-        const storedValue: typeof StoredAddedRepoPaths.Encoded = {addedRepoPaths, version: 1};
-
-        yield* Effect.tryPromise({
-          catch: (cause) => new ReposSaveFailed({cause}),
-          try: async () => workspaceState.update(STORAGE_KEYS.ADDED_REPO_PATHS, storedValue)
-        });
-      });
-
-      const showUnreadableReposError = Effect.fn("RepoStore.showUnreadableReposError")(function* () {
-        yield* showErrorInBackground(REPO_MESSAGES.UNREADABLE);
-        const noRepoPaths: readonly string[] = [];
-
-        return noRepoPaths;
-      });
-
-      // Unreadable data starts the list empty; every write re-reads first, so it is never overwritten.
-      const initialAddedRepoPaths = yield* loadAddedRepoPaths.pipe(
-        Effect.catchTag("ReposCorrupt", () => showUnreadableReposError())
-      );
-      const addedRepoPaths = yield* SubscriptionRef.make<readonly string[]>(initialAddedRepoPaths);
-
-      return RepoStore.of({addedRepoPaths, loadAddedRepoPaths, saveAddedRepoPaths});
-    })
-  );
+  public static readonly layer = Layer.effect(RepoStore, makeRepoStore());
 }

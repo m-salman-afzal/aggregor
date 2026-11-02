@@ -1,5 +1,5 @@
-import {TranscriptNotFound} from "@/errors/session.error.ts";
-import {ByteSize, Config, Effect, Option, Result, Schema, Stream} from "effect";
+import {TitleNotFound, TranscriptNotFound} from "@/errors/session.error.ts";
+import {ByteSize, Config, Effect, Result, Schema, Stream} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 import {homedir} from "node:os";
@@ -21,11 +21,14 @@ export interface TranscriptProgress {
 }
 
 interface Titles {
-  readonly aiTitle: Option.Option<string>;
-  readonly customTitle: Option.Option<string>;
+  readonly aiTitle: Result.Result<string, TitleNotFound>;
+  readonly customTitle: Result.Result<string, TitleNotFound>;
 }
 
-export const NO_TITLES: Titles = {aiTitle: Option.none(), customTitle: Option.none()};
+export const NO_TITLES: Titles = {
+  aiTitle: Result.fail(new TitleNotFound()),
+  customTitle: Result.fail(new TitleNotFound())
+};
 
 export const getClaudeProjectsDirectoryPath = Effect.fn("getClaudeProjectsDirectoryPath")(function* () {
   const path = yield* Path;
@@ -55,12 +58,12 @@ export const findTranscriptFilePath = Effect.fn("findTranscriptFilePath")(functi
 });
 
 // A custom title (/rename) beats Claude's own; within each kind the latest wins.
-export const getPreferredTitle = (titles: Titles) => Option.orElse(titles.customTitle, () => titles.aiTitle);
+export const getPreferredTitle = (titles: Titles) => Result.orElse(titles.customTitle, () => titles.aiTitle);
 
 const addTitleEntry = (currentTitles: Titles, titleEntry: typeof TitleEntry.Type): Titles =>
   titleEntry.type === "ai-title"
-    ? {...currentTitles, aiTitle: Option.some(titleEntry.aiTitle)}
-    : {...currentTitles, customTitle: Option.some(titleEntry.customTitle)};
+    ? {...currentTitles, aiTitle: Result.succeed(titleEntry.aiTitle)}
+    : {...currentTitles, customTitle: Result.succeed(titleEntry.customTitle)};
 
 // Scans the bytes between the last read and `transcriptSize`. A line cut off by a concurrent write is never a title:
 // titles are short lines written in one go.

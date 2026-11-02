@@ -1,7 +1,7 @@
 import {VsCodeService} from "@/services/vscode.service.ts";
 import {acquireDisposable} from "@/services/vscode.utils.ts";
 import {APP_NAME} from "@pkg/constants/src/extension.constant.ts";
-import {Cause, Effect, Exit, Layer, Logger, Option, Predicate, References, Tracer} from "effect";
+import {Cause, Effect, Exit, Layer, Logger, Predicate, References, Result, Tracer} from "effect";
 import {format} from "node:util";
 
 import type {LogLevel} from "effect";
@@ -11,7 +11,10 @@ import type {LogOutputChannel} from "vscode";
 const formatSpanPath = (span: Tracer.AnySpan): string => {
   if (span._tag === "ExternalSpan") return "external";
 
-  return Option.isSome(span.parent) ? `${formatSpanPath(span.parent.value)} > ${span.name}` : span.name;
+  return Result.match(
+    Result.fromOption(span.parent, () => "root"),
+    {onFailure: () => span.name, onSuccess: (parentSpan) => `${formatSpanPath(parentSpan)} > ${span.name}`}
+  );
 };
 
 const formatFailureReason = (reason: Cause.Reason<unknown>) => {
@@ -64,16 +67,16 @@ const makeOutputChannelLogger = (outputChannel: LogOutputChannel) =>
     outputChannel[OUTPUT_CHANNEL_METHODS[logLevel]](logLine);
   });
 
-// Spans and logs go to the "Aggregor App" output channel, which VS Code also writes to a log file on disk.
-export const TraceLogLayer = Layer.unwrap(
-  Effect.gen(function* () {
-    const {window} = yield* VsCodeService;
-    const outputChannel = yield* acquireDisposable(() => window.createOutputChannel(APP_NAME, {log: true}));
+const makeTraceLogLayer = Effect.fn("makeTraceLogLayer")(function* () {
+  const {window} = yield* VsCodeService;
+  const outputChannel = yield* acquireDisposable(() => window.createOutputChannel(APP_NAME, {log: true}));
 
-    return Layer.mergeAll(
-      Logger.layer([makeOutputChannelLogger(outputChannel)]),
-      Layer.succeed(Tracer.Tracer, makeSpanLineTracer(outputChannel)),
-      Layer.succeed(References.MinimumLogLevel, "Trace")
-    );
-  })
-);
+  return Layer.mergeAll(
+    Logger.layer([makeOutputChannelLogger(outputChannel)]),
+    Layer.succeed(Tracer.Tracer, makeSpanLineTracer(outputChannel)),
+    Layer.succeed(References.MinimumLogLevel, "Trace")
+  );
+});
+
+// Spans and logs go to the "Aggregor App" output channel, which VS Code also writes to a log file on disk.
+export const TraceLogLayer = Layer.unwrap(makeTraceLogLayer());

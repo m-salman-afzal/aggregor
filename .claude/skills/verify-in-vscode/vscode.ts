@@ -26,8 +26,9 @@ const USER_DATA_DIRECTORY_ARGUMENTS = [
 ];
 const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
 const EXTENSION_DIRECTORY = path.join(REPO_ROOT, "apps", "extension");
+const CONFIGURED_WORKSPACE = process.env.AGGREGOR_VERIFY_WORKSPACE;
 const DEFAULT_WORKSPACE =
-  process.env.AGGREGOR_VERIFY_WORKSPACE ?? path.join(operatingSystem.homedir(), "side", "jsTester");
+  CONFIGURED_WORKSPACE === undefined ? path.join(operatingSystem.homedir(), "side", "jsTester") : CONFIGURED_WORKSPACE;
 // Variables of the session the agent runs in; see createLaunchEnvironment.
 const INHERITED_SESSION_VARIABLE_PATTERN = /^(?:VSCODE_|ELECTRON_|CLAUDE|DISPLAY$|CHROME_DESKTOP$|TERM_PROGRAM)/u;
 const POLL_INTERVAL_MILLISECONDS = 200;
@@ -148,7 +149,9 @@ const assertCanLaunch = (workspacePath: string) => {
 };
 
 const assertNotInUseByAnotherSession = (claudeProcessId: null | number) => {
-  const previousOwnerProcessId = readState()?.ownerProcessId ?? null;
+  const previousState = readState();
+  if (previousState === null) return;
+  const previousOwnerProcessId = previousState.ownerProcessId;
   if (previousOwnerProcessId === null || previousOwnerProcessId === claudeProcessId) return;
   if (isClaudeProcess(previousOwnerProcessId)) {
     throw new Error(`Another Claude session (pid ${previousOwnerProcessId}) is using the headless VS Code.`);
@@ -177,7 +180,7 @@ const launchVsCode = (workspacePath: string, claudeProcessId: null | number) => 
 };
 
 const start = async (workspaceArgument: string | undefined) => {
-  const workspacePath = path.resolve(workspaceArgument ?? DEFAULT_WORKSPACE);
+  const workspacePath = path.resolve(workspaceArgument === undefined ? DEFAULT_WORKSPACE : workspaceArgument);
   assertCanLaunch(workspacePath);
   const claudeProcessId = findClaudeProcessId();
   assertNotInUseByAnotherSession(claudeProcessId);
@@ -208,10 +211,12 @@ const start = async (workspaceArgument: string | undefined) => {
 };
 
 const printTraceLogPath = () => {
-  const traceLogPath = readState()?.traceLogPath;
-  if (traceLogPath === undefined) throw new Error("No headless VS Code is running; run `start` first.");
+  const state = readState();
+  if (state === null || state.traceLogPath === undefined) {
+    throw new Error("No headless VS Code is running; run `start` first.");
+  }
 
-  process.stdout.write(`${traceLogPath}\n`);
+  process.stdout.write(`${state.traceLogPath}\n`);
 };
 
 // Hooks close the instance of their own session, and any whose session is gone, never another live session's.

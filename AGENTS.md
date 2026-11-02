@@ -11,10 +11,6 @@ one below it. The `stack` skill (`.claude/skills/stack`) creates them; on push, 
 the branch below and joins them into a GitHub stack. Land a stack by merging its top PR with a merge commit, never
 squash. The roadmap lives in `README.md`. Commit and push only when the user asks.
 
-Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (`Option.fromNullable` ->
-`Option.fromNullishOr`, `Option` is no longer a subtype of `Effect`). Check `node_modules/effect/dist/*.d.ts` and
-`node_modules/effect/ai-docs/` before using an API.
-
 ## Engineering rules
 
 - **YAGNI.** Don't build anything until you need it.
@@ -27,16 +23,35 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
 - **No users before 0.1.0.** Until 0.1.0 ships, the author is the only user. Be brave: rename command IDs, setting keys
   and storage keys, change stored data without migrations, and leave no compatibility shims or deprecation paths.
 
+## Effect
+
+Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (`Either` is now `Result`,
+`Effect.either` is `Effect.result`, `Effect.catchAll` is `Effect.catch`). Check `node_modules/effect/dist/*.d.ts` and
+`node_modules/effect/ai-docs/` before using an API.
+
+- **Every effectful function is an `Effect.fn`**, which gives it its span. Error handling and other combinators go in
+  `Effect.fn`'s extra arguments after the body, not in a `.pipe`; handling that only one caller needs gets its own small
+  `Effect.fn`. A layer's body is a named `Effect.fn` such as `makeTerminalService`, passed to `Layer.effect`. `.pipe` is
+  only for what is not a function: layers, streams and schedules. Lint bans `Effect.gen` and `Effect.withSpan`.
+- **No `?.` and no `??`.** Check the value explicitly, or take a default with `Result.getOrElse` or `UndefinedOr.match`.
+  Lint bans both.
+- **`Result`, never `Option`.** A value that can be missing is a `Result`, or an effect that fails, whose tagged error
+  says why it is missing. Turn an `Option` that an Effect API returns into a `Result` right there with
+  `Result.fromOption`. Lint bans importing `Option`.
+- **Small functions.** Give each function one job, so each shows up as its own span.
+- **Short, true comments.** One or two lines on why. Update or delete a comment in the same change as its code.
+
 ## Traces
 
 Every command runs as a root span named by its command ID, and each `Effect.fn` it calls is a child span. Name an
 `Effect.fn` after the function it defines; one defined inside a service's or view's layer gets the layer's name in
 front: `TerminalService.openSessionTerminal`. Finished spans and Effect logs go to the **Aggregor App** output channel,
 one trace-level line per span:
-`aggregorApp.newSessionAskingForRepo > newSession > startSession > TerminalService.openSessionTerminal 3.1ms ok`. F5
-starts the extension at trace level; elsewhere, pick it with **Developer: Set Log Level...**. VS Code also writes the
-channel to `<logs>/window<n>/exthost/SalmanAfzal.aggregor-app/Aggregor App.log`, so a test run's trace can be read from
-disk. Callbacks VS Code makes per row or per spinner frame (tree items, badges, the spinner) run untraced.
+`aggregorApp.newSessionAskingForRepo > newSession > startSession > openNewSessionTerminal > TerminalService.openSessionTerminal 1.0ms ok`.
+Work a layer starts in the background, such as a watcher, nests under that layer's `make` span. F5 starts the extension
+at trace level; elsewhere, pick it with **Developer: Set Log Level...**. VS Code also writes the channel to
+`<logs>/window<n>/exthost/SalmanAfzal.aggregor-app/Aggregor App.log`, so a test run's trace can be read from disk.
+Callbacks VS Code makes per row or per spinner frame (tree items, badges, the spinner) run untraced.
 
 ## Commands
 

@@ -21,7 +21,7 @@ const modifyStoredSessions = Effect.fn("modifyStoredSessions")(function* <Change
   const {loadSessions, saveSessions, sessions} = yield* SessionStore;
 
   const writeSessionsChange = Effect.fn("writeSessionsChange")(function* () {
-    const [changeResult, nextSessions] = changeSessions(yield* loadSessions);
+    const [changeResult, nextSessions] = changeSessions(yield* loadSessions());
     yield* saveSessions(nextSessions);
 
     return [changeResult, nextSessions] as const;
