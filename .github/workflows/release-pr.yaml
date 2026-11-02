@@ -1,0 +1,47 @@
+name: Release PR
+
+# A merged version bump (`pnpm bump`) opens or retitles the dev -> main release PR.
+on:
+  pull_request:
+    types: [closed]
+    branches: [dev]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  Open-Release-PR:
+    if: github.event.pull_request.merged && startsWith(github.head_ref, 'chore/bump-v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ secrets.PR_TOKEN || github.token }}
+      GH_REPO: ${{ github.repository }}
+      BUMP_BRANCH: ${{ github.head_ref }}
+      MERGE_COMMIT: ${{ github.event.pull_request.merge_commit_sha }}
+      ASSIGNEE: ${{ github.actor }}
+    steps:
+      - name: Open or retitle the release PR
+        # Adds pipefail.
+        shell: bash
+        run: |
+          version=$(gh api "repos/$GH_REPO/contents/apps/extension/package.json?ref=$MERGE_COMMIT" \
+            -H 'Accept: application/vnd.github.raw' | jq -r .version)
+
+          if [ "$BUMP_BRANCH" != "chore/bump-v$version" ]; then
+            echo "::error::$BUMP_BRANCH merged, but apps/extension/package.json says $version"
+            exit 1
+          fi
+          if gh api "repos/$GH_REPO/git/ref/tags/v$version" --silent 2> /dev/null; then
+            echo "::error::v$version is already released; bump to a newer version"
+            exit 1
+          fi
+
+          pr=$(gh pr list --base main --head dev --state open --json number -q '.[0].number')
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --title "v$version"
+          else
+            gh pr create --base main --head dev --title "v$version" --assignee "$ASSIGNEE" \
+              --body "Merging this publishes v$version to the Marketplace and creates its GitHub release."
+          fi

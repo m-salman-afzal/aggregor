@@ -23,6 +23,11 @@ squash. The roadmap lives in `README.md`. Commit and push only when the user ask
 - **No users before 0.1.0.** Until 0.1.0 ships, the author is the only user. Be brave: rename command IDs, setting keys
   and storage keys, change stored data without migrations, and leave no compatibility shims or deprecation paths.
 
+## Architecture
+
+`DDD.md` holds the planned layering (domain, application, infrastructure, presentation) and the stack that moves the
+code there. Read it before deciding where code goes, and update it when a step lands or the plan changes.
+
 ## Effect
 
 Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (`Either` is now `Result`,
@@ -67,4 +72,9 @@ pnpm format:fix    # Same, writing the changes
 pnpm typecheck     # tsc --noEmit in the apps and .claude's scripts; packages are covered through the apps importing them
 pnpm quality       # lint:check + format:check + typecheck, in parallel
 pnpm lint-staged   # Same lint and format checks on staged files only (the husky pre-commit hook)
+pnpm bump          # On an up-to-date dev: pick the next version; pushes chore/bump-v<version> and opens its PR
 ```
+
+To release, run `pnpm bump` (`bump.config.ts`). Merging the bump PR into dev opens the release PR, dev into main
+(`release-pr.yaml`); merging that one publishes to the Marketplace and creates the GitHub release (`release.yaml`). The
+bump sets the same version in the root and `apps/extension` `package.json`.
