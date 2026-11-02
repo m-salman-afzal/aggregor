@@ -38,15 +38,17 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
 - **`Result`, never `Option`.** A value that can be missing is a `Result`, or an effect that fails, whose tagged error
   says why it is missing. Turn an `Option` that an Effect API returns into a `Result` right there with
   `Result.fromOption`. Lint bans importing `Option`.
-- **Small functions.** Give each function one job, so each shows up as its own span.
+- **Small functions.** Give each function one job, so each shows up as its own span; lint caps a function at 30 lines.
+  Functions sit at module level and take the state they share (refs, VS Code handles) as parameters. A layer's `make`
+  function only creates that state, starts its watchers and wires up the service.
 - **Short, true comments.** One or two lines on why. Update or delete a comment in the same change as its code.
 
 ## Traces
 
 Every command runs as a root span named by its command ID, and each `Effect.fn` it calls is a child span. Name an
-`Effect.fn` after the function it defines; one defined inside a service's or view's layer gets the layer's name in
-front: `TerminalService.openSessionTerminal`. Finished spans and Effect logs go to the **Aggregor App** output channel,
-one trace-level line per span:
+`Effect.fn` after the function it defines; one that belongs to a service or view gets that name in front:
+`TerminalService.openSessionTerminal`. Finished spans and Effect logs go to the **Aggregor App** output channel, one
+trace-level line per span:
 `aggregorApp.newSessionAskingForRepo > newSession > startSession > openNewSessionTerminal > TerminalService.openSessionTerminal 1.0ms ok`.
 Work a layer starts in the background, such as a watcher, nests under that layer's `make` span. F5 starts the extension
 at trace level; elsewhere, pick it with **Developer: Set Log Level...**. VS Code also writes the channel to

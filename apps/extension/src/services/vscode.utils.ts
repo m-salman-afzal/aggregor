@@ -16,9 +16,8 @@ export const acquireDisposable = <A extends Disposable>(createDisposable: () => 
 export const fromEvent = <A>(event: Event<A>) =>
   Stream.callback<A>((queue) => acquireDisposable(() => event((value) => Queue.offerUnsafe(queue, value))));
 
-// Registered for the lifetime of the surrounding scope. Handlers must handle their own errors (E = never); a defect is
-// logged before VS Code reports the command as failed. Each run is a root span named by the command ID.
-// VS Code passes command arguments untyped, so each handler declares its own parameter types.
+// Registered for the surrounding scope's lifetime. Each run is a root span named by the command ID, and a crash is
+// logged. Handlers handle their own errors (E = never) and type their own parameters: VS Code passes them untyped.
 export const registerCommand = Effect.fn("registerCommand")(function* <R>(
   commandId: string,
   handler: (...commandArguments: any[]) => Effect.Effect<unknown, never, R>
