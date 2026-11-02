@@ -34,6 +34,7 @@
     "build": "pnpm --filter=aggregor-app package",
     "vsix": "pnpm --filter=aggregor-app vsix",
     "publish:vsce": "pnpm --filter=aggregor-app publish:vsce",
+    "bump": "bumpp",
     "release:version": "pnpm pkg get version"
   },
   "devDependencies": {
@@ -45,6 +46,7 @@
     "@types/eslint-plugin-promise": "7.3.0",
     "@types/node": "26.6.6",
     "@typescript/native": "npm:typescript@7.0.2",
+    "bumpp": "12.3.0",
     "eslint": "10.13.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-package-json": "3.0.0",
