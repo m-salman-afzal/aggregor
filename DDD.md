@@ -1,7 +1,8 @@
 # DDD plan
 
-Status: planned, nothing below exists yet. The `ddd` stack moves the code; update this file in the same change as each
-step, so it always says where code goes.
+Status: step 0 is done: `domain/` exists and the services use its entities and value objects. Steps 1 to 4 are still
+planned. The `ddd` stack moves the code; update this file in the same change as each step, so it always says where code
+goes.
 
 The layering follows vs-uc-api (a layered DDD Express API: `Domain`, `Application`, `Infrastructure`, plus `http/` for
 presentation), adapted to Effect, with the places where vs-uc-api's layers leaked into each other fixed.
@@ -16,15 +17,16 @@ presentation), adapted to Effect, with the places where vs-uc-api's layers leake
 | `presentation/`   | Command routes, controllers, the command middleware, views                  | `application`, `domain`, and from infrastructure only `vscode.service` and utils   |
 | `extension.ts`    | `activate`: builds the runtime from the layer graph                         | everything                                                                         |
 
-Lint enforces the import column with `import-x/no-restricted-paths`. `application` never sees `vscode`, not even its
-types.
+Lint enforces the import column with `@typescript-eslint/no-restricted-imports`: one block per layer in
+`eslint.config.ts`, with a regex allow-list over the `@/` import paths. `domain` is enforced today; each step adds its
+layer's block. `application` never sees `vscode`, not even its types.
 
 ## From vs-uc-api to aggregor
 
 | vs-uc-api                                         | aggregor                                                                |
 | ------------------------------------------------- | ----------------------------------------------------------------------- |
 | `Domain/Entities/<X>/{XEntity, IXRepository}`     | `domain/entities/<x>/{x.entity.ts, x.repository.ts}`                    |
-| `Domain/ValueObjects`                             | `domain/value-objects/`, as branded types                               |
+| `Domain/ValueObjects`                             | `domain/value-objects/`, as branded or literal schemas                  |
 | `Domain/Transformers` (Drchrono data to ours)     | `domain/transformers/` (Claude Code formats to ours)                    |
 | `Domain/Validations`                              | none: decoding with Schema is the validation                            |
 | `Application/<Feature>/<Feature>Service`          | `application/<feature>/<feature>.service.ts`                            |
@@ -47,17 +49,17 @@ apps/extension/src/
   domain/
     entities/
       session/
-        session.entity.ts        Session (Schema.Class: id, repoPath, name, harnessId), the new-session naming rule,
-                                 the unread rule ← store.service schema, store.utils, sessions.view unread logic
+        session.entity.ts        Session (Schema.Class: id, repoPath, name, harnessId), getNewSessionName,
+                                 getUnreadSessionIds (done)
         session.repository.ts    SessionRepository interface: sessions ref, load, save ← SessionStore's interface
       repo/
-        repo.entity.ts           Repo (path, name, added) ← repo.service
+        repo.entity.ts           Repo (Schema.Class: path, name, added) (done)
         repo.repository.ts       RepoRepository interface ← RepoStore's interface
-    value-objects/               SessionId, RepoPath (branded), Status, HarnessId, LaunchPlan
+    value-objects/               one <name>.value-object.ts each: SessionIdSchema, RepoPathSchema (branded),
+                                 StatusSchema, HarnessIdSchema (literals) (done); LaunchPlan (step 3)
     transformers/
-      claude-code.transformer.ts transcript line to title, status-file text to Status
-                                 ← transcript.utils, status.service decoders
-    errors/                      SessionNotFound, ...
+      claude-code.transformer.ts transcript line to title, status-file text to Status (done)
+    errors/                      SessionNotFound, TitleNotFound (done)
   application/
     session/session.service.ts   newSession, openSession, removeSession, relaunchSession, getSessionDisplayName
                                  ← terminal.utils, store.utils add and delete
@@ -117,9 +119,13 @@ The unread state stays with the view until the needs-input alerts (M2) need it t
 
 ## Branded types
 
-- `SessionId` and `RepoPath` are branded with `Schema.brand`; `HarnessId` and `Status` are `Schema.Literals`.
-- A brand is created only by decoding at the edge: repositories decode what is stored, controllers decode command
-  arguments, clients decode file names and CLI output.
+- `SessionId` and `RepoPath` are branded with `Schema.brand`; `HarnessId` and `Status` are `Schema.Literals`. A
+  `SessionId` is a UUID, so a file name or URI path that is not one is not ours.
+- Each value object exports its schema as `<Name>Schema` and its type as `<Name>`, since lint's `no-redeclare` rejects a
+  value and a type of the same name. Entities are classes, which are both.
+- A brand is created only at the edge: repositories decode what is stored, controllers decode command arguments, clients
+  decode file names and CLI output, and a value the edge produces itself (a new UUID, a path VS Code hands over) goes
+  through the schema's `make`, which checks it the same way.
 - Lint bans casts (`@typescript-eslint/consistent-type-assertions`, `assertionStyle: "never"`); `as const` stays
   allowed.
 - Maps and errors are keyed by brands: `ReadonlyMap<SessionId, Terminal>`, `SessionNotFound({sessionId: SessionId})`.
@@ -142,11 +148,11 @@ The unread state stays with the view until the needs-input alerts (M2) need it t
 
 Each branch is verified in the headless VS Code (the `verify-in-vscode` skill).
 
-0. `refactor/domain-layer`: entities, value objects with brands, transformers, domain errors, lint for domain, the cast
-   ban. No behaviour change.
+0. `refactor/domain-layer` (done): entities, value objects with brands, transformers, domain errors, lint for domain,
+   the cast ban. Sessions are stored under `storedSessions`, with `repoPath` and `harnessId`.
 1. `refactor/infrastructure-layer`: `vscode.service`, database models, repositories behind the domain interfaces,
    logger, config, `di/`.
 2. `refactor/application-layer`: services and client interfaces; the VS Code terminal, prompt and git clients; the
    commit CLI.
-3. `refactor/harness-client`: Claude Code behind `HarnessClient`, plus the `Harnesses` LayerMap.
+3. `refactor/harness-client`: Claude Code behind `HarnessClient`, plus the `Harnesses` LayerMap and `LaunchPlan`.
 4. `refactor/presentation-layer`: routes, controllers, the `registerCommand` middleware, views.

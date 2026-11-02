@@ -1,3 +1,4 @@
+import {RepoPathSchema} from "@/domain/value-objects/repo-path.value-object.ts";
 import {ReposCorrupt, ReposSaveFailed} from "@/errors/repo.error.ts";
 import {showErrorInBackground} from "@/services/error.utils.ts";
 import {VsCodeService} from "@/services/vscode.service.ts";
@@ -5,19 +6,12 @@ import {STORAGE_KEYS} from "@pkg/constants/src/extension.constant.ts";
 import {REPO_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {Context, Effect, Layer, Schema, SubscriptionRef} from "effect";
 
+import type {RepoPath} from "@/domain/value-objects/repo-path.value-object.ts";
 import type {Memento} from "vscode";
-
-// A top-level row of the Sessions tree. A workspace folder is always listed and `added` is false; one added with Add
-// Repo is `added` and can be removed again.
-export interface Repo {
-  readonly added: boolean;
-  readonly name: string;
-  readonly path: string;
-}
 
 // Any change to this shape bumps `version`, so older code fails to decode it instead of writing back a stripped copy.
 const StoredAddedRepoPaths = Schema.Struct({
-  addedRepoPaths: Schema.Array(Schema.String),
+  addedRepoPaths: Schema.Array(RepoPathSchema),
   version: Schema.Literal(1)
 });
 
@@ -38,7 +32,7 @@ const loadAddedRepoPaths = Effect.fn("RepoStore.loadAddedRepoPaths")(
 
 const saveAddedRepoPaths = Effect.fn("RepoStore.saveAddedRepoPaths")(function* (
   workspaceState: Memento,
-  addedRepoPaths: readonly string[]
+  addedRepoPaths: readonly RepoPath[]
 ) {
   const storedValue: typeof StoredAddedRepoPaths.Encoded = {addedRepoPaths, version: 1};
 
@@ -50,7 +44,7 @@ const saveAddedRepoPaths = Effect.fn("RepoStore.saveAddedRepoPaths")(function* (
 
 const showUnreadableReposError = Effect.fn("RepoStore.showUnreadableReposError")(function* () {
   yield* showErrorInBackground(REPO_MESSAGES.UNREADABLE);
-  const noRepoPaths: readonly string[] = [];
+  const noRepoPaths: readonly RepoPath[] = [];
 
   return noRepoPaths;
 });
@@ -70,7 +64,7 @@ const makeRepoStore = Effect.fn("RepoStore.make")(function* () {
   return {
     addedRepoPaths,
     loadAddedRepoPaths: () => loadAddedRepoPaths(workspaceState),
-    saveAddedRepoPaths: (nextAddedRepoPaths: readonly string[]) =>
+    saveAddedRepoPaths: (nextAddedRepoPaths: readonly RepoPath[]) =>
       saveAddedRepoPaths(workspaceState, nextAddedRepoPaths)
   };
 });
@@ -80,9 +74,9 @@ const makeRepoStore = Effect.fn("RepoStore.make")(function* () {
 export class RepoStore extends Context.Service<
   RepoStore,
   {
-    readonly addedRepoPaths: SubscriptionRef.SubscriptionRef<readonly string[]>;
-    readonly loadAddedRepoPaths: () => Effect.Effect<readonly string[], ReposCorrupt>;
-    readonly saveAddedRepoPaths: (addedRepoPaths: readonly string[]) => Effect.Effect<void, ReposSaveFailed>;
+    readonly addedRepoPaths: SubscriptionRef.SubscriptionRef<readonly RepoPath[]>;
+    readonly loadAddedRepoPaths: () => Effect.Effect<readonly RepoPath[], ReposCorrupt>;
+    readonly saveAddedRepoPaths: (addedRepoPaths: readonly RepoPath[]) => Effect.Effect<void, ReposSaveFailed>;
   }
 >()("aggregor/services/repo/repo.service/RepoStore") {
   public static readonly layer = Layer.effect(RepoStore, makeRepoStore());

@@ -1,3 +1,5 @@
+import {getUnreadSessionIds} from "@/domain/entities/session/session.entity.ts";
+import {decodeSessionId} from "@/domain/value-objects/session-id.value-object.ts";
 import {NoActiveTerminal, RevealFailed} from "@/errors/session.error.ts";
 import {RepoStore} from "@/services/repo/repo.service.ts";
 import {StatusService} from "@/services/session/status.service.ts";
@@ -20,16 +22,14 @@ import {
 import {SESSION_URI_SCHEME, SPINNER_INTERVAL_MS, VIEWS} from "@pkg/constants/src/extension.constant.ts";
 import {Effect, Layer, Ref, Result, Schedule, Stream, SubscriptionRef} from "effect";
 
-import type {Status} from "@/services/session/status.service.ts";
+import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
+import type {Status} from "@/domain/value-objects/status.value-object.ts";
 import type {Row, RowStatus} from "@/views/sessions.utils.ts";
 import type {Path} from "effect/Path";
 import type {EventEmitter, Terminal, TreeView, Uri} from "vscode";
 
 type SessionsViewServices =
   Path | RepoStore | SessionStore | StatusService | TerminalService | TranscriptService | VsCodeService;
-
-// A turn is in progress while its session runs or waits on the user.
-const TURN_IN_PROGRESS_STATUSES: ReadonlySet<Status | undefined> = new Set(["needs-input", "running"]);
 
 // Selects the session whose tab became active. Skipped while the view is hidden, since reveal would open it. No active
 // terminal, or one that is not a session's, leaves nothing to select.
@@ -50,7 +50,7 @@ const revealSession = Effect.fn("revealSession")(
 );
 
 // The status each row was last drawn with, by session id.
-type DrawnRowStatus = (sessionId: string) => RowStatus | undefined;
+type DrawnRowStatus = (sessionId: SessionId) => RowStatus | undefined;
 
 // VS Code calls the tree and badge callbacks for every row on every refresh and spinner frame, so they run untraced.
 type RunSyncUntraced = <A, E>(effect: Effect.Effect<A, E, SessionsViewServices>) => A;
@@ -58,11 +58,11 @@ type RunSyncUntraced = <A, E>(effect: Effect.Effect<A, E, SessionsViewServices>)
 // What the view's functions share: the tree and its change events, and the statuses its rows were drawn from.
 interface SessionsViewParts {
   readonly badgesChangedEmitter: EventEmitter<Uri[]>;
-  readonly drawnRowStatuses: Ref.Ref<ReadonlyMap<string, RowStatus | undefined>>;
-  readonly previousSessionStatuses: Ref.Ref<ReadonlyMap<string, Status>>;
+  readonly drawnRowStatuses: Ref.Ref<ReadonlyMap<SessionId, RowStatus | undefined>>;
+  readonly previousSessionStatuses: Ref.Ref<ReadonlyMap<SessionId, Status>>;
   readonly sessionsTreeView: TreeView<Row>;
   readonly treeChangedEmitter: EventEmitter<void>;
-  readonly unreadSessionIds: Ref.Ref<ReadonlySet<string>>;
+  readonly unreadSessionIds: Ref.Ref<ReadonlySet<SessionId>>;
 }
 
 const makeUntracedRunner = Effect.fn("SessionsView.makeUntracedRunner")(function* () {
@@ -85,7 +85,10 @@ const registerStatusBadges = Effect.fn("SessionsView.registerStatusBadges")(func
       // VS Code asks about every file it shows, so anything not ours returns before running an effect.
       provideFileDecoration: (uri) =>
         uri.scheme === SESSION_URI_SCHEME
-          ? runSyncUntraced(createStatusBadge(getDrawnRowStatus(uri.path.slice(1))))
+          ? Result.match(decodeSessionId(uri.path.slice(1)), {
+              onFailure: () => undefined,
+              onSuccess: (sessionId) => runSyncUntraced(createStatusBadge(getDrawnRowStatus(sessionId)))
+            })
           : undefined
     })
   );
@@ -116,8 +119,7 @@ const registerTreeView = Effect.fn("SessionsView.registerTreeView")(function* (
   return {sessionsTreeView, treeChangedEmitter};
 });
 
-// A turn that ends while its session is out of view leaves it unread until it comes into view or starts another turn.
-// Ended means idle now, and running or waiting on the user at the previous look.
+// Compares the statuses with the previous look; the rule itself is the entity's.
 const updateUnreadSessionIds = Effect.fn("SessionsView.updateUnreadSessionIds")(function* (
   viewParts: SessionsViewParts
 ) {
@@ -126,24 +128,20 @@ const updateUnreadSessionIds = Effect.fn("SessionsView.updateUnreadSessionIds")(
   const currentStatuses = yield* SubscriptionRef.get(sessionStatuses);
   const previousStatuses = yield* Ref.getAndSet(viewParts.previousSessionStatuses, currentStatuses);
   const currentViewedSessionId = Result.getOrUndefined(yield* SubscriptionRef.get(viewedSessionId));
-  const endedSessionIds = [...currentStatuses]
-    .filter(
-      ([sessionId, sessionStatus]) =>
-        sessionStatus === "idle" && TURN_IN_PROGRESS_STATUSES.has(previousStatuses.get(sessionId))
-    )
-    .map(([sessionId]) => sessionId);
-  const isIdleAndOutOfView = (sessionId: string) =>
-    currentStatuses.get(sessionId) === "idle" && sessionId !== currentViewedSessionId;
 
-  return yield* Ref.updateAndGet(
-    viewParts.unreadSessionIds,
-    (previousUnreadSessionIds) => new Set([...previousUnreadSessionIds, ...endedSessionIds].filter(isIdleAndOutOfView))
+  return yield* Ref.updateAndGet(viewParts.unreadSessionIds, (previousUnreadSessionIds) =>
+    getUnreadSessionIds({
+      currentStatuses,
+      previousStatuses,
+      previousUnreadSessionIds,
+      viewedSessionId: currentViewedSessionId
+    })
   );
 });
 
 const getChangedBadgeUris = Effect.fn("SessionsView.getChangedBadgeUris")(function* (
   viewParts: SessionsViewParts,
-  currentUnreadSessionIds: ReadonlySet<string>
+  currentUnreadSessionIds: ReadonlySet<SessionId>
 ) {
   const allSessions = yield* listSessions();
   const currentRowStatuses = new Map(
@@ -200,13 +198,13 @@ const watchRowChanges = Effect.fn("SessionsView.watchRowChanges")(function* () {
 
 const makeSessionsViewParts = Effect.fn("SessionsView.makeSessionsViewParts")(function* () {
   const runSyncUntraced = yield* makeUntracedRunner();
-  const drawnRowStatuses = yield* Ref.make<ReadonlyMap<string, RowStatus | undefined>>(new Map());
+  const drawnRowStatuses = yield* Ref.make<ReadonlyMap<SessionId, RowStatus | undefined>>(new Map());
   const getDrawnRowStatus: DrawnRowStatus = (sessionId) => runSyncUntraced(Ref.get(drawnRowStatuses)).get(sessionId);
   const viewParts: SessionsViewParts = {
     badgesChangedEmitter: yield* registerStatusBadges(getDrawnRowStatus, runSyncUntraced),
     drawnRowStatuses,
-    previousSessionStatuses: yield* Ref.make<ReadonlyMap<string, Status>>(new Map()),
-    unreadSessionIds: yield* Ref.make<ReadonlySet<string>>(new Set()),
+    previousSessionStatuses: yield* Ref.make<ReadonlyMap<SessionId, Status>>(new Map()),
+    unreadSessionIds: yield* Ref.make<ReadonlySet<SessionId>>(new Set()),
     ...(yield* registerTreeView(getDrawnRowStatus, runSyncUntraced))
   };
 

@@ -1,3 +1,5 @@
+import {Repo} from "@/domain/entities/repo/repo.entity.ts";
+import {RepoPathSchema} from "@/domain/value-objects/repo-path.value-object.ts";
 import {FolderPickCancelled, NoRepo, RepoPickCancelled} from "@/errors/repo.error.ts";
 import {showErrorInBackground} from "@/services/error.utils.ts";
 import {RepoStore} from "@/services/repo/repo.service.ts";
@@ -6,12 +8,12 @@ import {ACTIONS, REPO_LABELS, REPO_MESSAGES} from "@pkg/constants/src/message.co
 import {Effect, Match, Result, SubscriptionRef, UndefinedOr} from "effect";
 import {Path} from "effect/Path";
 
+import type {RepoPath} from "@/domain/value-objects/repo-path.value-object.ts";
 import type {ReposCorrupt, ReposSaveFailed} from "@/errors/repo.error.ts";
-import type {Repo} from "@/services/repo/repo.service.ts";
 
 // Read-modify-write under the ref's permit. Re-reading first makes unreadable data fail the write, not get overwritten.
 const modifyAddedRepoPaths = Effect.fn("modifyAddedRepoPaths")(function* (
-  changeAddedRepoPaths: (storedAddedRepoPaths: readonly string[]) => readonly string[]
+  changeAddedRepoPaths: (storedAddedRepoPaths: readonly RepoPath[]) => readonly RepoPath[]
 ) {
   const {addedRepoPaths, loadAddedRepoPaths, saveAddedRepoPaths} = yield* RepoStore;
 
@@ -41,17 +43,16 @@ export const listRepos = Effect.fn("listRepos")(function* () {
   const path = yield* Path;
   const workspaceFolderRepos = UndefinedOr.match(workspace.workspaceFolders, {
     onDefined: (workspaceFolders) =>
-      workspaceFolders.map((workspaceFolder): Repo => ({
-        added: false,
-        name: workspaceFolder.name,
-        path: workspaceFolder.uri.fsPath
-      })),
+      workspaceFolders.map(
+        (workspaceFolder) =>
+          new Repo({added: false, name: workspaceFolder.name, path: RepoPathSchema.make(workspaceFolder.uri.fsPath)})
+      ),
     onUndefined: (): Repo[] => []
   });
   const workspaceFolderPaths = new Set(workspaceFolderRepos.map((repo) => repo.path));
   const addedRepos = (yield* SubscriptionRef.get(addedRepoPaths))
     .filter((addedRepoPath) => !workspaceFolderPaths.has(addedRepoPath))
-    .map((addedRepoPath): Repo => ({added: true, name: path.basename(addedRepoPath), path: addedRepoPath}));
+    .map((addedRepoPath) => new Repo({added: true, name: path.basename(addedRepoPath), path: addedRepoPath}));
 
   return [...workspaceFolderRepos, ...addedRepos];
 });
@@ -92,7 +93,7 @@ const pickFolderPaths = Effect.fn("pickFolderPaths")(function* () {
     Result.fromNullishOr(pickedFolderUris, () => new FolderPickCancelled())
   );
 
-  return confirmedFolderUris.map((folderUri) => folderUri.fsPath);
+  return confirmedFolderUris.map((folderUri) => RepoPathSchema.make(folderUri.fsPath));
 });
 
 // ponytail: any folder counts as a repo, no git check. Worktree mode (M3) is where a non-git folder would first break.

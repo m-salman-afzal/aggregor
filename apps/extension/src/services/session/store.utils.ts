@@ -1,18 +1,11 @@
-import {SessionNotFound} from "@/errors/session.error.ts";
+import {getNewSessionName, Session} from "@/domain/entities/session/session.entity.ts";
+import {SessionNotFound} from "@/domain/errors/session.error.ts";
+import {SessionIdSchema} from "@/domain/value-objects/session-id.value-object.ts";
 import {SessionStore} from "@/services/session/store.service.ts";
 import {Effect, Result, SubscriptionRef} from "effect";
 
-import type {Repo} from "@/services/repo/repo.service.ts";
-import type {Session} from "@/services/session/store.service.ts";
-
-// Lowest free "<repo> #n", so removing #1 frees the name for the next session.
-const getLowestFreeSessionName = (repo: Repo, allSessions: readonly Session[]) => {
-  const takenSessionNames = new Set(allSessions.map((session) => session.name));
-  let sessionNumber = 1;
-  while (takenSessionNames.has(`${repo.name} #${sessionNumber}`)) sessionNumber += 1;
-
-  return `${repo.name} #${sessionNumber}`;
-};
+import type {Repo} from "@/domain/entities/repo/repo.entity.ts";
+import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
 
 // Read-modify-write against globalState under the ref's permit, so a change never drops what another window saved.
 const modifyStoredSessions = Effect.fn("modifyStoredSessions")(function* <ChangeResult>(
@@ -36,7 +29,7 @@ export const listSessions = Effect.fn("listSessions")(function* () {
   return yield* SubscriptionRef.get(sessions);
 });
 
-export const findSession = Effect.fn("findSession")(function* (sessionId: string) {
+export const findSession = Effect.fn("findSession")(function* (sessionId: SessionId) {
   const allSessions = yield* listSessions();
 
   return yield* Effect.fromResult(
@@ -48,20 +41,21 @@ export const findSession = Effect.fn("findSession")(function* (sessionId: string
 });
 
 export const addSession = Effect.fn("addSession")(function* (repo: Repo) {
-  const sessionId = yield* Effect.sync(() => crypto.randomUUID());
+  const sessionId = yield* Effect.sync(() => SessionIdSchema.make(crypto.randomUUID()));
 
   return yield* modifyStoredSessions((storedSessions) => {
-    const addedSession: Session = {
-      cwd: repo.path,
+    const addedSession = new Session({
+      harnessId: "claude-code",
       id: sessionId,
-      name: getLowestFreeSessionName(repo, storedSessions)
-    };
+      name: getNewSessionName(repo.name, storedSessions),
+      repoPath: repo.path
+    });
 
     return [addedSession, [...storedSessions, addedSession]] as const;
   });
 });
 
-export const deleteSession = Effect.fn("deleteSession")(function* (sessionId: string) {
+export const deleteSession = Effect.fn("deleteSession")(function* (sessionId: SessionId) {
   yield* modifyStoredSessions(
     (storedSessions) => [sessionId, storedSessions.filter((session) => session.id !== sessionId)] as const
   );

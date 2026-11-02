@@ -10,8 +10,9 @@ import {VsCodeService} from "@/services/vscode.service.ts";
 import {ACTIONS, SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {Effect, Match} from "effect";
 
-import type {Repo} from "@/services/repo/repo.service.ts";
-import type {Session} from "@/services/session/store.service.ts";
+import type {Repo} from "@/domain/entities/repo/repo.entity.ts";
+import type {Session} from "@/domain/entities/session/session.entity.ts";
+import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
 
 // The name Claude gave the conversation, or ours until it has one.
 export const getSessionDisplayName = Effect.fn("getSessionDisplayName")(
@@ -61,7 +62,7 @@ const startSession = Effect.fn("startSession")(function* (clickedRepo: Repo | un
   yield* openNewSessionTerminal(yield* addSession(sessionRepo));
 });
 
-const relaunchSession = Effect.fn("relaunchSession")(function* (sessionId: string) {
+const relaunchSession = Effect.fn("relaunchSession")(function* (sessionId: SessionId) {
   const session = yield* findSession(sessionId);
   const [tabName, claudeArguments] = yield* Effect.all([getSessionDisplayName(session), getClaudeArguments(session)]);
 
@@ -85,7 +86,7 @@ const confirmRunningSessionRemoval = Effect.fn("confirmRunningSessionRemoval")(f
 
 // Closing the tab ends the agent; a tab that closed meanwhile has nothing left to stop.
 const stopSessionAgent = Effect.fn("stopSessionAgent")(
-  function* (sessionId: string) {
+  function* (sessionId: SessionId) {
     yield* TerminalService.use((terminalService) => terminalService.closeSessionTerminal(sessionId));
   },
   Effect.catchTag("TerminalNotFound", () => Effect.void)
@@ -126,7 +127,7 @@ export const newSession = Effect.fn("newSession")(
 
 // Focuses the session's tab, or relaunches Claude on the same conversation when the tab is gone.
 export const openSession = Effect.fn("openSession")(
-  function* (sessionId: string) {
+  function* (sessionId: SessionId) {
     yield* TerminalService.use((terminalService) => terminalService.focusSessionTerminal(sessionId));
   },
   (effect, sessionId) => Effect.catchTag(effect, "TerminalNotFound", () => relaunchSession(sessionId)),

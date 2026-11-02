@@ -12,14 +12,15 @@ import {fromEvent, getClaudeIcon} from "@/services/vscode.utils.ts";
 import {STATUS_ENV} from "@pkg/constants/src/extension.constant.ts";
 import {Context, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
 
-import type {Session} from "@/services/session/store.service.ts";
+import type {Session} from "@/domain/entities/session/session.entity.ts";
+import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
 import type {Terminal, Uri} from "vscode";
 
 // Why no session is in front of the user.
 type NoViewedSession = NoActiveTerminal | NotATerminalTab | UntrackedTerminal | WindowUnfocused;
 
 // Each session's terminal in this window, keyed by session id.
-type SessionTerminalsReference = SubscriptionRef.SubscriptionRef<ReadonlyMap<string, Terminal>>;
+type SessionTerminalsReference = SubscriptionRef.SubscriptionRef<ReadonlyMap<SessionId, Terminal>>;
 
 // What the terminal functions share: the window's session terminals, VS Code's window and the status hooks.
 type TerminalDependencies = {
@@ -36,7 +37,7 @@ interface TerminalLaunch {
 
 const findSessionTerminal = Effect.fn("TerminalService.findSessionTerminal")(function* (
   sessionTerminals: SessionTerminalsReference,
-  sessionId: string
+  sessionId: SessionId
 ) {
   const openTerminals = yield* SubscriptionRef.get(sessionTerminals);
 
@@ -47,7 +48,7 @@ const findSessionTerminal = Effect.fn("TerminalService.findSessionTerminal")(fun
 
 const isSessionTerminalOpen = Effect.fn("TerminalService.isSessionTerminalOpen")(function* (
   sessionTerminals: SessionTerminalsReference,
-  sessionId: string
+  sessionId: SessionId
 ) {
   const openTerminals = yield* SubscriptionRef.get(sessionTerminals);
 
@@ -83,7 +84,7 @@ const launchSessionTerminal = Effect.fn("TerminalService.launchSessionTerminal")
     catch: (cause) => new TerminalLaunchFailed({cause}),
     try: () =>
       window.createTerminal({
-        cwd: session.cwd,
+        cwd: session.repoPath,
         env: {[STATUS_ENV]: getStatusFilePath(session.id)},
         iconPath: claudeIconPath,
         isTransient: true,
@@ -103,7 +104,7 @@ const showTerminal = Effect.fn("TerminalService.showTerminal")(function* (termin
 
 const focusSessionTerminal = Effect.fn("TerminalService.focusSessionTerminal")(function* (
   sessionTerminals: SessionTerminalsReference,
-  sessionId: string
+  sessionId: SessionId
 ) {
   yield* showTerminal(yield* findSessionTerminal(sessionTerminals, sessionId));
 });
@@ -134,7 +135,7 @@ const openSessionTerminal = Effect.fn("TerminalService.openSessionTerminal")(fun
 // Disposing fires onDidCloseTerminal, which drops the map entry.
 const closeSessionTerminal = Effect.fn("TerminalService.closeSessionTerminal")(function* (
   sessionTerminals: SessionTerminalsReference,
-  sessionId: string
+  sessionId: SessionId
 ) {
   const sessionTerminal = yield* findSessionTerminal(sessionTerminals, sessionId);
 
@@ -175,7 +176,7 @@ const readViewedSessionId = Effect.fn("TerminalService.readViewedSessionId")(fun
 
 const updateViewedSessionId = Effect.fn("TerminalService.updateViewedSessionId")(function* (
   terminalDependencies: TerminalDependencies,
-  viewedSessionId: SubscriptionRef.SubscriptionRef<Result.Result<string, NoViewedSession>>
+  viewedSessionId: SubscriptionRef.SubscriptionRef<Result.Result<SessionId, NoViewedSession>>
 ) {
   const nextViewedSessionId = yield* Effect.result(readViewedSessionId(terminalDependencies));
   const currentViewedSessionId = yield* SubscriptionRef.get(viewedSessionId);
@@ -216,7 +217,7 @@ const makeTerminalDependencies = Effect.fn("TerminalService.makeTerminalDependen
     ...(yield* StatusService),
     ...(yield* VsCodeService),
     claudeIconPath: yield* getClaudeIcon(),
-    sessionTerminals: yield* SubscriptionRef.make<ReadonlyMap<string, Terminal>>(new Map())
+    sessionTerminals: yield* SubscriptionRef.make<ReadonlyMap<SessionId, Terminal>>(new Map())
   };
 
   return terminalDependencies;
@@ -232,10 +233,10 @@ const makeTerminalService = Effect.fn("TerminalService.make")(function* () {
   );
 
   return {
-    closeSessionTerminal: (sessionId: string) => closeSessionTerminal(sessionTerminals, sessionId),
+    closeSessionTerminal: (sessionId: SessionId) => closeSessionTerminal(sessionTerminals, sessionId),
     findTerminalSessionId: (terminal: Terminal) => findTerminalSessionId(sessionTerminals, terminal),
-    focusSessionTerminal: (sessionId: string) => focusSessionTerminal(sessionTerminals, sessionId),
-    isSessionTerminalOpen: (sessionId: string) => isSessionTerminalOpen(sessionTerminals, sessionId),
+    focusSessionTerminal: (sessionId: SessionId) => focusSessionTerminal(sessionTerminals, sessionId),
+    isSessionTerminalOpen: (sessionId: SessionId) => isSessionTerminalOpen(sessionTerminals, sessionId),
     openSessionTerminal: (session: Session, terminalLaunch: TerminalLaunch) =>
       openSessionTerminal(terminalDependencies, session, terminalLaunch),
     sessionTerminals,
@@ -246,16 +247,16 @@ const makeTerminalService = Effect.fn("TerminalService.make")(function* () {
 export class TerminalService extends Context.Service<
   TerminalService,
   {
-    readonly closeSessionTerminal: (sessionId: string) => Effect.Effect<void, TerminalNotFound>;
-    readonly findTerminalSessionId: (terminal: Terminal) => Effect.Effect<string, UntrackedTerminal>;
-    readonly focusSessionTerminal: (sessionId: string) => Effect.Effect<void, TerminalNotFound>;
-    readonly isSessionTerminalOpen: (sessionId: string) => Effect.Effect<boolean>;
+    readonly closeSessionTerminal: (sessionId: SessionId) => Effect.Effect<void, TerminalNotFound>;
+    readonly findTerminalSessionId: (terminal: Terminal) => Effect.Effect<SessionId, UntrackedTerminal>;
+    readonly focusSessionTerminal: (sessionId: SessionId) => Effect.Effect<void, TerminalNotFound>;
+    readonly isSessionTerminalOpen: (sessionId: SessionId) => Effect.Effect<boolean>;
     readonly openSessionTerminal: (
       session: Session,
       terminalLaunch: TerminalLaunch
     ) => Effect.Effect<void, TerminalLaunchFailed>;
     readonly sessionTerminals: SessionTerminalsReference;
-    readonly viewedSessionId: SubscriptionRef.SubscriptionRef<Result.Result<string, NoViewedSession>>;
+    readonly viewedSessionId: SubscriptionRef.SubscriptionRef<Result.Result<SessionId, NoViewedSession>>;
   }
 >()("aggregor/services/session/terminal.service/TerminalService") {
   public static readonly layer = Layer.effect(TerminalService, makeTerminalService());

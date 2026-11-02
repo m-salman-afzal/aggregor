@@ -1,3 +1,4 @@
+import {Session} from "@/domain/entities/session/session.entity.ts";
 import {SessionsCorrupt, SessionsSaveFailed} from "@/errors/session.error.ts";
 import {showErrorInBackground} from "@/services/error.utils.ts";
 import {VsCodeService} from "@/services/vscode.service.ts";
@@ -8,18 +9,10 @@ import {Context, Effect, Layer, Schema, Stream, SubscriptionRef} from "effect";
 
 import type {Memento, WindowState} from "vscode";
 
-const SessionSchema = Schema.Struct({
-  cwd: Schema.String,
-  id: Schema.String,
-  name: Schema.String
-});
-
-export type Session = typeof SessionSchema.Type;
-
 // Any change to this shape bumps `version`, so windows still running older code fail to decode it instead of
 // writing back a copy with the new fields stripped.
 const StoredSessions = Schema.Struct({
-  sessions: Schema.Array(SessionSchema),
+  sessions: Schema.Array(Session),
   version: Schema.Literal(1)
 });
 
@@ -31,7 +24,9 @@ type SessionsReference = SubscriptionRef.SubscriptionRef<readonly Session[]>;
 // Re-reads globalState on every call.
 const loadSessions = Effect.fn("SessionStore.loadSessions")(
   function* (globalState: Memento) {
-    const storedValue = yield* Effect.sync(() => globalState.get<unknown>(STORAGE_KEYS.SESSIONS, NO_STORED_SESSIONS));
+    const storedValue = yield* Effect.sync(() =>
+      globalState.get<unknown>(STORAGE_KEYS.STORED_SESSIONS, NO_STORED_SESSIONS)
+    );
     const storedSessions = yield* Schema.decodeUnknownEffect(StoredSessions)(storedValue);
 
     return storedSessions.sessions;
@@ -39,17 +34,14 @@ const loadSessions = Effect.fn("SessionStore.loadSessions")(
   Effect.mapError((cause) => new SessionsCorrupt({cause}))
 );
 
-const saveSessions = Effect.fn("SessionStore.saveSessions")(function* (
-  globalState: Memento,
-  sessions: readonly Session[]
-) {
-  const storedValue: typeof StoredSessions.Encoded = {sessions, version: 1};
+const saveSessions = Effect.fn("SessionStore.saveSessions")(
+  function* (globalState: Memento, sessions: readonly Session[]) {
+    const storedValue = yield* Schema.encodeEffect(StoredSessions)({sessions, version: 1});
 
-  yield* Effect.tryPromise({
-    catch: (cause) => new SessionsSaveFailed({cause}),
-    try: async () => globalState.update(STORAGE_KEYS.SESSIONS, storedValue)
-  });
-});
+    yield* Effect.tryPromise(async () => globalState.update(STORAGE_KEYS.STORED_SESSIONS, storedValue));
+  },
+  Effect.mapError((cause) => new SessionsSaveFailed({cause}))
+);
 
 const showUnreadableSessionsError = Effect.fn("SessionStore.showUnreadableSessionsError")(function* () {
   yield* showErrorInBackground(SESSION_MESSAGES.UNREADABLE);

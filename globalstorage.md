@@ -27,9 +27,9 @@ data that processes other than the extension write, or that is too big for `glob
 VS Code's key-value store for the extension, kept in its own database rather than in the folder above. Use it for small
 JSON the extension alone reads and writes.
 
-### `sessions`
+### `storedSessions`
 
-- **Holds:** `{version: 1, sessions: [{id, cwd, name}]}`.
+- **Holds:** `{version: 1, sessions: [{id, name, repoPath, harnessId}]}`: the `Session` entity, encoded.
 - **Written by:** `SessionStore`, with a read-modify-write on every add and remove.
 - **Read by:** `SessionStore` at startup and whenever a window regains focus.
 - **Why:** sessions survive reloads and are shared by every window.

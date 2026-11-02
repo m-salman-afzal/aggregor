@@ -64,7 +64,7 @@ export const SPINNER_INTERVAL_MS = 120;
 
 export const STORAGE_KEYS = {
   ADDED_REPO_PATHS: "addedRepoPaths",
-  SESSIONS: "sessions"
+  STORED_SESSIONS: "storedSessions"
 } as const;
 
 export const VIEWS = {

@@ -14,6 +14,11 @@ import tsEslint from "typescript-eslint";
 
 import type {Config} from "eslint/config";
 
+const OPTION_IMPORT_BANS = [
+  {importNames: ["Option"], message: "Use Result: its error says why a value is missing.", name: "effect"},
+  {message: "Use Result: its error says why a value is missing.", name: "effect/Option"}
+];
+
 const config: Config[] = defineConfig([
   // ESLint does not read .gitignore. git.d.ts is synced from upstream vscode (also in .prettierignore).
   globalIgnores(["**/dist/**", "packages/typings/src/git.d.ts"]),
@@ -87,6 +92,7 @@ const config: Config[] = defineConfig([
     },
     plugins: {"import-x": importX, js: javascript, unicorn},
     rules: {
+      "@typescript-eslint/consistent-type-assertions": ["error", {assertionStyle: "never"}],
       "@typescript-eslint/consistent-type-imports": [
         "error",
         {fixStyle: "separate-type-imports", prefer: "type-imports"}
@@ -96,15 +102,7 @@ const config: Config[] = defineConfig([
       "@typescript-eslint/naming-convention": "off",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-magic-numbers": "off",
-      "@typescript-eslint/no-restricted-imports": [
-        "error",
-        {
-          paths: [
-            {importNames: ["Option"], message: "Use Result: its error says why a value is missing.", name: "effect"},
-            {message: "Use Result: its error says why a value is missing.", name: "effect/Option"}
-          ]
-        }
-      ],
+      "@typescript-eslint/no-restricted-imports": ["error", {paths: OPTION_IMPORT_BANS}],
       "@typescript-eslint/no-unused-vars": [
         "warn",
         {
@@ -178,6 +176,23 @@ const config: Config[] = defineConfig([
       ],
       "sort-imports": "off",
       "unicorn/name-replacements": ["error", {checkFilenames: false, replacements: {repo: false}}]
+    }
+  },
+  {
+    files: ["apps/extension/src/domain/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: OPTION_IMPORT_BANS,
+          patterns: [
+            {
+              message: "The domain layer imports only effect and other domain code.",
+              regex: "^(?!effect(/|$)|@/domain/)"
+            }
+          ]
+        }
+      ]
     }
   }
 ]);
