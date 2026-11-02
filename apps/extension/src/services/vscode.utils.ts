@@ -2,19 +2,19 @@ import {VsCodeService} from "@/services/vscode.service.ts";
 import {MODEL_ICONS} from "@pkg/constants/src/extension.constant.ts";
 import {Effect, Queue, Stream} from "effect";
 
-import type {Event, ProgressOptions} from "vscode";
+import type {Disposable, Event, ProgressOptions} from "vscode";
+
+// A VS Code resource that lives as long as the surrounding scope: it is disposed when the scope closes.
+export const acquireDisposable = <A extends Disposable>(createDisposable: () => A) =>
+  Effect.acquireRelease(Effect.sync(createDisposable), (disposable) =>
+    Effect.sync(() => {
+      disposable.dispose();
+    })
+  );
 
 // A VS Code event as a Stream. The listener is disposed when whoever runs the stream closes its scope.
 export const fromEvent = <A>(event: Event<A>) =>
-  Stream.callback<A>((queue) =>
-    Effect.acquireRelease(
-      Effect.sync(() => event((value) => Queue.offerUnsafe(queue, value))),
-      (listener) =>
-        Effect.sync(() => {
-          listener.dispose();
-        })
-    )
-  );
+  Stream.callback<A>((queue) => acquireDisposable(() => event((value) => Queue.offerUnsafe(queue, value))));
 
 // Registered for the lifetime of the surrounding scope. Handlers must handle their own errors (E = never); a defect is
 // logged before VS Code reports the command as failed. Each run is a root span named by the command ID.
@@ -33,13 +33,7 @@ export const registerCommand = Effect.fn("registerCommand")(function* <R>(
       )
     );
 
-  yield* Effect.acquireRelease(
-    Effect.sync(() => commands.registerCommand(commandId, runTracedHandler)),
-    (disposable) =>
-      Effect.sync(() => {
-        disposable.dispose();
-      })
-  );
+  yield* acquireDisposable(() => commands.registerCommand(commandId, runTracedHandler));
 });
 
 export const setContext = Effect.fn("setContext")(function* (contextKey: string, contextValue: unknown) {

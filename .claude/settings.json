@@ -1,0 +1,34 @@
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "command": "test -f \"$HOME/.cache/aggregor-verify/state.json\" && node \"$CLAUDE_PROJECT_DIR/.claude/skills/verify-in-vscode/vscode.ts\" stop --hook || true",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "test -f \"$HOME/.cache/aggregor-verify/state.json\" && node \"$CLAUDE_PROJECT_DIR/.claude/skills/verify-in-vscode/vscode.ts\" stop --hook || true",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "test -f \"$HOME/.cache/aggregor-verify/state.json\" && node \"$CLAUDE_PROJECT_DIR/.claude/skills/verify-in-vscode/vscode.ts\" stop --hook || true",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}

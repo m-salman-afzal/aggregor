@@ -1,5 +1,5 @@
 import {SessionsCorrupt, SessionsSaveFailed} from "@/errors/session.error.ts";
-import {ErrorService} from "@/services/error.service.ts";
+import {showErrorInBackground} from "@/services/error.utils.ts";
 import {VsCodeService} from "@/services/vscode.service.ts";
 import {fromEvent} from "@/services/vscode.utils.ts";
 import {STORAGE_KEYS} from "@pkg/constants/src/extension.constant.ts";
@@ -8,7 +8,7 @@ import {Context, Effect, Layer, Schema, Stream, SubscriptionRef} from "effect";
 
 import type {WindowState} from "vscode";
 
-export const SessionSchema = Schema.Struct({
+const SessionSchema = Schema.Struct({
   cwd: Schema.String,
   id: Schema.String,
   name: Schema.String
@@ -61,9 +61,7 @@ export class SessionStore extends Context.Service<
       });
 
       const showUnreadableSessionsError = Effect.fn("SessionStore.showUnreadableSessionsError")(function* () {
-        yield* Effect.forkDetach(
-          ErrorService.use((errorService) => errorService.showErrorMessage(SESSION_MESSAGES.UNREADABLE))
-        );
+        yield* showErrorInBackground(SESSION_MESSAGES.UNREADABLE);
         const noSessions: readonly Session[] = [];
 
         return noSessions;
