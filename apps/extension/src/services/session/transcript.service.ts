@@ -1,7 +1,7 @@
+import {SessionRepository} from "@/domain/entities/session/session.repository.ts";
 import {getPreferredTitle, NO_TITLES} from "@/domain/transformers/claude-code.transformer.ts";
 import {decodeSessionId} from "@/domain/value-objects/session-id.value-object.ts";
 import {SessionTitleNotFound} from "@/errors/session.error.ts";
-import {SessionStore} from "@/services/session/store.service.ts";
 import {
   findTranscriptFilePath,
   getClaudeProjectsDirectoryPath,
@@ -135,7 +135,7 @@ const getSessionTitle = Effect.fn("TranscriptService.getSessionTitle")(function*
 });
 
 const makeTranscriptService = Effect.fn("TranscriptService.make")(function* () {
-  const {sessions} = yield* SessionStore;
+  const {sessions} = yield* SessionRepository;
   const sessionTitles: SessionTitlesReference = yield* SubscriptionRef.make<ReadonlyMap<SessionId, string>>(new Map());
   yield* Effect.forkScoped(
     watchTranscripts({sessionTitles, trackedSessions: sessions, transcriptProgressBySessionId: new Map()})

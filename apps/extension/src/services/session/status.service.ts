@@ -1,6 +1,6 @@
 import {decodeStatusFileText} from "@/domain/transformers/claude-code.transformer.ts";
 import {decodeSessionId} from "@/domain/value-objects/session-id.value-object.ts";
-import {VsCodeService} from "@/services/vscode.service.ts";
+import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {HOOKS_FILE} from "@pkg/constants/src/extension.constant.ts";
 import {Context, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
 import {FileSystem} from "effect/FileSystem";

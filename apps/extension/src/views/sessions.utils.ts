@@ -1,10 +1,10 @@
 import {Repo} from "@/domain/entities/repo/repo.entity.ts";
+import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {listRepos} from "@/services/repo/repo.utils.ts";
 import {StatusService} from "@/services/session/status.service.ts";
 import {listSessions} from "@/services/session/store.utils.ts";
 import {TerminalService} from "@/services/session/terminal.service.ts";
 import {getSessionDisplayName} from "@/services/session/terminal.utils.ts";
-import {VsCodeService} from "@/services/vscode.service.ts";
 import {getClaudeIcon} from "@/services/vscode.utils.ts";
 import {
   COMMANDS,

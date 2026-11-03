@@ -29,9 +29,10 @@ JSON the extension alone reads and writes.
 
 ### `storedSessions`
 
-- **Holds:** `{version: 1, sessions: [{id, name, repoPath, harnessId}]}`: the `Session` entity, encoded.
-- **Written by:** `SessionStore`, with a read-modify-write on every add and remove.
-- **Read by:** `SessionStore` at startup and whenever a window regains focus.
+- **Holds:** `{version: 1, sessions: [{id, name, repoPath, harnessId}]}`: the `StoredSessions` model
+  (`infrastructure/database/models/`).
+- **Written by:** `SessionRepositoryOnGlobalState`, with a read-modify-write on every add and remove.
+- **Read by:** `SessionRepositoryOnGlobalState` at startup and whenever a window regains focus.
 - **Why:** sessions survive reloads and are shared by every window.
 - **Cleaned up:** an entry goes when its session is removed. Removing a repo keeps its sessions, so adding the repo
   again lists them again. Any change to the shape bumps `version`, so older windows refuse to decode it instead of
@@ -44,11 +45,11 @@ The same kind of key-value store as `globalState`, but one per workspace: only a
 
 ### `addedRepoPaths`
 
-- **Holds:** `{version: 1, addedRepoPaths: [path]}`, the absolute paths added with Add Repo. Workspace folders are not
-  stored.
-- **Written by:** `RepoStore`, with a read-modify-write on every Add Repo and Remove Repo.
-- **Read by:** `RepoStore` at startup and before every write.
+- **Holds:** `{version: 1, addedRepoPaths: [path]}`: the `StoredAddedRepoPaths` model, the absolute paths added with Add
+  Repo. Workspace folders are not stored.
+- **Written by:** `RepoRepositoryOnWorkspaceState`, with a read-modify-write on every Add Repo and Remove Repo.
+- **Read by:** `RepoRepositoryOnWorkspaceState` at startup and before every write.
 - **Why:** each window lists its own repos, so sessions started in one workspace don't show in the others.
 - **Cleaned up:** Remove Repo drops the path. VS Code deletes the key with the workspace's storage. Any change to the
-  shape bumps `version`, as for `sessions`.
+  shape bumps `version`, as for `storedSessions`.
 - **Added in:** repos (M2).

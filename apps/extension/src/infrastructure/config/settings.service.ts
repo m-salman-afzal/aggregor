@@ -1,5 +1,5 @@
-import {InvalidSettings} from "@/errors/settings.error.ts";
-import {VsCodeService} from "@/services/vscode.service.ts";
+import {InvalidSettings} from "@/infrastructure/errors/settings.error.ts";
+import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/extension.constant.ts";
 import {Context, Effect, Layer, Schema} from "effect";
 
@@ -26,6 +26,6 @@ const makeSettingsService = Effect.fn("SettingsService.make")(function* () {
 export class SettingsService extends Context.Service<
   SettingsService,
   {readonly readSettings: () => Effect.Effect<typeof Settings.Type, InvalidSettings>}
->()("aggregor/services/settings.service/SettingsService") {
+>()("aggregor/infrastructure/config/settings.service/SettingsService") {
   public static readonly layer = Layer.effect(SettingsService, makeSettingsService());
 }

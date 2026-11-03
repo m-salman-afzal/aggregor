@@ -15,6 +15,7 @@ const VSCODE_DATA_DIRECTORY = path.join(STATE_DIRECTORY, "vscode-data");
 const VSCODE_EXTENSIONS_DIRECTORY = path.join(STATE_DIRECTORY, "vscode-extensions");
 const LAUNCH_LOG = path.join(STATE_DIRECTORY, "launch.log");
 const MUTTER_LOG = path.join(STATE_DIRECTORY, "mutter.log");
+const RUNTIME_DIRECTORY = path.join(STATE_DIRECTORY, "runtime");
 const WAYLAND_DISPLAY_NAME = `aggregor-verify-${CDP_PORT}`;
 // Every process the launch starts inherits this variable, so stop can find them. VS Code's own processes hide it
 // (Chromium rewrites their process title over the environment), so stop finds those by their --user-data-dir instead.
@@ -134,6 +135,9 @@ const createLaunchEnvironment = () => ({
   ),
   [INSTANCE_VARIABLE]: STATE_DIRECTORY,
   WAYLAND_DISPLAY: WAYLAND_DISPLAY_NAME,
+  // The private bus starts its own document portal at $XDG_RUNTIME_DIR/doc; sharing the real one unmounts the
+  // desktop's, and every Flatpak launch then fails.
+  XDG_RUNTIME_DIR: RUNTIME_DIRECTORY,
   XDG_SESSION_TYPE: "wayland"
 });
 
@@ -193,7 +197,7 @@ const start = async (workspaceArgument: string | undefined) => {
     stdio: ["ignore", "ignore", "inherit"]
   });
 
-  fileSystem.mkdirSync(STATE_DIRECTORY, {recursive: true});
+  fileSystem.mkdirSync(RUNTIME_DIRECTORY, {mode: 0o700, recursive: true});
   const startedAt = Date.now();
   writeState({ownerProcessId: claudeProcessId, startedAt, workspacePath});
   launchVsCode(workspacePath, claudeProcessId);

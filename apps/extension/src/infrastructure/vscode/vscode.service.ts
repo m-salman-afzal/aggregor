@@ -25,7 +25,7 @@ export class VsCodeService extends Context.Service<
     readonly workspace: typeof vscode.workspace;
     readonly workspaceState: vscode.Memento;
   }
->()("aggregor/services/vscode.service/VsCodeService") {
+>()("aggregor/infrastructure/vscode/vscode.service/VsCodeService") {
   /* eslint-disable sort-keys */
   public static readonly layer = (extensionContext: vscode.ExtensionContext) =>
     Layer.succeed(VsCodeService, {

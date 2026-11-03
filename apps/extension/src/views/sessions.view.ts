@@ -1,14 +1,14 @@
+import {RepoRepository} from "@/domain/entities/repo/repo.repository.ts";
 import {getUnreadSessionIds} from "@/domain/entities/session/session.entity.ts";
+import {SessionRepository} from "@/domain/entities/session/session.repository.ts";
 import {decodeSessionId} from "@/domain/value-objects/session-id.value-object.ts";
 import {NoActiveTerminal, RevealFailed} from "@/errors/session.error.ts";
-import {RepoStore} from "@/services/repo/repo.service.ts";
+import {acquireDisposable, fromEvent} from "@/infrastructure/utils/vscode.utils.ts";
+import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {StatusService} from "@/services/session/status.service.ts";
-import {SessionStore} from "@/services/session/store.service.ts";
 import {findSession, listSessions} from "@/services/session/store.utils.ts";
 import {TerminalService} from "@/services/session/terminal.service.ts";
 import {TranscriptService} from "@/services/session/transcript.service.ts";
-import {VsCodeService} from "@/services/vscode.service.ts";
-import {acquireDisposable, fromEvent} from "@/services/vscode.utils.ts";
 import {
   createRepoTreeItem,
   createSessionTreeItem,
@@ -29,7 +29,7 @@ import type {Path} from "effect/Path";
 import type {EventEmitter, Terminal, TreeView, Uri} from "vscode";
 
 type SessionsViewServices =
-  Path | RepoStore | SessionStore | StatusService | TerminalService | TranscriptService | VsCodeService;
+  Path | RepoRepository | SessionRepository | StatusService | TerminalService | TranscriptService | VsCodeService;
 
 // Selects the session whose tab became active. Skipped while the view is hidden, since reveal would open it. No active
 // terminal, or one that is not a session's, leaves nothing to select.
@@ -184,9 +184,9 @@ const advanceSpinnerFrames = Effect.fn("SessionsView.advanceSpinnerFrames")(func
 const watchRowChanges = Effect.fn("SessionsView.watchRowChanges")(function* () {
   const {workspace} = yield* VsCodeService;
   const rowChangeSources: readonly Stream.Stream<unknown>[] = [
-    SubscriptionRef.changes((yield* RepoStore).addedRepoPaths),
+    SubscriptionRef.changes((yield* RepoRepository).addedRepoPaths),
     fromEvent(workspace.onDidChangeWorkspaceFolders),
-    SubscriptionRef.changes((yield* SessionStore).sessions),
+    SubscriptionRef.changes((yield* SessionRepository).sessions),
     SubscriptionRef.changes((yield* TerminalService).sessionTerminals),
     SubscriptionRef.changes((yield* TranscriptService).sessionTitles),
     SubscriptionRef.changes((yield* StatusService).sessionStatuses),

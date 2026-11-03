@@ -6,9 +6,10 @@ import {
   UntrackedTerminal,
   WindowUnfocused
 } from "@/errors/session.error.ts";
+import {fromEvent} from "@/infrastructure/utils/vscode.utils.ts";
+import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {StatusService} from "@/services/session/status.service.ts";
-import {VsCodeService} from "@/services/vscode.service.ts";
-import {fromEvent, getClaudeIcon} from "@/services/vscode.utils.ts";
+import {getClaudeIcon} from "@/services/vscode.utils.ts";
 import {STATUS_ENV} from "@pkg/constants/src/extension.constant.ts";
 import {Context, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
 
