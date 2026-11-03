@@ -1,10 +1,10 @@
 # DDD plan
 
-Status: steps 0 to 4 are done: `domain/` holds the entities, value objects and repository interfaces, `infrastructure/`
-holds VS Code, storage, logging, settings, the client implementations (Claude Code among them) and the layer graph, and
-`application/` holds the session, repo and commit-message use cases behind their client interfaces. `presentation/` has
-only the scm controller so far, and `services/` only `registerCommand`. Step 5 is still planned. The `ddd` stack moves
-the code; update this file in the same change as each step, so it always says where code goes.
+Status: done. Every step of the `ddd` stack has landed: `domain/` holds the entities, value objects and repository
+interfaces, `application/` the use cases behind their client interfaces, `infrastructure/` VS Code, storage, logging,
+settings, the client implementations and the layer graph, and `presentation/` the routes, controllers, the command
+middleware and the Sessions view. Every file but `extension.ts` sits in a layer. Keep this file in step with the code
+whenever a change moves where code goes.
 
 The layering follows vs-uc-api (a layered DDD Express API: `Domain`, `Application`, `Infrastructure`, plus `http/` for
 presentation), adapted to Effect, with the places where vs-uc-api's layers leaked into each other fixed.
@@ -20,9 +20,9 @@ presentation), adapted to Effect, with the places where vs-uc-api's layers leake
 | `extension.ts`    | `activate`: builds the runtime from the layer graph                         | everything                                                                                   |
 
 Lint enforces the import column with `@typescript-eslint/no-restricted-imports`: one block per layer in
-`eslint.config.ts`, with a regex allow-list over the `@/` import paths. `domain`, `application` and `infrastructure` are
-enforced today; step 5 adds `presentation`'s block. Outside `infrastructure/vscode/vscode.service.ts`, `vscode` is a
-type-only import, and `application` never sees it, not even its types.
+`eslint.config.ts`, with a regex allow-list over the `@/` import paths. All four layers are enforced. Outside
+`infrastructure/vscode/vscode.service.ts`, `vscode` is a type-only import, and `application` never sees it, not even its
+types.
 
 ## From vs-uc-api to aggregor
 
@@ -104,12 +104,13 @@ apps/extension/src/
     utils/vscode.utils.ts        acquireDisposable, fromEvent, setContext, withProgress (done)
     errors/                      TranscriptNotFound (done)
   presentation/
-    routes.ts                    command ID to controller ← CommandsLayer in extension.ts
-    middlewares/register-command.ts  root span per command, crash logging ← registerCommand
-    controllers/                 scm: SourceControl to RepoPath, progress, retry after Stage All (done); session,
-                                 repo: decode the tree-row arguments, call the service
-    errors/                      RootUriUnavailable (done)
-    views/sessions/              tree view, rows, badges, spinner ← views/*
+    routes.ts                    RoutesLayer: command ID to controller (done)
+    middlewares/register-command.ts  root span per command, crash logging, InvalidCommandArguments shown (done)
+    controllers/                 session, repo: decode the tree-row arguments, call the service; scm: SourceControl
+                                 to RepoPath, progress, retry after Stage All (done)
+    errors/                      RootUriUnavailable, InvalidCommandArguments, RevealFailed (done)
+    utils/                       decodeCommandArgument (done)
+    views/sessions/              tree view, rows, badges, spinner (done)
   extension.ts                   activate
 ```
 
@@ -185,4 +186,5 @@ Each branch is verified in the headless VS Code (the `verify-in-vscode` skill).
    an application interface.
 4. `refactor/harness-client` (done): Claude Code behind `HarnessClient`, plus the `Harnesses` LayerMap and `LaunchPlan`;
    application and infrastructure no longer import `services/`.
-5. `refactor/presentation-layer`: routes, controllers, the `registerCommand` middleware, views.
+5. `refactor/presentation-layer` (done): routes, controllers that decode their command arguments, the `registerCommand`
+   middleware, views, lint for presentation.

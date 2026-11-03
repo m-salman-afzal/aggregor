@@ -31,6 +31,14 @@ const APPLICATION_IMPORTS = {
   regex: "^(?!effect(/|$)|@pkg/|@/(domain|application)/)"
 };
 
+const PRESENTATION_IMPORTS = {
+  message:
+    "The presentation layer imports only effect, vscode types, @pkg, and domain, application or presentation code; " +
+    "from infrastructure, only vscode.service and utils.",
+  regex:
+    "^(?!effect(/|$)|vscode$|@pkg/|@/(domain|application|presentation)/|@/infrastructure/(vscode/vscode\\.service\\.ts$|utils/))"
+};
+
 const INFRASTRUCTURE_IMPORTS = {
   message:
     "The infrastructure layer imports only effect, @effect, vscode, node, @pkg, and domain, application or " +
@@ -221,6 +229,12 @@ const config: Config[] = defineConfig([
         "error",
         {paths: OPTION_IMPORT_BANS, patterns: [APPLICATION_IMPORTS]}
       ]
+    }
+  },
+  {
+    files: ["apps/extension/src/presentation/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": ["error", {paths: IMPORT_BANS, patterns: [PRESENTATION_IMPORTS]}]
     }
   },
   {

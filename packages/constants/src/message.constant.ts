@@ -4,6 +4,10 @@ export const ACTIONS = {
   STAGE_ALL: "Stage All & Generate"
 } as const;
 
+export const COMMAND_MESSAGES = {
+  UNEXPECTED_ARGUMENTS: (commandId: string) => `${commandId} got unexpected arguments.`
+} as const;
+
 export const COMMIT_MESSAGES = {
   CLAUDE_CLI_FAILED: (reason: string) => `Could not run the Claude CLI: ${reason}`,
   COMMIT_CLI_FAILED: (exitCode: number, stderr: string) => `Commit command exited with code ${exitCode}. ${stderr}`,
