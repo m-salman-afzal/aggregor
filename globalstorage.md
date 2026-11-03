@@ -15,7 +15,7 @@ data that processes other than the extension write, or that is too big for `glob
 - **Holds:** one word: `running`, `needs-input`, `idle` or `exited`.
 - **Written by:** the Claude Code hooks in [hooks.json](apps/extension/assets/hooks.json). Each session's terminal gets
   the file's path in the `AGGREGOR_STATUS_FILE` env var.
-- **Read by:** `StatusService`, which watches the folder and feeds the Sessions tree.
+- **Read by:** `ClaudeCodeHarnessClient`, which watches the folder and feeds the Sessions tree.
 - **Why:** live status. Hooks are shell one-liners, so a plain file is the simplest thing they can write, and every
   window can watch the same folder.
 - **Cleaned up:** deleted before each launch and when the session is removed. Removing a running session can leave the

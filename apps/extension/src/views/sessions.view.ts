@@ -1,5 +1,7 @@
+import {HarnessClient} from "@/application/clients/harness.client.ts";
 import {TerminalClient} from "@/application/clients/terminal.client.ts";
 import {findSession, listSessions} from "@/application/session/session.service.ts";
+import {forEachHarnessClient} from "@/application/utils/harness.utils.ts";
 import {RepoRepository} from "@/domain/entities/repo/repo.repository.ts";
 import {getUnreadSessionIds} from "@/domain/entities/session/session.entity.ts";
 import {SessionRepository} from "@/domain/entities/session/session.repository.ts";
@@ -7,8 +9,6 @@ import {decodeSessionId} from "@/domain/value-objects/session-id.value-object.ts
 import {RevealFailed} from "@/errors/session.error.ts";
 import {acquireDisposable, fromEvent} from "@/infrastructure/utils/vscode.utils.ts";
 import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
-import {StatusService} from "@/services/session/status.service.ts";
-import {TranscriptService} from "@/services/session/transcript.service.ts";
 import {
   createRepoTreeItem,
   createSessionTreeItem,
@@ -22,6 +22,7 @@ import {
 import {SESSION_URI_SCHEME, SPINNER_INTERVAL_MS, VIEWS} from "@pkg/constants/src/extension.constant.ts";
 import {Effect, Layer, Ref, Result, Schedule, Stream, SubscriptionRef} from "effect";
 
+import type {Harnesses} from "@/application/clients/harness.client.ts";
 import type {WorkspaceClient} from "@/application/clients/workspace.client.ts";
 import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
 import type {Status} from "@/domain/value-objects/status.value-object.ts";
@@ -30,14 +31,7 @@ import type {Path} from "effect/Path";
 import type {EventEmitter, TreeView, Uri} from "vscode";
 
 type SessionsViewServices =
-  | Path
-  | RepoRepository
-  | SessionRepository
-  | StatusService
-  | TerminalClient
-  | TranscriptService
-  | VsCodeService
-  | WorkspaceClient;
+  Harnesses | Path | RepoRepository | SessionRepository | TerminalClient | VsCodeService | WorkspaceClient;
 
 // Selects the session whose tab became active. Skipped while the view is hidden, since reveal would open it.
 const revealSession = Effect.fn("revealSession")(
@@ -123,13 +117,24 @@ const registerTreeView = Effect.fn("SessionsView.registerTreeView")(function* (
   return {sessionsTreeView, treeChangedEmitter};
 });
 
+// Every harness's statuses in one map; session ids are unique across harnesses.
+const getAllSessionStatuses = Effect.fn("SessionsView.getAllSessionStatuses")(function* () {
+  const statusesByHarness = yield* forEachHarnessClient(
+    HarnessClient.use((harnessClient) => SubscriptionRef.get(harnessClient.sessionStatuses))
+  );
+  const allSessionStatuses: ReadonlyMap<SessionId, Status> = new Map(
+    statusesByHarness.flatMap((sessionStatuses) => [...sessionStatuses])
+  );
+
+  return allSessionStatuses;
+});
+
 // Compares the statuses with the previous look; the rule itself is the entity's.
 const updateUnreadSessionIds = Effect.fn("SessionsView.updateUnreadSessionIds")(function* (
   viewParts: SessionsViewParts
 ) {
-  const {sessionStatuses} = yield* StatusService;
   const {viewedSessionId} = yield* TerminalClient;
-  const currentStatuses = yield* SubscriptionRef.get(sessionStatuses);
+  const currentStatuses = yield* getAllSessionStatuses();
   const previousStatuses = yield* Ref.getAndSet(viewParts.previousSessionStatuses, currentStatuses);
   const currentViewedSessionId = Result.getOrUndefined(yield* SubscriptionRef.get(viewedSessionId));
 
@@ -150,7 +155,7 @@ const getChangedBadgeUris = Effect.fn("SessionsView.getChangedBadgeUris")(functi
   const allSessions = yield* listSessions();
   const currentRowStatuses = new Map(
     yield* Effect.forEach(allSessions, (session) =>
-      Effect.map(getRowStatus(session.id, currentUnreadSessionIds), (rowStatus) => [session.id, rowStatus] as const)
+      Effect.map(getRowStatus(session, currentUnreadSessionIds), (rowStatus) => [session.id, rowStatus] as const)
     )
   );
   const previousRowStatuses = yield* Ref.getAndSet(viewParts.drawnRowStatuses, currentRowStatuses);
@@ -184,17 +189,22 @@ const advanceSpinnerFrames = Effect.fn("SessionsView.advanceSpinnerFrames")(func
 });
 
 // Rows change when a repo or workspace folder is added or removed, when a session is added or removed, when its tab
-// opens or closes, when Claude renames it, when its status changes, and when it comes into view, which marks it read.
+// opens or closes, when its agent renames it, when its status changes, and when it comes into view, which marks it read.
 const watchRowChanges = Effect.fn("SessionsView.watchRowChanges")(function* () {
   const {workspace} = yield* VsCodeService;
+  const harnessChangeSources = yield* forEachHarnessClient(
+    HarnessClient.useSync((harnessClient): readonly Stream.Stream<unknown>[] => [
+      SubscriptionRef.changes(harnessClient.sessionTitles),
+      SubscriptionRef.changes(harnessClient.sessionStatuses)
+    ])
+  );
   const rowChangeSources: readonly Stream.Stream<unknown>[] = [
     SubscriptionRef.changes((yield* RepoRepository).addedRepoPaths),
     fromEvent(workspace.onDidChangeWorkspaceFolders),
     SubscriptionRef.changes((yield* SessionRepository).sessions),
     (yield* TerminalClient).openSessionIds,
-    SubscriptionRef.changes((yield* TranscriptService).sessionTitles),
-    SubscriptionRef.changes((yield* StatusService).sessionStatuses),
-    SubscriptionRef.changes((yield* TerminalClient).viewedSessionId)
+    SubscriptionRef.changes((yield* TerminalClient).viewedSessionId),
+    ...harnessChangeSources.flat()
   ];
 
   return Stream.mergeAll(rowChangeSources, {concurrency: "unbounded"});

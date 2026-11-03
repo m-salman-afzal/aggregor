@@ -1,10 +1,10 @@
+import {HarnessClient} from "@/application/clients/harness.client.ts";
 import {TerminalClient} from "@/application/clients/terminal.client.ts";
 import {listRepos} from "@/application/repo/repo.service.ts";
 import {getSessionDisplayName, listSessions} from "@/application/session/session.service.ts";
+import {withHarnessClient} from "@/application/utils/harness.utils.ts";
 import {Repo} from "@/domain/entities/repo/repo.entity.ts";
 import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
-import {StatusService} from "@/services/session/status.service.ts";
-import {getClaudeIcon} from "@/services/vscode.utils.ts";
 import {
   COMMANDS,
   CONTEXT_VALUES,
@@ -34,16 +34,19 @@ export const isRepo = (row: Row): row is Repo => row instanceof Repo;
 
 // Without a terminal in this window the agent is gone; with one, the hooks say what it is doing.
 export const getRowStatus = Effect.fn("getRowStatus")(function* (
-  sessionId: SessionId,
+  session: Session,
   unreadSessionIds: ReadonlySet<SessionId>
 ) {
   const {isSessionTerminalOpen} = yield* TerminalClient;
-  if (!(yield* isSessionTerminalOpen(sessionId))) return "exited" satisfies RowStatus;
+  if (!(yield* isSessionTerminalOpen(session.id))) return "exited" satisfies RowStatus;
 
-  const {sessionStatuses} = yield* StatusService;
-  const sessionStatus = (yield* SubscriptionRef.get(sessionStatuses)).get(sessionId);
+  const sessionStatuses = yield* withHarnessClient(
+    session.harnessId,
+    HarnessClient.use((harnessClient) => SubscriptionRef.get(harnessClient.sessionStatuses))
+  );
+  const sessionStatus = sessionStatuses.get(session.id);
 
-  return sessionStatus === "idle" && unreadSessionIds.has(sessionId) ? ("unread" satisfies RowStatus) : sessionStatus;
+  return sessionStatus === "idle" && unreadSessionIds.has(session.id) ? ("unread" satisfies RowStatus) : sessionStatus;
 });
 
 // The handle the status badge hangs off; the decoration provider reads the session id back from the path.
@@ -57,14 +60,19 @@ export const createSessionTreeItem = Effect.fn("createSessionTreeItem")(function
   session: Session,
   rowStatus: RowStatus | undefined
 ) {
-  const {TreeItem} = yield* VsCodeService;
+  const {TreeItem, Uri} = yield* VsCodeService;
   const path = yield* Path;
   const statusLabel = rowStatus === undefined ? undefined : STATUS_LABELS[rowStatus];
   const rowLabel = yield* getSessionDisplayName(session);
   const repoFolderName = path.basename(session.repoPath);
   const treeItem = new TreeItem(rowLabel);
   treeItem.id = session.id;
-  treeItem.iconPath = yield* getClaudeIcon();
+  treeItem.iconPath = Uri.file(
+    yield* withHarnessClient(
+      session.harnessId,
+      HarnessClient.useSync((harnessClient) => harnessClient.iconPath)
+    )
+  );
   treeItem.resourceUri = yield* getSessionRowUri(session.id);
   treeItem.tooltip = SESSION_LABELS.TOOLTIP(session.name, session.repoPath, statusLabel);
   treeItem.accessibilityInformation = {label: SESSION_LABELS.ACCESSIBLE(rowLabel, repoFolderName, statusLabel)};

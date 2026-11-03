@@ -80,6 +80,7 @@
           "@effect/platform-node/NodeServices",
           "effect/ByteSize",
           "effect/FileSystem",
+          "effect/LayerMap",
           "effect/Path",
           "effect/process"
         ]

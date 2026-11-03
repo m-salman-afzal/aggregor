@@ -1,6 +1,5 @@
 import {acquireDisposable} from "@/infrastructure/utils/vscode.utils.ts";
 import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
-import {MODEL_ICONS} from "@pkg/constants/src/extension.constant.ts";
 import {Effect} from "effect";
 
 // Registered for the surrounding scope's lifetime. Each run is a root span named by the command ID, and a crash is
@@ -23,11 +22,4 @@ export const registerCommand = Effect.fn("registerCommand")(function* <R>(
       runPromise(runCommand(commandArguments))
     )
   );
-});
-
-// Claude's brand orange reads on light and dark themes, so one file serves both.
-export const getClaudeIcon = Effect.fn("getClaudeIcon")(function* () {
-  const {extensionUri, Uri} = yield* VsCodeService;
-
-  return Uri.joinPath(extensionUri, MODEL_ICONS.CLAUDE);
 });
