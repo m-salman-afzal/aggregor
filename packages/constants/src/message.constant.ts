@@ -1,5 +1,5 @@
 export const ACTIONS = {
-  ADD_REPO: "Add Repo",
+  ADD_PROJECT: "Add Project",
   REMOVE: "Remove",
   STAGE_ALL: "Stage All & Generate"
 } as const;
@@ -23,18 +23,20 @@ export const COMMIT_MESSAGES = {
   ROOT_URI_UNAVAILABLE: "This source control has no root folder."
 } as const;
 
-export const REPO_LABELS = {
-  PICK: "Repo for the new session"
+export const PROJECT_LABELS = {
+  PICK: "Project for the new session"
 } as const;
 
-export const REPO_MESSAGES = {
-  SAVE_FAILED: "Could not save repos.",
-  UNREADABLE: "Saved repos could not be read. They may come from a newer version; reload the window."
+export const PROJECT_MESSAGES = {
+  SAVE_FAILED: "Could not save projects.",
+  UNREADABLE: "Saved projects could not be read. They may come from a newer version; reload the window."
 } as const;
 
 export const SESSION_LABELS = {
-  ACCESSIBLE: (rowLabel: string, repoFolderName: string, statusLabel: string | undefined) =>
-    statusLabel === undefined ? `${rowLabel}, ${repoFolderName}` : `${rowLabel}, ${repoFolderName}, ${statusLabel}`,
+  ACCESSIBLE: (rowLabel: string, projectFolderName: string, statusLabel: string | undefined) =>
+    statusLabel === undefined
+      ? `${rowLabel}, ${projectFolderName}`
+      : `${rowLabel}, ${projectFolderName}, ${statusLabel}`,
   OPEN_SESSION: "Open Session",
   TOOLTIP: (sessionName: string, workingDirectory: string, statusLabel: string | undefined) =>
     statusLabel === undefined
@@ -55,7 +57,7 @@ export const SESSION_MESSAGES = {
     `Remove "${displayName}"? Its agent is still running and will be stopped.`,
   LAUNCH_FAILED: "Could not open a terminal for the session.",
   NOT_FOUND: "This session no longer exists.",
-  REPO_REQUIRED: "Add a repo or open a folder to start a session.",
+  PROJECT_REQUIRED: "Add a project or open a folder to start a session.",
   SAVE_FAILED: "Could not save sessions.",
   UNREADABLE: "Saved sessions could not be read. They may come from a newer version; reload the window."
 } as const;

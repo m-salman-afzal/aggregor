@@ -7,7 +7,7 @@ import {format} from "node:util";
 import type {LogLevel} from "effect";
 import type {LogOutputChannel} from "vscode";
 
-// "aggregorApp.newSessionAskingForRepo > newSession > startSession": the span's name after its ancestors'.
+// "aggregorApp.newSessionAskingForProject > newSession > startSession": the span's name after its ancestors'.
 const formatSpanPath = (span: Tracer.AnySpan): string => {
   if (span._tag === "ExternalSpan") return "external";
 

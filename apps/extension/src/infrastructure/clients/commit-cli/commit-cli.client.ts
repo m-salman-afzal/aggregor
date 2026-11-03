@@ -7,12 +7,12 @@ import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 
 import type {CommitMessageRequest} from "@/application/clients/commit-cli.client.ts";
 
-// Runs the command in a shell in the repo, with the staged diff on stdin.
+// Runs the command in a shell in the project, with the staged diff on stdin.
 const runCommitCommand = Effect.fn("CommitCliClient.runCommitCommand")(
   function* (childProcessSpawner: ChildProcessSpawner["Service"], commitMessageRequest: CommitMessageRequest) {
     const commitCommandProcess = yield* childProcessSpawner.spawn(
       ChildProcess.make(commitMessageRequest.commitCommand, {
-        cwd: commitMessageRequest.repoPath,
+        cwd: commitMessageRequest.projectPath,
         shell: true,
         stdin: Stream.make(commitMessageRequest.stagedDiff).pipe(Stream.encodeText)
       })

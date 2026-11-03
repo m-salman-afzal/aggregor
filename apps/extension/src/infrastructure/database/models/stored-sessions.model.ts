@@ -1,5 +1,5 @@
 import {HarnessIdSchema} from "@/domain/value-objects/harness-id.value-object.ts";
-import {RepoPathSchema} from "@/domain/value-objects/repo-path.value-object.ts";
+import {ProjectPathSchema} from "@/domain/value-objects/project-path.value-object.ts";
 import {SessionIdSchema} from "@/domain/value-objects/session-id.value-object.ts";
 import {Schema} from "effect";
 
@@ -7,7 +7,12 @@ import {Schema} from "effect";
 // fail to decode it instead of writing back a copy with the new fields stripped.
 export const StoredSessions = Schema.Struct({
   sessions: Schema.Array(
-    Schema.Struct({harnessId: HarnessIdSchema, id: SessionIdSchema, name: Schema.String, repoPath: RepoPathSchema})
+    Schema.Struct({
+      harnessId: HarnessIdSchema,
+      id: SessionIdSchema,
+      name: Schema.String,
+      projectPath: ProjectPathSchema
+    })
   ),
   version: Schema.Literal(1)
 });

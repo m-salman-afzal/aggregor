@@ -8,7 +8,7 @@ import type {
   GitRepositoryUnavailable,
   NothingStaged
 } from "@/application/errors/git.error.ts";
-import type {RepoPath} from "@/domain/value-objects/repo-path.value-object.ts";
+import type {ProjectPath} from "@/domain/value-objects/project-path.value-object.ts";
 import type {Effect} from "effect";
 
 // Why the git repository at a path cannot be reached.
@@ -18,16 +18,22 @@ export type GitUnavailable = GitExtensionDisabled | GitExtensionUnavailable | Gi
 export class GitClient extends Context.Service<
   GitClient,
   {
-    // Best effort: a folder that is not a git repo, or git being off, only logs a warning.
-    readonly closeInSourceControl: (repoPath: RepoPath) => Effect.Effect<void>;
-    readonly commit: (repoPath: RepoPath, commitMessage: string) => Effect.Effect<void, CommitFailed | GitUnavailable>;
+    // Best effort: a folder that is not a git repository, or git being off, only logs a warning.
+    readonly closeInSourceControl: (projectPath: ProjectPath) => Effect.Effect<void>;
+    readonly commit: (
+      projectPath: ProjectPath,
+      commitMessage: string
+    ) => Effect.Effect<void, CommitFailed | GitUnavailable>;
     readonly getStagedDiff: (
-      repoPath: RepoPath
+      projectPath: ProjectPath
     ) => Effect.Effect<string, GitDiffError | GitUnavailable | NothingStaged>;
-    // Best effort: a folder that is not a git repo, or git being off, only logs a warning.
-    readonly openInSourceControl: (repoPath: RepoPath) => Effect.Effect<void>;
+    // Best effort: a folder that is not a git repository, or git being off, only logs a warning.
+    readonly openInSourceControl: (projectPath: ProjectPath) => Effect.Effect<void>;
     // Fills Source Control's commit message box.
-    readonly setCommitMessageInput: (repoPath: RepoPath, commitMessage: string) => Effect.Effect<void, GitUnavailable>;
-    readonly stageAll: (repoPath: RepoPath) => Effect.Effect<void>;
+    readonly setCommitMessageInput: (
+      projectPath: ProjectPath,
+      commitMessage: string
+    ) => Effect.Effect<void, GitUnavailable>;
+    readonly stageAll: (projectPath: ProjectPath) => Effect.Effect<void>;
   }
 >()("aggregor/application/clients/git.client/GitClient") {}

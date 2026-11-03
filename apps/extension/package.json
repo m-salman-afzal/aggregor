@@ -61,7 +61,7 @@
         "icon": "$(ellipsis)"
       },
       {
-        "id": "aggregorApp.repoActions",
+        "id": "aggregorApp.projectActions",
         "label": "More Actions...",
         "icon": "$(ellipsis)"
       }
@@ -76,12 +76,12 @@
       ],
       "view/title": [
         {
-          "command": "aggregorApp.newSessionAskingForRepo",
+          "command": "aggregorApp.newSessionAskingForProject",
           "group": "navigation@1",
           "when": "view == aggregorApp.sessions"
         },
         {
-          "command": "aggregorApp.addRepo",
+          "command": "aggregorApp.addProject",
           "group": "navigation@2",
           "when": "view == aggregorApp.sessions"
         }
@@ -93,14 +93,14 @@
           "when": "view == aggregorApp.sessions && viewItem == session"
         },
         {
-          "command": "aggregorApp.newSessionInClickedRepo",
+          "command": "aggregorApp.newSessionInClickedProject",
           "group": "inline@1",
-          "when": "view == aggregorApp.sessions && viewItem =~ /^(repo|addedRepo)$/"
+          "when": "view == aggregorApp.sessions && viewItem =~ /^(project|addedProject)$/"
         },
         {
-          "submenu": "aggregorApp.repoActions",
+          "submenu": "aggregorApp.projectActions",
           "group": "inline@2",
-          "when": "view == aggregorApp.sessions && viewItem == addedRepo"
+          "when": "view == aggregorApp.sessions && viewItem == addedProject"
         }
       ],
       "aggregorApp.sessionActions": [
@@ -108,14 +108,14 @@
           "command": "aggregorApp.removeSession"
         }
       ],
-      "aggregorApp.repoActions": [
+      "aggregorApp.projectActions": [
         {
-          "command": "aggregorApp.removeRepo"
+          "command": "aggregorApp.removeProject"
         }
       ],
       "commandPalette": [
         {
-          "command": "aggregorApp.newSessionInClickedRepo",
+          "command": "aggregorApp.newSessionInClickedProject",
           "when": "false"
         },
         {
@@ -127,7 +127,7 @@
           "when": "false"
         },
         {
-          "command": "aggregorApp.removeRepo",
+          "command": "aggregorApp.removeProject",
           "when": "false"
         }
       ]
@@ -153,7 +153,7 @@
     "viewsWelcome": [
       {
         "view": "aggregorApp.sessions",
-        "contents": "No repos yet.\n[Add Repo](command:aggregorApp.addRepo)\n[Open Folder](command:workbench.action.files.openFolder)"
+        "contents": "No projects yet.\n[Add Project](command:aggregorApp.addProject)\n[Open Folder](command:workbench.action.files.openFolder)"
       }
     ],
     "commands": [
@@ -169,13 +169,13 @@
       },
       {
         "title": "New Claude Session",
-        "command": "aggregorApp.newSessionInClickedRepo",
+        "command": "aggregorApp.newSessionInClickedProject",
         "category": "Aggregor App",
         "icon": "$(add)"
       },
       {
         "title": "New Session...",
-        "command": "aggregorApp.newSessionAskingForRepo",
+        "command": "aggregorApp.newSessionAskingForProject",
         "category": "Aggregor App",
         "icon": "$(add)"
       },
@@ -190,14 +190,14 @@
         "category": "Aggregor App"
       },
       {
-        "title": "Add Repo",
-        "command": "aggregorApp.addRepo",
+        "title": "Add Project",
+        "command": "aggregorApp.addProject",
         "category": "Aggregor App",
         "icon": "$(new-folder)"
       },
       {
-        "title": "Remove Repo",
-        "command": "aggregorApp.removeRepo",
+        "title": "Remove Project",
+        "command": "aggregorApp.removeProject",
         "category": "Aggregor App"
       }
     ]

@@ -1,12 +1,12 @@
 import {Context} from "effect";
 
 import type {CommitCliError, CommitCliSpawnFailed, EmptyCommitMessage} from "@/application/errors/commit-cli.error.ts";
-import type {RepoPath} from "@/domain/value-objects/repo-path.value-object.ts";
+import type {ProjectPath} from "@/domain/value-objects/project-path.value-object.ts";
 import type {Effect} from "effect";
 
 export interface CommitMessageRequest {
   readonly commitCommand: string;
-  readonly repoPath: RepoPath;
+  readonly projectPath: ProjectPath;
   readonly stagedDiff: string;
 }
 

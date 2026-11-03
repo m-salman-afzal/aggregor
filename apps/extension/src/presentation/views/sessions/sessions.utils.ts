@@ -1,14 +1,14 @@
 import {HarnessClient} from "@/application/clients/harness.client.ts";
 import {TerminalClient} from "@/application/clients/terminal.client.ts";
-import {listRepos} from "@/application/repo/repo.service.ts";
+import {listProjects} from "@/application/project/project.service.ts";
 import {getSessionDisplayName, listSessions} from "@/application/session/session.service.ts";
 import {withHarnessClient} from "@/application/utils/harness.utils.ts";
-import {Repo} from "@/domain/entities/repo/repo.entity.ts";
+import {Project} from "@/domain/entities/project/project.entity.ts";
 import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {
   COMMANDS,
   CONTEXT_VALUES,
-  REPO_ICON,
+  PROJECT_ICON,
   SESSION_URI_SCHEME,
   SPINNER_INTERVAL_MS,
   STATUS_BADGES
@@ -21,16 +21,16 @@ import type {Session} from "@/domain/entities/session/session.entity.ts";
 import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
 import type {Status} from "@/domain/value-objects/status.value-object.ts";
 
-// How the Sessions tree draws its rows: repo and session items, their status badges, and the tree's shape.
+// How the Sessions tree draws its rows: project and session items, their status badges, and the tree's shape.
 
-// Repos at the top level, each with the sessions started in it.
-export type Row = Repo | Session;
+// Projects at the top level, each with the sessions started in it.
+export type Row = Project | Session;
 
 // What a row shows. "unread" is an idle session whose last turn ended while it was out of view; undefined is a
 // terminal whose hooks have not fired yet.
 export type RowStatus = "unread" | Status;
 
-export const isRepo = (row: Row): row is Repo => row instanceof Repo;
+export const isProject = (row: Row): row is Project => row instanceof Project;
 
 // Without a terminal in this window the agent is gone; with one, the hooks say what it is doing.
 export const getRowStatus = Effect.fn("getRowStatus")(function* (
@@ -64,7 +64,7 @@ export const createSessionTreeItem = Effect.fn("createSessionTreeItem")(function
   const path = yield* Path;
   const statusLabel = rowStatus === undefined ? undefined : STATUS_LABELS[rowStatus];
   const rowLabel = yield* getSessionDisplayName(session);
-  const repoFolderName = path.basename(session.repoPath);
+  const projectFolderName = path.basename(session.projectPath);
   const treeItem = new TreeItem(rowLabel);
   treeItem.id = session.id;
   treeItem.iconPath = Uri.file(
@@ -74,8 +74,8 @@ export const createSessionTreeItem = Effect.fn("createSessionTreeItem")(function
     )
   );
   treeItem.resourceUri = yield* getSessionRowUri(session.id);
-  treeItem.tooltip = SESSION_LABELS.TOOLTIP(session.name, session.repoPath, statusLabel);
-  treeItem.accessibilityInformation = {label: SESSION_LABELS.ACCESSIBLE(rowLabel, repoFolderName, statusLabel)};
+  treeItem.tooltip = SESSION_LABELS.TOOLTIP(session.name, session.projectPath, statusLabel);
+  treeItem.accessibilityInformation = {label: SESSION_LABELS.ACCESSIBLE(rowLabel, projectFolderName, statusLabel)};
   treeItem.contextValue = CONTEXT_VALUES.SESSION;
   treeItem.command = {arguments: [session.id], command: COMMANDS.SESSION_ROW.OPEN, title: SESSION_LABELS.OPEN_SESSION};
 
@@ -83,13 +83,13 @@ export const createSessionTreeItem = Effect.fn("createSessionTreeItem")(function
 });
 
 // The id is the path, which never collides with a session's UUID.
-export const createRepoTreeItem = Effect.fn("createRepoTreeItem")(function* (repo: Repo) {
+export const createProjectTreeItem = Effect.fn("createProjectTreeItem")(function* (project: Project) {
   const {ThemeIcon, TreeItem, TreeItemCollapsibleState} = yield* VsCodeService;
-  const treeItem = new TreeItem(repo.name, TreeItemCollapsibleState.Expanded);
-  treeItem.id = repo.path;
-  treeItem.iconPath = new ThemeIcon(REPO_ICON);
-  treeItem.tooltip = repo.path;
-  treeItem.contextValue = repo.added ? CONTEXT_VALUES.ADDED_REPO : CONTEXT_VALUES.REPO;
+  const treeItem = new TreeItem(project.name, TreeItemCollapsibleState.Expanded);
+  treeItem.id = project.path;
+  treeItem.iconPath = new ThemeIcon(PROJECT_ICON);
+  treeItem.tooltip = project.path;
+  treeItem.contextValue = project.added ? CONTEXT_VALUES.ADDED_PROJECT : CONTEXT_VALUES.PROJECT;
 
   return treeItem;
 });
@@ -104,21 +104,21 @@ export const createStatusBadge = Effect.fn("createStatusBadge")(function* (rowSt
   return new FileDecoration(frames[frameIndex], STATUS_LABELS[rowStatus], new ThemeColor(color));
 });
 
-// Every repo is listed, even one without sessions, so adding a repo always shows. A session sits under its repo; one
-// whose repo is not in this window is not shown here.
+// Every project is listed, even one without sessions, so adding a project always shows. A session sits under its project; one
+// whose project is not in this window is not shown here.
 export const getChildRows = Effect.fn("getChildRows")(function* (parentRow: Row | undefined) {
-  if (parentRow === undefined) return yield* listRepos();
-  if (!isRepo(parentRow)) return [];
+  if (parentRow === undefined) return yield* listProjects();
+  if (!isProject(parentRow)) return [];
 
   const allSessions = yield* listSessions();
 
-  return allSessions.filter((session) => session.repoPath === parentRow.path);
+  return allSessions.filter((session) => session.projectPath === parentRow.path);
 });
 
 export const getParentRow = Effect.fn("getParentRow")(function* (row: Row) {
-  if (isRepo(row)) return undefined;
+  if (isProject(row)) return undefined;
 
-  const repos = yield* listRepos();
+  const projects = yield* listProjects();
 
-  return repos.find((repo) => repo.path === row.repoPath);
+  return projects.find((project) => project.path === row.projectPath);
 });

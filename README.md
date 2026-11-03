@@ -6,13 +6,13 @@ Control and diffs.
 
 ## What works today
 
-- **Sessions sidebar.** The Aggregor App activity-bar view lists the window's repos, each with its sessions, and starts
-  Claude Code in an editor-tab terminal. Clicking a session focuses its tab; switching tabs selects the session.
-- **Repos.** The window's workspace folders are always listed; Add Repo lists any other folder without adding it to the
-  workspace, and opens it in Source Control if it is a git repo. Added repos are kept per workspace, so other windows
-  don't see them or their sessions. A repo row's + starts a session in it, the view's + asks which repo to use, and an
-  added repo's … menu removes it.
-- **Persistent sessions.** Sessions survive reloads and restarts, and every window that lists their repo shows them.
+- **Sessions sidebar.** The Aggregor App activity-bar view lists the window's projects, each with its sessions, and
+  starts Claude Code in an editor-tab terminal. Clicking a session focuses its tab; switching tabs selects the session.
+- **Projects.** The window's workspace folders are always listed; Add Project lists any other folder without adding it
+  to the workspace, and opens it in Source Control if it is a git repository. Added projects are kept per workspace, so
+  other windows don't see them or their sessions. A project row's + starts a session in it, the view's + asks which
+  project to use, and an added project's … menu removes it.
+- **Persistent sessions.** Sessions survive reloads and restarts, and every window that lists their project shows them.
   Closing a tab keeps the session listed as exited; clicking it resumes the conversation. The row's … menu removes a
   session.
 - **Claude's session names.** Each row shows the name Claude gives the conversation (or the one set with `/rename`),
@@ -34,15 +34,15 @@ Each item is one small PR, stacked on the previous one. Releases wait for the en
 - [x] Cleanup before the first release: remove dead ACP, webview and React code, align `@types/vscode` with `engines`
 - [x] Live status: running, needs input, idle and exited, from Claude Code hooks
 
-### M2: alerts, multi-repo
+### M2: alerts, multi-project
 
 - [ ] Needs-input alerts: activity-bar badge and a notification for background sessions
 - [ ] tmux persistence: closing a tab detaches instead of killing the agent; clicking reattaches
-- [x] Repos: an extension-owned repo list, tree grouped as repo > session
+- [x] Projects: an extension-owned project list, tree grouped as project > session
 
 ### M3: worktrees and review
 
-- [ ] Worktree mode: start a session in the repo root or in a new git worktree
+- [ ] Worktree mode: start a session in the project root or in a new git worktree
 - [ ] Changed files under each session, opening git's diff with per-hunk staging
 - [ ] Accept (stage), reject (restore) and review all changes
 - [ ] Archive sessions: remove the worktree, keep unmerged branches

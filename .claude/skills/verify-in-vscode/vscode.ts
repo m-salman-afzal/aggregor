@@ -25,8 +25,8 @@ const USER_DATA_DIRECTORY_ARGUMENTS = [
   `--user-data-dir=${VSCODE_DATA_DIRECTORY} `,
   `--user-data-dir ${VSCODE_DATA_DIRECTORY} `
 ];
-const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
-const EXTENSION_DIRECTORY = path.join(REPO_ROOT, "apps", "extension");
+const REPOSITORY_ROOT = path.resolve(import.meta.dirname, "../../..");
+const EXTENSION_DIRECTORY = path.join(REPOSITORY_ROOT, "apps", "extension");
 const CONFIGURED_WORKSPACE = process.env.AGGREGOR_VERIFY_WORKSPACE;
 const DEFAULT_WORKSPACE =
   CONFIGURED_WORKSPACE === undefined ? path.join(operatingSystem.homedir(), "side", "jsTester") : CONFIGURED_WORKSPACE;

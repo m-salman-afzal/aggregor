@@ -1,26 +1,26 @@
 import {HarnessIdSchema} from "@/domain/value-objects/harness-id.value-object.ts";
-import {RepoPathSchema} from "@/domain/value-objects/repo-path.value-object.ts";
+import {ProjectPathSchema} from "@/domain/value-objects/project-path.value-object.ts";
 import {SessionIdSchema} from "@/domain/value-objects/session-id.value-object.ts";
 import {Schema} from "effect";
 
 import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
 import type {Status} from "@/domain/value-objects/status.value-object.ts";
 
-// One agent conversation, started in a repo. `name` is ours, shown until the agent names the conversation.
+// One agent conversation, started in a project. `name` is ours, shown until the agent names the conversation.
 export class Session extends Schema.Class<Session, {readonly brand: unique symbol}>("Session")({
   harnessId: HarnessIdSchema,
   id: SessionIdSchema,
   name: Schema.String,
-  repoPath: RepoPathSchema
+  projectPath: ProjectPathSchema
 }) {}
 
-// Lowest free "<repo> #n", so removing #1 frees the name for the next session.
-export const getNewSessionName = (repoName: string, existingSessions: readonly Session[]) => {
+// Lowest free "<project> #n", so removing #1 frees the name for the next session.
+export const getNewSessionName = (projectName: string, existingSessions: readonly Session[]) => {
   const takenSessionNames = new Set(existingSessions.map((session) => session.name));
   let sessionNumber = 1;
-  while (takenSessionNames.has(`${repoName} #${sessionNumber}`)) sessionNumber += 1;
+  while (takenSessionNames.has(`${projectName} #${sessionNumber}`)) sessionNumber += 1;
 
-  return `${repoName} #${sessionNumber}`;
+  return `${projectName} #${sessionNumber}`;
 };
 
 // A turn is in progress while its session runs or waits on the user.

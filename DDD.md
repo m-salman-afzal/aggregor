@@ -1,10 +1,10 @@
 # DDD plan
 
-Status: done. Every step of the `ddd` stack has landed: `domain/` holds the entities, value objects and repository
-interfaces, `application/` the use cases behind their client interfaces, `infrastructure/` VS Code, storage, logging,
-settings, the client implementations and the layer graph, and `presentation/` the routes, controllers, the command
-middleware and the Sessions view. Every file but `extension.ts` sits in a layer. Keep this file in step with the code
-whenever a change moves where code goes.
+Status: steps 0 to 5 of the `ddd` stack have landed; 6 and 7 rename things so each name says what it is. Today `domain/`
+holds the entities, value objects and repository interfaces, `application/` the use cases behind their client
+interfaces, `infrastructure/` VS Code, storage, logging, settings, the client implementations and the layer graph, and
+`presentation/` the routes, controllers, the command middleware and the Sessions view. Every file but `extension.ts`
+sits in a layer. Keep this file in step with the code whenever a change moves where code goes.
 
 The layering follows vs-uc-api (a layered DDD Express API: `Domain`, `Application`, `Infrastructure`, plus `http/` for
 presentation), adapted to Effect, with the places where vs-uc-api's layers leaked into each other fixed.
@@ -52,44 +52,44 @@ apps/extension/src/
   domain/
     entities/
       session/
-        session.entity.ts        Session (Schema.Class: id, repoPath, name, harnessId), getNewSessionName,
+        session.entity.ts        Session (Schema.Class: id, projectPath, name, harnessId), getNewSessionName,
                                  getUnreadSessionIds (done)
         session.repository.ts    SessionRepository interface: sessions ref, modifySessions (done)
-      repo/
-        repo.entity.ts           Repo (Schema.Class: path, name, added) (done)
-        repo.repository.ts       RepoRepository interface: addedRepoPaths ref, modifyAddedRepoPaths (done)
-    value-objects/               one <name>.value-object.ts each: SessionIdSchema, RepoPathSchema (branded),
+      project/
+        project.entity.ts           Project (Schema.Class: path, name, added) (done)
+        project.repository.ts       ProjectRepository interface: addedProjectPaths ref, modifyAddedProjectPaths (done)
+    value-objects/               one <name>.value-object.ts each: SessionIdSchema, ProjectPathSchema (branded),
                                  StatusSchema, HarnessIdSchema (literals), LaunchPlan (an interface) (done)
     transformers/
       claude-code.transformer.ts transcript line to title, status-file text to Status (done)
     errors/                      SessionNotFound, TitleNotFound, and the repository errors SessionsCorrupt,
-                                 SessionsSaveFailed, ReposCorrupt, ReposSaveFailed (done)
+                                 SessionsSaveFailed, ProjectsCorrupt, ProjectsSaveFailed (done)
   application/
     session/session.service.ts   newSession, openSession, removeSession, listSessions, findSession,
                                  getSessionDisplayName (done)
-    repo/repo.service.ts         listRepos, pickRepo, addRepo, removeRepo (done)
+    project/project.service.ts         listProjects, pickProject, addProject, removeProject (done)
     scm/scm.service.ts           writeCommitMessageOrShowError, offerToStageAllChanges, startSourceControlSync (done)
     clients/                     interfaces to outside systems
       harness.client.ts          HarnessClient: prepareLaunch, clearSessionStatus, getSessionTitle, sessionStatuses,
                                  sessionTitles, iconPath; Harnesses: a LayerMap of them by HarnessId (done)
       terminal.client.ts         open, focus, close, isOpen, openSessionIds, activatedSessionIds, viewedSessionId
                                  (done)
-      prompt.client.ts           showErrorMessage, confirm, pickRepo, pickRepoFolderPaths (done)
-      workspace.client.ts        listWorkspaceFolderRepos (done)
-      git.client.ts              getStagedDiff, setCommitMessageInput, commit, stageAll, open or close a repo in
-                                 Source Control, all by RepoPath (done)
+      prompt.client.ts           showErrorMessage, confirm, pickProject, pickProjectFolderPaths (done)
+      workspace.client.ts        listWorkspaceFolderProjects (done)
+      git.client.ts              getStagedDiff, setCommitMessageInput, commit, stageAll, open or close a project in
+                                 Source Control, all by ProjectPath (done)
       commit-cli.client.ts       generateCommitMessage from the staged diff (done)
       settings.client.ts         readSettings (done)
     utils/                       showErrorInBackground, withHarnessClient, forEachHarnessClient (done)
-    errors/                      RemoveCancelled, RepoPickCancelled, FolderPickCancelled, NoRepo, TerminalNotFound,
+    errors/                      RemoveCancelled, ProjectPickCancelled, FolderPickCancelled, NoProject, TerminalNotFound,
                                  TerminalLaunchFailed, why no session is in view, the git, commit CLI and settings
                                  errors, SessionTitleNotFound (done)
   infrastructure/
     vscode/vscode.service.ts     the only runtime import of vscode (done)
-    database/models/             StoredSessions v1, StoredAddedRepoPaths v1 (done)
+    database/models/             StoredSessions v1, StoredAddedProjectPaths v1 (done)
     repositories/
       session.repository.ts      SessionRepositoryOnGlobalState: reloads on window focus (done)
-      repo.repository.ts         RepoRepositoryOnWorkspaceState (done)
+      project.repository.ts         ProjectRepositoryOnWorkspaceState (done)
     clients/
       claude-code/               ClaudeCodeHarnessClient: the `claude` launch plan, --settings hooks, the status env
                                  var, status-file and transcript watchers (done)
@@ -106,8 +106,8 @@ apps/extension/src/
   presentation/
     routes.ts                    RoutesLayer: command ID to controller (done)
     middlewares/register-command.ts  root span per command, crash logging, InvalidCommandArguments shown (done)
-    controllers/                 session, repo: decode the tree-row arguments, call the service; scm: SourceControl
-                                 to RepoPath, progress, retry after Stage All (done)
+    controllers/                 session, project: decode the tree-row arguments, call the service; scm: SourceControl
+                                 to ProjectPath, progress, retry after Stage All (done)
     errors/                      RootUriUnavailable, InvalidCommandArguments, RevealFailed (done)
     utils/                       decodeCommandArgument (done)
     views/sessions/              tree view, rows, badges, spinner (done)
@@ -147,7 +147,7 @@ The unread state stays with the view until the needs-input alerts (M2) need it t
 
 ## Branded types
 
-- `SessionId` and `RepoPath` are branded with `Schema.brand`; `HarnessId` and `Status` are `Schema.Literals`. A
+- `SessionId` and `ProjectPath` are branded with `Schema.brand`; `HarnessId` and `Status` are `Schema.Literals`. A
   `SessionId` is a UUID, so a file name or URI path that is not one is not ours.
 - Each value object exports its schema as `<Name>Schema` and its type as `<Name>`, since lint's `no-redeclare` rejects a
   value and a type of the same name. Entities are classes, which are both.
@@ -188,3 +188,8 @@ Each branch is verified in the headless VS Code (the `verify-in-vscode` skill).
    application and infrastructure no longer import `services/`.
 5. `refactor/presentation-layer` (done): routes, controllers that decode their command arguments, the `registerCommand`
    middleware, views, lint for presentation.
+6. `refactor/repo-to-project`: the domain's repo becomes a project, so "repository" only means a DDD repository or a git
+   one. Commands, UI text, context values and storage keys follow; sessions are stored under `savedSessions`, with
+   `projectPath`. Lint's abbreviation rule no longer allows `repo`.
+7. `refactor/layer-naming`: a role suffix on every building block, `I` on interfaces, implementations without their
+   backend in the name, types above the code; lint checks the names.

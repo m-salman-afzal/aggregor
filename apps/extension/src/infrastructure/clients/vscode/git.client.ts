@@ -11,7 +11,7 @@ import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {EXTENSION_VERSIONS} from "@pkg/constants/src/extension.constant.ts";
 import {Effect, Layer, Result} from "effect";
 
-import type {RepoPath} from "@/domain/value-objects/repo-path.value-object.ts";
+import type {ProjectPath} from "@/domain/value-objects/project-path.value-object.ts";
 import type {API, GitExtension, Repository} from "@pkg/typings/src/git.js";
 
 // What the git functions share: VS Code's commands, extensions and Uri.
@@ -38,26 +38,29 @@ const getGitApi = Effect.fn("GitClient.getGitApi")(function* ({extensions}: GitD
 const findGitRepository = Effect.fn("GitClient.findGitRepository")(function* (
   gitDependencies: GitDependencies,
   gitApi: API,
-  repoPath: RepoPath
+  projectPath: ProjectPath
 ) {
   return yield* Effect.fromResult(
-    Result.fromNullishOr(gitApi.getRepository(gitDependencies.Uri.file(repoPath)), () => new GitRepositoryUnavailable())
+    Result.fromNullishOr(
+      gitApi.getRepository(gitDependencies.Uri.file(projectPath)),
+      () => new GitRepositoryUnavailable()
+    )
   );
 });
 
 const getGitRepository = Effect.fn("GitClient.getGitRepository")(function* (
   gitDependencies: GitDependencies,
-  repoPath: RepoPath
+  projectPath: ProjectPath
 ) {
-  return yield* findGitRepository(gitDependencies, yield* getGitApi(gitDependencies), repoPath);
+  return yield* findGitRepository(gitDependencies, yield* getGitApi(gitDependencies), projectPath);
 });
 
 const getRepositoryWithStagedChanges = Effect.fn("GitClient.getRepositoryWithStagedChanges")(function* (
   gitDependencies: GitDependencies,
-  repoPath: RepoPath
+  projectPath: ProjectPath
 ) {
   return yield* Effect.filterOrFail(
-    getGitRepository(gitDependencies, repoPath),
+    getGitRepository(gitDependencies, projectPath),
     (repository) => repository.state.indexChanges.length > 0,
     () => new NothingStaged()
   );
@@ -72,17 +75,17 @@ const readStagedDiff = Effect.fn("GitClient.readStagedDiff")(function* (reposito
 
 const getStagedDiff = Effect.fn("GitClient.getStagedDiff")(function* (
   gitDependencies: GitDependencies,
-  repoPath: RepoPath
+  projectPath: ProjectPath
 ) {
-  return yield* readStagedDiff(yield* getRepositoryWithStagedChanges(gitDependencies, repoPath));
+  return yield* readStagedDiff(yield* getRepositoryWithStagedChanges(gitDependencies, projectPath));
 });
 
 const setCommitMessageInput = Effect.fn("GitClient.setCommitMessageInput")(function* (
   gitDependencies: GitDependencies,
-  repoPath: RepoPath,
+  projectPath: ProjectPath,
   commitMessage: string
 ) {
-  const repository = yield* getGitRepository(gitDependencies, repoPath);
+  const repository = yield* getGitRepository(gitDependencies, projectPath);
 
   yield* Effect.sync(() => {
     repository.inputBox.value = commitMessage;
@@ -91,10 +94,10 @@ const setCommitMessageInput = Effect.fn("GitClient.setCommitMessageInput")(funct
 
 const commit = Effect.fn("GitClient.commit")(function* (
   gitDependencies: GitDependencies,
-  repoPath: RepoPath,
+  projectPath: ProjectPath,
   commitMessage: string
 ) {
-  const repository = yield* getGitRepository(gitDependencies, repoPath);
+  const repository = yield* getGitRepository(gitDependencies, projectPath);
 
   yield* Effect.tryPromise({
     catch: (cause) => new CommitFailed({cause}),
@@ -103,50 +106,53 @@ const commit = Effect.fn("GitClient.commit")(function* (
 });
 
 // git.stageAll finds the repository that contains the path it is given.
-const stageAll = Effect.fn("GitClient.stageAll")(function* (gitDependencies: GitDependencies, repoPath: RepoPath) {
+const stageAll = Effect.fn("GitClient.stageAll")(function* (
+  gitDependencies: GitDependencies,
+  projectPath: ProjectPath
+) {
   const {commands, Uri} = gitDependencies;
 
-  yield* Effect.promise(async () => commands.executeCommand("git.stageAll", Uri.file(repoPath)));
+  yield* Effect.promise(async () => commands.executeCommand("git.stageAll", Uri.file(projectPath)));
 });
 
-// A folder that is not a git repo, or git being off, leaves the repo in our sidebar only.
+// A folder that is not a git repository, or git being off, leaves the project in our sidebar only.
 const openInSourceControl = Effect.fn("GitClient.openInSourceControl")(
-  function* (gitDependencies: GitDependencies, repoPath: RepoPath) {
+  function* (gitDependencies: GitDependencies, projectPath: ProjectPath) {
     const gitApi = yield* getGitApi(gitDependencies);
 
-    yield* Effect.tryPromise(async () => gitApi.openRepository(gitDependencies.Uri.file(repoPath)));
+    yield* Effect.tryPromise(async () => gitApi.openRepository(gitDependencies.Uri.file(projectPath)));
   },
-  (effect, _gitDependencies, repoPath) =>
-    Effect.ignore(effect, {log: "Warn", message: `Could not open ${repoPath} in Source Control`})
+  (effect, _gitDependencies, projectPath) =>
+    Effect.ignore(effect, {log: "Warn", message: `Could not open ${projectPath} in Source Control`})
 );
 
-// The git API cannot close a repo, so this runs git.close, which closes whichever repo contains the path and asks the
-// user to pick one when none does. It only runs for a repo whose root is exactly the path; a folder that is not a git
-// repo has nothing to close.
-// ponytail: a path inside a repo, or reached through a symlink, stays in Source Control until the next reload.
+// The git API cannot close a repository, so this runs git.close, which closes whichever repository contains the path and
+// asks the user to pick one when none does. It only runs for a repository whose root is exactly the path; a folder that is
+// not a git repository has nothing to close.
+// ponytail: a project inside a repository, or reached through a symlink, stays in Source Control until the next reload.
 const closeInSourceControl = Effect.fn("GitClient.closeInSourceControl")(
-  function* (gitDependencies: GitDependencies, repoPath: RepoPath) {
-    const repository = yield* getGitRepository(gitDependencies, repoPath);
-    if (repository.rootUri.fsPath !== repoPath) return;
+  function* (gitDependencies: GitDependencies, projectPath: ProjectPath) {
+    const repository = yield* getGitRepository(gitDependencies, projectPath);
+    if (repository.rootUri.fsPath !== projectPath) return;
 
     yield* Effect.tryPromise(async () => gitDependencies.commands.executeCommand("git.close", repository.rootUri));
   },
   Effect.catchTag("GitRepositoryUnavailable", () => Effect.void),
-  (effect, _gitDependencies, repoPath) =>
-    Effect.ignore(effect, {log: "Warn", message: `Could not close ${repoPath} in Source Control`})
+  (effect, _gitDependencies, projectPath) =>
+    Effect.ignore(effect, {log: "Warn", message: `Could not close ${projectPath} in Source Control`})
 );
 
 const makeGitClientOnVsCode = Effect.fn("GitClient.make")(function* () {
   const gitDependencies: GitDependencies = yield* VsCodeService;
 
   return {
-    closeInSourceControl: (repoPath: RepoPath) => closeInSourceControl(gitDependencies, repoPath),
-    commit: (repoPath: RepoPath, commitMessage: string) => commit(gitDependencies, repoPath, commitMessage),
-    getStagedDiff: (repoPath: RepoPath) => getStagedDiff(gitDependencies, repoPath),
-    openInSourceControl: (repoPath: RepoPath) => openInSourceControl(gitDependencies, repoPath),
-    setCommitMessageInput: (repoPath: RepoPath, commitMessage: string) =>
-      setCommitMessageInput(gitDependencies, repoPath, commitMessage),
-    stageAll: (repoPath: RepoPath) => stageAll(gitDependencies, repoPath)
+    closeInSourceControl: (projectPath: ProjectPath) => closeInSourceControl(gitDependencies, projectPath),
+    commit: (projectPath: ProjectPath, commitMessage: string) => commit(gitDependencies, projectPath, commitMessage),
+    getStagedDiff: (projectPath: ProjectPath) => getStagedDiff(gitDependencies, projectPath),
+    openInSourceControl: (projectPath: ProjectPath) => openInSourceControl(gitDependencies, projectPath),
+    setCommitMessageInput: (projectPath: ProjectPath, commitMessage: string) =>
+      setCommitMessageInput(gitDependencies, projectPath, commitMessage),
+    stageAll: (projectPath: ProjectPath) => stageAll(gitDependencies, projectPath)
   };
 });
 

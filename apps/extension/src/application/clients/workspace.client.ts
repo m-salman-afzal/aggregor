@@ -1,10 +1,10 @@
 import {Context} from "effect";
 
-import type {Repo} from "@/domain/entities/repo/repo.entity.ts";
+import type {Project} from "@/domain/entities/project/project.entity.ts";
 import type {Effect} from "effect";
 
 // The folders open in this window's workspace.
 export class WorkspaceClient extends Context.Service<
   WorkspaceClient,
-  {readonly listWorkspaceFolderRepos: () => Effect.Effect<readonly Repo[]>}
+  {readonly listWorkspaceFolderProjects: () => Effect.Effect<readonly Project[]>}
 >()("aggregor/application/clients/workspace.client/WorkspaceClient") {}

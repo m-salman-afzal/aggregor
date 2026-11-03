@@ -55,7 +55,7 @@ Every command runs as a root span named by its command ID, and each `Effect.fn` 
 `Effect.fn` after the function it defines; one that belongs to a service or view gets that name in front:
 `TerminalClient.openSessionTerminal`. Finished spans and Effect logs go to the **Aggregor App** output channel, one
 trace-level line per span:
-`aggregorApp.newSessionAskingForRepo > newSession > startSession > openNewSessionTerminal > TerminalClient.openSessionTerminal 1.0ms ok`.
+`aggregorApp.newSessionAskingForProject > newSession > startSession > openNewSessionTerminal > TerminalClient.openSessionTerminal 1.0ms ok`.
 Work a layer starts in the background, such as a watcher, nests under that layer's `make` span. F5 starts the extension
 at trace level; elsewhere, pick it with **Developer: Set Log Level...**. VS Code also writes the channel to
 `<logs>/window<n>/exthost/SalmanAfzal.aggregor-app/Aggregor App.log`, so a test run's trace can be read from disk.

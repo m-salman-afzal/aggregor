@@ -6,7 +6,7 @@ import {TerminalClientOnVsCode} from "@/infrastructure/clients/vscode/terminal.c
 import {WorkspaceClientOnVsCode} from "@/infrastructure/clients/vscode/workspace.client.ts";
 import {SettingsClientOnVsCode} from "@/infrastructure/config/settings.client.ts";
 import {HarnessesLayer} from "@/infrastructure/di/harnesses.layer.ts";
-import {RepoRepositoryOnWorkspaceState} from "@/infrastructure/repositories/repo.repository.ts";
+import {ProjectRepositoryOnWorkspaceState} from "@/infrastructure/repositories/project.repository.ts";
 import {SessionRepositoryOnGlobalState} from "@/infrastructure/repositories/session.repository.ts";
 import {NodeServices} from "@effect/platform-node";
 import {Layer} from "effect";
@@ -26,7 +26,7 @@ export const AppLayer = SourceControlSyncLayer.pipe(
   Layer.provideMerge(TerminalClientOnVsCode),
   Layer.provideMerge(HarnessesLayer),
   Layer.provideMerge(SessionRepositoryOnGlobalState),
-  Layer.provideMerge(RepoRepositoryOnWorkspaceState),
+  Layer.provideMerge(ProjectRepositoryOnWorkspaceState),
   Layer.provideMerge(CommitCliClientOnChildProcess),
   Layer.provideMerge(IndependentLayers)
 );
