@@ -1,9 +1,10 @@
 # DDD plan
 
-Status: steps 0 to 2 are done: `domain/` holds the entities, value objects and repository interfaces, `infrastructure/`
-holds VS Code, storage, logging, settings and the layer graph, and `application/` holds the session and repo use cases
-behind the terminal, prompt and workspace clients. Steps 3 to 5 are still planned. The `ddd` stack moves the code;
-update this file in the same change as each step, so it always says where code goes.
+Status: steps 0 to 3 are done: `domain/` holds the entities, value objects and repository interfaces, `infrastructure/`
+holds VS Code, storage, logging, settings, the client implementations and the layer graph, and `application/` holds the
+session, repo and commit-message use cases behind their client interfaces. `presentation/` has only the scm controller
+so far. Steps 4 and 5 are still planned. The `ddd` stack moves the code; update this file in the same change as each
+step, so it always says where code goes.
 
 The layering follows vs-uc-api (a layered DDD Express API: `Domain`, `Application`, `Infrastructure`, plus `http/` for
 presentation), adapted to Effect, with the places where vs-uc-api's layers leaked into each other fixed.
@@ -21,7 +22,7 @@ presentation), adapted to Effect, with the places where vs-uc-api's layers leake
 Lint enforces the import column with `@typescript-eslint/no-restricted-imports`: one block per layer in
 `eslint.config.ts`, with a regex allow-list over the `@/` import paths. `domain`, `application` and `infrastructure` are
 enforced today; each step adds its layer's block. `application` and `infrastructure` may also import `@/services`, which
-holds the code steps 3 to 5 still move. Outside `infrastructure/vscode/vscode.service.ts`, `vscode` is a type-only
+holds the code steps 4 and 5 still move. Outside `infrastructure/vscode/vscode.service.ts`, `vscode` is a type-only
 import, and `application` never sees it, not even its types.
 
 ## From vs-uc-api to aggregor
@@ -68,17 +69,21 @@ apps/extension/src/
     session/session.service.ts   newSession, openSession, removeSession, listSessions, findSession,
                                  getSessionDisplayName (done)
     repo/repo.service.ts         listRepos, pickRepo, addRepo, removeRepo (done)
-    scm/scm.service.ts           the generate-commit-message flow ← scm.utils, minus the git API calls
+    scm/scm.service.ts           writeCommitMessageOrShowError, offerToStageAllChanges, startSourceControlSync (done)
     clients/                     interfaces to outside systems
       harness.client.ts          getLaunchPlan, canResume, prepareLaunch, sessionStatuses, sessionTitles
       terminal.client.ts         open, focus, close, isOpen, openSessionIds, activatedSessionIds, viewedSessionId
                                  (done)
       prompt.client.ts           showErrorMessage, confirm, pickRepo, pickRepoFolderPaths (done)
       workspace.client.ts        listWorkspaceFolderRepos (done)
-      git.client.ts              stagedDiff, commit, stageAll, open or close a repo in Source Control
+      git.client.ts              getStagedDiff, setCommitMessageInput, commit, stageAll, open or close a repo in
+                                 Source Control, all by RepoPath (done)
+      commit-cli.client.ts       generateCommitMessage from the staged diff (done)
+      settings.client.ts         readSettings (done)
     utils/                       showErrorInBackground (done)
     errors/                      RemoveCancelled, RepoPickCancelled, FolderPickCancelled, NoRepo, TerminalNotFound,
-                                 TerminalLaunchFailed, why no session is in view (done); NothingStaged, ...
+                                 TerminalLaunchFailed, why no session is in view, the git, commit CLI and settings
+                                 errors (done)
   infrastructure/
     vscode/vscode.service.ts     the only runtime import of vscode (done)
     database/models/             StoredSessions v1, StoredAddedRepoPaths v1 (done)
@@ -88,20 +93,21 @@ apps/extension/src/
     clients/
       claude-code/               HarnessClient for Claude Code: the `claude` launch, --settings hooks, the status env
                                  var, status-file and transcript watchers ← status.service, transcript.service
-      vscode/                    TerminalClientOnVsCode, PromptClientOnVsCode, WorkspaceClientOnVsCode (done);
-                                 GitClient ← the git-extension parts of scm.utils
-      commit-cli/                runs the configured commit command ← scm.utils getCommitMessage
+      vscode/                    TerminalClientOnVsCode, PromptClientOnVsCode, WorkspaceClientOnVsCode,
+                                 GitClientOnVsCode (done)
+      commit-cli/                CommitCliClientOnChildProcess: runs the configured commit command (done)
     di/
       app.layer.ts               AppLayer: the layer graph under the commands and views (done)
       harnesses.layer.ts         LayerMap from HarnessId to that harness's HarnessClient layer
     logger/trace-log.layer.ts    TraceLogLayer (done)
-    config/settings.service.ts   SettingsService (done)
+    config/settings.client.ts    SettingsClientOnVsCode (done)
     utils/vscode.utils.ts        acquireDisposable, fromEvent, setContext, withProgress (done)
-    errors/                      InvalidSettings (done); Git*, Commit*
   presentation/
     routes.ts                    command ID to controller ← CommandsLayer in extension.ts
     middlewares/register-command.ts  root span per command, crash logging ← registerCommand
-    controllers/                 session, repo, scm: decode the tree-row arguments, call the service
+    controllers/                 scm: SourceControl to RepoPath, progress, retry after Stage All (done); session,
+                                 repo: decode the tree-row arguments, call the service
+    errors/                      RootUriUnavailable (done)
     views/sessions/              tree view, rows, badges, spinner ← views/*
   extension.ts                   activate
 ```
@@ -171,7 +177,7 @@ Each branch is verified in the headless VS Code (the `verify-in-vscode` skill).
    logger, config, `di/`, lint for infrastructure and for type-only `vscode` imports.
 2. `refactor/application-layer` (done): the session and repo use cases; the terminal, prompt and workspace client
    interfaces and their VS Code implementations; lint for application.
-3. `refactor/scm-application`: the commit-message use case, the git client, the commit CLI, and settings behind an
-   application interface.
+3. `refactor/scm-application` (done): the commit-message use case, the git client, the commit CLI, and settings behind
+   an application interface.
 4. `refactor/harness-client`: Claude Code behind `HarnessClient`, plus the `Harnesses` LayerMap and `LaunchPlan`.
 5. `refactor/presentation-layer`: routes, controllers, the `registerCommand` middleware, views.
