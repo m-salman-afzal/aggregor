@@ -1,18 +1,60 @@
-import {RemoveCancelled} from "@/errors/session.error.ts";
-import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
-import {showErrorInBackground} from "@/services/error.utils.ts";
-import {pickRepo} from "@/services/repo/repo.utils.ts";
+import {PromptClient} from "@/application/clients/prompt.client.ts";
+import {TerminalClient} from "@/application/clients/terminal.client.ts";
+import {RemoveCancelled} from "@/application/errors/session.error.ts";
+import {pickRepo} from "@/application/repo/repo.service.ts";
+import {showErrorInBackground} from "@/application/utils/error.utils.ts";
+import {getNewSessionName, Session} from "@/domain/entities/session/session.entity.ts";
+import {SessionRepository} from "@/domain/entities/session/session.repository.ts";
+import {SessionNotFound} from "@/domain/errors/session.error.ts";
+import {SessionIdSchema} from "@/domain/value-objects/session-id.value-object.ts";
 import {StatusService} from "@/services/session/status.service.ts";
-import {addSession, deleteSession, findSession} from "@/services/session/store.utils.ts";
-import {TerminalService} from "@/services/session/terminal.service.ts";
 import {TranscriptService} from "@/services/session/transcript.service.ts";
 import {findTranscriptFilePath} from "@/services/session/transcript.utils.ts";
 import {ACTIONS, SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
-import {Effect, Match} from "effect";
+import {Effect, Match, Result, SubscriptionRef} from "effect";
 
 import type {Repo} from "@/domain/entities/repo/repo.entity.ts";
-import type {Session} from "@/domain/entities/session/session.entity.ts";
 import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
+
+export const listSessions = Effect.fn("listSessions")(function* () {
+  const {sessions} = yield* SessionRepository;
+
+  return yield* SubscriptionRef.get(sessions);
+});
+
+export const findSession = Effect.fn("findSession")(function* (sessionId: SessionId) {
+  const allSessions = yield* listSessions();
+
+  return yield* Effect.fromResult(
+    Result.fromNullishOr(
+      allSessions.find((session) => session.id === sessionId),
+      () => new SessionNotFound({sessionId})
+    )
+  );
+});
+
+const addSession = Effect.fn("addSession")(function* (repo: Repo) {
+  const {modifySessions} = yield* SessionRepository;
+  const sessionId = yield* Effect.sync(() => SessionIdSchema.make(crypto.randomUUID()));
+
+  return yield* modifySessions((storedSessions) => {
+    const addedSession = new Session({
+      harnessId: "claude-code",
+      id: sessionId,
+      name: getNewSessionName(repo.name, storedSessions),
+      repoPath: repo.path
+    });
+
+    return [addedSession, [...storedSessions, addedSession]] as const;
+  });
+});
+
+const deleteSession = Effect.fn("deleteSession")(function* (sessionId: SessionId) {
+  const {modifySessions} = yield* SessionRepository;
+  yield* modifySessions(
+    (storedSessions) => [sessionId, storedSessions.filter((session) => session.id !== sessionId)] as const
+  );
+});
 
 // The name Claude gave the conversation, or ours until it has one.
 export const getSessionDisplayName = Effect.fn("getSessionDisplayName")(
@@ -46,8 +88,8 @@ const getClaudeArguments = Effect.fn("getClaudeArguments")(function* (session: S
 // A session whose terminal fails to launch is removed again, so no dead row stays behind.
 const openNewSessionTerminal = Effect.fn("openNewSessionTerminal")(
   function* (addedSession: Session) {
-    yield* TerminalService.use((terminalService) =>
-      terminalService.openSessionTerminal(addedSession, {
+    yield* TerminalClient.use((terminalClient) =>
+      terminalClient.openSessionTerminal(addedSession, {
         claudeArguments: ["--session-id", addedSession.id],
         tabName: addedSession.name
       })
@@ -66,20 +108,18 @@ const relaunchSession = Effect.fn("relaunchSession")(function* (sessionId: Sessi
   const session = yield* findSession(sessionId);
   const [tabName, claudeArguments] = yield* Effect.all([getSessionDisplayName(session), getClaudeArguments(session)]);
 
-  yield* TerminalService.use((terminalService) =>
-    terminalService.openSessionTerminal(session, {claudeArguments, tabName})
+  yield* TerminalClient.use((terminalClient) =>
+    terminalClient.openSessionTerminal(session, {claudeArguments, tabName})
   );
 });
 
 const confirmRunningSessionRemoval = Effect.fn("confirmRunningSessionRemoval")(function* (session: Session) {
-  const {window} = yield* VsCodeService;
+  const {confirm} = yield* PromptClient;
   const displayName = yield* getSessionDisplayName(session);
 
-  return yield* Effect.filterOrFail(
-    Effect.promise(async () =>
-      window.showWarningMessage(SESSION_MESSAGES.CONFIRM_REMOVE_RUNNING(displayName), {modal: true}, ACTIONS.REMOVE)
-    ),
-    (pickedAction) => pickedAction === ACTIONS.REMOVE,
+  yield* Effect.filterOrFail(
+    confirm(SESSION_MESSAGES.CONFIRM_REMOVE_RUNNING(displayName), ACTIONS.REMOVE),
+    (isConfirmed) => isConfirmed,
     () => new RemoveCancelled()
   );
 });
@@ -87,15 +127,15 @@ const confirmRunningSessionRemoval = Effect.fn("confirmRunningSessionRemoval")(f
 // Closing the tab ends the agent; a tab that closed meanwhile has nothing left to stop.
 const stopSessionAgent = Effect.fn("stopSessionAgent")(
   function* (sessionId: SessionId) {
-    yield* TerminalService.use((terminalService) => terminalService.closeSessionTerminal(sessionId));
+    yield* TerminalClient.use((terminalClient) => terminalClient.closeSessionTerminal(sessionId));
   },
   Effect.catchTag("TerminalNotFound", () => Effect.void)
 );
 
 // Confirm, then forget the session, then stop the agent, so a failed write never kills it for nothing.
 const removeSessionAndStopAgent = Effect.fn("removeSessionAndStopAgent")(function* (session: Session) {
-  const hasOpenTerminal = yield* TerminalService.use((terminalService) =>
-    terminalService.isSessionTerminalOpen(session.id)
+  const hasOpenTerminal = yield* TerminalClient.use((terminalClient) =>
+    terminalClient.isSessionTerminalOpen(session.id)
   );
   if (hasOpenTerminal) yield* confirmRunningSessionRemoval(session);
 
@@ -128,7 +168,7 @@ export const newSession = Effect.fn("newSession")(
 // Focuses the session's tab, or relaunches Claude on the same conversation when the tab is gone.
 export const openSession = Effect.fn("openSession")(
   function* (sessionId: SessionId) {
-    yield* TerminalService.use((terminalService) => terminalService.focusSessionTerminal(sessionId));
+    yield* TerminalClient.use((terminalClient) => terminalClient.focusSessionTerminal(sessionId));
   },
   (effect, sessionId) => Effect.catchTag(effect, "TerminalNotFound", () => relaunchSession(sessionId)),
   Effect.catch((openError) =>

@@ -1,3 +1,5 @@
+import {PromptClient} from "@/application/clients/prompt.client.ts";
+import {showErrorInBackground} from "@/application/utils/error.utils.ts";
 import {RepoRepository} from "@/domain/entities/repo/repo.repository.ts";
 import {
   CommitCliError,
@@ -13,8 +15,6 @@ import {
 import {SettingsService} from "@/infrastructure/config/settings.service.ts";
 import {setContext, withProgress} from "@/infrastructure/utils/vscode.utils.ts";
 import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
-import {ErrorService} from "@/services/error.service.ts";
-import {showErrorInBackground} from "@/services/error.utils.ts";
 import {COMMANDS, CONTEXT_KEYS, EXTENSION_VERSIONS} from "@pkg/constants/src/extension.constant.ts";
 import {ACTIONS, COMMIT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {EXIT_CODES} from "@pkg/constants/src/process.constant.ts";
@@ -125,8 +125,8 @@ const writeCommitMessage = Effect.fn("writeCommitMessage")(function* (sourceCont
 
 const offerToStageAllChanges = Effect.fn("offerToStageAllChanges")(function* (sourceControl: SourceControl) {
   const {commands} = yield* VsCodeService;
-  const pickedAction = yield* ErrorService.use((errorService) =>
-    errorService.showErrorMessage(COMMIT_MESSAGES.NOTHING_STAGED, ACTIONS.STAGE_ALL)
+  const pickedAction = yield* PromptClient.use((promptClient) =>
+    promptClient.showErrorMessage(COMMIT_MESSAGES.NOTHING_STAGED, ACTIONS.STAGE_ALL)
   );
   if (pickedAction !== ACTIONS.STAGE_ALL) return;
 

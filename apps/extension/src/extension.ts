@@ -1,9 +1,9 @@
+import {addRepo, removeRepo} from "@/application/repo/repo.service.ts";
+import {newSession, openSession, removeSession} from "@/application/session/session.service.ts";
 import {AppLayer} from "@/infrastructure/di/app.layer.ts";
 import {TraceLogLayer} from "@/infrastructure/logger/trace-log.layer.ts";
 import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
-import {addRepo, removeRepo} from "@/services/repo/repo.utils.ts";
 import {generateCommitMessage} from "@/services/scm/scm.utils.ts";
-import {newSession, openSession, removeSession} from "@/services/session/terminal.utils.ts";
 import {registerCommand} from "@/services/vscode.utils.ts";
 import {SessionsView} from "@/views/sessions.view.ts";
 import {COMMANDS} from "@pkg/constants/src/extension.constant.ts";

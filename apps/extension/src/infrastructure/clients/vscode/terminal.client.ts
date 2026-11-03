@@ -1,3 +1,4 @@
+import {TerminalClient} from "@/application/clients/terminal.client.ts";
 import {
   NoActiveTerminal,
   NotATerminalTab,
@@ -5,20 +6,18 @@ import {
   TerminalNotFound,
   UntrackedTerminal,
   WindowUnfocused
-} from "@/errors/session.error.ts";
+} from "@/application/errors/terminal.error.ts";
 import {fromEvent} from "@/infrastructure/utils/vscode.utils.ts";
 import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {StatusService} from "@/services/session/status.service.ts";
 import {getClaudeIcon} from "@/services/vscode.utils.ts";
 import {STATUS_ENV} from "@pkg/constants/src/extension.constant.ts";
-import {Context, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
+import {Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
 
+import type {NoViewedSession, TerminalLaunch} from "@/application/clients/terminal.client.ts";
 import type {Session} from "@/domain/entities/session/session.entity.ts";
 import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
 import type {Terminal, Uri} from "vscode";
-
-// Why no session is in front of the user.
-type NoViewedSession = NoActiveTerminal | NotATerminalTab | UntrackedTerminal | WindowUnfocused;
 
 // Each session's terminal in this window, keyed by session id.
 type SessionTerminalsReference = SubscriptionRef.SubscriptionRef<ReadonlyMap<SessionId, Terminal>>;
@@ -30,13 +29,7 @@ type TerminalDependencies = {
 } & Pick<StatusService["Service"], "clearStatusFile" | "getStatusFilePath" | "hooksFilePath"> &
   Pick<VsCodeService["Service"], "TabInputTerminal" | "ViewColumn" | "window">;
 
-// The tab is named once, when it opens: VS Code's stable API cannot rename a terminal afterwards.
-interface TerminalLaunch {
-  readonly claudeArguments: readonly string[];
-  readonly tabName: string;
-}
-
-const findSessionTerminal = Effect.fn("TerminalService.findSessionTerminal")(function* (
+const findSessionTerminal = Effect.fn("TerminalClient.findSessionTerminal")(function* (
   sessionTerminals: SessionTerminalsReference,
   sessionId: SessionId
 ) {
@@ -47,7 +40,7 @@ const findSessionTerminal = Effect.fn("TerminalService.findSessionTerminal")(fun
   );
 });
 
-const isSessionTerminalOpen = Effect.fn("TerminalService.isSessionTerminalOpen")(function* (
+const isSessionTerminalOpen = Effect.fn("TerminalClient.isSessionTerminalOpen")(function* (
   sessionTerminals: SessionTerminalsReference,
   sessionId: SessionId
 ) {
@@ -57,7 +50,7 @@ const isSessionTerminalOpen = Effect.fn("TerminalService.isSessionTerminalOpen")
 });
 
 // ponytail: linear scan, a window holds a handful of sessions
-const findTerminalSessionId = Effect.fn("TerminalService.findTerminalSessionId")(function* (
+const findTerminalSessionId = Effect.fn("TerminalClient.findTerminalSessionId")(function* (
   sessionTerminals: SessionTerminalsReference,
   terminal: Terminal
 ) {
@@ -73,7 +66,7 @@ const findTerminalSessionId = Effect.fn("TerminalService.findTerminalSessionId")
 });
 
 // Every launch carries the status hooks; the env var tells them which file to write.
-const launchSessionTerminal = Effect.fn("TerminalService.launchSessionTerminal")(function* (
+const launchSessionTerminal = Effect.fn("TerminalClient.launchSessionTerminal")(function* (
   terminalDependencies: TerminalDependencies,
   session: Session,
   terminalLaunch: TerminalLaunch
@@ -97,13 +90,13 @@ const launchSessionTerminal = Effect.fn("TerminalService.launchSessionTerminal")
   });
 });
 
-const showTerminal = Effect.fn("TerminalService.showTerminal")(function* (terminal: Terminal) {
+const showTerminal = Effect.fn("TerminalClient.showTerminal")(function* (terminal: Terminal) {
   yield* Effect.sync(() => {
     terminal.show();
   });
 });
 
-const focusSessionTerminal = Effect.fn("TerminalService.focusSessionTerminal")(function* (
+const focusSessionTerminal = Effect.fn("TerminalClient.focusSessionTerminal")(function* (
   sessionTerminals: SessionTerminalsReference,
   sessionId: SessionId
 ) {
@@ -112,7 +105,7 @@ const focusSessionTerminal = Effect.fn("TerminalService.focusSessionTerminal")(f
 
 // Reuses the session's terminal when this window has one. Serialized on the map's permit, so a double-click shows the
 // terminal the first click launched.
-const openSessionTerminal = Effect.fn("TerminalService.openSessionTerminal")(function* (
+const openSessionTerminal = Effect.fn("TerminalClient.openSessionTerminal")(function* (
   terminalDependencies: TerminalDependencies,
   session: Session,
   terminalLaunch: TerminalLaunch
@@ -134,7 +127,7 @@ const openSessionTerminal = Effect.fn("TerminalService.openSessionTerminal")(fun
 });
 
 // Disposing fires onDidCloseTerminal, which drops the map entry.
-const closeSessionTerminal = Effect.fn("TerminalService.closeSessionTerminal")(function* (
+const closeSessionTerminal = Effect.fn("TerminalClient.closeSessionTerminal")(function* (
   sessionTerminals: SessionTerminalsReference,
   sessionId: SessionId
 ) {
@@ -145,8 +138,23 @@ const closeSessionTerminal = Effect.fn("TerminalService.closeSessionTerminal")(f
   });
 });
 
+const findActiveTerminalSessionId = Effect.fn("TerminalClient.findActiveTerminalSessionId")(function* (
+  sessionTerminals: SessionTerminalsReference,
+  activeTerminal: Terminal | undefined
+) {
+  const terminal = yield* Effect.fromResult(Result.fromNullishOr(activeTerminal, () => new NoActiveTerminal()));
+
+  return yield* findTerminalSessionId(sessionTerminals, terminal);
+});
+
+// No active terminal, or one that is not a session's, emits nothing.
+const watchActivatedSessionIds = ({sessionTerminals, window}: TerminalDependencies) =>
+  Stream.filterMapEffect(fromEvent(window.onDidChangeActiveTerminal), (activeTerminal) =>
+    Effect.result(findActiveTerminalSessionId(sessionTerminals, activeTerminal))
+  );
+
 // A closed tab ends the agent but keeps the session listed, so clicking it can resume.
-const forgetClosedTerminal = Effect.fn("TerminalService.forgetClosedTerminal")(
+const forgetClosedTerminal = Effect.fn("TerminalClient.forgetClosedTerminal")(
   function* (sessionTerminals: SessionTerminalsReference, closedTerminal: Terminal) {
     const sessionId = yield* findTerminalSessionId(sessionTerminals, closedTerminal);
 
@@ -162,7 +170,7 @@ const forgetClosedTerminal = Effect.fn("TerminalService.forgetClosedTerminal")(
 
 // The session in front of the user: the window has focus, the active tab is a terminal, and that terminal is ours. A
 // tab does not say which terminal it holds, so the active terminal fills that in.
-const readViewedSessionId = Effect.fn("TerminalService.readViewedSessionId")(function* (
+const readViewedSessionId = Effect.fn("TerminalClient.readViewedSessionId")(function* (
   terminalDependencies: TerminalDependencies
 ) {
   const {TabInputTerminal, window} = terminalDependencies;
@@ -175,7 +183,7 @@ const readViewedSessionId = Effect.fn("TerminalService.readViewedSessionId")(fun
   return yield* findTerminalSessionId(terminalDependencies.sessionTerminals, activeTerminal);
 });
 
-const updateViewedSessionId = Effect.fn("TerminalService.updateViewedSessionId")(function* (
+const updateViewedSessionId = Effect.fn("TerminalClient.updateViewedSessionId")(function* (
   terminalDependencies: TerminalDependencies,
   viewedSessionId: SubscriptionRef.SubscriptionRef<Result.Result<SessionId, NoViewedSession>>
 ) {
@@ -200,7 +208,7 @@ const watchFocusChanges = ({sessionTerminals, window}: TerminalDependencies) => 
   return Stream.debounce(Stream.mergeAll(focusChangeSources, {concurrency: "unbounded"}), "100 millis");
 };
 
-const trackViewedSessionId = Effect.fn("TerminalService.trackViewedSessionId")(function* (
+const trackViewedSessionId = Effect.fn("TerminalClient.trackViewedSessionId")(function* (
   terminalDependencies: TerminalDependencies
 ) {
   const viewedSessionId = yield* SubscriptionRef.make(yield* Effect.result(readViewedSessionId(terminalDependencies)));
@@ -213,7 +221,7 @@ const trackViewedSessionId = Effect.fn("TerminalService.trackViewedSessionId")(f
   return viewedSessionId;
 });
 
-const makeTerminalDependencies = Effect.fn("TerminalService.makeTerminalDependencies")(function* () {
+const makeTerminalDependencies = Effect.fn("TerminalClient.makeTerminalDependencies")(function* () {
   const terminalDependencies: TerminalDependencies = {
     ...(yield* StatusService),
     ...(yield* VsCodeService),
@@ -224,7 +232,7 @@ const makeTerminalDependencies = Effect.fn("TerminalService.makeTerminalDependen
   return terminalDependencies;
 });
 
-const makeTerminalService = Effect.fn("TerminalService.make")(function* () {
+const makeTerminalClientOnVsCode = Effect.fn("TerminalClient.make")(function* () {
   const terminalDependencies = yield* makeTerminalDependencies();
   const {sessionTerminals, window} = terminalDependencies;
   yield* Effect.forkScoped(
@@ -234,31 +242,18 @@ const makeTerminalService = Effect.fn("TerminalService.make")(function* () {
   );
 
   return {
+    activatedSessionIds: watchActivatedSessionIds(terminalDependencies),
     closeSessionTerminal: (sessionId: SessionId) => closeSessionTerminal(sessionTerminals, sessionId),
-    findTerminalSessionId: (terminal: Terminal) => findTerminalSessionId(sessionTerminals, terminal),
     focusSessionTerminal: (sessionId: SessionId) => focusSessionTerminal(sessionTerminals, sessionId),
     isSessionTerminalOpen: (sessionId: SessionId) => isSessionTerminalOpen(sessionTerminals, sessionId),
+    openSessionIds: Stream.map(
+      SubscriptionRef.changes(sessionTerminals),
+      (openTerminals): ReadonlySet<SessionId> => new Set(openTerminals.keys())
+    ),
     openSessionTerminal: (session: Session, terminalLaunch: TerminalLaunch) =>
       openSessionTerminal(terminalDependencies, session, terminalLaunch),
-    sessionTerminals,
     viewedSessionId: yield* trackViewedSessionId(terminalDependencies)
   };
 });
 
-export class TerminalService extends Context.Service<
-  TerminalService,
-  {
-    readonly closeSessionTerminal: (sessionId: SessionId) => Effect.Effect<void, TerminalNotFound>;
-    readonly findTerminalSessionId: (terminal: Terminal) => Effect.Effect<SessionId, UntrackedTerminal>;
-    readonly focusSessionTerminal: (sessionId: SessionId) => Effect.Effect<void, TerminalNotFound>;
-    readonly isSessionTerminalOpen: (sessionId: SessionId) => Effect.Effect<boolean>;
-    readonly openSessionTerminal: (
-      session: Session,
-      terminalLaunch: TerminalLaunch
-    ) => Effect.Effect<void, TerminalLaunchFailed>;
-    readonly sessionTerminals: SessionTerminalsReference;
-    readonly viewedSessionId: SubscriptionRef.SubscriptionRef<Result.Result<SessionId, NoViewedSession>>;
-  }
->()("aggregor/services/session/terminal.service/TerminalService") {
-  public static readonly layer = Layer.effect(TerminalService, makeTerminalService());
-}
+export const TerminalClientOnVsCode = Layer.effect(TerminalClient, makeTerminalClientOnVsCode());
