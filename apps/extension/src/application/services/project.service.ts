@@ -10,7 +10,7 @@ import {Path} from "effect/Path";
 
 import type {ProjectsCorruptError, ProjectsSaveFailedError} from "@/domain/errors/project.repository.error.ts";
 
-const showProjectRepositoryError = Effect.fn("showProjectRepositoryError")(function* (
+const showProjectRepositoryError = Effect.fn("ProjectService.showProjectRepositoryError")(function* (
   projectRepositoryError: ProjectsCorruptError | ProjectsSaveFailedError
 ) {
   yield* showErrorInBackground(
@@ -22,7 +22,7 @@ const showProjectRepositoryError = Effect.fn("showProjectRepositoryError")(funct
 });
 
 // This window's projects: its workspace folders, then the added paths that are not also one of them.
-export const listProjects = Effect.fn("listProjects")(function* () {
+export const listProjects = Effect.fn("ProjectService.listProjects")(function* () {
   const {addedProjectPaths} = yield* IProjectRepository;
   const path = yield* Path;
   const workspaceFolderProjects = yield* IWorkspaceInfraService.use((workspaceInfraService) =>
@@ -40,7 +40,7 @@ export const listProjects = Effect.fn("listProjects")(function* () {
 });
 
 // Asks only when the window has more than one project.
-export const pickProject = Effect.fn("pickProject")(function* () {
+export const pickProject = Effect.fn("ProjectService.pickProject")(function* () {
   const projects = yield* listProjects();
   if (projects.length > 1)
     return yield* IPromptInfraService.use((promptInfraService) => promptInfraService.pickProject(projects));
@@ -49,7 +49,7 @@ export const pickProject = Effect.fn("pickProject")(function* () {
 });
 
 // ponytail: any folder counts as a project, no git check. Worktree mode (M3) is where a non-git folder would first break.
-export const addProject = Effect.fn("addProject")(
+export const addProject = Effect.fn("ProjectService.addProject")(
   function* () {
     const {modifyAddedProjectPaths} = yield* IProjectRepository;
     const pickedFolderPaths = yield* IPromptInfraService.use((promptInfraService) =>
@@ -65,7 +65,7 @@ export const addProject = Effect.fn("addProject")(
 );
 
 // Its sessions stay saved and their open tabs keep running; adding the project again lists them again.
-export const removeProject = Effect.fn("removeProject")(function* (project: ProjectEntity) {
+export const removeProject = Effect.fn("ProjectService.removeProject")(function* (project: ProjectEntity) {
   const {modifyAddedProjectPaths} = yield* IProjectRepository;
   yield* modifyAddedProjectPaths((storedAddedProjectPaths) =>
     storedAddedProjectPaths.filter((addedProjectPath) => addedProjectPath !== project.path)

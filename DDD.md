@@ -34,7 +34,7 @@ Each file's suffix names its role, each role lives in one layer, and the file's 
 | Entity                       | domain                | `entities/<x>/<x>.entity.ts`                   | `SessionEntity`                                      |
 | Value object                 | domain                | `valueObjects/<x>.valueObject.ts`              | `SessionIdValueObject`, `SessionIdValueObjectSchema` |
 | Repository interface         | domain                | `entities/<x>/<x>.repository.interface.ts`     | `ISessionRepository`                                 |
-| Application service          | application           | `<feature>/<feature>.service.ts`               | functions, imported as `SessionService`              |
+| Application service          | application           | `services/<x>.service.ts`                      | functions, imported as `SessionService`              |
 | Infra service interface      | application           | `interfaces/<x>.infraService.interface.ts`     | `ITerminalInfraService`                              |
 | Config interface             | application           | `interfaces/<x>.config.interface.ts`           | `ISettingsConfig`                                    |
 | Repository                   | infrastructure        | `repositories/<x>.repository.ts`               | `SessionRepository`                                  |
@@ -55,6 +55,10 @@ Each file's suffix names its role, each role lives in one layer, and the file's 
 - Types and interfaces sit at the top of a file, right after the imports. Exported ones live in `.type.ts` files, which
   hold nothing else; only a value object's type and an error union stay with their value object or errors. Lint
   (`no-restricted-syntax`) checks all three.
+- Every `Effect.fn` span is named `<owner>.<const>`, the owner coming from the file name: `SessionService.openSession`,
+  `SessionRepository.make`. A helper file belongs to the one owner in its folder (`claudeCode/status.utils.ts` to
+  `ClaudeCodeHarnessInfraService`); a file with no owner gives the bare const name (`withHarnessInfraService`).
+  `eslint.spans.ts` checks every name and fixes it.
 - Aggregates and domain services get `.aggregate.ts` and `.domainService.ts` once the first one exists. Today each
   entity is a one-entity aggregate root.
 
@@ -66,7 +70,7 @@ Each file's suffix names its role, each role lives in one layer, and the file's 
 | `Domain/ValueObjects`                             | `domain/valueObjects/`, as branded or literal schemas                                         |
 | `Domain/Transformers` (Drchrono data to ours)     | `<harness>.transformer.ts` (Claude Code formats to ours), beside the infra service reading it |
 | `Domain/Validations`                              | none: decoding with Schema is the validation                                                  |
-| `Application/<Feature>/<Feature>Service`          | `application/<feature>/<feature>.service.ts`                                                  |
+| `Application/<Feature>/<Feature>Service`          | `application/services/<feature>.service.ts`                                                   |
 | `Application/<Feature>/Dtos`                      | none: controllers decode arguments into entities and branded ids                              |
 | `Application/Utils`                               | `application/utils/`                                                                          |
 | `Infrastructure/Database/Models`                  | `infrastructure/database/models/`: the versioned shapes kept in VS Code                       |
@@ -94,10 +98,12 @@ apps/extension/src/
                                            HarnessIdValueObject (literals), LaunchPlanValueObject (an interface)
     errors/                                the repository errors, by repository interface
   application/
-    session/session.service.ts             newSession, openSession, removeSession, listSessions, findSession,
+    services/
+      session.service.ts                   newSession, openSession, removeSession, listSessions, findSession,
                                            getSessionDisplayName
-    project/project.service.ts             listProjects, pickProject, addProject, removeProject
-    scm/scm.service.ts                     writeCommitMessageOrShowError, offerToStageAllChanges, startSourceControlSync
+      project.service.ts                   listProjects, pickProject, addProject, removeProject
+      scm.service.ts                       writeCommitMessageOrShowError, offerToStageAllChanges,
+                                           startSourceControlSync
     interfaces/
       harness.infraService.interface.ts    IHarnessInfraService: prepareLaunch, clearSessionStatus, getSessionTitle,
                                            sessionStatuses, sessionTitles, iconPath; IHarnessInfraServices: a LayerMap
@@ -231,3 +237,5 @@ Each branch is verified in the headless VS Code (the `verify-in-vscode` skill).
 7. `refactor/layer-naming` (done): a role suffix on every building block, `I` on interfaces, implementations named
    without their backend, errors and shared types in files named after what declares them, types above the code; lint
    checks all of it from `eslint.layers.ts`.
+8. `refactor/service-span-names` (done): the application services sit flat in `application/services/`, and every span is
+   named `<owner>.<const>` from its file name, which `eslint.spans.ts` checks and fixes.

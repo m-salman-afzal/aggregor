@@ -1,6 +1,6 @@
 import {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";
 import {ITerminalInfraService} from "@/application/interfaces/terminal.infraService.interface.ts";
-import {findSession, listSessions} from "@/application/session/session.service.ts";
+import {findSession, listSessions} from "@/application/services/session.service.ts";
 import {forEachHarnessInfraService} from "@/application/utils/harness.utils.ts";
 import {IProjectRepository} from "@/domain/entities/project/project.repository.interface.ts";
 import {getUnreadSessionIds} from "@/domain/entities/session/session.entity.ts";
@@ -56,7 +56,7 @@ type SessionsViewServices =
   | VsCodeApi;
 
 // Selects the session whose tab became active. Skipped while the view is hidden, since reveal would open it.
-const revealSession = Effect.fn("revealSession")(
+const revealSession = Effect.fn("SessionsView.revealSession")(
   function* (sessionsTreeView: TreeView<Row>, sessionId: SessionIdValueObject) {
     const session = yield* findSession(sessionId);
     if (!sessionsTreeView.visible) return;
@@ -232,7 +232,7 @@ const makeSessionsViewParts = Effect.fn("SessionsView.makeSessionsViewParts")(fu
 });
 
 // Registers the Sessions tree for the lifetime of the runtime; disposing the runtime unregisters it.
-const registerSessionsView = Effect.fn("registerSessionsView")(function* () {
+const makeSessionsView = Effect.fn("SessionsView.make")(function* () {
   const {activatedSessionIds} = yield* ITerminalInfraService;
   const viewParts = yield* makeSessionsViewParts();
   yield* Effect.forkScoped(Stream.runForEach(yield* watchRowChanges(), () => refreshSessionsTree(viewParts)));
@@ -247,4 +247,4 @@ const registerSessionsView = Effect.fn("registerSessionsView")(function* () {
   );
 });
 
-export const SessionsView = Layer.effectDiscard(registerSessionsView());
+export const SessionsView = Layer.effectDiscard(makeSessionsView());

@@ -10,7 +10,7 @@ import {Effect, Ref, Stream, SubscriptionRef} from "effect";
 import type {ProjectPathValueObject} from "@/domain/valueObjects/projectPath.valueObject.ts";
 
 // The commit command writes the message for the staged changes into Source Control, and commits when autoCommit is on.
-const writeCommitMessage = Effect.fn("writeCommitMessage")(function* (projectPath: ProjectPathValueObject) {
+const writeCommitMessage = Effect.fn("ScmService.writeCommitMessage")(function* (projectPath: ProjectPathValueObject) {
   const {autoCommit, commitCommand} = yield* ISettingsConfig.use((settingsConfig) => settingsConfig.readSettings());
   const gitInfraService = yield* IGitInfraService;
   const stagedDiff = yield* gitInfraService.getStagedDiff(projectPath);
@@ -23,7 +23,7 @@ const writeCommitMessage = Effect.fn("writeCommitMessage")(function* (projectPat
 });
 
 // Every failure but NothingStaged becomes a message; the caller answers NothingStaged by offering to stage everything.
-export const writeCommitMessageOrShowError = Effect.fn("writeCommitMessageOrShowError")(
+export const writeCommitMessageOrShowError = Effect.fn("ScmService.writeCommitMessageOrShowError")(
   function* (projectPath: ProjectPathValueObject) {
     yield* writeCommitMessage(projectPath);
   },
@@ -41,7 +41,7 @@ export const writeCommitMessageOrShowError = Effect.fn("writeCommitMessageOrShow
 );
 
 // True when the user picked Stage All and everything is now staged.
-export const offerToStageAllChanges = Effect.fn("offerToStageAllChanges")(function* (
+export const offerToStageAllChanges = Effect.fn("ScmService.offerToStageAllChanges")(function* (
   projectPath: ProjectPathValueObject
 ) {
   const pickedAction = yield* IPromptInfraService.use((promptInfraService) =>
@@ -54,7 +54,7 @@ export const offerToStageAllChanges = Effect.fn("offerToStageAllChanges")(functi
   return true;
 });
 
-const syncAddedProjectsWithSourceControl = Effect.fn("syncAddedProjectsWithSourceControl")(function* (
+const syncAddedProjectsWithSourceControl = Effect.fn("ScmService.syncAddedProjectsWithSourceControl")(function* (
   syncedProjectPaths: Ref.Ref<ReadonlySet<ProjectPathValueObject>>,
   currentAddedProjectPaths: readonly ProjectPathValueObject[]
 ) {
@@ -73,7 +73,7 @@ const syncAddedProjectsWithSourceControl = Effect.fn("syncAddedProjectsWithSourc
 
 // Keeps Source Control in step with the added projects: each opens there, at startup too, and closes when removed. The git
 // extension does not remember repositories opened this way, so every startup opens them again.
-export const startSourceControlSync = Effect.fn("startSourceControlSync")(function* () {
+export const startSourceControlSync = Effect.fn("ScmService.startSourceControlSync")(function* () {
   const {addedProjectPaths} = yield* IProjectRepository;
   const syncedProjectPaths = yield* Ref.make<ReadonlySet<ProjectPathValueObject>>(new Set());
 

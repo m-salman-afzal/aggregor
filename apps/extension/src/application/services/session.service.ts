@@ -2,7 +2,7 @@ import {RemoveCancelledError, SessionNotFoundError} from "@/application/errors/s
 import {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";
 import {IPromptInfraService} from "@/application/interfaces/prompt.infraService.interface.ts";
 import {ITerminalInfraService} from "@/application/interfaces/terminal.infraService.interface.ts";
-import {pickProject} from "@/application/project/project.service.ts";
+import {pickProject} from "@/application/services/project.service.ts";
 import {showErrorInBackground} from "@/application/utils/error.utils.ts";
 import {withHarnessInfraService} from "@/application/utils/harness.utils.ts";
 import {getNewSessionName, SessionEntity} from "@/domain/entities/session/session.entity.ts";
@@ -15,13 +15,13 @@ import type {TerminalLaunchRequest} from "@/application/interfaces/terminal.infr
 import type {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
 import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
 
-export const listSessions = Effect.fn("listSessions")(function* () {
+export const listSessions = Effect.fn("SessionService.listSessions")(function* () {
   const {sessions} = yield* ISessionRepository;
 
   return yield* SubscriptionRef.get(sessions);
 });
 
-export const findSession = Effect.fn("findSession")(function* (sessionId: SessionIdValueObject) {
+export const findSession = Effect.fn("SessionService.findSession")(function* (sessionId: SessionIdValueObject) {
   const allSessions = yield* listSessions();
 
   return yield* Effect.fromResult(
@@ -32,7 +32,7 @@ export const findSession = Effect.fn("findSession")(function* (sessionId: Sessio
   );
 });
 
-const addSession = Effect.fn("addSession")(function* (project: ProjectEntity) {
+const addSession = Effect.fn("SessionService.addSession")(function* (project: ProjectEntity) {
   const {modifySessions} = yield* ISessionRepository;
   const sessionId = yield* Effect.sync(() => SessionIdValueObjectSchema.make(crypto.randomUUID()));
 
@@ -48,7 +48,7 @@ const addSession = Effect.fn("addSession")(function* (project: ProjectEntity) {
   });
 });
 
-const deleteSession = Effect.fn("deleteSession")(function* (sessionId: SessionIdValueObject) {
+const deleteSession = Effect.fn("SessionService.deleteSession")(function* (sessionId: SessionIdValueObject) {
   const {modifySessions} = yield* ISessionRepository;
   yield* modifySessions(
     (storedSessions) => [sessionId, storedSessions.filter((session) => session.id !== sessionId)] as const
@@ -56,7 +56,7 @@ const deleteSession = Effect.fn("deleteSession")(function* (sessionId: SessionId
 });
 
 // The name the agent gave the conversation, or ours until it has one.
-export const getSessionDisplayName = Effect.fn("getSessionDisplayName")(
+export const getSessionDisplayName = Effect.fn("SessionService.getSessionDisplayName")(
   function* (session: SessionEntity) {
     return yield* withHarnessInfraService(
       session.harnessId,
@@ -66,7 +66,7 @@ export const getSessionDisplayName = Effect.fn("getSessionDisplayName")(
   (effect, session) => Effect.catchTag(effect, "SessionTitleNotFoundError", () => Effect.succeed(session.name))
 );
 
-const prepareTerminalLaunchRequest = Effect.fn("prepareTerminalLaunchRequest")(function* (
+const prepareTerminalLaunchRequest = Effect.fn("SessionService.prepareTerminalLaunchRequest")(function* (
   session: SessionEntity,
   tabName: string
 ) {
@@ -80,7 +80,10 @@ const prepareTerminalLaunchRequest = Effect.fn("prepareTerminalLaunchRequest")(f
   return terminalLaunchRequest;
 });
 
-const openSessionTerminal = Effect.fn("openSessionTerminal")(function* (session: SessionEntity, tabName: string) {
+const openSessionTerminal = Effect.fn("SessionService.openSessionTerminal")(function* (
+  session: SessionEntity,
+  tabName: string
+) {
   const terminalLaunchRequest = yield* withHarnessInfraService(
     session.harnessId,
     prepareTerminalLaunchRequest(session, tabName)
@@ -92,26 +95,28 @@ const openSessionTerminal = Effect.fn("openSessionTerminal")(function* (session:
 });
 
 // A session whose terminal fails to launch is removed again, so no dead row stays behind.
-const openNewSessionTerminal = Effect.fn("openNewSessionTerminal")(
+const openNewSessionTerminal = Effect.fn("SessionService.openNewSessionTerminal")(
   function* (addedSession: SessionEntity) {
     yield* openSessionTerminal(addedSession, addedSession.name);
   },
   (effect, addedSession) => Effect.tapError(effect, () => deleteSession(addedSession.id))
 );
 
-const startSession = Effect.fn("startSession")(function* (clickedProject: ProjectEntity | undefined) {
+const startSession = Effect.fn("SessionService.startSession")(function* (clickedProject: ProjectEntity | undefined) {
   const sessionProject = clickedProject === undefined ? yield* pickProject() : clickedProject;
 
   yield* openNewSessionTerminal(yield* addSession(sessionProject));
 });
 
-const relaunchSession = Effect.fn("relaunchSession")(function* (sessionId: SessionIdValueObject) {
+const relaunchSession = Effect.fn("SessionService.relaunchSession")(function* (sessionId: SessionIdValueObject) {
   const session = yield* findSession(sessionId);
 
   yield* openSessionTerminal(session, yield* getSessionDisplayName(session));
 });
 
-const confirmRunningSessionRemoval = Effect.fn("confirmRunningSessionRemoval")(function* (session: SessionEntity) {
+const confirmRunningSessionRemoval = Effect.fn("SessionService.confirmRunningSessionRemoval")(function* (
+  session: SessionEntity
+) {
   const {confirm} = yield* IPromptInfraService;
   const displayName = yield* getSessionDisplayName(session);
 
@@ -123,7 +128,7 @@ const confirmRunningSessionRemoval = Effect.fn("confirmRunningSessionRemoval")(f
 });
 
 // Closing the tab ends the agent; a tab that closed meanwhile has nothing left to stop.
-const stopSessionAgent = Effect.fn("stopSessionAgent")(
+const stopSessionAgent = Effect.fn("SessionService.stopSessionAgent")(
   function* (sessionId: SessionIdValueObject) {
     yield* ITerminalInfraService.use((terminalInfraService) => terminalInfraService.closeSessionTerminal(sessionId));
   },
@@ -131,7 +136,9 @@ const stopSessionAgent = Effect.fn("stopSessionAgent")(
 );
 
 // Confirm, then forget the session, then stop the agent, so a failed write never kills it for nothing.
-const removeSessionAndStopAgent = Effect.fn("removeSessionAndStopAgent")(function* (session: SessionEntity) {
+const removeSessionAndStopAgent = Effect.fn("SessionService.removeSessionAndStopAgent")(function* (
+  session: SessionEntity
+) {
   const hasOpenTerminal = yield* ITerminalInfraService.use((terminalInfraService) =>
     terminalInfraService.isSessionTerminalOpen(session.id)
   );
@@ -148,7 +155,7 @@ const removeSessionAndStopAgent = Effect.fn("removeSessionAndStopAgent")(functio
 });
 
 // Starts a session in the given project; without one, the user picks a project.
-export const newSession = Effect.fn("newSession")(
+export const newSession = Effect.fn("SessionService.newSession")(
   function* (clickedProject: ProjectEntity | undefined) {
     yield* startSession(clickedProject);
   },
@@ -166,7 +173,7 @@ export const newSession = Effect.fn("newSession")(
 );
 
 // Focuses the session's tab, or relaunches Claude on the same conversation when the tab is gone.
-export const openSession = Effect.fn("openSession")(
+export const openSession = Effect.fn("SessionService.openSession")(
   function* (sessionId: SessionIdValueObject) {
     yield* ITerminalInfraService.use((terminalInfraService) => terminalInfraService.focusSessionTerminal(sessionId));
   },
@@ -182,7 +189,7 @@ export const openSession = Effect.fn("openSession")(
 );
 
 // The agent's transcript on disk is left alone.
-export const removeSession = Effect.fn("removeSession")(
+export const removeSession = Effect.fn("SessionService.removeSession")(
   function* (session: SessionEntity) {
     yield* removeSessionAndStopAgent(session);
   },

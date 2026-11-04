@@ -19,7 +19,7 @@ squash. The roadmap lives in `README.md`. Commit and push only when the user ask
 - **Delete aggressively.** Less code means fewer bugs.
 - **Semantic naming.** Name variables, parameters, functions and APIs with verbose, self-explanatory names that optimize
   for comprehension by both humans and LLMs, not brevity: `sessionId`, not `id`; `stagedDiff`, not `diff`. The commit
-  message code in `apps/extension/src/application/scm` and `infrastructure/services/commitCli` is the reference.
+  message code in `application/services/scm.service.ts` and `infrastructure/services/commitCli` is the reference.
 - **No users before 0.1.0.** Until 0.1.0 ships, the author is the only user. Be brave: rename command IDs, setting keys
   and storage keys, change stored data without migrations, and leave no compatibility shims or deprecation paths.
 
@@ -54,11 +54,12 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
 
 ## Traces
 
-Every command runs as a root span named by its command ID, and each `Effect.fn` it calls is a child span. Name an
-`Effect.fn` after the function it defines; one that belongs to a service or view gets that name in front:
-`TerminalInfraService.openSessionTerminal`. Finished spans and Effect logs go to the **Aggregor App** output channel,
-one trace-level line per span:
-`aggregorApp.newSessionAskingForProject > newSession > startSession > openNewSessionTerminal > TerminalInfraService.openSessionTerminal 1.0ms ok`.
+Every command runs as a root span named by its command ID, and each `Effect.fn` it calls is a child span. A span is
+named `<owner>.<const>`: the owner comes from the file name (`session.service.ts` is `SessionService`'s), a helper file
+belongs to the one owner in its folder, a layer's `make<Owner>` is `<Owner>.make`, and a file with no owner gives the
+bare const name. `eslint.spans.ts` checks every name, and `pnpm lint:fix` corrects it. Finished spans and Effect logs go
+to the **Aggregor App** output channel, one trace-level line per span:
+`aggregorApp.openSession > SessionController.openSession > SessionService.openSession > TerminalInfraService.focusSessionTerminal 0.8ms failed: TerminalNotFoundError`.
 Work a layer starts in the background, such as a watcher, nests under that layer's `make` span. F5 starts the extension
 at trace level; elsewhere, pick it with **Developer: Set Log Level...**. VS Code also writes the channel to
 `<logs>/window<n>/exthost/SalmanAfzal.aggregor-app/Aggregor App.log`, so a test run's trace can be read from disk.

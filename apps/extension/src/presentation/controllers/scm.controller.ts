@@ -1,4 +1,4 @@
-import {offerToStageAllChanges, writeCommitMessageOrShowError} from "@/application/scm/scm.service.ts";
+import {offerToStageAllChanges, writeCommitMessageOrShowError} from "@/application/services/scm.service.ts";
 import {showErrorInBackground} from "@/application/utils/error.utils.ts";
 import {ProjectPathValueObjectSchema} from "@/domain/valueObjects/projectPath.valueObject.ts";
 import {setContext, withProgress} from "@/infrastructure/utils/vscode.utils.ts";

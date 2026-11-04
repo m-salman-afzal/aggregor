@@ -13,6 +13,7 @@ import globals from "globals";
 import tsEslint from "typescript-eslint";
 
 import {IMPORT_BANS, LAYER_CONFIGS, SYNTAX_BANS} from "./eslint.layers.ts";
+import {SPAN_NAME_CONFIG} from "./eslint.spans.ts";
 
 import type {Config} from "eslint/config";
 
@@ -176,7 +177,8 @@ const config: Config[] = defineConfig([
       ]
     }
   },
-  ...LAYER_CONFIGS
+  ...LAYER_CONFIGS,
+  SPAN_NAME_CONFIG
 ]);
 
 export default config;

@@ -16,6 +16,7 @@ export const registerCommand = Effect.fn("registerCommand")(function* <R>(
 ) {
   const {commands} = yield* VsCodeApi;
   const runPromise = Effect.runPromiseWith(yield* Effect.context<IPromptInfraService | R>());
+  // eslint-disable-next-line aggregor/span-name -- a command's root span is named by its command ID
   const runCommand = Effect.fn(commandId, {root: true})(
     function* (commandArguments: readonly unknown[]) {
       return yield* controller(...commandArguments);
