@@ -1,10 +1,10 @@
 import {existsSync, readdirSync} from "node:fs";
-import {basename, dirname, join} from "node:path";
+import {basename, dirname, join, relative, sep} from "node:path";
 
 import type {Rule} from "eslint";
 import type {Config} from "eslint/config";
 
-// The extension's own lint rules: span names, and where error and type files sit.
+// The extension's own lint rules: span names, where error and type files sit, and which files share a folder.
 
 // aggregor/span-name: a span is "<owner>.<const>", the owner coming from the file name, so a trace line names the code
 // that ran and finds it with one search.
@@ -155,8 +155,60 @@ const declaringFileRule: Rule.RuleModule = {
   }
 };
 
+// aggregor/stem-folder: files that share their first dotted part (scm.controller.ts, scm.controller.error.ts) sit in a
+// folder of that name. Every interface and every service gets its folder even alone, since its siblings come later.
+const SOURCE_ROOT = "apps/extension/src";
+const ALWAYS_GROUPED_FOLDERS = ["application/interfaces", "application/services"];
+
+const findGroupedFolder = (relativeFolder: string) =>
+  ALWAYS_GROUPED_FOLDERS.find((folder) => relativeFolder === folder || relativeFolder.startsWith(`${folder}/`));
+
+// The folder this file belongs in, when it isn't there already.
+const getExpectedStemFolder = (filePath: string, sourceRootPath: string) => {
+  const [stem] = basename(filePath).split(".");
+  if (stem === undefined) return undefined;
+  const folderPath = dirname(filePath);
+  const relativeFolder = relative(sourceRootPath, folderPath).split(sep).join("/");
+  const groupedFolder = findGroupedFolder(relativeFolder);
+  if (groupedFolder !== undefined)
+    return relativeFolder === `${groupedFolder}/${stem}` ? undefined : `${groupedFolder}/${stem}/`;
+  if (basename(folderPath) === stem) return undefined;
+  const stemSiblings = readdirSync(folderPath, {withFileTypes: true}).filter(
+    (entry) => entry.isFile() && entry.name.split(".")[0] === stem
+  );
+
+  return stemSiblings.length > 1 ? `${relativeFolder}/${stem}/` : undefined;
+};
+
+const stemFolderRule: Rule.RuleModule = {
+  create(context) {
+    const expectedFolder = getExpectedStemFolder(context.physicalFilename, join(context.cwd, SOURCE_ROOT));
+
+    return {
+      Program() {
+        if (expectedFolder === undefined) return;
+        context.report({data: {expectedFolder}, loc: {column: 0, line: 1}, messageId: "notInStemFolder"});
+      }
+    };
+  },
+  meta: {
+    docs: {
+      description: "Group files that share their first dotted part, and every interface and service, in a folder."
+    },
+    messages: {
+      notInStemFolder:
+        "Move this file into {{expectedFolder}}: files sharing their first dotted part, and each interface or service, " +
+        "sit in a folder of that name."
+    },
+    schema: [],
+    type: "suggestion"
+  }
+};
+
 export const PLUGIN_CONFIG: Config = {
   files: ["apps/extension/src/**/*.ts"],
-  plugins: {aggregor: {rules: {"declaring-file": declaringFileRule, "span-name": spanNameRule}}},
-  rules: {"aggregor/declaring-file": "error", "aggregor/span-name": "error"}
+  plugins: {
+    aggregor: {rules: {"declaring-file": declaringFileRule, "span-name": spanNameRule, "stem-folder": stemFolderRule}}
+  },
+  rules: {"aggregor/declaring-file": "error", "aggregor/span-name": "error", "aggregor/stem-folder": "error"}
 };

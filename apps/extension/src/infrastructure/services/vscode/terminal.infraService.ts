@@ -1,20 +1,15 @@
+// eslint-disable-next-line max-classes-per-file -- the reasons no session is in view, declared below
 import {
   NoViewedSessionError,
   TerminalLaunchFailedError,
   TerminalNotFoundError
-} from "@/application/interfaces/terminal.infraService.error.ts";
-import {ITerminalInfraService} from "@/application/interfaces/terminal.infraService.interface.ts";
-import {
-  NoActiveTerminalError,
-  NotATerminalTabError,
-  UntrackedTerminalError,
-  WindowUnfocusedError
-} from "@/infrastructure/services/vscode/terminal.infraService.error.ts";
+} from "@/application/interfaces/terminal/terminal.infraService.error.ts";
+import {ITerminalInfraService} from "@/application/interfaces/terminal/terminal.infraService.interface.ts";
 import {fromEvent} from "@/infrastructure/utils/vscode.utils.ts";
 import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
-import {Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
+import {Data, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
 
-import type {TerminalLaunchRequest} from "@/application/interfaces/terminal.infraService.type.ts";
+import type {TerminalLaunchRequest} from "@/application/interfaces/terminal/terminal.infraService.interface.ts";
 import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
 import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
 import type {Terminal} from "vscode";
@@ -26,6 +21,12 @@ type SessionTerminalsReference = SubscriptionRef.SubscriptionRef<ReadonlyMap<Ses
 type TerminalDependencies = {
   readonly sessionTerminals: SessionTerminalsReference;
 } & Pick<VsCodeApi["Service"], "TabInputTerminal" | "Uri" | "ViewColumn" | "window">;
+
+// Why no session is in view, private to this file: the interface only sees NoViewedSessionError.
+class NoActiveTerminalError extends Data.TaggedError("NoActiveTerminalError") {}
+class NotATerminalTabError extends Data.TaggedError("NotATerminalTabError") {}
+class UntrackedTerminalError extends Data.TaggedError("UntrackedTerminalError") {}
+class WindowUnfocusedError extends Data.TaggedError("WindowUnfocusedError") {}
 
 const findSessionTerminal = Effect.fn("TerminalInfraService.findSessionTerminal")(function* (
   sessionTerminals: SessionTerminalsReference,

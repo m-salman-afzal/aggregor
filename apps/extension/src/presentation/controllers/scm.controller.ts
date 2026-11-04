@@ -1,15 +1,16 @@
-import {offerToStageAllChanges, writeCommitMessageOrShowError} from "@/application/services/scm.service.ts";
+import {offerToStageAllChanges, writeCommitMessageOrShowError} from "@/application/services/scm/scm.service.ts";
 import {showErrorInBackground} from "@/application/utils/error.utils.ts";
 import {ProjectPathValueObjectSchema} from "@/domain/valueObjects/projectPath.valueObject.ts";
 import {setContext, withProgress} from "@/infrastructure/utils/vscode.utils.ts";
 import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
-import {RootUriUnavailableError} from "@/presentation/controllers/scm.controller.error.ts";
-import {InvalidCommandArgumentsError} from "@/presentation/middlewares/registerCommand.middleware.error.ts";
+import {InvalidCommandArgumentsError} from "@/presentation/middlewares/registerCommand/registerCommand.middleware.error.ts";
 import {COMMANDS, CONTEXT_KEYS} from "@pkg/constants/src/extension.constant.ts";
 import {COMMIT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
-import {Effect, Predicate} from "effect";
+import {Data, Effect, Predicate} from "effect";
 
 import type {ProjectPathValueObject} from "@/domain/valueObjects/projectPath.valueObject.ts";
+
+class RootUriUnavailableError extends Data.TaggedError("RootUriUnavailableError") {}
 
 // The Source Control title button passes its SourceControl; the use cases name the project by its root folder.
 const getSourceControlProjectPath = Effect.fn("ScmController.getSourceControlProjectPath")(function* (

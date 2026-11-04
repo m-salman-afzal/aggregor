@@ -1,4 +1,4 @@
-import * as SessionService from "@/application/services/session.service.ts";
+import * as SessionService from "@/application/services/session/session.service.ts";
 import {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
 import {SessionEntity} from "@/domain/entities/session/session.entity.ts";
 import {SessionIdValueObjectSchema} from "@/domain/valueObjects/sessionId.valueObject.ts";

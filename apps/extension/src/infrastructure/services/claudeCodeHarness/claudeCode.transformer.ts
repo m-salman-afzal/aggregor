@@ -1,8 +1,8 @@
 import {StatusValueObjectSchema} from "@/domain/valueObjects/status.valueObject.ts";
-import {TitleNotFoundError} from "@/infrastructure/services/claudeCode/claudeCodeHarness.infraService.error.ts";
+import {TitleNotFoundError} from "@/infrastructure/services/claudeCodeHarness/claudeCodeHarness.infraService.error.ts";
 import {Result, Schema} from "effect";
 
-import type {Titles} from "@/infrastructure/services/claudeCode/claudeCodeHarness.infraService.type.ts";
+import type {Titles} from "@/infrastructure/services/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
 
 // Claude Code's file formats, read into ours.
 

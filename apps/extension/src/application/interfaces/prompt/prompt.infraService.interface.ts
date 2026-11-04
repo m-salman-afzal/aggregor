@@ -3,7 +3,7 @@ import {Context} from "effect";
 import type {
   FolderPickCancelledError,
   ProjectPickCancelledError
-} from "@/application/interfaces/prompt.infraService.error.ts";
+} from "@/application/interfaces/prompt/prompt.infraService.error.ts";
 import type {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
 import type {ProjectPathValueObject} from "@/domain/valueObjects/projectPath.valueObject.ts";
 import type {Effect} from "effect";
@@ -21,4 +21,4 @@ export class IPromptInfraService extends Context.Service<
     // Resolves with the action the user picked, or undefined when they dismiss the message.
     readonly showErrorMessage: (message: string, ...actions: string[]) => Effect.Effect<string | undefined>;
   }
->()("aggregor/application/interfaces/prompt.infraService.interface/IPromptInfraService") {}
+>()("aggregor/application/interfaces/prompt/prompt.infraService.interface/IPromptInfraService") {}

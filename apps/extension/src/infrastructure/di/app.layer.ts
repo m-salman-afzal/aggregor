@@ -1,4 +1,4 @@
-import {startSourceControlSync} from "@/application/services/scm.service.ts";
+import {startSourceControlSync} from "@/application/services/scm/scm.service.ts";
 import {SettingsConfig} from "@/infrastructure/config/settings.config.ts";
 import {HarnessInfraServicesLayer} from "@/infrastructure/di/harnessInfraServices.layer.ts";
 import {ProjectRepository} from "@/infrastructure/repositories/project.repository.ts";

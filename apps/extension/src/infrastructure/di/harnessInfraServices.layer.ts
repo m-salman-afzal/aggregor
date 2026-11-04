@@ -1,8 +1,8 @@
-import {IHarnessInfraServices} from "@/application/interfaces/harness.infraService.interface.ts";
-import {ClaudeCodeHarnessInfraService} from "@/infrastructure/services/claudeCode/claudeCodeHarness.infraService.ts";
+import {IHarnessInfraServices} from "@/application/interfaces/harness/harness.infraService.interface.ts";
+import {ClaudeCodeHarnessInfraService} from "@/infrastructure/services/claudeCodeHarness/claudeCodeHarness.infraService.ts";
 import {Effect, Layer, LayerMap} from "effect";
 
-import type {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";
+import type {IHarnessInfraService} from "@/application/interfaces/harness/harness.infraService.interface.ts";
 import type {HarnessIdValueObject} from "@/domain/valueObjects/harnessId.valueObject.ts";
 
 // One infra service per harness id, so a harness id without one fails to compile.

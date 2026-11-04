@@ -4,9 +4,15 @@ import type {
   CommitCliError,
   CommitCliSpawnFailedError,
   EmptyCommitMessageError
-} from "@/application/interfaces/commitCli.infraService.error.ts";
-import type {CommitMessageRequest} from "@/application/interfaces/commitCli.infraService.type.ts";
+} from "@/application/interfaces/commitCli/commitCli.infraService.error.ts";
+import type {ProjectPathValueObject} from "@/domain/valueObjects/projectPath.valueObject.ts";
 import type {Effect} from "effect";
+
+export interface CommitMessageRequest {
+  readonly commitCommand: string;
+  readonly projectPath: ProjectPathValueObject;
+  readonly stagedDiff: string;
+}
 
 // The user's commit command: it reads the staged diff on stdin and prints a commit message.
 export class ICommitCliInfraService extends Context.Service<
@@ -16,4 +22,4 @@ export class ICommitCliInfraService extends Context.Service<
       commitMessageRequest: CommitMessageRequest
     ) => Effect.Effect<string, CommitCliError | CommitCliSpawnFailedError | EmptyCommitMessageError>;
   }
->()("aggregor/application/interfaces/commitCli.infraService.interface/ICommitCliInfraService") {}
+>()("aggregor/application/interfaces/commitCli/commitCli.infraService.interface/ICommitCliInfraService") {}

@@ -5,7 +5,7 @@ import type {
   GitDiffError,
   GitUnavailableError,
   NothingStagedError
-} from "@/application/interfaces/git.infraService.error.ts";
+} from "@/application/interfaces/git/git.infraService.error.ts";
 import type {ProjectPathValueObject} from "@/domain/valueObjects/projectPath.valueObject.ts";
 import type {Effect} from "effect";
 
@@ -31,4 +31,4 @@ export class IGitInfraService extends Context.Service<
     ) => Effect.Effect<void, GitUnavailableError>;
     readonly stageAll: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;
   }
->()("aggregor/application/interfaces/git.infraService.interface/IGitInfraService") {}
+>()("aggregor/application/interfaces/git/git.infraService.interface/IGitInfraService") {}

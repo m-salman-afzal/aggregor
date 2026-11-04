@@ -1,8 +1,8 @@
-import {IHarnessInfraServices} from "@/application/interfaces/harness.infraService.interface.ts";
+import {IHarnessInfraServices} from "@/application/interfaces/harness/harness.infraService.interface.ts";
 import {HarnessIdValueObjectSchema} from "@/domain/valueObjects/harnessId.valueObject.ts";
 import {Effect} from "effect";
 
-import type {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";
+import type {IHarnessInfraService} from "@/application/interfaces/harness/harness.infraService.interface.ts";
 import type {HarnessIdValueObject} from "@/domain/valueObjects/harnessId.valueObject.ts";
 
 // Runs the effect with that harness's infra service.

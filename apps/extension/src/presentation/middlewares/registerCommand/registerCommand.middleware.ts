@@ -4,8 +4,8 @@ import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
 import {COMMAND_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {Effect} from "effect";
 
-import type {IPromptInfraService} from "@/application/interfaces/prompt.infraService.interface.ts";
-import type {InvalidCommandArgumentsError} from "@/presentation/middlewares/registerCommand.middleware.error.ts";
+import type {IPromptInfraService} from "@/application/interfaces/prompt/prompt.infraService.interface.ts";
+import type {InvalidCommandArgumentsError} from "@/presentation/middlewares/registerCommand/registerCommand.middleware.error.ts";
 
 // Registered for the surrounding scope's lifetime. Each run is a root span named by the command ID, and a crash is
 // logged. Controllers handle their own errors except arguments that do not decode, which point at a broken menu entry:

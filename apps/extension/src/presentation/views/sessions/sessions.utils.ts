@@ -1,7 +1,7 @@
-import {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";
-import {ITerminalInfraService} from "@/application/interfaces/terminal.infraService.interface.ts";
-import {listProjects} from "@/application/services/project.service.ts";
-import {getSessionDisplayName, listSessions} from "@/application/services/session.service.ts";
+import {IHarnessInfraService} from "@/application/interfaces/harness/harness.infraService.interface.ts";
+import {ITerminalInfraService} from "@/application/interfaces/terminal/terminal.infraService.interface.ts";
+import {listProjects} from "@/application/services/project/project.service.ts";
+import {getSessionDisplayName, listSessions} from "@/application/services/session/session.service.ts";
 import {withHarnessInfraService} from "@/application/utils/harness.utils.ts";
 import {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
 import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";

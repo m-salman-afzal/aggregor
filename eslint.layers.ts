@@ -52,9 +52,10 @@ export const SYNTAX_BANS = [
   }
 ];
 
-// The extension's shared types live in .type.ts files, its interfaces in .interface.ts files.
+// An interface's own types live in its .interface.ts; types several implementation files share, in a .type.ts.
 const EXPORTED_TYPE_BAN = {
-  message: "Export types from a .type.ts file; only value objects and error unions stay in their own files.",
+  message:
+    "Export types from a .type.ts or .interface.ts file; only value objects and error unions stay in their own files.",
   selector: "ExportNamedDeclaration > :matches(TSTypeAliasDeclaration, TSInterfaceDeclaration)"
 };
 const SERVICE_CLASS_BAN = {
@@ -151,7 +152,11 @@ export const LAYER_CONFIGS: Config[] = [
     rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN, SERVICE_CLASS_BAN]}
   },
   {
-    files: ["apps/extension/src/**/*.interface.ts", "apps/extension/src/infrastructure/vscode/vscode.api.ts"],
+    files: ["apps/extension/src/**/*.interface.ts"],
+    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS]}
+  },
+  {
+    files: ["apps/extension/src/infrastructure/vscode/vscode.api.ts"],
     rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN]}
   },
   {
