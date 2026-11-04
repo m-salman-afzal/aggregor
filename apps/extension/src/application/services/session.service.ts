@@ -1,8 +1,8 @@
-import {RemoveCancelledError, SessionNotFoundError} from "@/application/errors/session.service.error.ts";
 import {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";
 import {IPromptInfraService} from "@/application/interfaces/prompt.infraService.interface.ts";
 import {ITerminalInfraService} from "@/application/interfaces/terminal.infraService.interface.ts";
 import {pickProject} from "@/application/services/project.service.ts";
+import {RemoveCancelledError, SessionNotFoundError} from "@/application/services/session.service.error.ts";
 import {showErrorInBackground} from "@/application/utils/error.utils.ts";
 import {withHarnessInfraService} from "@/application/utils/harness.utils.ts";
 import {getNewSessionName, SessionEntity} from "@/domain/entities/session/session.entity.ts";

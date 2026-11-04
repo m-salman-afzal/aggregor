@@ -4,7 +4,7 @@ import type {
   CommitCliError,
   CommitCliSpawnFailedError,
   EmptyCommitMessageError
-} from "@/application/errors/commitCli.infraService.error.ts";
+} from "@/application/interfaces/commitCli.infraService.error.ts";
 import type {CommitMessageRequest} from "@/application/interfaces/commitCli.infraService.type.ts";
 import type {Effect} from "effect";
 

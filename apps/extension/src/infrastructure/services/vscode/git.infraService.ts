@@ -5,7 +5,7 @@ import {
   GitExtensionUnavailableError,
   GitRepositoryUnavailableError,
   NothingStagedError
-} from "@/application/errors/git.infraService.error.ts";
+} from "@/application/interfaces/git.infraService.error.ts";
 import {IGitInfraService} from "@/application/interfaces/git.infraService.interface.ts";
 import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
 import {EXTENSION_VERSIONS} from "@pkg/constants/src/extension.constant.ts";

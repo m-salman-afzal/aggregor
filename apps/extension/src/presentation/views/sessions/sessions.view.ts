@@ -8,7 +8,6 @@ import {ISessionRepository} from "@/domain/entities/session/session.repository.i
 import {decodeSessionId} from "@/domain/valueObjects/sessionId.valueObject.ts";
 import {acquireDisposable, fromEvent} from "@/infrastructure/utils/vscode.utils.ts";
 import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
-import {RevealFailedError} from "@/presentation/errors/sessions.view.error.ts";
 import {
   createProjectTreeItem,
   createSessionTreeItem,
@@ -19,6 +18,7 @@ import {
   getSessionRowUri,
   isProject
 } from "@/presentation/views/sessions/sessions.utils.ts";
+import {RevealFailedError} from "@/presentation/views/sessions/sessions.view.error.ts";
 import {SESSION_URI_SCHEME, SPINNER_INTERVAL_MS, VIEWS} from "@pkg/constants/src/extension.constant.ts";
 import {Effect, Layer, Ref, Result, Schedule, Stream, SubscriptionRef} from "effect";
 

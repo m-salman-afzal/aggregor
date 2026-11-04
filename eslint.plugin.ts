@@ -1,10 +1,12 @@
-import {readdirSync} from "node:fs";
-import {basename, dirname} from "node:path";
+import {existsSync, readdirSync} from "node:fs";
+import {basename, dirname, join} from "node:path";
 
 import type {Rule} from "eslint";
 import type {Config} from "eslint/config";
 
-// Span names in apps/extension: "<owner>.<const>", the owner coming from the file name, so a trace line names the code
+// The extension's own lint rules: span names, and where error and type files sit.
+
+// aggregor/span-name: a span is "<owner>.<const>", the owner coming from the file name, so a trace line names the code
 // that ran and finds it with one search.
 
 // The file roles that own their spans, with the suffix the owner's name takes: session.repository.ts is
@@ -111,8 +113,50 @@ const spanNameRule: Rule.RuleModule = {
   }
 };
 
-export const SPAN_NAME_CONFIG: Config = {
+// aggregor/declaring-file: X.error.ts and X.type.ts sit beside the file that declares them, X.ts or X.interface.ts, so
+// the interface or implementation an error belongs to is the file next to it.
+const COMPANION_ROLES = new Set(["error", "type"]);
+
+const getDeclaringFileNames = (fileName: string) => {
+  const parts = fileName.split(".");
+  const role = parts.at(-2);
+  if (parts.length < 3 || parts.at(-1) !== "ts" || role === undefined || !COMPANION_ROLES.has(role)) return [];
+  const stem = parts.slice(0, -2).join(".");
+
+  return [`${stem}.ts`, `${stem}.interface.ts`];
+};
+
+const declaringFileRule: Rule.RuleModule = {
+  create(context) {
+    const filePath = context.physicalFilename;
+    const declaringFileNames = getDeclaringFileNames(basename(filePath));
+
+    return {
+      Program() {
+        if (declaringFileNames.length === 0) return;
+        const folderPath = dirname(filePath);
+        if (declaringFileNames.some((declaringFileName) => existsSync(join(folderPath, declaringFileName)))) return;
+        context.report({
+          data: {declaringFileNames: declaringFileNames.join(" or ")},
+          loc: {column: 0, line: 1},
+          messageId: "notBesideDeclaringFile"
+        });
+      }
+    };
+  },
+  meta: {
+    docs: {description: "Keep each .error.ts and .type.ts file beside the file that declares it."},
+    messages: {
+      notBesideDeclaringFile:
+        "Move this file beside the file that declares it: no {{declaringFileNames}} in this folder."
+    },
+    schema: [],
+    type: "problem"
+  }
+};
+
+export const PLUGIN_CONFIG: Config = {
   files: ["apps/extension/src/**/*.ts"],
-  plugins: {aggregor: {rules: {"span-name": spanNameRule}}},
-  rules: {"aggregor/span-name": "error"}
+  plugins: {aggregor: {rules: {"declaring-file": declaringFileRule, "span-name": spanNameRule}}},
+  rules: {"aggregor/declaring-file": "error", "aggregor/span-name": "error"}
 };

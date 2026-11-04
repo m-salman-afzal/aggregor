@@ -1,6 +1,6 @@
 import {showErrorInBackground} from "@/application/utils/error.utils.ts";
+import {ProjectsCorruptError, ProjectsSaveFailedError} from "@/domain/entities/project/project.repository.error.ts";
 import {IProjectRepository} from "@/domain/entities/project/project.repository.interface.ts";
-import {ProjectsCorruptError, ProjectsSaveFailedError} from "@/domain/errors/project.repository.error.ts";
 import {
   NO_ADDED_PROJECT_PATHS,
   StoredAddedProjectPathsModel

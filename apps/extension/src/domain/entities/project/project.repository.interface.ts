@@ -1,6 +1,9 @@
 import {Context} from "effect";
 
-import type {ProjectsCorruptError, ProjectsSaveFailedError} from "@/domain/errors/project.repository.error.ts";
+import type {
+  ProjectsCorruptError,
+  ProjectsSaveFailedError
+} from "@/domain/entities/project/project.repository.error.ts";
 import type {ProjectPathValueObject} from "@/domain/valueObjects/projectPath.valueObject.ts";
 import type {Effect, SubscriptionRef} from "effect";
 

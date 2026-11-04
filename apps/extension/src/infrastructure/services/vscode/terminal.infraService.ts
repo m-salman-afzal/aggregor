@@ -1,17 +1,19 @@
 import {
+  NoViewedSessionError,
+  TerminalLaunchFailedError,
+  TerminalNotFoundError
+} from "@/application/interfaces/terminal.infraService.error.ts";
+import {ITerminalInfraService} from "@/application/interfaces/terminal.infraService.interface.ts";
+import {
   NoActiveTerminalError,
   NotATerminalTabError,
-  TerminalLaunchFailedError,
-  TerminalNotFoundError,
   UntrackedTerminalError,
   WindowUnfocusedError
-} from "@/application/errors/terminal.infraService.error.ts";
-import {ITerminalInfraService} from "@/application/interfaces/terminal.infraService.interface.ts";
+} from "@/infrastructure/services/vscode/terminal.infraService.error.ts";
 import {fromEvent} from "@/infrastructure/utils/vscode.utils.ts";
 import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
 import {Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
 
-import type {NoViewedSessionError} from "@/application/errors/terminal.infraService.error.ts";
 import type {TerminalLaunchRequest} from "@/application/interfaces/terminal.infraService.type.ts";
 import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
 import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
@@ -180,11 +182,19 @@ const readViewedSessionId = Effect.fn("TerminalInfraService.readViewedSessionId"
   return yield* findTerminalSessionId(terminalDependencies.sessionTerminals, activeTerminal);
 });
 
+// The interface only says that no session is in view; readViewedSessionId's span keeps the reason.
+const findViewedSessionId = Effect.fn("TerminalInfraService.findViewedSessionId")(
+  function* (terminalDependencies: TerminalDependencies) {
+    return yield* readViewedSessionId(terminalDependencies);
+  },
+  Effect.mapError(() => new NoViewedSessionError())
+);
+
 const updateViewedSessionId = Effect.fn("TerminalInfraService.updateViewedSessionId")(function* (
   terminalDependencies: TerminalDependencies,
   viewedSessionId: SubscriptionRef.SubscriptionRef<Result.Result<SessionIdValueObject, NoViewedSessionError>>
 ) {
-  const nextViewedSessionId = yield* Effect.result(readViewedSessionId(terminalDependencies));
+  const nextViewedSessionId = yield* Effect.result(findViewedSessionId(terminalDependencies));
   const currentViewedSessionId = yield* SubscriptionRef.get(viewedSessionId);
   if (Result.getOrUndefined(nextViewedSessionId) === Result.getOrUndefined(currentViewedSessionId)) return;
 
@@ -208,7 +218,7 @@ const watchFocusChanges = ({sessionTerminals, window}: TerminalDependencies) => 
 const trackViewedSessionId = Effect.fn("TerminalInfraService.trackViewedSessionId")(function* (
   terminalDependencies: TerminalDependencies
 ) {
-  const viewedSessionId = yield* SubscriptionRef.make(yield* Effect.result(readViewedSessionId(terminalDependencies)));
+  const viewedSessionId = yield* SubscriptionRef.make(yield* Effect.result(findViewedSessionId(terminalDependencies)));
   yield* Effect.forkScoped(
     Stream.runForEach(watchFocusChanges(terminalDependencies), () =>
       updateViewedSessionId(terminalDependencies, viewedSessionId)

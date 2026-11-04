@@ -1,7 +1,10 @@
 import {Context} from "effect";
 
 import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
-import type {SessionsCorruptError, SessionsSaveFailedError} from "@/domain/errors/session.repository.error.ts";
+import type {
+  SessionsCorruptError,
+  SessionsSaveFailedError
+} from "@/domain/entities/session/session.repository.error.ts";
 import type {Effect, SubscriptionRef} from "effect";
 
 // The saved sessions, shared by every window. `sessions` is this window's copy, which the view renders from.

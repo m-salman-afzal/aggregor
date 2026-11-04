@@ -1,6 +1,6 @@
 import {Context} from "effect";
 
-import type {InvalidSettingsError} from "@/application/errors/settings.config.error.ts";
+import type {InvalidSettingsError} from "@/application/interfaces/settings.config.error.ts";
 import type {Settings} from "@/application/interfaces/settings.config.type.ts";
 import type {Effect} from "effect";
 

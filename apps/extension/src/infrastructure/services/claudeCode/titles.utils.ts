@@ -1,4 +1,4 @@
-import {SessionTitleNotFoundError} from "@/application/errors/harness.infraService.error.ts";
+import {SessionTitleNotFoundError} from "@/application/interfaces/harness.infraService.error.ts";
 import {decodeSessionId} from "@/domain/valueObjects/sessionId.valueObject.ts";
 import {getPreferredTitle, NO_TITLES} from "@/infrastructure/services/claudeCode/claudeCode.transformer.ts";
 import {
@@ -12,7 +12,7 @@ import {Path} from "effect/Path";
 
 import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
 import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
-import type {TitleNotFoundError} from "@/infrastructure/errors/claudeCodeHarness.infraService.error.ts";
+import type {TitleNotFoundError} from "@/infrastructure/services/claudeCode/claudeCodeHarness.infraService.error.ts";
 import type {
   SessionTitlesReference,
   TitleTracking,

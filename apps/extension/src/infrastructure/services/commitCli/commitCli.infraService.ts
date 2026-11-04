@@ -2,7 +2,7 @@ import {
   CommitCliError,
   CommitCliSpawnFailedError,
   EmptyCommitMessageError
-} from "@/application/errors/commitCli.infraService.error.ts";
+} from "@/application/interfaces/commitCli.infraService.error.ts";
 import {ICommitCliInfraService} from "@/application/interfaces/commitCli.infraService.interface.ts";
 import {EXIT_CODES} from "@pkg/constants/src/process.constant.ts";
 import {Effect, Layer, Stream} from "effect";

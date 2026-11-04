@@ -1,5 +1,5 @@
 import {StatusValueObjectSchema} from "@/domain/valueObjects/status.valueObject.ts";
-import {TitleNotFoundError} from "@/infrastructure/errors/claudeCodeHarness.infraService.error.ts";
+import {TitleNotFoundError} from "@/infrastructure/services/claudeCode/claudeCodeHarness.infraService.error.ts";
 import {Result, Schema} from "effect";
 
 import type {Titles} from "@/infrastructure/services/claudeCode/claudeCodeHarness.infraService.type.ts";

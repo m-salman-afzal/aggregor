@@ -57,8 +57,8 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
 Every command runs as a root span named by its command ID, and each `Effect.fn` it calls is a child span. A span is
 named `<owner>.<const>`: the owner comes from the file name (`session.service.ts` is `SessionService`'s), a helper file
 belongs to the one owner in its folder, a layer's `make<Owner>` is `<Owner>.make`, and a file with no owner gives the
-bare const name. `eslint.spans.ts` checks every name, and `pnpm lint:fix` corrects it. Finished spans and Effect logs go
-to the **Aggregor App** output channel, one trace-level line per span:
+bare const name. `eslint.plugin.ts` checks every name, and `pnpm lint:fix` corrects it. Finished spans and Effect logs
+go to the **Aggregor App** output channel, one trace-level line per span:
 `aggregorApp.openSession > SessionController.openSession > SessionService.openSession > TerminalInfraService.focusSessionTerminal 0.8ms failed: TerminalNotFoundError`.
 Work a layer starts in the background, such as a watcher, nests under that layer's `make` span. F5 starts the extension
 at trace level; elsewhere, pick it with **Developer: Set Log Level...**. VS Code also writes the channel to

@@ -5,7 +5,7 @@ import type {
   GitDiffError,
   GitUnavailableError,
   NothingStagedError
-} from "@/application/errors/git.infraService.error.ts";
+} from "@/application/interfaces/git.infraService.error.ts";
 import type {ProjectPathValueObject} from "@/domain/valueObjects/projectPath.valueObject.ts";
 import type {Effect} from "effect";
 

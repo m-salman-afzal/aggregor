@@ -1,7 +1,7 @@
 import {showErrorInBackground} from "@/application/utils/error.utils.ts";
 import {SessionEntity} from "@/domain/entities/session/session.entity.ts";
+import {SessionsCorruptError, SessionsSaveFailedError} from "@/domain/entities/session/session.repository.error.ts";
 import {ISessionRepository} from "@/domain/entities/session/session.repository.interface.ts";
-import {SessionsCorruptError, SessionsSaveFailedError} from "@/domain/errors/session.repository.error.ts";
 import {NO_STORED_SESSIONS, StoredSessionsModel} from "@/infrastructure/database/models/storedSessions.model.ts";
 import {fromEvent} from "@/infrastructure/utils/vscode.utils.ts";
 import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";

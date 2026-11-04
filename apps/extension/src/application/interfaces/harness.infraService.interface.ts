@@ -1,7 +1,7 @@
 // eslint-disable-next-line max-classes-per-file
 import {Context} from "effect";
 
-import type {SessionTitleNotFoundError} from "@/application/errors/harness.infraService.error.ts";
+import type {SessionTitleNotFoundError} from "@/application/interfaces/harness.infraService.error.ts";
 import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
 import type {HarnessIdValueObject} from "@/domain/valueObjects/harnessId.valueObject.ts";
 import type {LaunchPlanValueObject} from "@/domain/valueObjects/launchPlan.valueObject.ts";

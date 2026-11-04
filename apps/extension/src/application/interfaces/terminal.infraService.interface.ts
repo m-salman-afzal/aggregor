@@ -4,7 +4,7 @@ import type {
   NoViewedSessionError,
   TerminalLaunchFailedError,
   TerminalNotFoundError
-} from "@/application/errors/terminal.infraService.error.ts";
+} from "@/application/interfaces/terminal.infraService.error.ts";
 import type {TerminalLaunchRequest} from "@/application/interfaces/terminal.infraService.type.ts";
 import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
 import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";

@@ -1,6 +1,6 @@
-import {NoProjectError} from "@/application/errors/project.service.error.ts";
 import {IPromptInfraService} from "@/application/interfaces/prompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@/application/interfaces/workspace.infraService.interface.ts";
+import {NoProjectError} from "@/application/services/project.service.error.ts";
 import {showErrorInBackground} from "@/application/utils/error.utils.ts";
 import {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
 import {IProjectRepository} from "@/domain/entities/project/project.repository.interface.ts";
@@ -8,7 +8,10 @@ import {PROJECT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {Effect, Match, Result, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
-import type {ProjectsCorruptError, ProjectsSaveFailedError} from "@/domain/errors/project.repository.error.ts";
+import type {
+  ProjectsCorruptError,
+  ProjectsSaveFailedError
+} from "@/domain/entities/project/project.repository.error.ts";
 
 const showProjectRepositoryError = Effect.fn("ProjectService.showProjectRepositoryError")(function* (
   projectRepositoryError: ProjectsCorruptError | ProjectsSaveFailedError

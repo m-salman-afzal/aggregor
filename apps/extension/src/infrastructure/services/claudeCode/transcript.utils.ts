@@ -1,5 +1,5 @@
-import {TranscriptNotFoundError} from "@/infrastructure/errors/claudeCodeHarness.infraService.error.ts";
 import {addTitleEntry, decodeTitleLine} from "@/infrastructure/services/claudeCode/claudeCode.transformer.ts";
+import {TranscriptNotFoundError} from "@/infrastructure/services/claudeCode/claudeCodeHarness.infraService.error.ts";
 import {ByteSize, Config, Effect, Result, Stream} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
