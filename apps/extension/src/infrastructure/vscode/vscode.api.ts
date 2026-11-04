@@ -26,7 +26,6 @@ export class VsCodeApi extends Context.Service<
     readonly workspaceState: vscode.Memento;
   }
 >()("aggregor/infrastructure/vscode/vscode.api/VsCodeApi") {
-  /* eslint-disable sort-keys */
   public static readonly layer = (extensionContext: vscode.ExtensionContext) =>
     Layer.succeed(VsCodeApi, {
       commands: vscode.commands,

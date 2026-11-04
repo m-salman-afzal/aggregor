@@ -164,6 +164,7 @@ const config: Config[] = defineConfig([
         }
       ],
       "sort-imports": "off",
+      "sort-keys": "off",
       // Every dotted part and folder is camelCase; .claude's skill folders follow Claude Code's kebab-case names.
       "unicorn/filename-case": [
         "error",
