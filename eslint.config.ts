@@ -12,39 +12,9 @@ import {defineConfig, globalIgnores} from "eslint/config";
 import globals from "globals";
 import tsEslint from "typescript-eslint";
 
+import {IMPORT_BANS, LAYER_CONFIGS, SYNTAX_BANS} from "./eslint.layers.ts";
+
 import type {Config} from "eslint/config";
-
-const OPTION_IMPORT_BANS = [
-  {importNames: ["Option"], message: "Use Result: its error says why a value is missing.", name: "effect"},
-  {message: "Use Result: its error says why a value is missing.", name: "effect/Option"}
-];
-
-// infrastructure/vscode/vscode.service.ts holds the one runtime import of vscode; everything else yields that service.
-const IMPORT_BANS = [
-  ...OPTION_IMPORT_BANS,
-  {allowTypeImports: true, message: "Import only vscode's types; yield VsCodeService for its values.", name: "vscode"}
-];
-
-// The layers' allow-lists.
-const APPLICATION_IMPORTS = {
-  message: "The application layer imports only effect, @pkg, and domain or application code.",
-  regex: "^(?!effect(/|$)|@pkg/|@/(domain|application)/)"
-};
-
-const PRESENTATION_IMPORTS = {
-  message:
-    "The presentation layer imports only effect, vscode types, @pkg, and domain, application or presentation code; " +
-    "from infrastructure, only vscode.service and utils.",
-  regex:
-    "^(?!effect(/|$)|vscode$|@pkg/|@/(domain|application|presentation)/|@/infrastructure/(vscode/vscode\\.service\\.ts$|utils/))"
-};
-
-const INFRASTRUCTURE_IMPORTS = {
-  message:
-    "The infrastructure layer imports only effect, @effect, vscode, node, @pkg, and domain, application or " +
-    "infrastructure code.",
-  regex: "^(?!effect(/|$)|@effect/|vscode$|node:|@pkg/|@/(domain|application|infrastructure)/)"
-};
 
 const config: Config[] = defineConfig([
   // ESLint does not read .gitignore. git.d.ts is synced from upstream vscode (also in .prettierignore).
@@ -169,15 +139,7 @@ const config: Config[] = defineConfig([
         {message: "Use Effect.fn: it adds the span itself.", object: "Effect", property: "gen"},
         {message: "Use Effect.fn: it adds the span itself.", object: "Effect", property: "withSpan"}
       ],
-      "no-restricted-syntax": [
-        "error",
-        {message: "No optional chaining: check the value explicitly.", selector: "ChainExpression"},
-        {
-          message: "No ??: check the value explicitly, or take a default with Result.getOrElse or UndefinedOr.match.",
-          selector: "LogicalExpression[operator='??']"
-        },
-        {message: "No ??=: check the value explicitly.", selector: "AssignmentExpression[operator='??=']"}
-      ],
+      "no-restricted-syntax": ["error", ...SYNTAX_BANS],
       "no-ternary": "off",
       "no-undefined": "off",
       "no-underscore-dangle": "off",
@@ -202,59 +164,18 @@ const config: Config[] = defineConfig([
         }
       ],
       "sort-imports": "off",
+      // Every dotted part and folder is camelCase; .claude's skill folders follow Claude Code's kebab-case names.
+      "unicorn/filename-case": [
+        "error",
+        {case: "camelCase", ignore: [String.raw`^\.claude$`], multipleFileExtensions: false}
+      ],
       "unicorn/name-replacements": [
         "error",
         {checkFilenames: false, replacements: {repo: {project: true, repository: false}}}
       ]
     }
   },
-  {
-    files: ["apps/extension/src/domain/**/*.ts"],
-    rules: {
-      "@typescript-eslint/no-restricted-imports": [
-        "error",
-        {
-          paths: OPTION_IMPORT_BANS,
-          patterns: [
-            {
-              message: "The domain layer imports only effect and other domain code.",
-              regex: "^(?!effect(/|$)|@/domain/)"
-            }
-          ]
-        }
-      ]
-    }
-  },
-  {
-    files: ["apps/extension/src/application/**/*.ts"],
-    rules: {
-      "@typescript-eslint/no-restricted-imports": [
-        "error",
-        {paths: OPTION_IMPORT_BANS, patterns: [APPLICATION_IMPORTS]}
-      ]
-    }
-  },
-  {
-    files: ["apps/extension/src/presentation/**/*.ts"],
-    rules: {
-      "@typescript-eslint/no-restricted-imports": ["error", {paths: IMPORT_BANS, patterns: [PRESENTATION_IMPORTS]}]
-    }
-  },
-  {
-    files: ["apps/extension/src/infrastructure/**/*.ts"],
-    rules: {
-      "@typescript-eslint/no-restricted-imports": ["error", {paths: IMPORT_BANS, patterns: [INFRASTRUCTURE_IMPORTS]}]
-    }
-  },
-  {
-    files: ["apps/extension/src/infrastructure/vscode/vscode.service.ts"],
-    rules: {
-      "@typescript-eslint/no-restricted-imports": [
-        "error",
-        {paths: OPTION_IMPORT_BANS, patterns: [INFRASTRUCTURE_IMPORTS]}
-      ]
-    }
-  }
+  ...LAYER_CONFIGS
 ]);
 
 export default config;

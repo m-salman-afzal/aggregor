@@ -1,4 +1,4 @@
-import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
+import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
 import {Effect, Queue, Stream} from "effect";
 
 import type {Disposable, Event, ProgressOptions} from "vscode";
@@ -16,7 +16,7 @@ export const fromEvent = <A>(event: Event<A>) =>
   Stream.callback<A>((queue) => acquireDisposable(() => event((value) => Queue.offerUnsafe(queue, value))));
 
 export const setContext = Effect.fn("setContext")(function* (contextKey: string, contextValue: unknown) {
-  const {commands} = yield* VsCodeService;
+  const {commands} = yield* VsCodeApi;
 
   yield* Effect.promise(async () => commands.executeCommand("setContext", contextKey, contextValue));
 });
@@ -25,7 +25,7 @@ export const withProgress = Effect.fn("withProgress")(function* <A, R>(
   progressOptions: ProgressOptions,
   effect: Effect.Effect<A, never, R>
 ) {
-  const {window} = yield* VsCodeService;
+  const {window} = yield* VsCodeApi;
   const runPromise = Effect.runPromiseWith(yield* Effect.context<R>());
 
   return yield* Effect.promise(async () => window.withProgress(progressOptions, async () => runPromise(effect)));

@@ -1,10 +1,10 @@
-import {HarnessClient} from "@/application/clients/harness.client.ts";
-import {TerminalClient} from "@/application/clients/terminal.client.ts";
+import {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";
+import {ITerminalInfraService} from "@/application/interfaces/terminal.infraService.interface.ts";
 import {listProjects} from "@/application/project/project.service.ts";
 import {getSessionDisplayName, listSessions} from "@/application/session/session.service.ts";
-import {withHarnessClient} from "@/application/utils/harness.utils.ts";
-import {Project} from "@/domain/entities/project/project.entity.ts";
-import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
+import {withHarnessInfraService} from "@/application/utils/harness.utils.ts";
+import {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
+import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
 import {
   COMMANDS,
   CONTEXT_VALUES,
@@ -17,32 +17,25 @@ import {SESSION_LABELS, STATUS_LABELS} from "@pkg/constants/src/message.constant
 import {Clock, Effect, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
-import type {Session} from "@/domain/entities/session/session.entity.ts";
-import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
-import type {Status} from "@/domain/value-objects/status.value-object.ts";
+import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
+import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
+import type {Row, RowStatus} from "@/presentation/views/sessions/sessions.view.type.ts";
 
 // How the Sessions tree draws its rows: project and session items, their status badges, and the tree's shape.
 
-// Projects at the top level, each with the sessions started in it.
-export type Row = Project | Session;
-
-// What a row shows. "unread" is an idle session whose last turn ended while it was out of view; undefined is a
-// terminal whose hooks have not fired yet.
-export type RowStatus = "unread" | Status;
-
-export const isProject = (row: Row): row is Project => row instanceof Project;
+export const isProject = (row: Row): row is ProjectEntity => row instanceof ProjectEntity;
 
 // Without a terminal in this window the agent is gone; with one, the hooks say what it is doing.
 export const getRowStatus = Effect.fn("getRowStatus")(function* (
-  session: Session,
-  unreadSessionIds: ReadonlySet<SessionId>
+  session: SessionEntity,
+  unreadSessionIds: ReadonlySet<SessionIdValueObject>
 ) {
-  const {isSessionTerminalOpen} = yield* TerminalClient;
+  const {isSessionTerminalOpen} = yield* ITerminalInfraService;
   if (!(yield* isSessionTerminalOpen(session.id))) return "exited" satisfies RowStatus;
 
-  const sessionStatuses = yield* withHarnessClient(
+  const sessionStatuses = yield* withHarnessInfraService(
     session.harnessId,
-    HarnessClient.use((harnessClient) => SubscriptionRef.get(harnessClient.sessionStatuses))
+    IHarnessInfraService.use((harnessInfraService) => SubscriptionRef.get(harnessInfraService.sessionStatuses))
   );
   const sessionStatus = sessionStatuses.get(session.id);
 
@@ -50,17 +43,17 @@ export const getRowStatus = Effect.fn("getRowStatus")(function* (
 });
 
 // The handle the status badge hangs off; the decoration provider reads the session id back from the path.
-export const getSessionRowUri = Effect.fn("getSessionRowUri")(function* (sessionId: SessionId) {
-  const {Uri} = yield* VsCodeService;
+export const getSessionRowUri = Effect.fn("getSessionRowUri")(function* (sessionId: SessionIdValueObject) {
+  const {Uri} = yield* VsCodeApi;
 
   return Uri.from({path: `/${sessionId}`, scheme: SESSION_URI_SCHEME});
 });
 
 export const createSessionTreeItem = Effect.fn("createSessionTreeItem")(function* (
-  session: Session,
+  session: SessionEntity,
   rowStatus: RowStatus | undefined
 ) {
-  const {TreeItem, Uri} = yield* VsCodeService;
+  const {TreeItem, Uri} = yield* VsCodeApi;
   const path = yield* Path;
   const statusLabel = rowStatus === undefined ? undefined : STATUS_LABELS[rowStatus];
   const rowLabel = yield* getSessionDisplayName(session);
@@ -68,9 +61,9 @@ export const createSessionTreeItem = Effect.fn("createSessionTreeItem")(function
   const treeItem = new TreeItem(rowLabel);
   treeItem.id = session.id;
   treeItem.iconPath = Uri.file(
-    yield* withHarnessClient(
+    yield* withHarnessInfraService(
       session.harnessId,
-      HarnessClient.useSync((harnessClient) => harnessClient.iconPath)
+      IHarnessInfraService.useSync((harnessInfraService) => harnessInfraService.iconPath)
     )
   );
   treeItem.resourceUri = yield* getSessionRowUri(session.id);
@@ -83,8 +76,8 @@ export const createSessionTreeItem = Effect.fn("createSessionTreeItem")(function
 });
 
 // The id is the path, which never collides with a session's UUID.
-export const createProjectTreeItem = Effect.fn("createProjectTreeItem")(function* (project: Project) {
-  const {ThemeIcon, TreeItem, TreeItemCollapsibleState} = yield* VsCodeService;
+export const createProjectTreeItem = Effect.fn("createProjectTreeItem")(function* (project: ProjectEntity) {
+  const {ThemeIcon, TreeItem, TreeItemCollapsibleState} = yield* VsCodeApi;
   const treeItem = new TreeItem(project.name, TreeItemCollapsibleState.Expanded);
   treeItem.id = project.path;
   treeItem.iconPath = new ThemeIcon(PROJECT_ICON);
@@ -97,7 +90,7 @@ export const createProjectTreeItem = Effect.fn("createProjectTreeItem")(function
 export const createStatusBadge = Effect.fn("createStatusBadge")(function* (rowStatus: RowStatus | undefined) {
   if (rowStatus === undefined || rowStatus === "idle") return undefined;
 
-  const {FileDecoration, ThemeColor} = yield* VsCodeService;
+  const {FileDecoration, ThemeColor} = yield* VsCodeApi;
   const {color, frames} = STATUS_BADGES[rowStatus];
   const frameIndex = Math.floor((yield* Clock.currentTimeMillis) / SPINNER_INTERVAL_MS) % frames.length;
 

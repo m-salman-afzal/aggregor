@@ -19,14 +19,17 @@ squash. The roadmap lives in `README.md`. Commit and push only when the user ask
 - **Delete aggressively.** Less code means fewer bugs.
 - **Semantic naming.** Name variables, parameters, functions and APIs with verbose, self-explanatory names that optimize
   for comprehension by both humans and LLMs, not brevity: `sessionId`, not `id`; `stagedDiff`, not `diff`. The commit
-  message code in `apps/extension/src/application/scm` and `infrastructure/clients/commit-cli` is the reference.
+  message code in `apps/extension/src/application/scm` and `infrastructure/services/commitCli` is the reference.
 - **No users before 0.1.0.** Until 0.1.0 ships, the author is the only user. Be brave: rename command IDs, setting keys
   and storage keys, change stored data without migrations, and leave no compatibility shims or deprecation paths.
 
 ## Architecture
 
 `DDD.md` holds the planned layering (domain, application, infrastructure, presentation) and the stack that moves the
-code there. Read it before deciding where code goes, and update it when a step lands or the plan changes.
+code there. Read it before deciding where code goes, and update it when a step lands or the plan changes. Each file's
+suffix names its role (`.entity.ts`, `.interface.ts`, `.infraService.ts` and so on), and `eslint.layers.ts` checks each
+layer's imports, the names each role requires, and where types and interfaces live. Enforce a new convention with a lint
+there, not only with prose here.
 
 ## Effect
 
@@ -36,7 +39,7 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
 
 - **Every effectful function is an `Effect.fn`**, which gives it its span. Error handling and other combinators go in
   `Effect.fn`'s extra arguments after the body, not in a `.pipe`; handling that only one caller needs gets its own small
-  `Effect.fn`. A layer's body is a named `Effect.fn` such as `makeTerminalClientOnVsCode`, passed to `Layer.effect`.
+  `Effect.fn`. A layer's body is a named `Effect.fn` such as `makeTerminalInfraService`, passed to `Layer.effect`.
   `.pipe` is only for what is not a function: layers, streams and schedules. Lint bans `Effect.gen` and
   `Effect.withSpan`.
 - **No `?.` and no `??`.** Check the value explicitly, or take a default with `Result.getOrElse` or `UndefinedOr.match`.
@@ -53,9 +56,9 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
 
 Every command runs as a root span named by its command ID, and each `Effect.fn` it calls is a child span. Name an
 `Effect.fn` after the function it defines; one that belongs to a service or view gets that name in front:
-`TerminalClient.openSessionTerminal`. Finished spans and Effect logs go to the **Aggregor App** output channel, one
-trace-level line per span:
-`aggregorApp.newSessionAskingForProject > newSession > startSession > openNewSessionTerminal > TerminalClient.openSessionTerminal 1.0ms ok`.
+`TerminalInfraService.openSessionTerminal`. Finished spans and Effect logs go to the **Aggregor App** output channel,
+one trace-level line per span:
+`aggregorApp.newSessionAskingForProject > newSession > startSession > openNewSessionTerminal > TerminalInfraService.openSessionTerminal 1.0ms ok`.
 Work a layer starts in the background, such as a watcher, nests under that layer's `make` span. F5 starts the extension
 at trace level; elsewhere, pick it with **Developer: Set Log Level...**. VS Code also writes the channel to
 `<logs>/window<n>/exthost/SalmanAfzal.aggregor-app/Aggregor App.log`, so a test run's trace can be read from disk.
@@ -70,7 +73,7 @@ pnpm lint:check    # ESLint over the whole repo (--max-warnings 0); reports only
 pnpm lint:fix      # Same, with --fix
 pnpm format:check  # Prettier over the whole repo; reports only
 pnpm format:fix    # Same, writing the changes
-pnpm typecheck     # tsc --noEmit in the apps and .claude's scripts; packages are covered through the apps importing them
+pnpm typecheck     # tsc --noEmit in the apps, the root config files and .claude's scripts; packages are covered through the apps
 pnpm quality       # lint:check + format:check + typecheck, in parallel
 pnpm lint-staged   # Same lint and format checks on staged files only (the husky pre-commit hook)
 pnpm bump          # On an up-to-date dev: pick the next version; pushes chore/bump-v<version> and opens its PR

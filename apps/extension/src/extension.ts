@@ -1,6 +1,6 @@
 import {AppLayer} from "@/infrastructure/di/app.layer.ts";
-import {TraceLogLayer} from "@/infrastructure/logger/trace-log.layer.ts";
-import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
+import {TraceLogLayer} from "@/infrastructure/logger/traceLog.layer.ts";
+import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
 import {RoutesLayer} from "@/presentation/routes.ts";
 import {SessionsView} from "@/presentation/views/sessions/sessions.view.ts";
 import {Layer, ManagedRuntime} from "effect";
@@ -13,7 +13,7 @@ const activate = async (extensionContext: ExtensionContext) => {
     Layer.mergeAll(RoutesLayer, SessionsView).pipe(
       Layer.provideMerge(AppLayer),
       Layer.provide(TraceLogLayer),
-      Layer.provideMerge(VsCodeService.layer(extensionContext))
+      Layer.provideMerge(VsCodeApi.layer(extensionContext))
     )
   );
   extensionContext.subscriptions.push({dispose: async () => runtime.dispose()});

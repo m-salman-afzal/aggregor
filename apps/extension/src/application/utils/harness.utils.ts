@@ -1,23 +1,25 @@
-import {Harnesses} from "@/application/clients/harness.client.ts";
-import {HarnessIdSchema} from "@/domain/value-objects/harness-id.value-object.ts";
+import {IHarnessInfraServices} from "@/application/interfaces/harness.infraService.interface.ts";
+import {HarnessIdValueObjectSchema} from "@/domain/valueObjects/harnessId.valueObject.ts";
 import {Effect} from "effect";
 
-import type {HarnessClient} from "@/application/clients/harness.client.ts";
-import type {HarnessId} from "@/domain/value-objects/harness-id.value-object.ts";
+import type {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";
+import type {HarnessIdValueObject} from "@/domain/valueObjects/harnessId.valueObject.ts";
 
-// Runs the effect with that harness's client.
-export const withHarnessClient = Effect.fn("withHarnessClient")(function* <A, E, R>(
-  harnessId: HarnessId,
-  effect: Effect.Effect<A, E, HarnessClient | R>
+// Runs the effect with that harness's infra service.
+export const withHarnessInfraService = Effect.fn("withHarnessInfraService")(function* <A, E, R>(
+  harnessId: HarnessIdValueObject,
+  effect: Effect.Effect<A, E, IHarnessInfraService | R>
 ) {
-  const harnesses = yield* Harnesses;
+  const harnessInfraServices = yield* IHarnessInfraServices;
 
-  return yield* Effect.provide(effect, harnesses.get(harnessId));
+  return yield* Effect.provide(effect, harnessInfraServices.get(harnessId));
 });
 
-// Runs the effect once with each harness's client, in HarnessId order.
-export const forEachHarnessClient = Effect.fn("forEachHarnessClient")(function* <A, E, R>(
-  effect: Effect.Effect<A, E, HarnessClient | R>
+// Runs the effect once with each harness's infra service, in HarnessIdValueObject order.
+export const forEachHarnessInfraService = Effect.fn("forEachHarnessInfraService")(function* <A, E, R>(
+  effect: Effect.Effect<A, E, IHarnessInfraService | R>
 ) {
-  return yield* Effect.forEach(HarnessIdSchema.literals, (harnessId) => withHarnessClient(harnessId, effect));
+  return yield* Effect.forEach(HarnessIdValueObjectSchema.literals, (harnessId) =>
+    withHarnessInfraService(harnessId, effect)
+  );
 });
