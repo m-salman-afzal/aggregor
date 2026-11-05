@@ -15,7 +15,7 @@ data that processes other than the extension write, or that is too big for `glob
 - **Holds:** one word: `running`, `needs-input`, `idle` or `exited`.
 - **Written by:** the Claude Code hooks in [hooks.json](apps/extension/assets/hooks.json). Each session's terminal gets
   the file's path in the `AGGREGOR_STATUS_FILE` env var.
-- **Read by:** `ClaudeCodeHarnessClient`, which watches the folder and feeds the Sessions tree.
+- **Read by:** `ClaudeCodeHarnessInfraService`, which watches the folder and feeds the Sessions tree.
 - **Why:** live status. Hooks are shell one-liners, so a plain file is the simplest thing they can write, and every
   window can watch the same folder.
 - **Cleaned up:** deleted before each launch and when the session is removed. Removing a running session can leave the
@@ -29,10 +29,10 @@ JSON the extension alone reads and writes.
 
 ### `savedSessions`
 
-- **Holds:** `{version: 1, sessions: [{id, name, projectPath, harnessId}]}`: the `StoredSessions` model
+- **Holds:** `{version: 1, sessions: [{id, name, projectPath, harnessId}]}`: the `StoredSessionsModel`
   (`infrastructure/database/models/`).
-- **Written by:** `SessionRepositoryOnGlobalState`, with a read-modify-write on every add and remove.
-- **Read by:** `SessionRepositoryOnGlobalState` at startup and whenever a window regains focus.
+- **Written by:** `SessionRepository`, with a read-modify-write on every add and remove.
+- **Read by:** `SessionRepository` at startup and whenever a window regains focus.
 - **Why:** sessions survive reloads and are shared by every window.
 - **Cleaned up:** an entry goes when its session is removed. Removing a project keeps its sessions, so adding the
   project again lists them again. Any change to the shape bumps `version`, so older windows refuse to decode it instead
@@ -51,10 +51,10 @@ The same kind of key-value store as `globalState`, but one per workspace: only a
 
 ### `addedProjectPaths`
 
-- **Holds:** `{version: 1, addedProjectPaths: [path]}`: the `StoredAddedProjectPaths` model, the absolute paths added
+- **Holds:** `{version: 1, addedProjectPaths: [path]}`: the `StoredAddedProjectPathsModel`, the absolute paths added
   with Add Project. Workspace folders are not stored.
-- **Written by:** `ProjectRepositoryOnWorkspaceState`, with a read-modify-write on every Add Project and Remove Project.
-- **Read by:** `ProjectRepositoryOnWorkspaceState` at startup and before every write.
+- **Written by:** `ProjectRepository`, with a read-modify-write on every Add Project and Remove Project.
+- **Read by:** `ProjectRepository` at startup and before every write.
 - **Why:** each window lists its own projects, so sessions started in one workspace don't show in the others.
 - **Cleaned up:** Remove Project drops the path. VS Code deletes the key with the workspace's storage. Any change to the
   shape bumps `version`, as for `savedSessions`.

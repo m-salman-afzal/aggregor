@@ -8,6 +8,14 @@ import path from "node:path";
 import {CDP_PORT, evaluate, findWorkbenchPage, listCdpTargets, screenshot} from "./cdp.ts";
 import {findClaudeProcessId, findProcessTree, isClaudeProcess, readProcessFile, sendSignal} from "./processes.ts";
 
+// What start leaves for the other commands and for the hooks: whose launch it is and where its trace log went.
+interface VerifyState {
+  readonly ownerProcessId: null | number;
+  readonly startedAt: number;
+  readonly traceLogPath?: string;
+  readonly workspacePath: string;
+}
+
 const MAX_LIFETIME_SECONDS = 20 * 60;
 const STATE_DIRECTORY = path.join(operatingSystem.homedir(), ".cache", "aggregor-verify");
 const STATE_FILE = path.join(STATE_DIRECTORY, "state.json");
@@ -46,14 +54,6 @@ code --ozone-platform=wayland --password-store=basic --user-data-dir "$2" --exte
 while [ "$SECONDS" -lt "$7" ] && { [ -z "$8" ] || kill -0 "$8" 2>/dev/null; }; do sleep 5; done
 exec "\${10}" "$9" stop --watchdog
 `;
-
-// What start leaves for the other commands and for the hooks: whose launch it is and where its trace log went.
-interface VerifyState {
-  readonly ownerProcessId: null | number;
-  readonly startedAt: number;
-  readonly traceLogPath?: string;
-  readonly workspacePath: string;
-}
 
 const sleep = async (milliseconds: number) =>
   new Promise((resolve) => {

@@ -1,62 +1,64 @@
-import {CommitCliClient} from "@/application/clients/commit-cli.client.ts";
-import {GitClient} from "@/application/clients/git.client.ts";
-import {PromptClient} from "@/application/clients/prompt.client.ts";
-import {SettingsClient} from "@/application/clients/settings.client.ts";
+import {ICommitCliInfraService} from "@/application/interfaces/commitCli.infraService.interface.ts";
+import {IGitInfraService} from "@/application/interfaces/git.infraService.interface.ts";
+import {IPromptInfraService} from "@/application/interfaces/prompt.infraService.interface.ts";
+import {ISettingsConfig} from "@/application/interfaces/settings.config.interface.ts";
 import {showErrorInBackground} from "@/application/utils/error.utils.ts";
-import {ProjectRepository} from "@/domain/entities/project/project.repository.ts";
+import {IProjectRepository} from "@/domain/entities/project/project.repository.interface.ts";
 import {ACTIONS, COMMIT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {Effect, Ref, Stream, SubscriptionRef} from "effect";
 
-import type {ProjectPath} from "@/domain/value-objects/project-path.value-object.ts";
+import type {ProjectPathValueObject} from "@/domain/valueObjects/projectPath.valueObject.ts";
 
 // The commit command writes the message for the staged changes into Source Control, and commits when autoCommit is on.
-const writeCommitMessage = Effect.fn("writeCommitMessage")(function* (projectPath: ProjectPath) {
-  const {autoCommit, commitCommand} = yield* SettingsClient.use((settingsClient) => settingsClient.readSettings());
-  const gitClient = yield* GitClient;
-  const stagedDiff = yield* gitClient.getStagedDiff(projectPath);
-  const commitMessage = yield* CommitCliClient.use((commitCliClient) =>
-    commitCliClient.generateCommitMessage({commitCommand, projectPath, stagedDiff})
+const writeCommitMessage = Effect.fn("writeCommitMessage")(function* (projectPath: ProjectPathValueObject) {
+  const {autoCommit, commitCommand} = yield* ISettingsConfig.use((settingsConfig) => settingsConfig.readSettings());
+  const gitInfraService = yield* IGitInfraService;
+  const stagedDiff = yield* gitInfraService.getStagedDiff(projectPath);
+  const commitMessage = yield* ICommitCliInfraService.use((commitCliInfraService) =>
+    commitCliInfraService.generateCommitMessage({commitCommand, projectPath, stagedDiff})
   );
 
-  yield* gitClient.setCommitMessageInput(projectPath, commitMessage);
-  if (autoCommit) yield* gitClient.commit(projectPath, commitMessage);
+  yield* gitInfraService.setCommitMessageInput(projectPath, commitMessage);
+  if (autoCommit) yield* gitInfraService.commit(projectPath, commitMessage);
 });
 
 // Every failure but NothingStaged becomes a message; the caller answers NothingStaged by offering to stage everything.
 export const writeCommitMessageOrShowError = Effect.fn("writeCommitMessageOrShowError")(
-  function* (projectPath: ProjectPath) {
+  function* (projectPath: ProjectPathValueObject) {
     yield* writeCommitMessage(projectPath);
   },
   Effect.catchTags({
     CommitCliError: ({exitCode, stderr}) => showErrorInBackground(COMMIT_MESSAGES.COMMIT_CLI_FAILED(exitCode, stderr)),
-    CommitCliSpawnFailed: ({reason}) => showErrorInBackground(COMMIT_MESSAGES.CLAUDE_CLI_FAILED(reason)),
-    CommitFailed: () => showErrorInBackground(COMMIT_MESSAGES.COMMIT_FAILED),
-    EmptyCommitMessage: () => showErrorInBackground(COMMIT_MESSAGES.EMPTY_COMMIT_MESSAGE),
+    CommitCliSpawnFailedError: ({reason}) => showErrorInBackground(COMMIT_MESSAGES.CLAUDE_CLI_FAILED(reason)),
+    CommitFailedError: () => showErrorInBackground(COMMIT_MESSAGES.COMMIT_FAILED),
+    EmptyCommitMessageError: () => showErrorInBackground(COMMIT_MESSAGES.EMPTY_COMMIT_MESSAGE),
     GitDiffError: () => showErrorInBackground(COMMIT_MESSAGES.GIT_DIFF_FAILED),
-    GitExtensionDisabled: () => showErrorInBackground(COMMIT_MESSAGES.GIT_EXTENSION_DISABLED),
-    GitExtensionUnavailable: () => showErrorInBackground(COMMIT_MESSAGES.GIT_EXTENSION_UNAVAILABLE),
-    GitRepositoryUnavailable: () => showErrorInBackground(COMMIT_MESSAGES.GIT_REPOSITORY_UNAVAILABLE),
-    InvalidSettings: ({reason}) => showErrorInBackground(COMMIT_MESSAGES.INVALID_SETTINGS(reason))
+    GitExtensionDisabledError: () => showErrorInBackground(COMMIT_MESSAGES.GIT_EXTENSION_DISABLED),
+    GitExtensionUnavailableError: () => showErrorInBackground(COMMIT_MESSAGES.GIT_EXTENSION_UNAVAILABLE),
+    GitRepositoryUnavailableError: () => showErrorInBackground(COMMIT_MESSAGES.GIT_REPOSITORY_UNAVAILABLE),
+    InvalidSettingsError: ({reason}) => showErrorInBackground(COMMIT_MESSAGES.INVALID_SETTINGS(reason))
   })
 );
 
 // True when the user picked Stage All and everything is now staged.
-export const offerToStageAllChanges = Effect.fn("offerToStageAllChanges")(function* (projectPath: ProjectPath) {
-  const pickedAction = yield* PromptClient.use((promptClient) =>
-    promptClient.showErrorMessage(COMMIT_MESSAGES.NOTHING_STAGED, ACTIONS.STAGE_ALL)
+export const offerToStageAllChanges = Effect.fn("offerToStageAllChanges")(function* (
+  projectPath: ProjectPathValueObject
+) {
+  const pickedAction = yield* IPromptInfraService.use((promptInfraService) =>
+    promptInfraService.showErrorMessage(COMMIT_MESSAGES.NOTHING_STAGED, ACTIONS.STAGE_ALL)
   );
   if (pickedAction !== ACTIONS.STAGE_ALL) return false;
 
-  yield* GitClient.use((gitClient) => gitClient.stageAll(projectPath));
+  yield* IGitInfraService.use((gitInfraService) => gitInfraService.stageAll(projectPath));
 
   return true;
 });
 
 const syncAddedProjectsWithSourceControl = Effect.fn("syncAddedProjectsWithSourceControl")(function* (
-  syncedProjectPaths: Ref.Ref<ReadonlySet<ProjectPath>>,
-  currentAddedProjectPaths: readonly ProjectPath[]
+  syncedProjectPaths: Ref.Ref<ReadonlySet<ProjectPathValueObject>>,
+  currentAddedProjectPaths: readonly ProjectPathValueObject[]
 ) {
-  const {closeInSourceControl, openInSourceControl} = yield* GitClient;
+  const {closeInSourceControl, openInSourceControl} = yield* IGitInfraService;
   const previouslySyncedProjectPaths = yield* Ref.getAndSet(syncedProjectPaths, new Set(currentAddedProjectPaths));
 
   yield* Effect.forEach(
@@ -72,8 +74,8 @@ const syncAddedProjectsWithSourceControl = Effect.fn("syncAddedProjectsWithSourc
 // Keeps Source Control in step with the added projects: each opens there, at startup too, and closes when removed. The git
 // extension does not remember repositories opened this way, so every startup opens them again.
 export const startSourceControlSync = Effect.fn("startSourceControlSync")(function* () {
-  const {addedProjectPaths} = yield* ProjectRepository;
-  const syncedProjectPaths = yield* Ref.make<ReadonlySet<ProjectPath>>(new Set());
+  const {addedProjectPaths} = yield* IProjectRepository;
+  const syncedProjectPaths = yield* Ref.make<ReadonlySet<ProjectPathValueObject>>(new Set());
 
   yield* Effect.forkScoped(
     Stream.runForEach(SubscriptionRef.changes(addedProjectPaths), (currentAddedProjectPaths) =>

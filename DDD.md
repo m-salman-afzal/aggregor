@@ -1,140 +1,173 @@
 # DDD plan
 
-Status: steps 0 to 5 of the `ddd` stack have landed; 6 and 7 rename things so each name says what it is. Today `domain/`
-holds the entities, value objects and repository interfaces, `application/` the use cases behind their client
-interfaces, `infrastructure/` VS Code, storage, logging, settings, the client implementations and the layer graph, and
+Status: done. Every step of the `ddd` stack has landed: `domain/` holds the entities, value objects and repository
+interfaces, `application/` the use cases behind the interfaces of the infra services and config they need,
+`infrastructure/` VS Code's API, storage, logging, the implementations of those interfaces and the layer graph, and
 `presentation/` the routes, controllers, the command middleware and the Sessions view. Every file but `extension.ts`
-sits in a layer. Keep this file in step with the code whenever a change moves where code goes.
+sits in a layer, and its name says which. Keep this file in step with the code whenever a change moves where code goes.
 
 The layering follows vs-uc-api (a layered DDD Express API: `Domain`, `Application`, `Infrastructure`, plus `http/` for
 presentation), adapted to Effect, with the places where vs-uc-api's layers leaked into each other fixed.
 
 ## Layers
 
-| Layer             | Holds                                                                       | May import                                                                                   |
-| ----------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `domain/`         | Entities, repository interfaces, value objects, transformers, domain errors | `effect` only                                                                                |
-| `application/`    | Services (the use cases), client interfaces, application errors             | `domain`, `@pkg/*`                                                                           |
-| `infrastructure/` | VS Code, storage, outside clients, the layer graph, logging, settings       | `domain`, `application` (to implement its interfaces), `vscode`, node, `@effect/*`, `@pkg/*` |
-| `presentation/`   | Command routes, controllers, the command middleware, views                  | `application`, `domain`, `@pkg/*`, and from infrastructure only `vscode.service` and utils   |
-| `extension.ts`    | `activate`: builds the runtime from the layer graph                         | everything                                                                                   |
+| Layer             | Holds                                                                        | May import                                                                                   |
+| ----------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `domain/`         | Entities, repository interfaces, value objects, repository errors            | `effect` only                                                                                |
+| `application/`    | Services (the use cases), infra service and config interfaces, their errors  | `domain`, `@pkg/*`                                                                           |
+| `infrastructure/` | VS Code's API, repositories, models, infra services, config, layers, logging | `domain`, `application` (to implement its interfaces), `vscode`, node, `@effect/*`, `@pkg/*` |
+| `presentation/`   | Command routes, controllers, the command middleware, views                   | `application`, `domain`, `@pkg/*`, and from infrastructure only `vscode.api` and utils       |
+| `extension.ts`    | `activate`: builds the runtime from the layer graph                          | everything                                                                                   |
 
 Lint enforces the import column with `@typescript-eslint/no-restricted-imports`: one block per layer in
-`eslint.config.ts`, with a regex allow-list over the `@/` import paths. All four layers are enforced. Outside
-`infrastructure/vscode/vscode.service.ts`, `vscode` is a type-only import, and `application` never sees it, not even its
+`eslint.layers.ts`, with a regex allow-list over the `@/` import paths. All four layers are enforced. Outside
+`infrastructure/vscode/vscode.api.ts`, `vscode` is a type-only import, and `application` never sees it, not even its
 types.
+
+## Naming
+
+Each file's suffix names its role, each role lives in one layer, and the file's main names carry the role.
+`eslint.layers.ts` checks the names with `@typescript-eslint/naming-convention`, one block per file suffix.
+
+| Role                         | Layer                 | File                                           | Names                                                |
+| ---------------------------- | --------------------- | ---------------------------------------------- | ---------------------------------------------------- |
+| Entity                       | domain                | `entities/<x>/<x>.entity.ts`                   | `SessionEntity`                                      |
+| Value object                 | domain                | `valueObjects/<x>.valueObject.ts`              | `SessionIdValueObject`, `SessionIdValueObjectSchema` |
+| Repository interface         | domain                | `entities/<x>/<x>.repository.interface.ts`     | `ISessionRepository`                                 |
+| Application service          | application           | `<feature>/<feature>.service.ts`               | functions, imported as `SessionService`              |
+| Infra service interface      | application           | `interfaces/<x>.infraService.interface.ts`     | `ITerminalInfraService`                              |
+| Config interface             | application           | `interfaces/<x>.config.interface.ts`           | `ISettingsConfig`                                    |
+| Repository                   | infrastructure        | `repositories/<x>.repository.ts`               | `SessionRepository`                                  |
+| Infra service                | infrastructure        | `services/<backend>/<x>.infraService.ts`       | `TerminalInfraService`                               |
+| Config                       | infrastructure        | `config/<x>.config.ts`                         | `SettingsConfig`                                     |
+| Model                        | infrastructure        | `database/models/<x>.model.ts`                 | `StoredSessionsModel`                                |
+| Layer                        | infrastructure        | `di/<x>.layer.ts`, `logger/<x>.layer.ts`       | `AppLayer`                                           |
+| Controller, view, middleware | presentation          | `.controller.ts`, `.view.ts`, `.middleware.ts` | `SessionController`, `SessionsView`                  |
+| Error                        | its interface's layer | `errors/<declaring file>.error.ts`             | `SessionsCorruptError`                               |
+| Shared types                 | any                   | `<declaring file>.type.ts`, beside it          | plain names; an interface's inputs end in `Request`  |
+
+- File and folder names are camelCase in every dotted part, as in `claudeCodeHarness.infraService.error.ts`;
+  `unicorn/filename-case` checks them everywhere but `.claude`, whose skill folders follow Claude Code's names.
+- An implementation's file is its interface's file without `.interface`, so a search for `terminal.infraService` finds
+  the interface, its implementation, its errors and its types.
+- `I` marks only our interfaces, the `Context.Service` classes, and lint keeps those in `.interface.ts` files. Data
+  shapes take no prefix.
+- Types and interfaces sit at the top of a file, right after the imports. Exported ones live in `.type.ts` files, which
+  hold nothing else; only a value object's type and an error union stay with their value object or errors. Lint
+  (`no-restricted-syntax`) checks all three.
+- Aggregates and domain services get `.aggregate.ts` and `.domainService.ts` once the first one exists. Today each
+  entity is a one-entity aggregate root.
 
 ## From vs-uc-api to aggregor
 
-| vs-uc-api                                         | aggregor                                                                |
-| ------------------------------------------------- | ----------------------------------------------------------------------- |
-| `Domain/Entities/<X>/{XEntity, IXRepository}`     | `domain/entities/<x>/{x.entity.ts, x.repository.ts}`                    |
-| `Domain/ValueObjects`                             | `domain/value-objects/`, as branded or literal schemas                  |
-| `Domain/Transformers` (Drchrono data to ours)     | `domain/transformers/` (Claude Code formats to ours)                    |
-| `Domain/Validations`                              | none: decoding with Schema is the validation                            |
-| `Application/<Feature>/<Feature>Service`          | `application/<feature>/<feature>.service.ts`                            |
-| `Application/<Feature>/Dtos`                      | none: controllers decode arguments into entities and branded ids        |
-| `Application/Utils`                               | `application/utils/`                                                    |
-| `Infrastructure/Database/Models`                  | `infrastructure/database/models/`: the versioned shapes kept in VS Code |
-| `Infrastructure/Repository`, `MysqlRepository`    | `infrastructure/repositories/`, on VS Code's global and workspace state |
-| `Infrastructure/Services/ThirdPartyClient/<X>`    | `infrastructure/clients/<x>/`                                           |
-| `Infrastructure/DIContainer/{Container,Resolver}` | `infrastructure/di/`: a graph of Effect layers, no resolver             |
-| `Infrastructure/{Logger,Config,Error,Utils}`      | `infrastructure/{logger,config,errors,utils}/`                          |
-| `http/{Routes,Controllers,Middlewares,Sockets}`   | `presentation/{routes.ts,controllers/,middlewares/,views/}`             |
-| `http/Server`                                     | `extension.ts`                                                          |
+| vs-uc-api                                         | aggregor                                                                                      |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `Domain/Entities/<X>/{XEntity, IXRepository}`     | `domain/entities/<x>/{x.entity.ts, x.repository.interface.ts}`                                |
+| `Domain/ValueObjects`                             | `domain/valueObjects/`, as branded or literal schemas                                         |
+| `Domain/Transformers` (Drchrono data to ours)     | `<harness>.transformer.ts` (Claude Code formats to ours), beside the infra service reading it |
+| `Domain/Validations`                              | none: decoding with Schema is the validation                                                  |
+| `Application/<Feature>/<Feature>Service`          | `application/<feature>/<feature>.service.ts`                                                  |
+| `Application/<Feature>/Dtos`                      | none: controllers decode arguments into entities and branded ids                              |
+| `Application/Utils`                               | `application/utils/`                                                                          |
+| `Infrastructure/Database/Models`                  | `infrastructure/database/models/`: the versioned shapes kept in VS Code                       |
+| `Infrastructure/Repository`, `MysqlRepository`    | `infrastructure/repositories/`, on VS Code's global and workspace state                       |
+| `Infrastructure/Services/ThirdPartyClient/<X>`    | `infrastructure/services/<backend>/<x>.infraService.ts`                                       |
+| `Infrastructure/DIContainer/{Container,Resolver}` | `infrastructure/di/`: a graph of Effect layers, no resolver                                   |
+| `Infrastructure/{Logger,Config,Error,Utils}`      | `infrastructure/{logger,config,errors,utils}/`                                                |
+| `http/{Routes,Controllers,Middlewares,Sockets}`   | `presentation/{routes.ts,controllers/,middlewares/,views/}`                                   |
+| `http/Server`                                     | `extension.ts`                                                                                |
 
-## Target tree
-
-`←` names the code that moves there today.
+## Tree
 
 ```text
 apps/extension/src/
   domain/
     entities/
       session/
-        session.entity.ts        Session (Schema.Class: id, projectPath, name, harnessId), getNewSessionName,
-                                 getUnreadSessionIds (done)
-        session.repository.ts    SessionRepository interface: sessions ref, modifySessions (done)
+        session.entity.ts                  SessionEntity (Schema.Class: id, projectPath, name, harnessId),
+                                           getNewSessionName, getUnreadSessionIds
+        session.repository.interface.ts    ISessionRepository: sessions ref, modifySessions
       project/
-        project.entity.ts           Project (Schema.Class: path, name, added) (done)
-        project.repository.ts       ProjectRepository interface: addedProjectPaths ref, modifyAddedProjectPaths (done)
-    value-objects/               one <name>.value-object.ts each: SessionIdSchema, ProjectPathSchema (branded),
-                                 StatusSchema, HarnessIdSchema (literals), LaunchPlan (an interface) (done)
-    transformers/
-      claude-code.transformer.ts transcript line to title, status-file text to Status (done)
-    errors/                      SessionNotFound, TitleNotFound, and the repository errors SessionsCorrupt,
-                                 SessionsSaveFailed, ProjectsCorrupt, ProjectsSaveFailed (done)
+        project.entity.ts                  ProjectEntity (Schema.Class: path, name, added)
+        project.repository.interface.ts    IProjectRepository: addedProjectPaths ref, modifyAddedProjectPaths
+    valueObjects/                          SessionIdValueObject, ProjectPathValueObject (branded), StatusValueObject,
+                                           HarnessIdValueObject (literals), LaunchPlanValueObject (an interface)
+    errors/                                the repository errors, by repository interface
   application/
-    session/session.service.ts   newSession, openSession, removeSession, listSessions, findSession,
-                                 getSessionDisplayName (done)
-    project/project.service.ts         listProjects, pickProject, addProject, removeProject (done)
-    scm/scm.service.ts           writeCommitMessageOrShowError, offerToStageAllChanges, startSourceControlSync (done)
-    clients/                     interfaces to outside systems
-      harness.client.ts          HarnessClient: prepareLaunch, clearSessionStatus, getSessionTitle, sessionStatuses,
-                                 sessionTitles, iconPath; Harnesses: a LayerMap of them by HarnessId (done)
-      terminal.client.ts         open, focus, close, isOpen, openSessionIds, activatedSessionIds, viewedSessionId
-                                 (done)
-      prompt.client.ts           showErrorMessage, confirm, pickProject, pickProjectFolderPaths (done)
-      workspace.client.ts        listWorkspaceFolderProjects (done)
-      git.client.ts              getStagedDiff, setCommitMessageInput, commit, stageAll, open or close a project in
-                                 Source Control, all by ProjectPath (done)
-      commit-cli.client.ts       generateCommitMessage from the staged diff (done)
-      settings.client.ts         readSettings (done)
-    utils/                       showErrorInBackground, withHarnessClient, forEachHarnessClient (done)
-    errors/                      RemoveCancelled, ProjectPickCancelled, FolderPickCancelled, NoProject, TerminalNotFound,
-                                 TerminalLaunchFailed, why no session is in view, the git, commit CLI and settings
-                                 errors, SessionTitleNotFound (done)
+    session/session.service.ts             newSession, openSession, removeSession, listSessions, findSession,
+                                           getSessionDisplayName
+    project/project.service.ts             listProjects, pickProject, addProject, removeProject
+    scm/scm.service.ts                     writeCommitMessageOrShowError, offerToStageAllChanges, startSourceControlSync
+    interfaces/
+      harness.infraService.interface.ts    IHarnessInfraService: prepareLaunch, clearSessionStatus, getSessionTitle,
+                                           sessionStatuses, sessionTitles, iconPath; IHarnessInfraServices: a LayerMap
+                                           of them by harness id
+      terminal.infraService.interface.ts   open, focus, close, isOpen, openSessionIds, activatedSessionIds,
+                                           viewedSessionId; TerminalLaunchRequest in its .type.ts
+      prompt.infraService.interface.ts     showErrorMessage, confirm, pickProject, pickProjectFolderPaths
+      workspace.infraService.interface.ts  listWorkspaceFolderProjects
+      git.infraService.interface.ts        getStagedDiff, setCommitMessageInput, commit, stageAll, open or close in
+                                           Source Control
+      commitCli.infraService.interface.ts  generateCommitMessage; CommitMessageRequest in its .type.ts
+      settings.config.interface.ts         readSettings; Settings in its .type.ts
+    utils/                                 showErrorInBackground, withHarnessInfraService, forEachHarnessInfraService
+    errors/                                by the interface or service that raises them
   infrastructure/
-    vscode/vscode.service.ts     the only runtime import of vscode (done)
-    database/models/             StoredSessions v1, StoredAddedProjectPaths v1 (done)
+    vscode/vscode.api.ts                   VsCodeApi: the only runtime import of vscode
+    database/models/                       StoredSessionsModel v1, StoredAddedProjectPathsModel v1
     repositories/
-      session.repository.ts      SessionRepositoryOnGlobalState: reloads on window focus (done)
-      project.repository.ts         ProjectRepositoryOnWorkspaceState (done)
-    clients/
-      claude-code/               ClaudeCodeHarnessClient: the `claude` launch plan, --settings hooks, the status env
-                                 var, status-file and transcript watchers (done)
-      vscode/                    TerminalClientOnVsCode, PromptClientOnVsCode, WorkspaceClientOnVsCode,
-                                 GitClientOnVsCode (done)
-      commit-cli/                CommitCliClientOnChildProcess: runs the configured commit command (done)
+      session.repository.ts                SessionRepository, on globalState: reloads on window focus
+      project.repository.ts                ProjectRepository, on workspaceState
+    services/
+      claudeCode/                          ClaudeCodeHarnessInfraService: the `claude` launch plan, --settings hooks,
+                                           the status env var, status-file and transcript watchers, and the
+                                           transformer from Claude Code's formats to ours
+      vscode/                              TerminalInfraService, PromptInfraService, WorkspaceInfraService,
+                                           GitInfraService
+      commitCli/                           CommitCliInfraService: runs the configured commit command
+    config/settings.config.ts              SettingsConfig
     di/
-      app.layer.ts               AppLayer: the layer graph under the commands and views (done)
-      harnesses.layer.ts         HarnessesLayer: LayerMap.fromRecord from HarnessId to its client layer (done)
-    logger/trace-log.layer.ts    TraceLogLayer (done)
-    config/settings.client.ts    SettingsClientOnVsCode (done)
-    utils/vscode.utils.ts        acquireDisposable, fromEvent, setContext, withProgress (done)
-    errors/                      TranscriptNotFound (done)
+      app.layer.ts                         AppLayer: the layer graph under the commands and views
+      harnessInfraServices.layer.ts        HarnessInfraServicesLayer: LayerMap.fromRecord from harness id to its
+                                           infra service
+    logger/traceLog.layer.ts               TraceLogLayer
+    utils/vscode.utils.ts                  acquireDisposable, fromEvent, setContext, withProgress
+    errors/                                what only the Claude Code harness raises: TitleNotFoundError,
+                                           TranscriptNotFoundError
   presentation/
-    routes.ts                    RoutesLayer: command ID to controller (done)
-    middlewares/register-command.ts  root span per command, crash logging, InvalidCommandArguments shown (done)
-    controllers/                 session, project: decode the tree-row arguments, call the service; scm: SourceControl
-                                 to ProjectPath, progress, retry after Stage All (done)
-    errors/                      RootUriUnavailable, InvalidCommandArguments, RevealFailed (done)
-    utils/                       decodeCommandArgument (done)
-    views/sessions/              tree view, rows, badges, spinner (done)
-  extension.ts                   activate
+    routes.ts                              RoutesLayer: command ID to controller
+    middlewares/registerCommand.middleware.ts  root span per command, crash logging, InvalidCommandArgumentsError
+    controllers/                           session, project: decode the tree-row arguments, call the service; scm:
+                                           SourceControl to project path, progress, retry after Stage All
+    errors/                                by the middleware, controller or view that raises them
+    utils/                                 decodeCommandArgument
+    views/sessions/                        SessionsView: tree view, rows, badges, spinner
+  extension.ts                             activate
 ```
 
 The unread state stays with the view until the needs-input alerts (M2) need it too; only its rule moves to the entity.
 
 ## Dependency injection
 
-- **Interface:** a `Context.Service` class in `domain/entities` (repositories) or `application/clients`. It has no
-  static `layer`.
-- **Implementation:** a `Layer` exported from `infrastructure`, such as `SessionRepositoryOnGlobalState`.
+- **Interface:** a `Context.Service` class named `I<Name>` in a `.interface.ts` file: repositories next to their entity
+  in `domain/entities`, the rest in `application/interfaces`. It has no static `layer`.
+- **Implementation:** a `Layer` exported from `infrastructure`, named after its interface without the `I`, such as
+  `SessionRepository` or `TerminalInfraService`. The backend shows in the folder (`services/vscode/`), not the name.
+  Harnesses are the exception, `ClaudeCodeHarnessInfraService`: the harness id is what tells them apart.
 - **Container:** `infrastructure/di/app.layer.ts` merges the layers into `AppLayer`; `extension.ts` puts the commands
-  and views on top, with the trace log and `VsCodeService` underneath. There is no resolver: a use case's type lists the
+  and views on top, with the trace log and `VsCodeApi` underneath. There is no resolver: a use case's type lists the
   interfaces it needs, so a missing layer is a compile error. vs-uc-api's string tokens failed at runtime.
-- **Several implementations at once:** `Harnesses` (in `application/clients`) is a service holding a
-  `LayerMap<HarnessId, HarnessClient>`; `infrastructure/di/harnesses.layer.ts` builds it with `LayerMap.fromRecord` over
-  a record that `satisfies Record<HarnessId, Layer<HarnessClient>>`, so a `HarnessId` without an implementation fails to
-  compile. Every harness starts with the window and never idles out, since the view reads its statuses all the time. Use
-  cases run `withHarnessClient(session.harnessId, effect)`, and the view merges every harness's statuses and titles with
-  `forEachHarnessClient`. A new harness is one transformer, one `infrastructure/clients/<harness>/` folder and one
-  record entry.
-- **Harness and terminal don't know each other:** the harness returns a `LaunchPlan` (command, arguments, environment
-  variables) and the terminal client runs it.
-- **Later, with their roadmap items:** a `Hosts` LayerMap keyed by host id for SSH, a worktree client for M3, and tmux
-  as a wrapper around the `LaunchPlan`.
+- **Several implementations at once:** `IHarnessInfraServices` (in `application/interfaces`) is a service holding a
+  `LayerMap<HarnessIdValueObject, IHarnessInfraService>`; `infrastructure/di/harnessInfraServices.layer.ts` builds it
+  with `LayerMap.fromRecord` over a record that `satisfies Record<HarnessIdValueObject, Layer<IHarnessInfraService>>`,
+  so a harness id without an implementation fails to compile. Every harness starts with the window and never idles out,
+  since the view reads its statuses all the time. Use cases run `withHarnessInfraService(session.harnessId, effect)`,
+  and the view merges every harness's statuses and titles with `forEachHarnessInfraService`. A new harness is one
+  `infrastructure/services/<harness>/` folder, with its infra service and transformer, and one record entry.
+- **Harness and terminal don't know each other:** the harness returns a `LaunchPlanValueObject` (command, arguments,
+  environment variables) and the terminal infra service runs it.
+- **Later, with their roadmap items:** a `Hosts` LayerMap keyed by host id for SSH, a worktree infra service for M3, and
+  tmux as a wrapper around the launch plan.
 
 ## Repositories and models
 
@@ -142,26 +175,29 @@ The unread state stays with the view until the needs-input alerts (M2) need it t
   re-reads before each write, so no caller can drop another window's save or overwrite unreadable data.
 - A model lists its own fields instead of embedding the entity, and the repository builds the entity from it. A new
   entity field then fails to compile in the repository, which is where the model's `version` bump belongs.
-- An error lives in the layer of the interface that names it: repository errors in `domain/errors`, client errors in
-  `application/errors`.
+- An error lives in the layer of the interface that names it, in a file named after that interface or service:
+  `domain/errors/session.repository.error.ts`, `application/errors/terminal.infraService.error.ts`. Errors that only an
+  implementation raises live in `infrastructure/errors`.
 
 ## Branded types
 
-- `SessionId` and `ProjectPath` are branded with `Schema.brand`; `HarnessId` and `Status` are `Schema.Literals`. A
-  `SessionId` is a UUID, so a file name or URI path that is not one is not ours.
-- Each value object exports its schema as `<Name>Schema` and its type as `<Name>`, since lint's `no-redeclare` rejects a
-  value and a type of the same name. Entities are classes, which are both.
-- A brand is created only at the edge: repositories decode what is stored, controllers decode command arguments, clients
-  decode file names and CLI output, and a value the edge produces itself (a new UUID, a path VS Code hands over) goes
-  through the schema's `make`, which checks it the same way.
+- `SessionIdValueObject` and `ProjectPathValueObject` are branded with `Schema.brand`; `HarnessIdValueObject` and
+  `StatusValueObject` are `Schema.Literals`. A session id is a UUID, so a file name or URI path that is not one is not
+  ours.
+- Each value object exports its schema as `<Name>ValueObjectSchema` and its type as `<Name>ValueObject`, since lint's
+  `no-redeclare` rejects a value and a type of the same name. Entities are classes, which are both.
+- A brand is created only at the edge: repositories decode what is stored, controllers decode command arguments, infra
+  services decode file names and CLI output, and a value the edge produces itself (a new UUID, a path VS Code hands
+  over) goes through the schema's `make`, which checks it the same way.
 - Lint bans casts (`@typescript-eslint/consistent-type-assertions`, `assertionStyle: "never"`); `as const` stays
   allowed.
-- Maps and errors are keyed by brands: `ReadonlyMap<SessionId, Terminal>`, `SessionNotFound({sessionId: SessionId})`.
+- Maps and errors are keyed by brands: `ReadonlyMap<SessionIdValueObject, Terminal>`,
+  `TerminalNotFoundError({sessionId})`.
 
 ## Where this differs from vs-uc-api
 
-1. Client interfaces live in `application/clients`, not next to their implementations in infrastructure, so application
-   never imports infrastructure.
+1. Infra service and config interfaces live in `application/interfaces`, not next to their implementations in
+   infrastructure, so application never imports infrastructure.
 2. Interfaces speak only domain types, never `Memento`, `Terminal` or other vscode types. vs-uc-api's repository
    interfaces returned TypeORM models.
 3. No resolver and no string tokens: typed Effect layers replace both.
@@ -169,8 +205,9 @@ The unread state stays with the view until the needs-input alerts (M2) need it t
 5. No `BaseService` or `BaseRepository`: nothing here needs generic create, read, update and delete.
 6. Entities are Schema classes; normalization lives in Schema transforms, and rules are small functions on the entity
    instead of large services.
-7. Lowercase kebab-case file names with suffixes, as the lint config and today's files already use.
-8. `presentation/` lives inside `src`, because the extension ships as one bundle.
+7. Transformers sit beside the infra service that reads the outside format, since only infrastructure knows it.
+8. File and folder names are camelCase in every dotted part, and the suffix names the role (see Naming).
+9. `presentation/` lives inside `src`, because the extension ships as one bundle.
 
 ## Stack
 
@@ -188,8 +225,9 @@ Each branch is verified in the headless VS Code (the `verify-in-vscode` skill).
    application and infrastructure no longer import `services/`.
 5. `refactor/presentation-layer` (done): routes, controllers that decode their command arguments, the `registerCommand`
    middleware, views, lint for presentation.
-6. `refactor/repo-to-project`: the domain's repo becomes a project, so "repository" only means a DDD repository or a git
-   one. Commands, UI text, context values and storage keys follow; sessions are stored under `savedSessions`, with
-   `projectPath`. Lint's abbreviation rule no longer allows `repo`.
-7. `refactor/layer-naming`: a role suffix on every building block, `I` on interfaces, implementations without their
-   backend in the name, types above the code; lint checks the names.
+6. `refactor/repo-to-project` (done): the domain's repo becomes a project, so "repository" only means a DDD repository
+   or a git one. Commands, UI text, context values and storage keys follow; sessions are stored under `savedSessions`,
+   with `projectPath`. Lint's abbreviation rule no longer allows `repo`.
+7. `refactor/layer-naming` (done): a role suffix on every building block, `I` on interfaces, implementations named
+   without their backend, errors and shared types in files named after what declares them, types above the code; lint
+   checks all of it from `eslint.layers.ts`.

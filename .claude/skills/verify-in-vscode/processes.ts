@@ -1,12 +1,12 @@
 // Reads the Linux process table under /proc, for vscode.ts.
 import fileSystem from "node:fs";
 
-const PROCESS_ID_PATTERN = /^\d+$/u;
-
 interface ProcessParent {
   readonly parentProcessId: number;
   readonly processId: number;
 }
+
+const PROCESS_ID_PATTERN = /^\d+$/u;
 
 export const readProcessFile = (processId: number, fileName: "cmdline" | "comm" | "environ" | "stat") => {
   try {

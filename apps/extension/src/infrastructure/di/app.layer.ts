@@ -1,32 +1,32 @@
 import {startSourceControlSync} from "@/application/scm/scm.service.ts";
-import {CommitCliClientOnChildProcess} from "@/infrastructure/clients/commit-cli/commit-cli.client.ts";
-import {GitClientOnVsCode} from "@/infrastructure/clients/vscode/git.client.ts";
-import {PromptClientOnVsCode} from "@/infrastructure/clients/vscode/prompt.client.ts";
-import {TerminalClientOnVsCode} from "@/infrastructure/clients/vscode/terminal.client.ts";
-import {WorkspaceClientOnVsCode} from "@/infrastructure/clients/vscode/workspace.client.ts";
-import {SettingsClientOnVsCode} from "@/infrastructure/config/settings.client.ts";
-import {HarnessesLayer} from "@/infrastructure/di/harnesses.layer.ts";
-import {ProjectRepositoryOnWorkspaceState} from "@/infrastructure/repositories/project.repository.ts";
-import {SessionRepositoryOnGlobalState} from "@/infrastructure/repositories/session.repository.ts";
+import {SettingsConfig} from "@/infrastructure/config/settings.config.ts";
+import {HarnessInfraServicesLayer} from "@/infrastructure/di/harnessInfraServices.layer.ts";
+import {ProjectRepository} from "@/infrastructure/repositories/project.repository.ts";
+import {SessionRepository} from "@/infrastructure/repositories/session.repository.ts";
+import {CommitCliInfraService} from "@/infrastructure/services/commitCli/commitCli.infraService.ts";
+import {GitInfraService} from "@/infrastructure/services/vscode/git.infraService.ts";
+import {PromptInfraService} from "@/infrastructure/services/vscode/prompt.infraService.ts";
+import {TerminalInfraService} from "@/infrastructure/services/vscode/terminal.infraService.ts";
+import {WorkspaceInfraService} from "@/infrastructure/services/vscode/workspace.infraService.ts";
 import {NodeServices} from "@effect/platform-node";
 import {Layer} from "effect";
 
 const IndependentLayers = Layer.mergeAll(
-  GitClientOnVsCode,
+  GitInfraService,
   NodeServices.layer,
-  PromptClientOnVsCode,
-  SettingsClientOnVsCode,
-  WorkspaceClientOnVsCode
+  PromptInfraService,
+  SettingsConfig,
+  WorkspaceInfraService
 );
 
 const SourceControlSyncLayer = Layer.effectDiscard(startSourceControlSync());
 
-// Everything the commands and views run on. It still needs VsCodeService, and the trace log underneath.
+// Everything the commands and views run on. It still needs VsCodeApi, and the trace log underneath.
 export const AppLayer = SourceControlSyncLayer.pipe(
-  Layer.provideMerge(TerminalClientOnVsCode),
-  Layer.provideMerge(HarnessesLayer),
-  Layer.provideMerge(SessionRepositoryOnGlobalState),
-  Layer.provideMerge(ProjectRepositoryOnWorkspaceState),
-  Layer.provideMerge(CommitCliClientOnChildProcess),
+  Layer.provideMerge(TerminalInfraService),
+  Layer.provideMerge(HarnessInfraServicesLayer),
+  Layer.provideMerge(SessionRepository),
+  Layer.provideMerge(ProjectRepository),
+  Layer.provideMerge(CommitCliInfraService),
   Layer.provideMerge(IndependentLayers)
 );

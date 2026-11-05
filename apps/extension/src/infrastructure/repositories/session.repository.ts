@@ -1,20 +1,22 @@
 import {showErrorInBackground} from "@/application/utils/error.utils.ts";
-import {Session} from "@/domain/entities/session/session.entity.ts";
-import {SessionRepository} from "@/domain/entities/session/session.repository.ts";
-import {SessionsCorrupt, SessionsSaveFailed} from "@/domain/errors/session.error.ts";
-import {NO_STORED_SESSIONS, StoredSessions} from "@/infrastructure/database/models/stored-sessions.model.ts";
+import {SessionEntity} from "@/domain/entities/session/session.entity.ts";
+import {ISessionRepository} from "@/domain/entities/session/session.repository.interface.ts";
+import {SessionsCorruptError, SessionsSaveFailedError} from "@/domain/errors/session.repository.error.ts";
+import {NO_STORED_SESSIONS, StoredSessionsModel} from "@/infrastructure/database/models/storedSessions.model.ts";
 import {fromEvent} from "@/infrastructure/utils/vscode.utils.ts";
-import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
+import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
 import {STORAGE_KEYS} from "@pkg/constants/src/extension.constant.ts";
 import {SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {Effect, Layer, Schema, Stream, SubscriptionRef} from "effect";
 
 import type {Memento, WindowState} from "vscode";
 
-type ChangeSessions<ChangeResult> = (storedSessions: readonly Session[]) => readonly [ChangeResult, readonly Session[]];
+type ChangeSessions<ChangeResult> = (
+  storedSessions: readonly SessionEntity[]
+) => readonly [ChangeResult, readonly SessionEntity[]];
 
 // This window's copy of the stored sessions, which the view renders from.
-type SessionsReference = SubscriptionRef.SubscriptionRef<readonly Session[]>;
+type SessionsReference = SubscriptionRef.SubscriptionRef<readonly SessionEntity[]>;
 
 // Re-reads globalState on every call.
 const loadSessions = Effect.fn("SessionRepository.loadSessions")(
@@ -22,20 +24,20 @@ const loadSessions = Effect.fn("SessionRepository.loadSessions")(
     const storedValue = yield* Effect.sync(() =>
       globalState.get<unknown>(STORAGE_KEYS.SAVED_SESSIONS, NO_STORED_SESSIONS)
     );
-    const storedSessions = yield* Schema.decodeUnknownEffect(StoredSessions)(storedValue);
+    const storedSessions = yield* Schema.decodeUnknownEffect(StoredSessionsModel)(storedValue);
 
-    return storedSessions.sessions.map((storedSession) => new Session(storedSession));
+    return storedSessions.sessions.map((storedSession) => new SessionEntity(storedSession));
   },
-  Effect.mapError((cause) => new SessionsCorrupt({cause}))
+  Effect.mapError((cause) => new SessionsCorruptError({cause}))
 );
 
 const saveSessions = Effect.fn("SessionRepository.saveSessions")(
-  function* (globalState: Memento, sessions: readonly Session[]) {
-    const storedValue = yield* Schema.encodeEffect(StoredSessions)({sessions, version: 1});
+  function* (globalState: Memento, sessions: readonly SessionEntity[]) {
+    const storedValue = yield* Schema.encodeEffect(StoredSessionsModel)({sessions, version: 1});
 
     yield* Effect.tryPromise(async () => globalState.update(STORAGE_KEYS.SAVED_SESSIONS, storedValue));
   },
-  Effect.mapError((cause) => new SessionsSaveFailed({cause}))
+  Effect.mapError((cause) => new SessionsSaveFailedError({cause}))
 );
 
 const writeSessionsChange = Effect.fn("SessionRepository.writeSessionsChange")(function* <ChangeResult>(
@@ -59,7 +61,7 @@ const modifySessions = Effect.fn("SessionRepository.modifySessions")(function* <
 
 const showUnreadableSessionsError = Effect.fn("SessionRepository.showUnreadableSessionsError")(function* () {
   yield* showErrorInBackground(SESSION_MESSAGES.UNREADABLE);
-  const noSessions: readonly Session[] = [];
+  const noSessions: readonly SessionEntity[] = [];
 
   return noSessions;
 });
@@ -69,7 +71,7 @@ const loadInitialSessions = Effect.fn("SessionRepository.loadInitialSessions")(
   function* (globalState: Memento) {
     return yield* loadSessions(globalState);
   },
-  Effect.catchTag("SessionsCorrupt", () => showUnreadableSessionsError())
+  Effect.catchTag("SessionsCorruptError", () => showUnreadableSessionsError())
 );
 
 // Other windows write to the same globalState; pick up their changes when this window comes back into focus.
@@ -79,13 +81,13 @@ const reloadSessionsOnFocus = Effect.fn("SessionRepository.reloadSessionsOnFocus
 
     yield* SubscriptionRef.updateEffect(sessions, () => loadSessions(globalState));
   },
-  Effect.catchTag("SessionsCorrupt", (sessionsCorrupt) =>
+  Effect.catchTag("SessionsCorruptError", (sessionsCorrupt) =>
     Effect.andThen(Effect.logError(SESSION_MESSAGES.UNREADABLE, sessionsCorrupt.cause), showUnreadableSessionsError())
   )
 );
 
-const makeSessionRepositoryOnGlobalState = Effect.fn("SessionRepository.make")(function* () {
-  const {globalState, window} = yield* VsCodeService;
+const makeSessionRepository = Effect.fn("SessionRepository.make")(function* () {
+  const {globalState, window} = yield* VsCodeApi;
   const sessions: SessionsReference = yield* SubscriptionRef.make(yield* loadInitialSessions(globalState));
   yield* Effect.forkScoped(
     Stream.runForEach(fromEvent(window.onDidChangeWindowState), (windowState) =>
@@ -101,4 +103,4 @@ const makeSessionRepositoryOnGlobalState = Effect.fn("SessionRepository.make")(f
 });
 
 // globalState is the source of truth, shared by every window; `sessions` is this window's copy for the view.
-export const SessionRepositoryOnGlobalState = Layer.effect(SessionRepository, makeSessionRepositoryOnGlobalState());
+export const SessionRepository = Layer.effect(ISessionRepository, makeSessionRepository());

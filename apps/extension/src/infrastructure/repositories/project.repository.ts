@@ -1,21 +1,23 @@
 import {showErrorInBackground} from "@/application/utils/error.utils.ts";
-import {ProjectRepository} from "@/domain/entities/project/project.repository.ts";
-import {ProjectsCorrupt, ProjectsSaveFailed} from "@/domain/errors/project.error.ts";
+import {IProjectRepository} from "@/domain/entities/project/project.repository.interface.ts";
+import {ProjectsCorruptError, ProjectsSaveFailedError} from "@/domain/errors/project.repository.error.ts";
 import {
   NO_ADDED_PROJECT_PATHS,
-  StoredAddedProjectPaths
-} from "@/infrastructure/database/models/stored-added-project-paths.model.ts";
-import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
+  StoredAddedProjectPathsModel
+} from "@/infrastructure/database/models/storedAddedProjectPaths.model.ts";
+import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
 import {STORAGE_KEYS} from "@pkg/constants/src/extension.constant.ts";
 import {PROJECT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {Effect, Layer, Schema, SubscriptionRef} from "effect";
 
-import type {ProjectPath} from "@/domain/value-objects/project-path.value-object.ts";
+import type {ProjectPathValueObject} from "@/domain/valueObjects/projectPath.valueObject.ts";
 import type {Memento} from "vscode";
 
-type AddedProjectPathsReference = SubscriptionRef.SubscriptionRef<readonly ProjectPath[]>;
+type AddedProjectPathsReference = SubscriptionRef.SubscriptionRef<readonly ProjectPathValueObject[]>;
 
-type ChangeAddedProjectPaths = (storedAddedProjectPaths: readonly ProjectPath[]) => readonly ProjectPath[];
+type ChangeAddedProjectPaths = (
+  storedAddedProjectPaths: readonly ProjectPathValueObject[]
+) => readonly ProjectPathValueObject[];
 
 // Re-reads workspaceState on every call.
 const loadAddedProjectPaths = Effect.fn("ProjectRepository.loadAddedProjectPaths")(
@@ -23,21 +25,21 @@ const loadAddedProjectPaths = Effect.fn("ProjectRepository.loadAddedProjectPaths
     const storedValue = yield* Effect.sync(() =>
       workspaceState.get<unknown>(STORAGE_KEYS.ADDED_PROJECT_PATHS, NO_ADDED_PROJECT_PATHS)
     );
-    const storedAddedProjectPaths = yield* Schema.decodeUnknownEffect(StoredAddedProjectPaths)(storedValue);
+    const storedAddedProjectPaths = yield* Schema.decodeUnknownEffect(StoredAddedProjectPathsModel)(storedValue);
 
     return storedAddedProjectPaths.addedProjectPaths;
   },
-  Effect.mapError((cause) => new ProjectsCorrupt({cause}))
+  Effect.mapError((cause) => new ProjectsCorruptError({cause}))
 );
 
 const saveAddedProjectPaths = Effect.fn("ProjectRepository.saveAddedProjectPaths")(function* (
   workspaceState: Memento,
-  addedProjectPaths: readonly ProjectPath[]
+  addedProjectPaths: readonly ProjectPathValueObject[]
 ) {
-  const storedValue: typeof StoredAddedProjectPaths.Encoded = {addedProjectPaths, version: 1};
+  const storedValue: typeof StoredAddedProjectPathsModel.Encoded = {addedProjectPaths, version: 1};
 
   yield* Effect.tryPromise({
-    catch: (cause) => new ProjectsSaveFailed({cause}),
+    catch: (cause) => new ProjectsSaveFailedError({cause}),
     try: async () => workspaceState.update(STORAGE_KEYS.ADDED_PROJECT_PATHS, storedValue)
   });
 });
@@ -65,7 +67,7 @@ const modifyAddedProjectPaths = Effect.fn("ProjectRepository.modifyAddedProjectP
 
 const showUnreadableProjectsError = Effect.fn("ProjectRepository.showUnreadableProjectsError")(function* () {
   yield* showErrorInBackground(PROJECT_MESSAGES.UNREADABLE);
-  const noProjectPaths: readonly ProjectPath[] = [];
+  const noProjectPaths: readonly ProjectPathValueObject[] = [];
 
   return noProjectPaths;
 });
@@ -75,11 +77,11 @@ const loadInitialAddedProjectPaths = Effect.fn("ProjectRepository.loadInitialAdd
   function* (workspaceState: Memento) {
     return yield* loadAddedProjectPaths(workspaceState);
   },
-  Effect.catchTag("ProjectsCorrupt", () => showUnreadableProjectsError())
+  Effect.catchTag("ProjectsCorruptError", () => showUnreadableProjectsError())
 );
 
-const makeProjectRepositoryOnWorkspaceState = Effect.fn("ProjectRepository.make")(function* () {
-  const {workspaceState} = yield* VsCodeService;
+const makeProjectRepository = Effect.fn("ProjectRepository.make")(function* () {
+  const {workspaceState} = yield* VsCodeApi;
   const addedProjectPaths: AddedProjectPathsReference = yield* SubscriptionRef.make(
     yield* loadInitialAddedProjectPaths(workspaceState)
   );
@@ -92,7 +94,4 @@ const makeProjectRepositoryOnWorkspaceState = Effect.fn("ProjectRepository.make"
 });
 
 // workspaceState belongs to this workspace, so other windows never see these paths.
-export const ProjectRepositoryOnWorkspaceState = Layer.effect(
-  ProjectRepository,
-  makeProjectRepositoryOnWorkspaceState()
-);
+export const ProjectRepository = Layer.effect(IProjectRepository, makeProjectRepository());
