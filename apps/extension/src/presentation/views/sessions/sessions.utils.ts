@@ -1,10 +1,7 @@
-import {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";
-import {ITerminalInfraService} from "@/application/interfaces/terminal.infraService.interface.ts";
-import {listProjects} from "@/application/services/project.service.ts";
-import {getSessionDisplayName, listSessions} from "@/application/services/session.service.ts";
-import {withHarnessInfraService} from "@/application/utils/harness.utils.ts";
-import {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
-import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
+import {withHarnessInfraService} from "@appUtils/harness.utils.ts";
+import {ProjectEntity} from "@entities/project/project.entity.ts";
+import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
+import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {
   COMMANDS,
   CONTEXT_VALUES,
@@ -14,12 +11,15 @@ import {
   STATUS_BADGES
 } from "@pkg/constants/src/extension.constant.ts";
 import {SESSION_LABELS, STATUS_LABELS} from "@pkg/constants/src/message.constant.ts";
+import {listProjects} from "@services/project.service.ts";
+import {getSessionDisplayName, listSessions} from "@services/session.service.ts";
+import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Clock, Effect, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
-import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
-import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
-import type {Row, RowStatus} from "@/presentation/views/sessions/sessions.view.type.ts";
+import type {SessionEntity} from "@entities/session/session.entity.ts";
+import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
+import type {Row, RowStatus} from "@views/sessions/sessions.view.type.ts";
 
 // How the Sessions tree draws its rows: project and session items, their status badges, and the tree's shape.
 

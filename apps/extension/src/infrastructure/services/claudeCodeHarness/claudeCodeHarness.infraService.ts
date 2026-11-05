@@ -1,22 +1,22 @@
-import {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";
-import {ISessionRepository} from "@/domain/entities/session/session.repository.interface.ts";
-import {clearStatusFile, watchStatusDirectory} from "@/infrastructure/services/claudeCodeHarness/status.utils.ts";
-import {getSessionTitle, watchTranscripts} from "@/infrastructure/services/claudeCodeHarness/titles.utils.ts";
-import {findTranscriptFilePath} from "@/infrastructure/services/claudeCodeHarness/transcript.utils.ts";
-import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
+import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
+import {clearStatusFile, watchStatusDirectory} from "@infraServices/claudeCodeHarness/status.utils.ts";
+import {getSessionTitle, watchTranscripts} from "@infraServices/claudeCodeHarness/titles.utils.ts";
+import {findTranscriptFilePath} from "@infraServices/claudeCodeHarness/transcript.utils.ts";
+import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
 import {HOOKS_FILE, MODEL_ICONS, STATUS_ENV} from "@pkg/constants/src/extension.constant.ts";
+import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Context, Effect, Layer, SubscriptionRef} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 
-import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
-import type {LaunchPlanValueObject} from "@/domain/valueObjects/launchPlan.valueObject.ts";
-import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
-import type {StatusValueObject} from "@/domain/valueObjects/status.valueObject.ts";
+import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {
   SessionStatusesReference,
   SessionTitlesReference
-} from "@/infrastructure/services/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
+} from "@infraServices/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
+import type {LaunchPlanValueObject} from "@valueObjects/launchPlan.valueObject.ts";
+import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
+import type {StatusValueObject} from "@valueObjects/status.valueObject.ts";
 
 // Where the launch reads its hooks from and where the hooks write each session's status.
 interface StatusPaths {

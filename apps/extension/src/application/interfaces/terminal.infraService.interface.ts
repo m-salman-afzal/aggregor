@@ -1,8 +1,8 @@
 import {Context, Data} from "effect";
 
-import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
-import type {LaunchPlanValueObject} from "@/domain/valueObjects/launchPlan.valueObject.ts";
-import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
+import type {SessionEntity} from "@entities/session/session.entity.ts";
+import type {LaunchPlanValueObject} from "@valueObjects/launchPlan.valueObject.ts";
+import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
 import type {Effect, Result, Stream, SubscriptionRef} from "effect";
 
 // The tab is named once, when it opens: VS Code's stable API cannot rename a terminal afterwards.

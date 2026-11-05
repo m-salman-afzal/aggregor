@@ -1,7 +1,7 @@
-import {StatusValueObjectSchema} from "@/domain/valueObjects/status.valueObject.ts";
+import {StatusValueObjectSchema} from "@valueObjects/status.valueObject.ts";
 import {Data, Result, Schema} from "effect";
 
-import type {Titles} from "@/infrastructure/services/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
+import type {Titles} from "@infraServices/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
 
 // Claude Code's file formats, read into ours.
 

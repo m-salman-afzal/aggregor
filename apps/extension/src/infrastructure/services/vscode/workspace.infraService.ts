@@ -1,7 +1,7 @@
-import {IWorkspaceInfraService} from "@/application/interfaces/workspace.infraService.interface.ts";
-import {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
-import {ProjectPathValueObjectSchema} from "@/domain/valueObjects/projectPath.valueObject.ts";
-import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
+import {ProjectEntity} from "@entities/project/project.entity.ts";
+import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
+import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
+import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Effect, Layer, UndefinedOr} from "effect";
 
 import type {workspace as VsCodeWorkspace} from "vscode";

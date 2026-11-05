@@ -1,12 +1,12 @@
-import {decodeSessionId} from "@/domain/valueObjects/sessionId.valueObject.ts";
-import {decodeStatusFileText} from "@/infrastructure/services/claudeCodeHarness/claudeCode.transformer.ts";
+import {decodeStatusFileText} from "@infraServices/claudeCodeHarness/claudeCode.transformer.ts";
+import {decodeSessionId} from "@valueObjects/sessionId.valueObject.ts";
 import {Effect, Result, Stream, SubscriptionRef} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 
-import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
-import type {StatusValueObject} from "@/domain/valueObjects/status.valueObject.ts";
-import type {SessionStatusesReference} from "@/infrastructure/services/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
+import type {SessionStatusesReference} from "@infraServices/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
+import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
+import type {StatusValueObject} from "@valueObjects/status.valueObject.ts";
 
 // Only publishes real changes, since every tool call rewrites "running".
 const publishSessionStatus = Effect.fn("ClaudeCodeHarnessInfraService.publishSessionStatus")(function* (

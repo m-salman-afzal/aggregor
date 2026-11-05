@@ -1,8 +1,8 @@
-import * as SessionService from "@/application/services/session.service.ts";
-import {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
-import {SessionEntity} from "@/domain/entities/session/session.entity.ts";
-import {SessionIdValueObjectSchema} from "@/domain/valueObjects/sessionId.valueObject.ts";
-import {decodeCommandArgument} from "@/presentation/utils/commandArguments.utils.ts";
+import {ProjectEntity} from "@entities/project/project.entity.ts";
+import {SessionEntity} from "@entities/session/session.entity.ts";
+import {decodeCommandArgument} from "@presentationUtils/commandArguments.utils.ts";
+import * as SessionService from "@services/session.service.ts";
+import {SessionIdValueObjectSchema} from "@valueObjects/sessionId.valueObject.ts";
 import {Effect} from "effect";
 
 // The project row's button passes its Project.

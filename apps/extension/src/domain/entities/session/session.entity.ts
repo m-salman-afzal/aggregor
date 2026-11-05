@@ -1,10 +1,10 @@
-import {HarnessIdValueObjectSchema} from "@/domain/valueObjects/harnessId.valueObject.ts";
-import {ProjectPathValueObjectSchema} from "@/domain/valueObjects/projectPath.valueObject.ts";
-import {SessionIdValueObjectSchema} from "@/domain/valueObjects/sessionId.valueObject.ts";
+import {HarnessIdValueObjectSchema} from "@valueObjects/harnessId.valueObject.ts";
+import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
+import {SessionIdValueObjectSchema} from "@valueObjects/sessionId.valueObject.ts";
 import {Schema} from "effect";
 
-import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
-import type {StatusValueObject} from "@/domain/valueObjects/status.valueObject.ts";
+import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
+import type {StatusValueObject} from "@valueObjects/status.valueObject.ts";
 
 interface UnreadSessionIdsInputs {
   readonly currentStatuses: ReadonlyMap<SessionIdValueObject, StatusValueObject>;

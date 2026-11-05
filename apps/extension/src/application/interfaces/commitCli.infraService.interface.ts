@@ -1,6 +1,6 @@
 import {Context, Data} from "effect";
 
-import type {ProjectPathValueObject} from "@/domain/valueObjects/projectPath.valueObject.ts";
+import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Effect} from "effect";
 
 export interface CommitMessageRequest {

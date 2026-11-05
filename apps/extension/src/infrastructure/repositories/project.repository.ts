@@ -1,19 +1,16 @@
-import {showErrorInBackground} from "@/application/utils/error.utils.ts";
+import {showErrorInBackground} from "@appUtils/error.utils.ts";
 import {
   IProjectRepository,
   ProjectsCorruptError,
   ProjectsSaveFailedError
-} from "@/domain/entities/project/project.repository.interface.ts";
-import {
-  NO_ADDED_PROJECT_PATHS,
-  StoredAddedProjectPathsModel
-} from "@/infrastructure/database/models/storedAddedProjectPaths.model.ts";
-import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
+} from "@entities/project/project.repository.interface.ts";
+import {NO_ADDED_PROJECT_PATHS, StoredAddedProjectPathsModel} from "@models/storedAddedProjectPaths.model.ts";
 import {STORAGE_KEYS} from "@pkg/constants/src/extension.constant.ts";
 import {PROJECT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
+import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Effect, Layer, Schema, SubscriptionRef} from "effect";
 
-import type {ProjectPathValueObject} from "@/domain/valueObjects/projectPath.valueObject.ts";
+import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Memento} from "vscode";
 
 type AddedProjectPathsReference = SubscriptionRef.SubscriptionRef<readonly ProjectPathValueObject[]>;

@@ -1,6 +1,6 @@
-import type {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
-import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
-import type {StatusValueObject} from "@/domain/valueObjects/status.valueObject.ts";
+import type {ProjectEntity} from "@entities/project/project.entity.ts";
+import type {SessionEntity} from "@entities/session/session.entity.ts";
+import type {StatusValueObject} from "@valueObjects/status.valueObject.ts";
 
 // Projects at the top level, each with the sessions started in it.
 export type Row = ProjectEntity | SessionEntity;

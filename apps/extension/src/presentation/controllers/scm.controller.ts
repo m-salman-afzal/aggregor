@@ -1,14 +1,14 @@
-import {offerToStageAllChanges, writeCommitMessageOrShowError} from "@/application/services/scm.service.ts";
-import {showErrorInBackground} from "@/application/utils/error.utils.ts";
-import {ProjectPathValueObjectSchema} from "@/domain/valueObjects/projectPath.valueObject.ts";
-import {setContext, withProgress} from "@/infrastructure/utils/vscode.utils.ts";
-import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
-import {InvalidCommandArgumentsError} from "@/presentation/middlewares/registerCommand.middleware.ts";
+import {showErrorInBackground} from "@appUtils/error.utils.ts";
+import {setContext, withProgress} from "@infraUtils/vscode.utils.ts";
+import {InvalidCommandArgumentsError} from "@middlewares/registerCommand.middleware.ts";
 import {COMMANDS, CONTEXT_KEYS} from "@pkg/constants/src/extension.constant.ts";
 import {COMMIT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
+import {offerToStageAllChanges, writeCommitMessageOrShowError} from "@services/scm.service.ts";
+import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
+import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Data, Effect, Predicate} from "effect";
 
-import type {ProjectPathValueObject} from "@/domain/valueObjects/projectPath.valueObject.ts";
+import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
 class RootUriUnavailableError extends Data.TaggedError("RootUriUnavailableError") {}
 

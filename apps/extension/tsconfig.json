@@ -5,9 +5,25 @@
     //base
     "types": ["node"],
 
-    // paths
+    // One alias per folder under a layer; eslint.layers.ts lists which layer may import each.
     "paths": {
-      "@/*": ["./src/*"]
+      "@entities/*": ["./src/domain/entities/*"],
+      "@valueObjects/*": ["./src/domain/valueObjects/*"],
+      "@interfaces/*": ["./src/application/interfaces/*"],
+      "@services/*": ["./src/application/services/*"],
+      "@appUtils/*": ["./src/application/utils/*"],
+      "@config/*": ["./src/infrastructure/config/*"],
+      "@models/*": ["./src/infrastructure/database/models/*"],
+      "@di/*": ["./src/infrastructure/di/*"],
+      "@logger/*": ["./src/infrastructure/logger/*"],
+      "@repositories/*": ["./src/infrastructure/repositories/*"],
+      "@infraServices/*": ["./src/infrastructure/services/*"],
+      "@infraUtils/*": ["./src/infrastructure/utils/*"],
+      "@vscodeApi/*": ["./src/infrastructure/vscode/*"],
+      "@controllers/*": ["./src/presentation/controllers/*"],
+      "@middlewares/*": ["./src/presentation/middlewares/*"],
+      "@presentationUtils/*": ["./src/presentation/utils/*"],
+      "@views/*": ["./src/presentation/views/*"]
     }
   },
   "include": ["**/*.ts", "**/*.mts"]
