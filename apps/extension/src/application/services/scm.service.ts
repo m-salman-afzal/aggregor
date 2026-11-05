@@ -1,7 +1,7 @@
-import {ICommitCliInfraService} from "@/application/interfaces/commitCli/commitCli.infraService.interface.ts";
-import {IGitInfraService} from "@/application/interfaces/git/git.infraService.interface.ts";
-import {IPromptInfraService} from "@/application/interfaces/prompt/prompt.infraService.interface.ts";
-import {ISettingsConfig} from "@/application/interfaces/settings/settings.config.interface.ts";
+import {ICommitCliInfraService} from "@/application/interfaces/commitCli.infraService.interface.ts";
+import {IGitInfraService} from "@/application/interfaces/git.infraService.interface.ts";
+import {IPromptInfraService} from "@/application/interfaces/prompt.infraService.interface.ts";
+import {ISettingsConfig} from "@/application/interfaces/settings.config.interface.ts";
 import {showErrorInBackground} from "@/application/utils/error.utils.ts";
 import {IProjectRepository} from "@/domain/entities/project/project.repository.interface.ts";
 import {ACTIONS, COMMIT_MESSAGES} from "@pkg/constants/src/message.constant.ts";

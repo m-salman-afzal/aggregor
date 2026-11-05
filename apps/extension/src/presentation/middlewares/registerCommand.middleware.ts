@@ -2,15 +2,19 @@ import {showErrorInBackground} from "@/application/utils/error.utils.ts";
 import {acquireDisposable} from "@/infrastructure/utils/vscode.utils.ts";
 import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
 import {COMMAND_MESSAGES} from "@pkg/constants/src/message.constant.ts";
-import {Effect} from "effect";
+import {Data, Effect} from "effect";
 
-import type {IPromptInfraService} from "@/application/interfaces/prompt/prompt.infraService.interface.ts";
-import type {InvalidCommandArgumentsError} from "@/presentation/middlewares/registerCommand/registerCommand.middleware.error.ts";
+import type {IPromptInfraService} from "@/application/interfaces/prompt.infraService.interface.ts";
+
+// What VS Code passed a command is not what its menu entry sends.
+export class InvalidCommandArgumentsError extends Data.TaggedError("InvalidCommandArgumentsError")<{
+  readonly cause: unknown;
+}> {}
 
 // Registered for the surrounding scope's lifetime. Each run is a root span named by the command ID, and a crash is
 // logged. Controllers handle their own errors except arguments that do not decode, which point at a broken menu entry:
 // those are logged and shown.
-export const registerCommand = Effect.fn("registerCommand")(function* <R>(
+export const registerCommand = Effect.fn("RegisterCommandMiddleware.registerCommand")(function* <R>(
   commandId: string,
   controller: (...commandArguments: readonly unknown[]) => Effect.Effect<unknown, InvalidCommandArgumentsError, R>
 ) {

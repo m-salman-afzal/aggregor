@@ -1,8 +1,7 @@
-import {IHarnessInfraService} from "@/application/interfaces/harness/harness.infraService.interface.ts";
-import {IPromptInfraService} from "@/application/interfaces/prompt/prompt.infraService.interface.ts";
-import {ITerminalInfraService} from "@/application/interfaces/terminal/terminal.infraService.interface.ts";
-import {pickProject} from "@/application/services/project/project.service.ts";
-import {SessionNotFoundError} from "@/application/services/session/session.service.error.ts";
+import {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";
+import {IPromptInfraService} from "@/application/interfaces/prompt.infraService.interface.ts";
+import {ITerminalInfraService} from "@/application/interfaces/terminal.infraService.interface.ts";
+import {pickProject} from "@/application/services/project.service.ts";
 import {showErrorInBackground} from "@/application/utils/error.utils.ts";
 import {withHarnessInfraService} from "@/application/utils/harness.utils.ts";
 import {getNewSessionName, SessionEntity} from "@/domain/entities/session/session.entity.ts";
@@ -11,11 +10,15 @@ import {SessionIdValueObjectSchema} from "@/domain/valueObjects/sessionId.valueO
 import {ACTIONS, SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {Data, Effect, Match, Result, SubscriptionRef} from "effect";
 
-import type {TerminalLaunchRequest} from "@/application/interfaces/terminal/terminal.infraService.interface.ts";
+import type {TerminalLaunchRequest} from "@/application/interfaces/terminal.infraService.interface.ts";
 import type {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
 import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
 
 class RemoveCancelledError extends Data.TaggedError("RemoveCancelledError") {}
+
+class SessionNotFoundError extends Data.TaggedError("SessionNotFoundError")<{
+  readonly sessionId: SessionIdValueObject;
+}> {}
 
 export const listSessions = Effect.fn("SessionService.listSessions")(function* () {
   const {sessions} = yield* ISessionRepository;

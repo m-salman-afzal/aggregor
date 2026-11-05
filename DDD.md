@@ -34,38 +34,40 @@ Each file's suffix names its role, each role lives in one layer, and the file's 
 | Entity                       | domain                       | `entities/<x>/<x>.entity.ts`                   | `SessionEntity`                                      |
 | Value object                 | domain                       | `valueObjects/<x>.valueObject.ts`              | `SessionIdValueObject`, `SessionIdValueObjectSchema` |
 | Repository interface         | domain                       | `entities/<x>/<x>.repository.interface.ts`     | `ISessionRepository`                                 |
-| Application service          | application                  | `services/<x>/<x>.service.ts`                  | functions, imported as `SessionService`              |
-| Infra service interface      | application                  | `interfaces/<x>/<x>.infraService.interface.ts` | `ITerminalInfraService`                              |
-| Config interface             | application                  | `interfaces/<x>/<x>.config.interface.ts`       | `ISettingsConfig`                                    |
+| Application service          | application                  | `services/<x>.service.ts`                      | functions, imported as `SessionService`              |
+| Infra service interface      | application                  | `interfaces/<x>.infraService.interface.ts`     | `ITerminalInfraService`                              |
+| Config interface             | application                  | `interfaces/<x>.config.interface.ts`           | `ISettingsConfig`                                    |
 | Repository                   | infrastructure               | `repositories/<x>.repository.ts`               | `SessionRepository`                                  |
 | Infra service                | infrastructure               | `services/<backend>/<x>.infraService.ts`       | `TerminalInfraService`                               |
 | Config                       | infrastructure               | `config/<x>.config.ts`                         | `SettingsConfig`                                     |
 | Model                        | infrastructure               | `database/models/<x>.model.ts`                 | `StoredSessionsModel`                                |
 | Layer                        | infrastructure               | `di/<x>.layer.ts`, `logger/<x>.layer.ts`       | `AppLayer`                                           |
 | Controller, view, middleware | presentation                 | `.controller.ts`, `.view.ts`, `.middleware.ts` | `SessionController`, `SessionsView`                  |
-| Error                        | its handler's layer          | `<declaring file>.error.ts`, beside it         | `SessionsCorruptError`                               |
+| Error                        | its handler's layer          | the top of the file that declares it           | `SessionsCorruptError`                               |
 | Shared types                 | infrastructure, presentation | `<declaring file>.type.ts`, beside it          | plain names                                          |
 
-- File and folder names are camelCase in every dotted part, as in `claudeCodeHarness.infraService.error.ts`;
+- File and folder names are camelCase in every dotted part, as in `claudeCodeHarness.infraService.type.ts`;
   `unicorn/filename-case` checks them everywhere but `.claude`, whose skill folders follow Claude Code's names.
 - An implementation's file is its interface's file without `.interface`, so a search for `terminal.infraService` finds
-  the interface, its implementation, its errors and its types.
+  the interface, with its errors and types, and its implementation.
 - `I` marks only our interfaces, the `Context.Service` classes, and lint keeps those in `.interface.ts` files. Data
   shapes take no prefix.
 - Types and interfaces sit at the top of a file, right after the imports. An interface's own types (its inputs, which
   end in `Request`, and `Settings`) sit in its `.interface.ts`. Types several implementation files share live in a
-  `.type.ts`, which holds nothing else; a value object's type and an error union stay with their value object or errors.
-  Lint (`no-restricted-syntax`) checks all of it.
+  `.type.ts`, which holds nothing else; a value object's type stays with its value object, and an error union with its
+  errors. Lint (`no-restricted-syntax`) checks all of it.
 - Every `Effect.fn` span is named `<owner>.<const>`, the owner coming from the file name: `SessionService.openSession`,
   `SessionRepository.make`. A helper file belongs to the one owner in its folder (`claudeCodeHarness/status.utils.ts` to
   `ClaudeCodeHarnessInfraService`); a file with no owner gives the bare const name (`withHarnessInfraService`).
   `eslint.plugin.ts` checks every name and fixes it.
-- An error or type file sits beside the file that declares it, so its interface or implementation is the file next to
-  it; `eslint.plugin.ts` checks that too. There are no `errors/` folders.
-- Files that share their first dotted part sit in a folder of that name: `controllers/` would hold `scm/` once
-  `scm.controller.ts` had a sibling. Every interface and every service gets its folder even alone
-  (`interfaces/workspace/`, `services/scm/`), since siblings come later. Files with different first parts stay flat, as
-  in `valueObjects/`. `eslint.plugin.ts` checks it.
+- Errors sit at the top of a file, after its imports and types (see Repositories and models for which file). There are
+  no `.error.ts` files, and an error class's name ends in `Error`. Lint (`no-restricted-syntax`) checks all three, and
+  `perfectionist/sort-modules` keeps a file's errors above its other classes.
+- A `.type.ts` file sits beside the file that declares it, so its interface or implementation is the file next to it;
+  `eslint.plugin.ts` checks that.
+- Files that share their first dotted part sit in a folder of that name, as in `views/sessions/` and
+  `entities/session/`; files with different first parts stay flat, as in `services/`, `interfaces/` and `valueObjects/`.
+  `eslint.plugin.ts` checks it.
 - Aggregates and domain services get `.aggregate.ts` and `.domainService.ts` once the first one exists. Today each
   entity is a one-entity aggregate root.
 
@@ -84,7 +86,7 @@ Each file's suffix names its role, each role lives in one layer, and the file's 
 | `Infrastructure/Repository`, `MysqlRepository`    | `infrastructure/repositories/`, on VS Code's global and workspace state                       |
 | `Infrastructure/Services/ThirdPartyClient/<X>`    | `infrastructure/services/<backend>/<x>.infraService.ts`                                       |
 | `Infrastructure/DIContainer/{Container,Resolver}` | `infrastructure/di/`: a graph of Effect layers, no resolver                                   |
-| `Infrastructure/{Logger,Config,Error,Utils}`      | `infrastructure/{logger,config,utils}/`; errors sit beside the file that declares them        |
+| `Infrastructure/{Logger,Config,Error,Utils}`      | `infrastructure/{logger,config,utils}/`; errors sit at the top of the file that declares them |
 | `http/{Routes,Controllers,Middlewares,Sockets}`   | `presentation/{routes.ts,controllers/,middlewares/,views/}`                                   |
 | `http/Server`                                     | `extension.ts`                                                                                |
 
@@ -97,33 +99,33 @@ apps/extension/src/
       session/
         session.entity.ts                  SessionEntity (Schema.Class: id, projectPath, name, harnessId),
                                            getNewSessionName, getUnreadSessionIds
-        session.repository.interface.ts    ISessionRepository: sessions ref, modifySessions
-        session.repository.error.ts        SessionsCorruptError, SessionsSaveFailedError
+        session.repository.interface.ts    ISessionRepository: sessions ref, modifySessions; SessionsCorruptError,
+                                           SessionsSaveFailedError
       project/
         project.entity.ts                  ProjectEntity (Schema.Class: path, name, added)
-        project.repository.interface.ts    IProjectRepository: addedProjectPaths ref, modifyAddedProjectPaths
-        project.repository.error.ts        ProjectsCorruptError, ProjectsSaveFailedError
+        project.repository.interface.ts    IProjectRepository: addedProjectPaths ref, modifyAddedProjectPaths;
+                                           ProjectsCorruptError, ProjectsSaveFailedError
     valueObjects/                          SessionIdValueObject, ProjectPathValueObject (branded), StatusValueObject,
                                            HarnessIdValueObject (literals), LaunchPlanValueObject (an interface)
   application/
-    services/                              a folder each, with its .error.ts where callers see errors of its own
-      session/session.service.ts           newSession, openSession, removeSession, listSessions, findSession,
+    services/
+      session.service.ts                   newSession, openSession, removeSession, listSessions, findSession,
                                            getSessionDisplayName
-      project/project.service.ts           listProjects, pickProject, addProject, removeProject
-      scm/scm.service.ts                   writeCommitMessageOrShowError, offerToStageAllChanges,
+      project.service.ts                   listProjects, pickProject, addProject, removeProject; NoProjectError
+      scm.service.ts                       writeCommitMessageOrShowError, offerToStageAllChanges,
                                            startSourceControlSync
-    interfaces/                            a folder each, with its .error.ts: the errors its signatures name
-      harness/                             IHarnessInfraService: prepareLaunch, clearSessionStatus, getSessionTitle,
+    interfaces/                            each with the errors its signatures name
+      harness.infraService.interface.ts    IHarnessInfraService: prepareLaunch, clearSessionStatus, getSessionTitle,
                                            sessionStatuses, sessionTitles, iconPath; IHarnessInfraServices: a LayerMap
                                            of them by harness id
-      terminal/                            open, focus, close, isOpen, openSessionIds, activatedSessionIds,
+      terminal.infraService.interface.ts   open, focus, close, isOpen, openSessionIds, activatedSessionIds,
                                            viewedSessionId; TerminalLaunchRequest
-      prompt/                              showErrorMessage, confirm, pickProject, pickProjectFolderPaths
-      workspace/                           listWorkspaceFolderProjects
-      git/                                 getStagedDiff, setCommitMessageInput, commit, stageAll, open or close in
+      prompt.infraService.interface.ts     showErrorMessage, confirm, pickProject, pickProjectFolderPaths
+      workspace.infraService.interface.ts  listWorkspaceFolderProjects
+      git.infraService.interface.ts        getStagedDiff, setCommitMessageInput, commit, stageAll, open or close in
                                            Source Control
-      commitCli/                           generateCommitMessage; CommitMessageRequest
-      settings/                            readSettings; Settings
+      commitCli.infraService.interface.ts  generateCommitMessage; CommitMessageRequest
+      settings.config.interface.ts         readSettings; Settings
     utils/                                 showErrorInBackground, withHarnessInfraService, forEachHarnessInfraService
   infrastructure/
     vscode/vscode.api.ts                   VsCodeApi: the only runtime import of vscode
@@ -134,8 +136,7 @@ apps/extension/src/
     services/
       claudeCodeHarness/                   ClaudeCodeHarnessInfraService: the `claude` launch plan, --settings hooks,
                                            the status env var, status-file and transcript watchers, and the
-                                           transformer from Claude Code's formats to ours; TitleNotFoundError and
-                                           TranscriptNotFoundError beside it
+                                           transformer from Claude Code's formats to ours
       vscode/                              TerminalInfraService, PromptInfraService, WorkspaceInfraService,
                                            GitInfraService
       commitCli/                           CommitCliInfraService: runs the configured commit command
@@ -148,8 +149,9 @@ apps/extension/src/
     utils/vscode.utils.ts                  acquireDisposable, fromEvent, setContext, withProgress
   presentation/
     routes.ts                              RoutesLayer: command ID to controller
-    middlewares/registerCommand/           registerCommand: root span per command, crash logging;
-                                           InvalidCommandArgumentsError in its .error.ts
+    middlewares/registerCommand.middleware.ts
+                                           registerCommand: root span per command, crash logging;
+                                           InvalidCommandArgumentsError
     controllers/                           session, project: decode the tree-row arguments, call the service; scm:
                                            SourceControl to project path, progress, retry after Stage All
     utils/                                 decodeCommandArgument
@@ -187,12 +189,13 @@ The unread state stays with the view until the needs-input alerts (M2) need it t
   re-reads before each write, so no caller can drop another window's save or overwrite unreadable data.
 - A model lists its own fields instead of embedding the entity, and the repository builds the entity from it. A new
   entity field then fails to compile in the repository, which is where the model's `version` bump belongs.
-- An error lives in the highest layer that handles it. One an interface's signature names, because a layer above catches
-  it, sits in a `.error.ts` beside that interface: `interfaces/terminal/terminal.infraService.error.ts` holds
-  `TerminalNotFoundError`, which `SessionService.openSession` answers by relaunching. One that never leaves the file
-  raising it is declared in that file and not exported: `TerminalInfraService`'s reasons no session is in view, which it
-  reports through the interface as a single `NoViewedSessionError`, and `RemoveCancelledError` in `session.service.ts`.
-  A `.error.ts` file therefore always holds errors more than one file uses.
+- An error lives in the highest layer that handles it, at the top of the file that declares it. One an interface's
+  signature names, because a layer above catches it, sits in that interface's file:
+  `interfaces/terminal.infraService.interface.ts` holds `TerminalNotFoundError`, which `SessionService.openSession`
+  answers by relaunching. Any other sits in the file that raises it: `NoProjectError` in `project.service.ts`,
+  `TranscriptNotFoundError` in `claudeCodeHarness/transcript.utils.ts`. It is exported only when another file catches or
+  raises it; `TerminalInfraService`'s reasons no session is in view, which it reports through the interface as a single
+  `NoViewedSessionError`, and `SessionNotFoundError` in `session.service.ts` are private.
 
 ## Branded types
 
@@ -246,7 +249,7 @@ Each branch is verified in the headless VS Code (the `verify-in-vscode` skill).
 7. `refactor/layer-naming` (done): a role suffix on every building block, `I` on interfaces, implementations named
    without their backend, errors and shared types in files named after what declares them, types above the code; lint
    checks all of it from `eslint.layers.ts`.
-8. `refactor/service-span-names` (done): every span is named `<owner>.<const>` from its file name; error files sit
-   beside the file that declares them, and an error no other file sees is private to its file; an interface's types sit
-   in its `.interface.ts`; files sharing a first dotted part, and every interface and service, get a folder.
-   `eslint.plugin.ts` checks the span names, the error and type files, and the folders.
+8. `refactor/service-span-names` (done): every span is named `<owner>.<const>` from its file name; errors sit at the top
+   of the file that declares them, and an error no other file sees is private to it; an interface's types and errors sit
+   in its `.interface.ts`; files sharing a first dotted part get a folder. `eslint.plugin.ts` checks the span names, the
+   type files and the folders; `eslint.layers.ts` the errors.

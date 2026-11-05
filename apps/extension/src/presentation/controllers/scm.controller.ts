@@ -1,9 +1,9 @@
-import {offerToStageAllChanges, writeCommitMessageOrShowError} from "@/application/services/scm/scm.service.ts";
+import {offerToStageAllChanges, writeCommitMessageOrShowError} from "@/application/services/scm.service.ts";
 import {showErrorInBackground} from "@/application/utils/error.utils.ts";
 import {ProjectPathValueObjectSchema} from "@/domain/valueObjects/projectPath.valueObject.ts";
 import {setContext, withProgress} from "@/infrastructure/utils/vscode.utils.ts";
 import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
-import {InvalidCommandArgumentsError} from "@/presentation/middlewares/registerCommand/registerCommand.middleware.error.ts";
+import {InvalidCommandArgumentsError} from "@/presentation/middlewares/registerCommand.middleware.ts";
 import {COMMANDS, CONTEXT_KEYS} from "@pkg/constants/src/extension.constant.ts";
 import {COMMIT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {Data, Effect, Predicate} from "effect";

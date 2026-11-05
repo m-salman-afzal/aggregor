@@ -19,7 +19,7 @@ squash. The roadmap lives in `README.md`. Commit and push only when the user ask
 - **Delete aggressively.** Less code means fewer bugs.
 - **Semantic naming.** Name variables, parameters, functions and APIs with verbose, self-explanatory names that optimize
   for comprehension by both humans and LLMs, not brevity: `sessionId`, not `id`; `stagedDiff`, not `diff`. The commit
-  message code in `application/services/scm/scm.service.ts` and `infrastructure/services/commitCli` is the reference.
+  message code in `application/services/scm.service.ts` and `infrastructure/services/commitCli` is the reference.
 - **No users before 0.1.0.** Until 0.1.0 ships, the author is the only user. Be brave: rename command IDs, setting keys
   and storage keys, change stored data without migrations, and leave no compatibility shims or deprecation paths.
 

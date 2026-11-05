@@ -1,4 +1,4 @@
-import {IWorkspaceInfraService} from "@/application/interfaces/workspace/workspace.infraService.interface.ts";
+import {IWorkspaceInfraService} from "@/application/interfaces/workspace.infraService.interface.ts";
 import {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
 import {ProjectPathValueObjectSchema} from "@/domain/valueObjects/projectPath.valueObject.ts";
 import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";

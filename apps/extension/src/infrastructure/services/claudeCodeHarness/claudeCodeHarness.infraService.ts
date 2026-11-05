@@ -1,4 +1,4 @@
-import {IHarnessInfraService} from "@/application/interfaces/harness/harness.infraService.interface.ts";
+import {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";
 import {ISessionRepository} from "@/domain/entities/session/session.repository.interface.ts";
 import {clearStatusFile, watchStatusDirectory} from "@/infrastructure/services/claudeCodeHarness/status.utils.ts";
 import {getSessionTitle, watchTranscripts} from "@/infrastructure/services/claudeCodeHarness/titles.utils.ts";

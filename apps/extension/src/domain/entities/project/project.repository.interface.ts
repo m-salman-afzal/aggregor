@@ -1,11 +1,10 @@
-import {Context} from "effect";
+import {Context, Data} from "effect";
 
-import type {
-  ProjectsCorruptError,
-  ProjectsSaveFailedError
-} from "@/domain/entities/project/project.repository.error.ts";
 import type {ProjectPathValueObject} from "@/domain/valueObjects/projectPath.valueObject.ts";
 import type {Effect, SubscriptionRef} from "effect";
+
+export class ProjectsCorruptError extends Data.TaggedError("ProjectsCorruptError")<{readonly cause: unknown}> {}
+export class ProjectsSaveFailedError extends Data.TaggedError("ProjectsSaveFailedError")<{readonly cause: unknown}> {}
 
 // The paths added with Add Project, saved per workspace. Workspace folders are not saved: VS Code already lists them.
 export class IProjectRepository extends Context.Service<

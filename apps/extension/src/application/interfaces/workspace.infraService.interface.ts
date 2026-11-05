@@ -7,4 +7,4 @@ import type {Effect} from "effect";
 export class IWorkspaceInfraService extends Context.Service<
   IWorkspaceInfraService,
   {readonly listWorkspaceFolderProjects: () => Effect.Effect<readonly ProjectEntity[]>}
->()("aggregor/application/interfaces/workspace/workspace.infraService.interface/IWorkspaceInfraService") {}
+>()("aggregor/application/interfaces/workspace.infraService.interface/IWorkspaceInfraService") {}

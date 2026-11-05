@@ -4,7 +4,7 @@ import {basename, dirname, join, relative, sep} from "node:path";
 import type {Rule} from "eslint";
 import type {Config} from "eslint/config";
 
-// The extension's own lint rules: span names, where error and type files sit, and which files share a folder.
+// The extension's own lint rules: span names, where type files sit, and which files share a folder.
 
 // aggregor/span-name: a span is "<owner>.<const>", the owner coming from the file name, so a trace line names the code
 // that ran and finds it with one search.
@@ -16,6 +16,7 @@ const OWNER_ROLE_SUFFIXES = new Map([
   ["controller", "Controller"],
   ["infraService", "InfraService"],
   ["layer", ""],
+  ["middleware", "Middleware"],
   ["repository", "Repository"],
   ["service", "Service"],
   ["view", "View"]
@@ -113,9 +114,9 @@ const spanNameRule: Rule.RuleModule = {
   }
 };
 
-// aggregor/declaring-file: X.error.ts and X.type.ts sit beside the file that declares them, X.ts or X.interface.ts, so
-// the interface or implementation an error belongs to is the file next to it.
-const COMPANION_ROLES = new Set(["error", "type"]);
+// aggregor/declaring-file: X.type.ts sits beside the file that declares it, X.ts or X.interface.ts, so the interface or
+// implementation its types belong to is the file next to it.
+const COMPANION_ROLES = new Set(["type"]);
 
 const getDeclaringFileNames = (fileName: string) => {
   const parts = fileName.split(".");
@@ -145,7 +146,7 @@ const declaringFileRule: Rule.RuleModule = {
     };
   },
   meta: {
-    docs: {description: "Keep each .error.ts and .type.ts file beside the file that declares it."},
+    docs: {description: "Keep each .type.ts file beside the file that declares it."},
     messages: {
       notBesideDeclaringFile:
         "Move this file beside the file that declares it: no {{declaringFileNames}} in this folder."
@@ -155,29 +156,23 @@ const declaringFileRule: Rule.RuleModule = {
   }
 };
 
-// aggregor/stem-folder: files that share their first dotted part (scm.controller.ts, scm.controller.error.ts) sit in a
-// folder of that name. Every interface and every service gets its folder even alone, since its siblings come later.
+// aggregor/stem-folder: files that share their first dotted part (sessions.view.ts, sessions.view.type.ts) sit in a
+// folder of that name.
 const SOURCE_ROOT = "apps/extension/src";
-const ALWAYS_GROUPED_FOLDERS = ["application/interfaces", "application/services"];
-
-const findGroupedFolder = (relativeFolder: string) =>
-  ALWAYS_GROUPED_FOLDERS.find((folder) => relativeFolder === folder || relativeFolder.startsWith(`${folder}/`));
 
 // The folder this file belongs in, when it isn't there already.
 const getExpectedStemFolder = (filePath: string, sourceRootPath: string) => {
   const [stem] = basename(filePath).split(".");
   if (stem === undefined) return undefined;
   const folderPath = dirname(filePath);
-  const relativeFolder = relative(sourceRootPath, folderPath).split(sep).join("/");
-  const groupedFolder = findGroupedFolder(relativeFolder);
-  if (groupedFolder !== undefined)
-    return relativeFolder === `${groupedFolder}/${stem}` ? undefined : `${groupedFolder}/${stem}/`;
   if (basename(folderPath) === stem) return undefined;
   const stemSiblings = readdirSync(folderPath, {withFileTypes: true}).filter(
     (entry) => entry.isFile() && entry.name.split(".")[0] === stem
   );
 
-  return stemSiblings.length > 1 ? `${relativeFolder}/${stem}/` : undefined;
+  if (stemSiblings.length < 2) return undefined;
+
+  return `${relative(sourceRootPath, folderPath).split(sep).join("/")}/${stem}/`;
 };
 
 const stemFolderRule: Rule.RuleModule = {
@@ -192,13 +187,10 @@ const stemFolderRule: Rule.RuleModule = {
     };
   },
   meta: {
-    docs: {
-      description: "Group files that share their first dotted part, and every interface and service, in a folder."
-    },
+    docs: {description: "Group files that share their first dotted part in a folder of that name."},
     messages: {
       notInStemFolder:
-        "Move this file into {{expectedFolder}}: files sharing their first dotted part, and each interface or service, " +
-        "sit in a folder of that name."
+        "Move this file into {{expectedFolder}}: files sharing their first dotted part sit in a folder of that name."
     },
     schema: [],
     type: "suggestion"

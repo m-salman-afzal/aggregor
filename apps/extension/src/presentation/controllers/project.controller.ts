@@ -1,4 +1,4 @@
-import * as ProjectService from "@/application/services/project/project.service.ts";
+import * as ProjectService from "@/application/services/project.service.ts";
 import {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
 import {decodeCommandArgument} from "@/presentation/utils/commandArguments.utils.ts";
 import {Effect} from "effect";

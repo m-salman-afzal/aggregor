@@ -1,12 +1,15 @@
 import {addTitleEntry, decodeTitleLine} from "@/infrastructure/services/claudeCodeHarness/claudeCode.transformer.ts";
-import {TranscriptNotFoundError} from "@/infrastructure/services/claudeCodeHarness/claudeCodeHarness.infraService.error.ts";
-import {ByteSize, Config, Effect, Result, Stream} from "effect";
+import {ByteSize, Config, Data, Effect, Result, Stream} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 import {homedir} from "node:os";
 
 import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
 import type {TranscriptProgress} from "@/infrastructure/services/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
+
+export class TranscriptNotFoundError extends Data.TaggedError("TranscriptNotFoundError")<{
+  readonly sessionId: SessionIdValueObject;
+}> {}
 
 export const getClaudeProjectsDirectoryPath = Effect.fn("ClaudeCodeHarnessInfraService.getClaudeProjectsDirectoryPath")(
   function* () {

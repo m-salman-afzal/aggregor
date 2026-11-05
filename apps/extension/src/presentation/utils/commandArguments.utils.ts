@@ -1,4 +1,4 @@
-import {InvalidCommandArgumentsError} from "@/presentation/middlewares/registerCommand/registerCommand.middleware.error.ts";
+import {InvalidCommandArgumentsError} from "@/presentation/middlewares/registerCommand.middleware.ts";
 import {Effect, Schema} from "effect";
 
 // VS Code passes command arguments untyped; each controller decodes the ones its menu entry sends.

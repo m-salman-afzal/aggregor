@@ -1,6 +1,6 @@
-import {IHarnessInfraService} from "@/application/interfaces/harness/harness.infraService.interface.ts";
-import {ITerminalInfraService} from "@/application/interfaces/terminal/terminal.infraService.interface.ts";
-import {findSession, listSessions} from "@/application/services/session/session.service.ts";
+import {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";
+import {ITerminalInfraService} from "@/application/interfaces/terminal.infraService.interface.ts";
+import {findSession, listSessions} from "@/application/services/session.service.ts";
 import {forEachHarnessInfraService} from "@/application/utils/harness.utils.ts";
 import {IProjectRepository} from "@/domain/entities/project/project.repository.interface.ts";
 import {getUnreadSessionIds} from "@/domain/entities/session/session.entity.ts";
@@ -21,8 +21,8 @@ import {
 import {SESSION_URI_SCHEME, SPINNER_INTERVAL_MS, VIEWS} from "@pkg/constants/src/extension.constant.ts";
 import {Data, Effect, Layer, Ref, Result, Schedule, Stream, SubscriptionRef} from "effect";
 
-import type {IHarnessInfraServices} from "@/application/interfaces/harness/harness.infraService.interface.ts";
-import type {IWorkspaceInfraService} from "@/application/interfaces/workspace/workspace.infraService.interface.ts";
+import type {IHarnessInfraServices} from "@/application/interfaces/harness.infraService.interface.ts";
+import type {IWorkspaceInfraService} from "@/application/interfaces/workspace.infraService.interface.ts";
 import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
 import type {StatusValueObject} from "@/domain/valueObjects/status.valueObject.ts";
 import type {Row, RowStatus} from "@/presentation/views/sessions/sessions.view.type.ts";
