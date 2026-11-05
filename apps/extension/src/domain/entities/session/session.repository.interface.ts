@@ -1,6 +1,6 @@
 import {Context, Data} from "effect";
 
-import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
+import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {Effect, SubscriptionRef} from "effect";
 
 export class SessionsCorruptError extends Data.TaggedError("SessionsCorruptError")<{readonly cause: unknown}> {}

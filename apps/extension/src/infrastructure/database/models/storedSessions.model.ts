@@ -1,6 +1,6 @@
-import {HarnessIdValueObjectSchema} from "@/domain/valueObjects/harnessId.valueObject.ts";
-import {ProjectPathValueObjectSchema} from "@/domain/valueObjects/projectPath.valueObject.ts";
-import {SessionIdValueObjectSchema} from "@/domain/valueObjects/sessionId.valueObject.ts";
+import {HarnessIdValueObjectSchema} from "@valueObjects/harnessId.valueObject.ts";
+import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
+import {SessionIdValueObjectSchema} from "@valueObjects/sessionId.valueObject.ts";
 import {Schema} from "effect";
 
 // The sessions as globalState keeps them. Any change to this shape bumps `version`, so windows still running older code

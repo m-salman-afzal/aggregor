@@ -1,16 +1,16 @@
+import {fromEvent} from "@infraUtils/vscode.utils.ts";
 import {
   ITerminalInfraService,
   NoViewedSessionError,
   TerminalLaunchFailedError,
   TerminalNotFoundError
-} from "@/application/interfaces/terminal.infraService.interface.ts";
-import {fromEvent} from "@/infrastructure/utils/vscode.utils.ts";
-import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
+} from "@interfaces/terminal.infraService.interface.ts";
+import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Data, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
 
-import type {TerminalLaunchRequest} from "@/application/interfaces/terminal.infraService.interface.ts";
-import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
-import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
+import type {SessionEntity} from "@entities/session/session.entity.ts";
+import type {TerminalLaunchRequest} from "@interfaces/terminal.infraService.interface.ts";
+import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
 import type {Terminal} from "vscode";
 
 // Each session's terminal in this window, keyed by session id.

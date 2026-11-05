@@ -1,13 +1,13 @@
-import {ICommitCliInfraService} from "@/application/interfaces/commitCli.infraService.interface.ts";
-import {IGitInfraService} from "@/application/interfaces/git.infraService.interface.ts";
-import {IPromptInfraService} from "@/application/interfaces/prompt.infraService.interface.ts";
-import {ISettingsConfig} from "@/application/interfaces/settings.config.interface.ts";
-import {showErrorInBackground} from "@/application/utils/error.utils.ts";
-import {IProjectRepository} from "@/domain/entities/project/project.repository.interface.ts";
+import {showErrorInBackground} from "@appUtils/error.utils.ts";
+import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
+import {ICommitCliInfraService} from "@interfaces/commitCli.infraService.interface.ts";
+import {IGitInfraService} from "@interfaces/git.infraService.interface.ts";
+import {IPromptInfraService} from "@interfaces/prompt.infraService.interface.ts";
+import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
 import {ACTIONS, COMMIT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {Effect, Ref, Stream, SubscriptionRef} from "effect";
 
-import type {ProjectPathValueObject} from "@/domain/valueObjects/projectPath.valueObject.ts";
+import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
 // The commit command writes the message for the staged changes into Source Control, and commits when autoCommit is on.
 const writeCommitMessage = Effect.fn("ScmService.writeCommitMessage")(function* (projectPath: ProjectPathValueObject) {

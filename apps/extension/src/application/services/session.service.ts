@@ -1,18 +1,18 @@
-import {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";
-import {IPromptInfraService} from "@/application/interfaces/prompt.infraService.interface.ts";
-import {ITerminalInfraService} from "@/application/interfaces/terminal.infraService.interface.ts";
-import {pickProject} from "@/application/services/project.service.ts";
-import {showErrorInBackground} from "@/application/utils/error.utils.ts";
-import {withHarnessInfraService} from "@/application/utils/harness.utils.ts";
-import {getNewSessionName, SessionEntity} from "@/domain/entities/session/session.entity.ts";
-import {ISessionRepository} from "@/domain/entities/session/session.repository.interface.ts";
-import {SessionIdValueObjectSchema} from "@/domain/valueObjects/sessionId.valueObject.ts";
+import {showErrorInBackground} from "@appUtils/error.utils.ts";
+import {withHarnessInfraService} from "@appUtils/harness.utils.ts";
+import {getNewSessionName, SessionEntity} from "@entities/session/session.entity.ts";
+import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
+import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
+import {IPromptInfraService} from "@interfaces/prompt.infraService.interface.ts";
+import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {ACTIONS, SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
+import {pickProject} from "@services/project.service.ts";
+import {SessionIdValueObjectSchema} from "@valueObjects/sessionId.valueObject.ts";
 import {Data, Effect, Match, Result, SubscriptionRef} from "effect";
 
-import type {TerminalLaunchRequest} from "@/application/interfaces/terminal.infraService.interface.ts";
-import type {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
-import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
+import type {ProjectEntity} from "@entities/project/project.entity.ts";
+import type {TerminalLaunchRequest} from "@interfaces/terminal.infraService.interface.ts";
+import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
 
 class RemoveCancelledError extends Data.TaggedError("RemoveCancelledError") {}
 

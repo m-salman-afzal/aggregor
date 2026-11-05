@@ -1,10 +1,10 @@
-import {showErrorInBackground} from "@/application/utils/error.utils.ts";
-import {acquireDisposable} from "@/infrastructure/utils/vscode.utils.ts";
-import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
+import {showErrorInBackground} from "@appUtils/error.utils.ts";
+import {acquireDisposable} from "@infraUtils/vscode.utils.ts";
 import {COMMAND_MESSAGES} from "@pkg/constants/src/message.constant.ts";
+import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Data, Effect} from "effect";
 
-import type {IPromptInfraService} from "@/application/interfaces/prompt.infraService.interface.ts";
+import type {IPromptInfraService} from "@interfaces/prompt.infraService.interface.ts";
 
 // What VS Code passed a command is not what its menu entry sends.
 export class InvalidCommandArgumentsError extends Data.TaggedError("InvalidCommandArgumentsError")<{

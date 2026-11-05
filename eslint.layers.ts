@@ -14,25 +14,38 @@ export const IMPORT_BANS = [
   {allowTypeImports: true, message: "Import only vscode's types; yield VsCodeApi for its values.", name: "vscode"}
 ];
 
+// Each layer's folders, by their tsconfig.json aliases. A layer's code is imported only through these, so each file has
+// one import path.
+const DOMAIN_ALIASES = "entities|valueObjects";
+const APPLICATION_ALIASES = "interfaces|services|appUtils";
+const INFRASTRUCTURE_ALIASES = "config|models|di|logger|repositories|infraServices|infraUtils|vscodeApi";
+const PRESENTATION_ALIASES = "controllers|middlewares|presentationUtils|views";
+
 // The layers' allow-lists.
+const DOMAIN_IMPORTS = {
+  message: "The domain layer imports only effect and other domain code, through its aliases.",
+  regex: `^(?!effect(/|$)|@(${DOMAIN_ALIASES})/)`
+};
+
 const APPLICATION_IMPORTS = {
-  message: "The application layer imports only effect, @pkg, and domain or application code.",
-  regex: "^(?!effect(/|$)|@pkg/|@/(domain|application)/)"
+  message: "The application layer imports only effect, @pkg, and domain or application code, through their aliases.",
+  regex: `^(?!effect(/|$)|@pkg/|@(${DOMAIN_ALIASES}|${APPLICATION_ALIASES})/)`
 };
 
 const PRESENTATION_IMPORTS = {
   message:
-    "The presentation layer imports only effect, vscode types, @pkg, and domain, application or presentation code; " +
-    "from infrastructure, only vscode.api and utils.",
+    "The presentation layer imports only effect, vscode types, @pkg, and domain, application or presentation code, " +
+    "through their aliases; from infrastructure, only vscode.api and utils.",
   regex:
-    "^(?!effect(/|$)|vscode$|@pkg/|@/(domain|application|presentation)/|@/infrastructure/(vscode/vscode\\.api\\.ts$|utils/))"
+    `^(?!effect(/|$)|vscode$|@pkg/|@(${DOMAIN_ALIASES}|${APPLICATION_ALIASES}|${PRESENTATION_ALIASES})/|` +
+    "@vscodeApi/vscode\\.api\\.ts$|@infraUtils/)"
 };
 
 const INFRASTRUCTURE_IMPORTS = {
   message:
     "The infrastructure layer imports only effect, @effect, vscode, node, @pkg, and domain, application or " +
-    "infrastructure code.",
-  regex: "^(?!effect(/|$)|@effect/|vscode$|node:|@pkg/|@/(domain|application|infrastructure)/)"
+    "infrastructure code, through their aliases.",
+  regex: `^(?!effect(/|$)|@effect/|vscode$|node:|@pkg/|@(${DOMAIN_ALIASES}|${APPLICATION_ALIASES}|${INFRASTRUCTURE_ALIASES})/)`
 };
 
 const TAGGED_ERROR_CLASS =
@@ -139,12 +152,7 @@ export const LAYER_CONFIGS: Config[] = [
         "error",
         {
           paths: OPTION_IMPORT_BANS,
-          patterns: [
-            {
-              message: "The domain layer imports only effect and other domain code.",
-              regex: "^(?!effect(/|$)|@/domain/)"
-            }
-          ]
+          patterns: [DOMAIN_IMPORTS]
         }
       ]
     }

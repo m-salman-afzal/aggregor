@@ -1,4 +1,4 @@
-import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
+import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Effect, Queue, Stream} from "effect";
 
 import type {Disposable, Event, ProgressOptions} from "vscode";

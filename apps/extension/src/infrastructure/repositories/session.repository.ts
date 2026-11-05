@@ -1,15 +1,15 @@
-import {showErrorInBackground} from "@/application/utils/error.utils.ts";
-import {SessionEntity} from "@/domain/entities/session/session.entity.ts";
+import {showErrorInBackground} from "@appUtils/error.utils.ts";
+import {SessionEntity} from "@entities/session/session.entity.ts";
 import {
   ISessionRepository,
   SessionsCorruptError,
   SessionsSaveFailedError
-} from "@/domain/entities/session/session.repository.interface.ts";
-import {NO_STORED_SESSIONS, StoredSessionsModel} from "@/infrastructure/database/models/storedSessions.model.ts";
-import {fromEvent} from "@/infrastructure/utils/vscode.utils.ts";
-import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
+} from "@entities/session/session.repository.interface.ts";
+import {fromEvent} from "@infraUtils/vscode.utils.ts";
+import {NO_STORED_SESSIONS, StoredSessionsModel} from "@models/storedSessions.model.ts";
 import {STORAGE_KEYS} from "@pkg/constants/src/extension.constant.ts";
 import {SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
+import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Effect, Layer, Schema, Stream, SubscriptionRef} from "effect";
 
 import type {Memento, WindowState} from "vscode";

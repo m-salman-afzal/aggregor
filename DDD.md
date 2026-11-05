@@ -19,10 +19,20 @@ presentation), adapted to Effect, with the places where vs-uc-api's layers leake
 | `presentation/`   | Command routes, controllers, the command middleware, views                   | `application`, `domain`, `@pkg/*`, and from infrastructure only `vscode.api` and utils       |
 | `extension.ts`    | `activate`: builds the runtime from the layer graph                          | everything                                                                                   |
 
-Lint enforces the import column with `@typescript-eslint/no-restricted-imports`: one block per layer in
-`eslint.layers.ts`, with a regex allow-list over the `@/` import paths. All four layers are enforced. Outside
-`infrastructure/vscode/vscode.api.ts`, `vscode` is a type-only import, and `application` never sees it, not even its
-types.
+Each folder directly under a layer has one import alias in `apps/extension/tsconfig.json`:
+
+| Layer            | Aliases                                                                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `domain`         | `@entities`, `@valueObjects`                                                                                                                      |
+| `application`    | `@interfaces`, `@services`, `@appUtils`                                                                                                           |
+| `infrastructure` | `@config`, `@models` (`database/models`), `@di`, `@logger`, `@repositories`, `@infraServices` (`services`), `@infraUtils` (`utils`), `@vscodeApi` |
+| `presentation`   | `@controllers`, `@middlewares`, `@presentationUtils` (`utils`), `@views`                                                                          |
+
+Code is imported only through them, so each file has one import path; `extension.ts` imports `./presentation/routes.ts`,
+the one file at a layer's root. Lint enforces the import column with `@typescript-eslint/no-restricted-imports`: one
+block per layer in `eslint.layers.ts`, with a regex allow-list over the aliases, which also rejects relative imports.
+All four layers are enforced. Outside `infrastructure/vscode/vscode.api.ts`, `vscode` is a type-only import, and
+`application` never sees it, not even its types.
 
 ## Naming
 
@@ -253,3 +263,5 @@ Each branch is verified in the headless VS Code (the `verify-in-vscode` skill).
    of the file that declares them, and an error no other file sees is private to it; an interface's types and errors sit
    in its `.interface.ts`; files sharing a first dotted part get a folder. `eslint.plugin.ts` checks the span names, the
    type files and the folders; `eslint.layers.ts` the errors.
+9. `refactor/path-aliases` (done): one import alias per folder under a layer, such as `@entities` and `@infraServices`,
+   in place of `@/` paths; the layers' import allow-lists are written over the aliases.

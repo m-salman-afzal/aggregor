@@ -1,7 +1,7 @@
-import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
-import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
-import type {StatusValueObject} from "@/domain/valueObjects/status.valueObject.ts";
-import type {TitleNotFoundError} from "@/infrastructure/services/claudeCodeHarness/claudeCode.transformer.ts";
+import type {SessionEntity} from "@entities/session/session.entity.ts";
+import type {TitleNotFoundError} from "@infraServices/claudeCodeHarness/claudeCode.transformer.ts";
+import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
+import type {StatusValueObject} from "@valueObjects/status.valueObject.ts";
 import type {Result, SubscriptionRef} from "effect";
 
 // Each session's status, keyed by session id.

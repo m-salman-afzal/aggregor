@@ -6,13 +6,13 @@ import {
   GitRepositoryUnavailableError,
   IGitInfraService,
   NothingStagedError
-} from "@/application/interfaces/git.infraService.interface.ts";
-import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
+} from "@interfaces/git.infraService.interface.ts";
 import {EXTENSION_VERSIONS} from "@pkg/constants/src/extension.constant.ts";
+import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Effect, Layer, Result} from "effect";
 
-import type {ProjectPathValueObject} from "@/domain/valueObjects/projectPath.valueObject.ts";
 import type {API, GitExtension, Repository} from "@pkg/typings/src/git.js";
+import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
 // What the git functions share: VS Code's commands, extensions and Uri.
 type GitDependencies = Pick<VsCodeApi["Service"], "commands" | "extensions" | "Uri">;

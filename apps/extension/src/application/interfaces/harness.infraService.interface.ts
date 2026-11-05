@@ -1,10 +1,10 @@
 import {Context, Data} from "effect";
 
-import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
-import type {HarnessIdValueObject} from "@/domain/valueObjects/harnessId.valueObject.ts";
-import type {LaunchPlanValueObject} from "@/domain/valueObjects/launchPlan.valueObject.ts";
-import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
-import type {StatusValueObject} from "@/domain/valueObjects/status.valueObject.ts";
+import type {SessionEntity} from "@entities/session/session.entity.ts";
+import type {HarnessIdValueObject} from "@valueObjects/harnessId.valueObject.ts";
+import type {LaunchPlanValueObject} from "@valueObjects/launchPlan.valueObject.ts";
+import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
+import type {StatusValueObject} from "@valueObjects/status.valueObject.ts";
 import type {Effect, LayerMap, SubscriptionRef} from "effect";
 
 export class SessionTitleNotFoundError extends Data.TaggedError("SessionTitleNotFoundError")<{

@@ -2,14 +2,14 @@ import {
   FolderPickCancelledError,
   IPromptInfraService,
   ProjectPickCancelledError
-} from "@/application/interfaces/prompt.infraService.interface.ts";
-import {ProjectPathValueObjectSchema} from "@/domain/valueObjects/projectPath.valueObject.ts";
-import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
+} from "@interfaces/prompt.infraService.interface.ts";
 import {APP_NAME} from "@pkg/constants/src/extension.constant.ts";
 import {ACTIONS, PROJECT_LABELS} from "@pkg/constants/src/message.constant.ts";
+import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
+import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Effect, Layer, Result} from "effect";
 
-import type {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
+import type {ProjectEntity} from "@entities/project/project.entity.ts";
 import type {window as VsCodeWindow} from "vscode";
 
 type Window = typeof VsCodeWindow;

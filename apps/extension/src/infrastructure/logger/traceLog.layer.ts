@@ -1,6 +1,6 @@
-import {acquireDisposable} from "@/infrastructure/utils/vscode.utils.ts";
-import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
+import {acquireDisposable} from "@infraUtils/vscode.utils.ts";
 import {APP_NAME} from "@pkg/constants/src/extension.constant.ts";
+import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Cause, Effect, Exit, Layer, Logger, Predicate, References, Result, Tracer} from "effect";
 import {format} from "node:util";
 

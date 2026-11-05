@@ -1,6 +1,6 @@
-import {InvalidSettingsError, ISettingsConfig} from "@/application/interfaces/settings.config.interface.ts";
-import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
+import {InvalidSettingsError, ISettingsConfig} from "@interfaces/settings.config.interface.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/extension.constant.ts";
+import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Effect, Layer, Schema} from "effect";
 
 const SettingsSchema = Schema.Struct({

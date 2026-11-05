@@ -1,6 +1,6 @@
-import * as ProjectService from "@/application/services/project.service.ts";
-import {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
-import {decodeCommandArgument} from "@/presentation/utils/commandArguments.utils.ts";
+import {ProjectEntity} from "@entities/project/project.entity.ts";
+import {decodeCommandArgument} from "@presentationUtils/commandArguments.utils.ts";
+import * as ProjectService from "@services/project.service.ts";
 import {Effect} from "effect";
 
 export const addProject = Effect.fn("ProjectController.addProject")(function* () {

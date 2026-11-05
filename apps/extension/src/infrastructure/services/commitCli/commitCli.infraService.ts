@@ -3,13 +3,13 @@ import {
   CommitCliSpawnFailedError,
   EmptyCommitMessageError,
   ICommitCliInfraService
-} from "@/application/interfaces/commitCli.infraService.interface.ts";
+} from "@interfaces/commitCli.infraService.interface.ts";
 import {EXIT_CODES} from "@pkg/constants/src/process.constant.ts";
 import {Effect, Layer, Stream} from "effect";
 import {ChildProcess} from "effect/process";
 import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 
-import type {CommitMessageRequest} from "@/application/interfaces/commitCli.infraService.interface.ts";
+import type {CommitMessageRequest} from "@interfaces/commitCli.infraService.interface.ts";
 
 // Runs the command in a shell in the project, with the staged diff on stdin.
 const runCommitCommand = Effect.fn("CommitCliInfraService.runCommitCommand")(

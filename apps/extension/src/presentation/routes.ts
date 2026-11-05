@@ -1,7 +1,7 @@
-import * as ProjectController from "@/presentation/controllers/project.controller.ts";
-import * as ScmController from "@/presentation/controllers/scm.controller.ts";
-import * as SessionController from "@/presentation/controllers/session.controller.ts";
-import {registerCommand} from "@/presentation/middlewares/registerCommand.middleware.ts";
+import * as ProjectController from "@controllers/project.controller.ts";
+import * as ScmController from "@controllers/scm.controller.ts";
+import * as SessionController from "@controllers/session.controller.ts";
+import {registerCommand} from "@middlewares/registerCommand.middleware.ts";
 import {COMMANDS} from "@pkg/constants/src/extension.constant.ts";
 import {Effect, Layer} from "effect";
 

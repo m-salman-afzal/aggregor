@@ -1,4 +1,4 @@
-import {ProjectPathValueObjectSchema} from "@/domain/valueObjects/projectPath.valueObject.ts";
+import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {Schema} from "effect";
 
 // The paths added with Add Project, as workspaceState keeps them. Any change to this shape bumps `version`, so older code

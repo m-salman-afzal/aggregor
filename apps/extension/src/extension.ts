@@ -1,9 +1,10 @@
-import {AppLayer} from "@/infrastructure/di/app.layer.ts";
-import {TraceLogLayer} from "@/infrastructure/logger/traceLog.layer.ts";
-import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
-import {RoutesLayer} from "@/presentation/routes.ts";
-import {SessionsView} from "@/presentation/views/sessions/sessions.view.ts";
+import {AppLayer} from "@di/app.layer.ts";
+import {TraceLogLayer} from "@logger/traceLog.layer.ts";
+import {SessionsView} from "@views/sessions/sessions.view.ts";
+import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Layer, ManagedRuntime} from "effect";
+
+import {RoutesLayer} from "./presentation/routes.ts";
 
 import type {ExtensionContext} from "vscode";
 

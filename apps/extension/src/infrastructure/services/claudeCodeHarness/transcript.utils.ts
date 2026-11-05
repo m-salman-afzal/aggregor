@@ -1,11 +1,11 @@
-import {addTitleEntry, decodeTitleLine} from "@/infrastructure/services/claudeCodeHarness/claudeCode.transformer.ts";
+import {addTitleEntry, decodeTitleLine} from "@infraServices/claudeCodeHarness/claudeCode.transformer.ts";
 import {ByteSize, Config, Data, Effect, Result, Stream} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 import {homedir} from "node:os";
 
-import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
-import type {TranscriptProgress} from "@/infrastructure/services/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
+import type {TranscriptProgress} from "@infraServices/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
+import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
 
 export class TranscriptNotFoundError extends Data.TaggedError("TranscriptNotFoundError")<{
   readonly sessionId: SessionIdValueObject;
