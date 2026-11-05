@@ -48,9 +48,13 @@ or on origin.
 
 - `n = 0` opens a PR into `dev`.
 - `n > 0` opens a PR into the stack's branch at `n - 1` and adds it to that PR's GitHub stack. The stack is created when
-  the `n = 1` PR opens.
+  the second PR from the bottom opens.
+- Once the branches below have landed and none is left on GitHub, the lowest branch left opens its PR into `dev` and
+  becomes the bottom.
 - A branch with no commits of its own gets no PR until a push that has some.
-- Push bottom-up. A branch whose parent isn't on GitHub yet fails the workflow.
+- Push bottom-up. A branch whose parent isn't on GitHub yet fails the workflow, while a lower branch is still there.
+- Land a stack's branches only through their PRs. A branch pushed straight to `dev` leaves its stack without a bottom PR
+  until the branch above it is pushed again.
 
 Don't run `gh stack init`, `add`, `submit` or `sync`: Auto PR owns the stack on GitHub, and a second owner diverges from
 it. `gh stack view` and `gh stack checkout` are fine for reading.
