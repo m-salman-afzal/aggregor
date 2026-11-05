@@ -6,9 +6,9 @@ import {RepoRepository} from "@/domain/entities/repo/repo.repository.ts";
 import {getUnreadSessionIds} from "@/domain/entities/session/session.entity.ts";
 import {SessionRepository} from "@/domain/entities/session/session.repository.ts";
 import {decodeSessionId} from "@/domain/value-objects/session-id.value-object.ts";
-import {RevealFailed} from "@/errors/session.error.ts";
 import {acquireDisposable, fromEvent} from "@/infrastructure/utils/vscode.utils.ts";
 import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
+import {RevealFailed} from "@/presentation/errors/sessions-view.error.ts";
 import {
   createRepoTreeItem,
   createSessionTreeItem,
@@ -18,7 +18,7 @@ import {
   getRowStatus,
   getSessionRowUri,
   isRepo
-} from "@/views/sessions.utils.ts";
+} from "@/presentation/views/sessions/sessions.utils.ts";
 import {SESSION_URI_SCHEME, SPINNER_INTERVAL_MS, VIEWS} from "@pkg/constants/src/extension.constant.ts";
 import {Effect, Layer, Ref, Result, Schedule, Stream, SubscriptionRef} from "effect";
 
@@ -26,7 +26,7 @@ import type {Harnesses} from "@/application/clients/harness.client.ts";
 import type {WorkspaceClient} from "@/application/clients/workspace.client.ts";
 import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
 import type {Status} from "@/domain/value-objects/status.value-object.ts";
-import type {Row, RowStatus} from "@/views/sessions.utils.ts";
+import type {Row, RowStatus} from "@/presentation/views/sessions/sessions.utils.ts";
 import type {Path} from "effect/Path";
 import type {EventEmitter, TreeView, Uri} from "vscode";
 

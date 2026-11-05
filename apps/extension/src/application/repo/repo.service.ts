@@ -58,8 +58,7 @@ export const addRepo = Effect.fn("addRepo")(
   Effect.catch(showRepoRepositoryError)
 );
 
-// The repo row's … menu passes the Repo itself. Its sessions stay saved and their open tabs keep running; adding the
-// repo again lists them again.
+// Its sessions stay saved and their open tabs keep running; adding the repo again lists them again.
 export const removeRepo = Effect.fn("removeRepo")(function* (repo: Repo) {
   const {modifyAddedRepoPaths} = yield* RepoRepository;
   yield* modifyAddedRepoPaths((storedAddedRepoPaths) =>

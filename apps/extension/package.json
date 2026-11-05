@@ -21,10 +21,10 @@
     "publish:vsce": "vsce publish --no-dependencies --skip-license"
   },
   "dependencies": {
-    "@effect/platform-node": "4.1.0",
+    "@effect/platform-node": "4.1.2",
     "@pkg/constants": "workspace:*",
     "@pkg/typings": "workspace:*",
-    "effect": "4.1.0"
+    "effect": "4.1.2"
   },
   "devDependencies": {
     "@pkg/tsconfigs": "workspace:*",

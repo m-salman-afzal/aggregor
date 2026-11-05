@@ -140,10 +140,9 @@ const removeSessionAndStopAgent = Effect.fn("removeSessionAndStopAgent")(functio
   );
 });
 
-// The repo row's button passes its Repo; without one, the user picks a repo. VS Code passes title-bar buttons the
-// focused row, which can be a Session, so newSessionAskingForRepo drops its arguments before calling this.
+// Starts a session in the given repo; without one, the user picks a repo.
 export const newSession = Effect.fn("newSession")(
-  function* (clickedRepo?: Repo) {
+  function* (clickedRepo: Repo | undefined) {
     yield* startSession(clickedRepo);
   },
   Effect.catchTag("RepoPickCancelled", () => Effect.void),
@@ -175,7 +174,7 @@ export const openSession = Effect.fn("openSession")(
   )
 );
 
-// The inline tree button passes the Session itself. Claude's transcript on disk is left alone.
+// The agent's transcript on disk is left alone.
 export const removeSession = Effect.fn("removeSession")(
   function* (session: Session) {
     yield* removeSessionAndStopAgent(session);
