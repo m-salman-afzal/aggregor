@@ -8,7 +8,7 @@ import {TerminalInfraService} from "@infraServices/vscode/terminal/terminal.infr
 import {WorkspaceInfraService} from "@infraServices/vscode/workspace.infraService.ts";
 import {ProjectRepository} from "@repositories/project.repository.ts";
 import {SessionRepository} from "@repositories/session.repository.ts";
-import {startShownProjectSync} from "@services/workspace.service.ts";
+import {startShownProjectSync, startWorkspaceSaveOffer} from "@services/workspace.service.ts";
 import {Layer} from "effect";
 import {SecureRandom} from "effect/crypto";
 
@@ -20,10 +20,13 @@ const IndependentLayers = Layer.mergeAll(
   SettingsConfig
 );
 
-const ShownProjectSyncLayer = Layer.effectDiscard(startShownProjectSync());
+const WorkspaceLayer = Layer.mergeAll(
+  Layer.effectDiscard(startShownProjectSync()),
+  Layer.effectDiscard(startWorkspaceSaveOffer())
+);
 
 // Everything the commands and views run on. It still needs VsCodeApi, and the trace log underneath.
-export const AppLayer = ShownProjectSyncLayer.pipe(
+export const AppLayer = WorkspaceLayer.pipe(
   Layer.provideMerge(TerminalInfraService),
   Layer.provideMerge(HarnessInfraServicesLayer),
   Layer.provideMerge(SessionRepository),

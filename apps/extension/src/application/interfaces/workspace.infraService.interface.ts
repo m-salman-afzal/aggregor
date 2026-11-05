@@ -9,10 +9,14 @@ import type {Effect} from "effect";
 export class IWorkspaceInfraService extends Context.Service<
   IWorkspaceInfraService,
   {
+    // True once per window, when the first switch has left it an unsaved workspace.
+    readonly claimWorkspaceSaveOffer: Effect.Effect<boolean>;
     // The workspace folders that are projects: all but the anchor folder.
     readonly listWorkspaceFolderProjects: Effect.Effect<readonly ProjectEntity[]>;
     // Takes the project's folder out of the workspace. Best effort: a failure only logs a warning, and folder 0 stays.
     readonly removeProjectFolder: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;
+    // Opens Save Workspace As, whose dialog suggests the anchor folder's name, Aggregor.
+    readonly saveWorkspaceAs: Effect.Effect<void>;
     // Makes the project the workspace's only project folder, after the anchor folder. The first time, the anchor folder
     // takes folder 0, which restarts every extension. Best effort: a failure only logs a warning.
     readonly showOnlyProjectFolder: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;

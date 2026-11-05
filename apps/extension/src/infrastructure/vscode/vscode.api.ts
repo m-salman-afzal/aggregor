@@ -1,6 +1,7 @@
 import {Context, Effect, Layer} from "effect";
 import {
   commands,
+  env,
   EventEmitter,
   extensions,
   FileDecoration,
@@ -23,6 +24,7 @@ export class VsCodeApi extends Context.Service<
   VsCodeApi,
   {
     readonly commands: typeof commands;
+    readonly env: typeof env;
     readonly EventEmitter: typeof EventEmitter;
     readonly extensions: typeof extensions;
     readonly extensionUri: Uri;
@@ -45,6 +47,7 @@ export class VsCodeApi extends Context.Service<
   public static readonly layer = (extensionContext: ExtensionContext) =>
     Layer.succeed(VsCodeApi, {
       commands,
+      env,
       EventEmitter,
       extensions,
       extensionUri: extensionContext.extensionUri,

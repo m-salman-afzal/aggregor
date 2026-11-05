@@ -12,13 +12,21 @@ data that processes other than the extension write, or that is too big for `glob
 
 ### `anchors/<window key>/`
 
-- **Holds:** an empty folder with `.vscode/settings.json`: `files.exclude` set to `{"**": true}`, and
-  `terminal.integrated.cwd` set to the shown project.
-- **Written by:** `WorkspaceInfraService`, before every project switch.
-- **Read by:** VS Code, as that window's folder 0, which its own settings hide from Explorer.
-- **Why:** with it at folder 0, the shown project swaps at folder 1; changing folder 0 restarts every extension. Its
-  terminal cwd makes New Terminal count it and the project as one folder, so it opens in the project without asking.
-- **Cleaned up:** never; each is an empty folder and a 32-byte file.
+- **Holds:**
+  - `Aggregor/`, the anchor folder: empty but for `.vscode/settings.json`, with `files.exclude` set to `{"**": true}`
+    and `terminal.integrated.cwd` set to the shown project. Save Workspace As suggests saving
+    `Aggregor/Aggregor.code-workspace`, so a saved workspace usually lives here too.
+  - `saveOffered`, an empty file: the window was offered to save its workspace.
+- **Written by:** `WorkspaceInfraService`: the settings before every project switch, the marker when it offers; VS Code,
+  the workspace file when the user saves it there.
+- **Read by:** VS Code, as that window's folder 0, which its own settings hide from Explorer; `WorkspaceInfraService`
+  checks the marker.
+- **Why:** with the anchor folder at folder 0, the shown project swaps at folder 1; changing folder 0 restarts every
+  extension. Its terminal cwd makes New Terminal count it and the project as one folder, so it opens in the project
+  without asking. Named `Aggregor`, it names the saved workspace and its row in folder pickers. The marker makes the
+  offer once per window.
+- **Cleaned up:** never; each is an empty folder, a settings file of a few hundred bytes, an empty marker and maybe a
+  workspace file.
 - **Added in:** one project in view (M2).
 
 ### `status/<session id>`
@@ -53,9 +61,10 @@ JSON the extension alone reads and writes.
 ### `addedProjectPathsByWindow`
 
 - **Holds:** `{version: 1, addedProjectPathsByWindow: {<window key>: [path]}}`: the `StoredAddedProjectPathsModel`, the
-  absolute paths added with Add Project, one list per window. A window's key is its anchor folder's name once it has
-  one, else its first folder's name and a hash of its path (`findWindowKey` in `infrastructure/utils/`), which is the
-  name its anchor folder gets. Workspace folders are not stored.
+  absolute paths added with Add Project, one list per window. A window's key is its anchor folder's directory name once
+  it has one, else its first folder's name and a hash of its path (`findWindowKey` in `infrastructure/utils/`), which is
+  the name its anchor folder's directory gets. A window without folders is `window-` and a hash of its session id; its
+  first Add Project gives it an anchor folder at once, which keeps the key. Workspace folders are not stored.
 - **Written by:** `ProjectRepository`, with a read-modify-write that keeps the other windows' lists, on every Add
   Project and Remove Project, and when folders leave the workspace for the shown project.
 - **Read by:** `ProjectRepository` at startup and before every write.

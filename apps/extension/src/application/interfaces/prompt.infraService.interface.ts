@@ -26,5 +26,7 @@ export class IPromptInfraService extends Context.Service<
     readonly pickProjectFolderPaths: Effect.Effect<readonly ProjectPathValueObject[], FolderPickCancelledError>;
     // Resolves with the action the user picked, or undefined when they dismiss the message.
     readonly showErrorMessage: (message: string, ...actions: string[]) => Effect.Effect<string | undefined>;
+    // Resolves with the action the user picked, or undefined when they dismiss the message.
+    readonly showInformationMessage: (message: string, ...actions: string[]) => Effect.Effect<string | undefined>;
   }
 >()("aggregor-app/application/interfaces/prompt.infraService.interface/IPromptInfraService") {}

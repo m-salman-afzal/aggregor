@@ -22,6 +22,14 @@ const showErrorMessage = Effect.fn("PromptInfraService.showErrorMessage")(functi
   return yield* Effect.promise(() => window.showErrorMessage(`${APP_NAME}: ${message}`, ...actions));
 });
 
+const showInformationMessage = Effect.fn("PromptInfraService.showInformationMessage")(function* (
+  window: Window,
+  message: string,
+  actions: readonly string[]
+) {
+  return yield* Effect.promise(() => window.showInformationMessage(`${APP_NAME}: ${message}`, ...actions));
+});
+
 const confirm = Effect.fn("PromptInfraService.confirm")(function* (
   window: Window,
   message: string,
@@ -74,7 +82,8 @@ const makePromptInfraService = Effect.fn("PromptInfraService.make")(function* ()
     pickProject: (projects: readonly ProjectEntity[], placeHolder: string) =>
       pickProject(window, projects, placeHolder),
     pickProjectFolderPaths: pickProjectFolderPaths(window),
-    showErrorMessage: (message: string, ...actions: string[]) => showErrorMessage(window, message, actions)
+    showErrorMessage: (message: string, ...actions: string[]) => showErrorMessage(window, message, actions),
+    showInformationMessage: (message: string, ...actions: string[]) => showInformationMessage(window, message, actions)
   };
 });
 

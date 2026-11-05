@@ -28,7 +28,6 @@ interface WorkspaceFoldersSplice {
 
 // A folder as updateWorkspaceFolders adds it.
 interface WorkspaceFolderToAdd {
-  readonly name?: string;
   readonly uri: Uri;
 }
 
@@ -54,8 +53,8 @@ const AnchorFolderSettingsJson = Schema.fromJsonString(
 // command that tells them.
 const FOLDER_SELECT_COMMANDS = [{command: "mise.selectWorkspaceFolder", extensionId: "hverlin.mise-vscode"}] as const;
 
-// Where VS Code lists the workspace folders by name, as New Terminal's folder picker does, the anchor folder shows this.
-const ANCHOR_FOLDER_NAME = "Aggregor";
+// Beside the anchor folder; once it exists, the window was offered to save its workspace.
+const SAVE_OFFERED_MARKER = "saveOffered";
 
 // Every workspace folder's path, the anchor folder's included.
 const readWorkspaceFolderPaths = Effect.fn("WorkspaceInfraService.readWorkspaceFolderPaths")(function* ({
@@ -129,7 +128,7 @@ const anchorWorkspace = Effect.fn("WorkspaceInfraService.anchorWorkspace")(funct
   projectFolder: WorkspaceFolderToAdd
 ) {
   const {anchorFolderPath, Uri} = workspaceDependencies;
-  const anchorFolder: WorkspaceFolderToAdd = {name: ANCHOR_FOLDER_NAME, uri: Uri.file(anchorFolderPath)};
+  const anchorFolder: WorkspaceFolderToAdd = {uri: Uri.file(anchorFolderPath)};
 
   yield* updateWorkspaceFolders(workspaceDependencies, {
     deleteCount: workspaceFolderCount,
@@ -201,6 +200,47 @@ const removeProjectFolder = Effect.fn("WorkspaceInfraService.removeProjectFolder
   Effect.ignore({log: "Warn", message: "Could not take the project out of the workspace"})
 );
 
+// The window's workspace is unsaved, as the first switch leaves it, and its folder 0 is our anchor folder.
+const isUnsavedAnchoredWorkspace = Effect.fn("WorkspaceInfraService.isUnsavedAnchoredWorkspace")(function* ({
+  anchorFolderPath,
+  workspace
+}: WorkspaceDependencies) {
+  return yield* Effect.sync(() => {
+    const {workspaceFile, workspaceFolders} = workspace;
+    const [firstWorkspaceFolder] = workspaceFolders === undefined ? [] : workspaceFolders;
+
+    return (
+      workspaceFile !== undefined &&
+      workspaceFile.scheme === "untitled" &&
+      firstWorkspaceFolder !== undefined &&
+      firstWorkspaceFolder.uri.fsPath === anchorFolderPath
+    );
+  });
+});
+
+// True once per window, the first time it runs on an unsaved anchored workspace; the marker remembers it.
+const claimWorkspaceSaveOffer = Effect.fn("WorkspaceInfraService.claimWorkspaceSaveOffer")(
+  function* (workspaceDependencies: WorkspaceDependencies) {
+    const {anchorFolderPath, fileSystem, path} = workspaceDependencies;
+    if (!(yield* isUnsavedAnchoredWorkspace(workspaceDependencies))) return false;
+    const markerPath = path.join(path.dirname(anchorFolderPath), SAVE_OFFERED_MARKER);
+    if (yield* fileSystem.exists(markerPath)) return false;
+    yield* fileSystem.writeFileString(markerPath, "");
+
+    return true;
+  },
+  Effect.catch((markerError) =>
+    Effect.as(Effect.logWarning("Could not check whether the workspace was offered to be saved", markerError), false)
+  )
+);
+
+// VS Code's Save Workspace As, which asks where; there is no other way to save a workspace.
+const saveWorkspaceAs = Effect.fn("WorkspaceInfraService.saveWorkspaceAs")(function* ({
+  commands
+}: WorkspaceDependencies) {
+  yield* Effect.promise(() => commands.executeCommand("workbench.action.saveWorkspaceAs"));
+});
+
 const makeWorkspaceInfraService = Effect.fn("WorkspaceInfraService.make")(function* () {
   const windowKey = yield* findWindowKey();
   const workspaceDependencies: WorkspaceDependencies = {
@@ -212,9 +252,11 @@ const makeWorkspaceInfraService = Effect.fn("WorkspaceInfraService.make")(functi
   };
 
   return {
+    claimWorkspaceSaveOffer: claimWorkspaceSaveOffer(workspaceDependencies),
     listWorkspaceFolderProjects: listWorkspaceFolderProjects(workspaceDependencies),
     removeProjectFolder: (projectPath: ProjectPathValueObject) =>
       removeProjectFolder(workspaceDependencies, projectPath),
+    saveWorkspaceAs: saveWorkspaceAs(workspaceDependencies),
     showOnlyProjectFolder: (projectPath: ProjectPathValueObject) =>
       showOnlyProjectFolder(workspaceDependencies, projectPath)
   };
