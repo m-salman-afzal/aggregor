@@ -1,4 +1,8 @@
-import {addProjectsAskingForFolders, removeClickedProject} from "@controllers/project.controller.ts";
+import {
+  addProjectsAskingForFolders,
+  newProjectTerminalAskingForProject,
+  removeClickedProject
+} from "@controllers/project.controller.ts";
 import {generateCommitMessage} from "@controllers/scm.controller.ts";
 import {
   newSessionAskingForProject,
@@ -18,6 +22,7 @@ export const RoutesLayer = Layer.effectDiscard(
     registerCommand(COMMANDS.SCM_TITLE.GENERATE_COMMIT_MESSAGE, generateCommitMessage),
     registerCommand(COMMANDS.SESSION_ROW.OPEN, openClickedSession),
     registerCommand(COMMANDS.SESSION_ROW.REMOVE, removeClickedSession),
+    registerCommand(COMMANDS.TERMINAL_TITLE.NEW_PROJECT_TERMINAL, newProjectTerminalAskingForProject),
     registerCommand(COMMANDS.VIEW_TITLE.ADD_PROJECT, addProjectsAskingForFolders),
     registerCommand(COMMANDS.VIEW_TITLE.NEW_SESSION, newSessionAskingForProject)
   ])

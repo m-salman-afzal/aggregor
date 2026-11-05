@@ -84,6 +84,11 @@
           "command": "aggregorApp.addProject",
           "group": "navigation@2",
           "when": "view == aggregorApp.sessions"
+        },
+        {
+          "command": "aggregorApp.newProjectTerminal",
+          "group": "navigation",
+          "when": "view == terminal"
         }
       ],
       "view/item/context": [
@@ -199,6 +204,12 @@
         "title": "Remove Project",
         "command": "aggregorApp.removeProject",
         "category": "Aggregor App"
+      },
+      {
+        "title": "New Terminal in Project...",
+        "command": "aggregorApp.newProjectTerminal",
+        "category": "Aggregor App",
+        "icon": "$(root-folder)"
       }
     ]
   },

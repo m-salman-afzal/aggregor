@@ -8,10 +8,16 @@ Control and diffs.
 
 - **Sessions sidebar.** The Aggregor App activity-bar view lists the window's projects, each with its sessions, and
   starts Claude Code in an editor-tab terminal. Clicking a session focuses its tab; switching tabs selects the session.
-- **Projects.** The window's workspace folders are always listed; Add Project lists any other folder without adding it
-  to the workspace, and opens it in Source Control if it is a git repository. Added projects are kept per workspace, so
-  other windows don't see them or their sessions. A project row's + starts a session in it, the view's + asks which
-  project to use, and an added project's … menu removes it.
+- **Projects.** The window's workspace folders are always listed; Add Project lists any other folder. Added projects are
+  kept per window, so other windows don't see them or their sessions. A project row's + starts a session in it, the
+  view's + asks which project to use, and an added project's … menu removes it.
+- **One project in view.** Like VS Code's Agents window, the workspace follows the session in front of you: its project
+  is the only folder Explorer, search, file watching and Source Control see. Opening a file keeps the project. The first
+  switch replaces folder 0 with a hidden, empty anchor folder the extension owns, so later switches never touch folder
+  0, which would restart every extension. That first switch turns the window into an untitled multi-root workspace and
+  restarts the extensions once; open session tabs keep running, and the folders that leave become added projects.
+- **Terminals.** The Terminal panel's + opens in the shown project without asking. Its project button opens a shell in
+  any of the window's projects, shown or not.
 - **Persistent sessions.** Sessions survive reloads and restarts, and every window that lists their project shows them.
   Closing a tab keeps the session listed as exited; clicking it resumes the conversation. The row's … menu removes a
   session.

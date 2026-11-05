@@ -1,6 +1,7 @@
 import {SessionIdValueObjectSchema} from "@valueObjects/sessionId.valueObject.ts";
 import {Context, Schema} from "effect";
 
+import type {ProjectEntity} from "@entities/project/project.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {LaunchPlanValueObject} from "@valueObjects/launchPlan.valueObject.ts";
 import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
@@ -36,6 +37,8 @@ export class ITerminalInfraService extends Context.Service<
     readonly closeSessionTerminal: (sessionId: SessionIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
     readonly focusSessionTerminal: (sessionId: SessionIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
     readonly isSessionTerminalOpen: (sessionId: SessionIdValueObject) => Effect.Effect<boolean>;
+    // A plain shell in the project's folder, in the Terminal panel.
+    readonly openProjectTerminal: (project: ProjectEntity) => Effect.Effect<void, TerminalLaunchFailedError>;
     // The sessions with a tab in this window, now and after every change.
     readonly openSessionIds: Stream.Stream<ReadonlySet<SessionIdValueObject>>;
     // Reuses the session's tab when this window already has one.

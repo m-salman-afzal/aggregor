@@ -12,7 +12,7 @@ export class ProjectsSaveFailedError extends Schema.TaggedError<
   {readonly brand: unique symbol}
 >()("ProjectsSaveFailedError", {cause: Schema.Unknown}) {}
 
-// The paths added with Add Project, saved per workspace. Workspace folders are not saved: VS Code already lists them.
+// The paths added with Add Project, saved per window. Workspace folders are not saved: VS Code already lists them.
 export class IProjectRepository extends Context.Service<
   IProjectRepository,
   {

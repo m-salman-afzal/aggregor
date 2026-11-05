@@ -24,7 +24,8 @@ export const COMMIT_MESSAGES = {
 } as const;
 
 export const PROJECT_LABELS = {
-  PICK: "Project for the new session"
+  PICK_FOR_SESSION: "Project for the new session",
+  PICK_FOR_TERMINAL: "Project for the new terminal"
 } as const;
 
 export const PROJECT_MESSAGES = {
@@ -50,6 +51,11 @@ export const STATUS_LABELS = {
   "needs-input": "needs input",
   running: "running",
   unread: "finished"
+} as const;
+
+export const TERMINAL_MESSAGES = {
+  LAUNCH_FAILED: "Could not open a terminal in the project.",
+  PROJECT_REQUIRED: "Add a project or open a folder to open a terminal in it."
 } as const;
 
 export const SESSION_MESSAGES = {

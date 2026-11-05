@@ -36,8 +36,6 @@ export class NothingStagedError extends Schema.TaggedError<NothingStagedError, {
 export class IGitInfraService extends Context.Service<
   IGitInfraService,
   {
-    // Best effort: a folder that is not a git repository, or git being off, only logs a warning.
-    readonly closeInSourceControl: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;
     readonly commit: (
       projectPath: ProjectPathValueObject,
       commitMessage: string
@@ -45,8 +43,6 @@ export class IGitInfraService extends Context.Service<
     readonly getStagedDiff: (
       projectPath: ProjectPathValueObject
     ) => Effect.Effect<string, GitDiffError | GitUnavailableError | NothingStagedError>;
-    // Best effort: a folder that is not a git repository, or git being off, only logs a warning.
-    readonly openInSourceControl: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;
     // Fills Source Control's commit message box.
     readonly setCommitMessageInput: (
       projectPath: ProjectPathValueObject,

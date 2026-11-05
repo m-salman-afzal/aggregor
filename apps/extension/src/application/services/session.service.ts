@@ -6,7 +6,7 @@ import {ISessionRepository} from "@entities/session/session.repository.interface
 import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
 import {IPromptInfraService} from "@interfaces/prompt.infraService.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
-import {ACTIONS, SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
+import {ACTIONS, PROJECT_LABELS, SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {pickProject} from "@services/project.service.ts";
 import {SessionIdValueObjectSchema} from "@valueObjects/sessionId.valueObject.ts";
 import {Array, Effect, Match, Result, Schema, SubscriptionRef} from "effect";
@@ -123,7 +123,8 @@ const openNewSessionTerminal = Effect.fn("SessionService.openNewSessionTerminal"
 );
 
 const startSession = Effect.fn("SessionService.startSession")(function* (clickedProject: ProjectEntity | undefined) {
-  const sessionProject = clickedProject === undefined ? yield* pickProject() : clickedProject;
+  const sessionProject =
+    clickedProject === undefined ? yield* pickProject(PROJECT_LABELS.PICK_FOR_SESSION) : clickedProject;
 
   const addedSession = yield* addSession(sessionProject);
   yield* openNewSessionTerminal(addedSession);

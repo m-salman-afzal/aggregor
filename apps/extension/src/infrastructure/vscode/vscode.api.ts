@@ -40,7 +40,6 @@ export class VsCodeApi extends Context.Service<
     readonly ViewColumn: typeof ViewColumn;
     readonly window: typeof window;
     readonly workspace: typeof workspace;
-    readonly workspaceState: Memento;
   }
 >()("aggregor-app/infrastructure/vscode/vscode.api/VsCodeApi") {
   public static readonly layer = (extensionContext: ExtensionContext) =>
@@ -62,7 +61,6 @@ export class VsCodeApi extends Context.Service<
       Uri,
       ViewColumn,
       window,
-      workspace,
-      workspaceState: extensionContext.workspaceState
+      workspace
     });
 }

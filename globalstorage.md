@@ -10,6 +10,17 @@ survive reloads, restarts and extension updates.
 A folder the extension owns. On Linux it is `~/.config/Code/User/globalStorage/salmanafzal.aggregor-app/`. Use it for
 data that processes other than the extension write, or that is too big for `globalState`.
 
+### `anchors/<window key>/`
+
+- **Holds:** an empty folder with `.vscode/settings.json`: `files.exclude` set to `{"**": true}`, and
+  `terminal.integrated.cwd` set to the shown project.
+- **Written by:** `WorkspaceInfraService`, before every project switch.
+- **Read by:** VS Code, as that window's folder 0, which its own settings hide from Explorer.
+- **Why:** with it at folder 0, the shown project swaps at folder 1; changing folder 0 restarts every extension. Its
+  terminal cwd makes New Terminal count it and the project as one folder, so it opens in the project without asking.
+- **Cleaned up:** never; each is an empty folder and a 32-byte file.
+- **Added in:** one project in view (M2).
+
 ### `status/<session id>`
 
 - **Holds:** one word: `running`, `needs-input`, `idle` or `exited`.
@@ -39,6 +50,22 @@ JSON the extension alone reads and writes.
   of overwriting it.
 - **Added in:** persist and resume (M1).
 
+### `addedProjectPathsByWindow`
+
+- **Holds:** `{version: 1, addedProjectPathsByWindow: {<window key>: [path]}}`: the `StoredAddedProjectPathsModel`, the
+  absolute paths added with Add Project, one list per window. A window's key is its anchor folder's name once it has
+  one, else its first folder's name and a hash of its path (`findWindowKey` in `infrastructure/utils/`), which is the
+  name its anchor folder gets. Workspace folders are not stored.
+- **Written by:** `ProjectRepository`, with a read-modify-write that keeps the other windows' lists, on every Add
+  Project and Remove Project, and when folders leave the workspace for the shown project.
+- **Read by:** `ProjectRepository` at startup and before every write.
+- **Why:** each window lists its own projects. It is not in `workspaceState` because the first project switch turns a
+  single-folder window into an untitled multi-root workspace, which VS Code starts with an empty `workspaceState`; the
+  window key stays the same.
+- **Cleaned up:** Remove Project drops the path. A window's list stays, possibly empty, after its folder is gone; each
+  is a few hundred bytes. Any change to the shape bumps `version`, as for `savedSessions`.
+- **Added in:** one project in view (M2), replacing the `workspaceState` key `addedProjectPaths`.
+
 ### `sessions` and `storedSessions` (no longer read)
 
 - **Holds:** sessions in older shapes: `sessions` with `cwd` and no `version`, `storedSessions` with `repoPath`.
@@ -49,16 +76,10 @@ JSON the extension alone reads and writes.
 
 The same kind of key-value store as `globalState`, but one per workspace: only a window on that workspace sees it.
 
-### `addedProjectPaths`
+### `addedProjectPaths` (no longer read)
 
-- **Holds:** `{version: 1, addedProjectPaths: [path]}`: the `StoredAddedProjectPathsModel`, the absolute paths added
-  with Add Project. Workspace folders are not stored.
-- **Written by:** `ProjectRepository`, with a read-modify-write on every Add Project and Remove Project.
-- **Read by:** `ProjectRepository` at startup and before every write.
-- **Why:** each window lists its own projects, so sessions started in one workspace don't show in the others.
-- **Cleaned up:** Remove Project drops the path. VS Code deletes the key with the workspace's storage. Any change to the
-  shape bumps `version`, as for `savedSessions`.
-- **Added in:** projects (M2).
+- **Holds:** `{version: 1, addedProjectPaths: [path]}`, the added paths before they moved to `globalState`.
+- **Read by:** nothing. VS Code deletes it with the workspace's storage.
 
 ### `addedRepoPaths` (no longer read)
 

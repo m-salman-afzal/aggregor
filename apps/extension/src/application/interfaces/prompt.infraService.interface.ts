@@ -20,7 +20,8 @@ export class IPromptInfraService extends Context.Service<
     // A modal warning; true when the user picks `confirmAction`.
     readonly confirm: (message: string, confirmAction: string) => Effect.Effect<boolean>;
     readonly pickProject: (
-      projects: readonly ProjectEntity[]
+      projects: readonly ProjectEntity[],
+      placeHolder: string
     ) => Effect.Effect<ProjectEntity, ProjectPickCancelledError>;
     readonly pickProjectFolderPaths: Effect.Effect<readonly ProjectPathValueObject[], FolderPickCancelledError>;
     // Resolves with the action the user picked, or undefined when they dismiss the message.

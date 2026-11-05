@@ -106,20 +106,21 @@ apps/extension/src/
     services/
       session.service.ts                   newSession, openSession, removeSession, listSessions, findSession,
                                            getSessionDisplayName
-      project.service.ts                   listProjects, pickProject, addProject, removeProject; NoProjectError
-      scm.service.ts                       writeCommitMessageOrShowError, offerToStageAllChanges,
-                                           startSourceControlSync
+      project.service.ts                   listProjects, pickProject, addProject, removeProject, newProjectTerminal;
+                                           NoProjectError
+      scm.service.ts                       writeCommitMessageOrShowError, offerToStageAllChanges
+      workspace.service.ts                 startShownProjectSync: the viewed session's project as the only
+                                           project folder
     interfaces/                            each with the errors and types its signatures name
       harness.infraService.interface.ts    IHarnessInfraService: prepareLaunch, clearSessionStatus, getSessionTitle,
                                            sessionStatuses, sessionTitles, iconPath; IHarnessInfraServices: a LayerMap
                                            of them by harness id
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
-                                           isSessionTerminalOpen, openSessionIds, activatedSessionIds,
+                                           openProjectTerminal, isSessionTerminalOpen, openSessionIds, activatedSessionIds,
                                            viewedSessionId; TerminalLaunchRequest
       prompt.infraService.interface.ts     showErrorMessage, confirm, pickProject, pickProjectFolderPaths
-      workspace.infraService.interface.ts  listWorkspaceFolderProjects
-      git.infraService.interface.ts        getStagedDiff, setCommitMessageInput, commit, stageAll,
-                                           openInSourceControl, closeInSourceControl
+      workspace.infraService.interface.ts  listWorkspaceFolderProjects, showOnlyProjectFolder, removeProjectFolder
+      git.infraService.interface.ts        getStagedDiff, setCommitMessageInput, commit, stageAll
       commitCli.infraService.interface.ts  generateCommitMessage; CommitMessageRequest
       settings.config.interface.ts         readSettings; Settings
     utils/
@@ -130,13 +131,14 @@ apps/extension/src/
     database/models/                       StoredSessionsModel, StoredAddedProjectPathsModel
     repositories/
       session.repository.ts                SessionRepository, on globalState: reloads on window focus
-      project.repository.ts                ProjectRepository, on workspaceState
+      project.repository.ts                ProjectRepository, on globalState, keyed by the window's key
     services/
       claudeCodeHarness/                   ClaudeCodeHarnessInfraService: the `claude` launch plan, --settings hooks,
                                            the status env var, status-file and transcript watchers, and the
                                            transformer from Claude Code's formats to ours
-      vscode/                              TerminalInfraService, PromptInfraService, WorkspaceInfraService,
-                                           GitInfraService
+      vscode/                              PromptInfraService, WorkspaceInfraService, GitInfraService
+      vscode/terminal/                     TerminalInfraService: session tabs and project shells; terminal.utils
+                                           reads a terminal's session id from its env
       commitCli/                           CommitCliInfraService: runs the configured commit command
     config/settings.config.ts              SettingsConfig
     di/
@@ -145,6 +147,8 @@ apps/extension/src/
                                            infra service
     logger/traceLog.layer.ts               TraceLogLayer
     utils/vscode.utils.ts                  acquireDisposable, fromEvent, setContext, withProgress
+    utils/anchorFolder.utils.ts            findWindowKey, getAnchorFolderPath: the hidden folder 0 of a window that
+                                           shows one project
   presentation/
     routes.ts                              RoutesLayer: command ID to controller
     middlewares/registerCommand.middleware.ts

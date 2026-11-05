@@ -1,3 +1,4 @@
+import {findOpenSessionTerminals, findTerminalSessionId} from "@infraServices/vscode/terminal/terminal.utils.ts";
 import {fromEvent} from "@infraUtils/vscode.utils.ts";
 import {
   ITerminalInfraService,
@@ -5,9 +6,11 @@ import {
   TerminalLaunchFailedError,
   TerminalNotFoundError
 } from "@interfaces/terminal.infraService.interface.ts";
+import {SESSION_ID_ENV} from "@pkg/constants/src/extension.constant.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
-import {Array, Effect, Layer, Result, Schema, Stream, SubscriptionRef} from "effect";
+import {Effect, Layer, Result, Schema, Stream, SubscriptionRef} from "effect";
 
+import type {ProjectEntity} from "@entities/project/project.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {TerminalLaunchRequest} from "@interfaces/terminal.infraService.interface.ts";
 import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
@@ -28,10 +31,6 @@ class NoActiveTerminalError extends Schema.TaggedError<NoActiveTerminalError, {r
 ) {}
 class NotATerminalTabError extends Schema.TaggedError<NotATerminalTabError, {readonly brand: unique symbol}>()(
   "NotATerminalTabError",
-  {}
-) {}
-class UntrackedTerminalError extends Schema.TaggedError<UntrackedTerminalError, {readonly brand: unique symbol}>()(
-  "UntrackedTerminalError",
   {}
 ) {}
 class WindowUnfocusedError extends Schema.TaggedError<WindowUnfocusedError, {readonly brand: unique symbol}>()(
@@ -59,22 +58,6 @@ const isSessionTerminalOpen = Effect.fn("TerminalInfraService.isSessionTerminalO
   return openTerminals.has(sessionId);
 });
 
-// ponytail: linear scan, a window holds a handful of sessions
-const findTerminalSessionId = Effect.fn("TerminalInfraService.findTerminalSessionId")(function* (
-  sessionTerminals: SessionTerminalsReference,
-  terminal: Terminal
-) {
-  const openTerminals = yield* SubscriptionRef.get(sessionTerminals);
-  const [sessionId] = yield* Effect.fromResult(
-    Result.fromOption(
-      Array.findFirst([...openTerminals], ([, openTerminal]) => openTerminal === terminal),
-      () => UntrackedTerminalError.make()
-    )
-  );
-
-  return sessionId;
-});
-
 // Runs the harness's launch plan as the terminal's shell, in the session's project.
 const launchSessionTerminal = Effect.fn("TerminalInfraService.launchSessionTerminal")(function* (
   terminalDependencies: TerminalDependencies,
@@ -89,7 +72,7 @@ const launchSessionTerminal = Effect.fn("TerminalInfraService.launchSessionTermi
     try: () =>
       window.createTerminal({
         cwd: session.projectPath,
-        env: launchPlan.environmentVariables,
+        env: {...launchPlan.environmentVariables, [SESSION_ID_ENV]: session.id},
         iconPath: Uri.file(iconPath),
         isTransient: true,
         location: {viewColumn: ViewColumn.Active},
@@ -104,6 +87,19 @@ const showTerminal = Effect.fn("TerminalInfraService.showTerminal")(function* (t
   yield* Effect.sync(() => {
     terminal.show();
   });
+});
+
+// The user's default shell, named after the project, so the tab says where it runs.
+const openProjectTerminal = Effect.fn("TerminalInfraService.openProjectTerminal")(function* (
+  window: TerminalDependencies["window"],
+  project: ProjectEntity
+) {
+  const projectTerminal = yield* Effect.try({
+    catch: (cause) => TerminalLaunchFailedError.make({cause}),
+    try: () => window.createTerminal({cwd: project.path, name: project.name})
+  });
+
+  yield* showTerminal(projectTerminal);
 });
 
 const focusSessionTerminal = Effect.fn("TerminalInfraService.focusSessionTerminal")(function* (
@@ -150,30 +146,28 @@ const closeSessionTerminal = Effect.fn("TerminalInfraService.closeSessionTermina
 });
 
 const findActiveTerminalSessionId = Effect.fn("TerminalInfraService.findActiveTerminalSessionId")(function* (
-  sessionTerminals: SessionTerminalsReference,
   activeTerminal: Terminal | undefined
 ) {
   const terminal = yield* Effect.fromResult(Result.fromNullishOr(activeTerminal, () => NoActiveTerminalError.make()));
 
-  return yield* findTerminalSessionId(sessionTerminals, terminal);
+  return yield* findTerminalSessionId(terminal);
 });
 
 // No active terminal, or one that is not a session's, emits nothing.
 const watchActivatedSessionIds = Effect.fn("TerminalInfraService.watchActivatedSessionIds")(function* ({
-  sessionTerminals,
   window
 }: TerminalDependencies) {
   const activeTerminalChanges = yield* fromEvent(window.onDidChangeActiveTerminal);
 
   return Stream.filterMapEffect(activeTerminalChanges, (activeTerminal) =>
-    Effect.result(findActiveTerminalSessionId(sessionTerminals, activeTerminal))
+    Effect.result(findActiveTerminalSessionId(activeTerminal))
   );
 });
 
 // A closed tab ends the agent but keeps the session listed, so clicking it can resume.
 const forgetClosedTerminal = Effect.fn("TerminalInfraService.forgetClosedTerminal")(
   function* (sessionTerminals: SessionTerminalsReference, closedTerminal: Terminal) {
-    const sessionId = yield* findTerminalSessionId(sessionTerminals, closedTerminal);
+    const sessionId = yield* findTerminalSessionId(closedTerminal);
 
     yield* SubscriptionRef.update(sessionTerminals, (currentTerminals) => {
       const remainingTerminals = new Map(currentTerminals);
@@ -198,7 +192,7 @@ const readViewedSessionId = Effect.fn("TerminalInfraService.readViewedSessionId"
   const {activeTerminal} = window;
   if (activeTerminal === undefined) return yield* NoActiveTerminalError.make();
 
-  return yield* findTerminalSessionId(terminalDependencies.sessionTerminals, activeTerminal);
+  return yield* findTerminalSessionId(activeTerminal);
 });
 
 // The interface only says that no session is in view; readViewedSessionId's span keeps the reason.
@@ -251,9 +245,11 @@ const trackViewedSessionId = Effect.fn("TerminalInfraService.trackViewedSessionI
 });
 
 const makeTerminalDependencies = Effect.fn("TerminalInfraService.makeTerminalDependencies")(function* () {
+  const vsCodeApi = yield* VsCodeApi;
+  const openSessionTerminals = yield* findOpenSessionTerminals(vsCodeApi.window.terminals);
   const terminalDependencies: TerminalDependencies = {
-    ...(yield* VsCodeApi),
-    sessionTerminals: yield* SubscriptionRef.make<ReadonlyMap<SessionIdValueObject, Terminal>>(new Map())
+    ...vsCodeApi,
+    sessionTerminals: yield* SubscriptionRef.make(openSessionTerminals)
   };
 
   return terminalDependencies;
@@ -272,6 +268,7 @@ const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function
     closeSessionTerminal: (sessionId: SessionIdValueObject) => closeSessionTerminal(sessionTerminals, sessionId),
     focusSessionTerminal: (sessionId: SessionIdValueObject) => focusSessionTerminal(sessionTerminals, sessionId),
     isSessionTerminalOpen: (sessionId: SessionIdValueObject) => isSessionTerminalOpen(sessionTerminals, sessionId),
+    openProjectTerminal: (project: ProjectEntity) => openProjectTerminal(window, project),
     openSessionIds: Stream.map(
       SubscriptionRef.changes(sessionTerminals),
       (openTerminals): ReadonlySet<SessionIdValueObject> => new Set(openTerminals.keys())

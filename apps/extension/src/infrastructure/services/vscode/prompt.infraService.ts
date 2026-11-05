@@ -4,7 +4,7 @@ import {
   ProjectPickCancelledError
 } from "@interfaces/prompt.infraService.interface.ts";
 import {APP_NAME} from "@pkg/constants/src/extension.constant.ts";
-import {ACTIONS, PROJECT_LABELS} from "@pkg/constants/src/message.constant.ts";
+import {ACTIONS} from "@pkg/constants/src/message.constant.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Array, Effect, Layer, Result} from "effect";
@@ -34,12 +34,13 @@ const confirm = Effect.fn("PromptInfraService.confirm")(function* (
 
 const pickProject = Effect.fn("PromptInfraService.pickProject")(function* (
   window: Window,
-  projects: readonly ProjectEntity[]
+  projects: readonly ProjectEntity[],
+  placeHolder: string
 ) {
   const pickedItem = yield* Effect.promise(() =>
     window.showQuickPick(
       Array.map(projects, (project) => ({description: project.path, label: project.name, project})),
-      {placeHolder: PROJECT_LABELS.PICK}
+      {placeHolder}
     )
   );
   const {project: pickedProject} = yield* Effect.fromResult(
@@ -70,7 +71,8 @@ const makePromptInfraService = Effect.fn("PromptInfraService.make")(function* ()
 
   return {
     confirm: (message: string, confirmAction: string) => confirm(window, message, confirmAction),
-    pickProject: (projects: readonly ProjectEntity[]) => pickProject(window, projects),
+    pickProject: (projects: readonly ProjectEntity[], placeHolder: string) =>
+      pickProject(window, projects, placeHolder),
     pickProjectFolderPaths: pickProjectFolderPaths(window),
     showErrorMessage: (message: string, ...actions: string[]) => showErrorMessage(window, message, actions)
   };

@@ -19,6 +19,10 @@ export const COMMANDS = {
     OPEN: "aggregorApp.openSession",
     REMOVE: "aggregorApp.removeSession"
   },
+  // The Terminal panel's title bar, next to its + button.
+  TERMINAL_TITLE: {
+    NEW_PROJECT_TERMINAL: "aggregorApp.newProjectTerminal"
+  },
   // The Sessions view's title bar (the manifest's view/title).
   VIEW_TITLE: {
     ADD_PROJECT: "aggregorApp.addProject",
@@ -49,6 +53,9 @@ export const HOOKS_FILE = "assets/hooks.json";
 
 export const STATUS_ENV = "AGGREGOR_STATUS_FILE";
 
+// Every session terminal carries its session id, so a restarted extension host can tell which tab is whose.
+export const SESSION_ID_ENV = "AGGREGOR_SESSION_ID";
+
 // Each Sessions row gets a URI in this scheme so a FileDecorationProvider can draw its status badge.
 export const SESSION_URI_SCHEME = "aggregor-session";
 
@@ -64,7 +71,7 @@ export const STATUS_BADGES = {
 export const SPINNER_INTERVAL_MS = 120;
 
 export const STORAGE_KEYS = {
-  ADDED_PROJECT_PATHS: "addedProjectPaths",
+  ADDED_PROJECT_PATHS: "addedProjectPathsByWindow",
   SAVED_SESSIONS: "savedSessions"
 } as const;
 
