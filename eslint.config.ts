@@ -25,17 +25,17 @@ const IMPORT_BANS = [
   {allowTypeImports: true, message: "Import only vscode's types; yield VsCodeService for its values.", name: "vscode"}
 ];
 
-// The layers' allow-lists. `@/services` holds the code that DDD.md's later steps still move into a layer.
+// The layers' allow-lists.
 const APPLICATION_IMPORTS = {
-  message: "The application layer imports only effect, @pkg, and domain, application or services code.",
-  regex: "^(?!effect(/|$)|@pkg/|@/(domain|application|services)/)"
+  message: "The application layer imports only effect, @pkg, and domain or application code.",
+  regex: "^(?!effect(/|$)|@pkg/|@/(domain|application)/)"
 };
 
 const INFRASTRUCTURE_IMPORTS = {
   message:
-    "The infrastructure layer imports only effect, @effect, vscode, node, @pkg, and domain, application, " +
-    "infrastructure or services code.",
-  regex: "^(?!effect(/|$)|@effect/|vscode$|node:|@pkg/|@/(domain|application|infrastructure|services)/)"
+    "The infrastructure layer imports only effect, @effect, vscode, node, @pkg, and domain, application or " +
+    "infrastructure code.",
+  regex: "^(?!effect(/|$)|@effect/|vscode$|node:|@pkg/|@/(domain|application|infrastructure)/)"
 };
 
 const config: Config[] = defineConfig([

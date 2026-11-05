@@ -9,25 +9,20 @@ import {
 } from "@/application/errors/terminal.error.ts";
 import {fromEvent} from "@/infrastructure/utils/vscode.utils.ts";
 import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
-import {StatusService} from "@/services/session/status.service.ts";
-import {getClaudeIcon} from "@/services/vscode.utils.ts";
-import {STATUS_ENV} from "@pkg/constants/src/extension.constant.ts";
 import {Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
 
 import type {NoViewedSession, TerminalLaunch} from "@/application/clients/terminal.client.ts";
 import type {Session} from "@/domain/entities/session/session.entity.ts";
 import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
-import type {Terminal, Uri} from "vscode";
+import type {Terminal} from "vscode";
 
 // Each session's terminal in this window, keyed by session id.
 type SessionTerminalsReference = SubscriptionRef.SubscriptionRef<ReadonlyMap<SessionId, Terminal>>;
 
-// What the terminal functions share: the window's session terminals, VS Code's window and the status hooks.
+// What the terminal functions share: the window's session terminals and VS Code's window.
 type TerminalDependencies = {
-  readonly claudeIconPath: Uri;
   readonly sessionTerminals: SessionTerminalsReference;
-} & Pick<StatusService["Service"], "clearStatusFile" | "getStatusFilePath" | "hooksFilePath"> &
-  Pick<VsCodeService["Service"], "TabInputTerminal" | "ViewColumn" | "window">;
+} & Pick<VsCodeService["Service"], "TabInputTerminal" | "Uri" | "ViewColumn" | "window">;
 
 const findSessionTerminal = Effect.fn("TerminalClient.findSessionTerminal")(function* (
   sessionTerminals: SessionTerminalsReference,
@@ -65,27 +60,27 @@ const findTerminalSessionId = Effect.fn("TerminalClient.findTerminalSessionId")(
   return sessionId;
 });
 
-// Every launch carries the status hooks; the env var tells them which file to write.
+// Runs the harness's launch plan as the terminal's shell, in the session's repo.
 const launchSessionTerminal = Effect.fn("TerminalClient.launchSessionTerminal")(function* (
   terminalDependencies: TerminalDependencies,
   session: Session,
   terminalLaunch: TerminalLaunch
 ) {
-  const {claudeIconPath, getStatusFilePath, hooksFilePath, ViewColumn, window} = terminalDependencies;
-  yield* terminalDependencies.clearStatusFile(session.id);
+  const {Uri, ViewColumn, window} = terminalDependencies;
+  const {iconPath, launchPlan, tabName} = terminalLaunch;
 
   return yield* Effect.try({
     catch: (cause) => new TerminalLaunchFailed({cause}),
     try: () =>
       window.createTerminal({
         cwd: session.repoPath,
-        env: {[STATUS_ENV]: getStatusFilePath(session.id)},
-        iconPath: claudeIconPath,
+        env: launchPlan.environmentVariables,
+        iconPath: Uri.file(iconPath),
         isTransient: true,
         location: {viewColumn: ViewColumn.Active},
-        name: terminalLaunch.tabName,
-        shellArgs: [...terminalLaunch.claudeArguments, "--settings", hooksFilePath],
-        shellPath: "claude"
+        name: tabName,
+        shellArgs: [...launchPlan.commandArguments],
+        shellPath: launchPlan.command
       })
   });
 });
@@ -223,9 +218,7 @@ const trackViewedSessionId = Effect.fn("TerminalClient.trackViewedSessionId")(fu
 
 const makeTerminalDependencies = Effect.fn("TerminalClient.makeTerminalDependencies")(function* () {
   const terminalDependencies: TerminalDependencies = {
-    ...(yield* StatusService),
     ...(yield* VsCodeService),
-    claudeIconPath: yield* getClaudeIcon(),
     sessionTerminals: yield* SubscriptionRef.make<ReadonlyMap<SessionId, Terminal>>(new Map())
   };
 

@@ -1,18 +1,18 @@
+import {HarnessClient} from "@/application/clients/harness.client.ts";
 import {PromptClient} from "@/application/clients/prompt.client.ts";
 import {TerminalClient} from "@/application/clients/terminal.client.ts";
 import {RemoveCancelled} from "@/application/errors/session.error.ts";
 import {pickRepo} from "@/application/repo/repo.service.ts";
 import {showErrorInBackground} from "@/application/utils/error.utils.ts";
+import {withHarnessClient} from "@/application/utils/harness.utils.ts";
 import {getNewSessionName, Session} from "@/domain/entities/session/session.entity.ts";
 import {SessionRepository} from "@/domain/entities/session/session.repository.ts";
 import {SessionNotFound} from "@/domain/errors/session.error.ts";
 import {SessionIdSchema} from "@/domain/value-objects/session-id.value-object.ts";
-import {StatusService} from "@/services/session/status.service.ts";
-import {TranscriptService} from "@/services/session/transcript.service.ts";
-import {findTranscriptFilePath} from "@/services/session/transcript.utils.ts";
 import {ACTIONS, SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {Effect, Match, Result, SubscriptionRef} from "effect";
 
+import type {TerminalLaunch} from "@/application/clients/terminal.client.ts";
 import type {Repo} from "@/domain/entities/repo/repo.entity.ts";
 import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
 
@@ -56,44 +56,38 @@ const deleteSession = Effect.fn("deleteSession")(function* (sessionId: SessionId
   );
 });
 
-// The name Claude gave the conversation, or ours until it has one.
+// The name the agent gave the conversation, or ours until it has one.
 export const getSessionDisplayName = Effect.fn("getSessionDisplayName")(
   function* (session: Session) {
-    return yield* TranscriptService.use((transcriptService) => transcriptService.getSessionTitle(session.id));
+    return yield* withHarnessClient(
+      session.harnessId,
+      HarnessClient.use((harnessClient) => harnessClient.getSessionTitle(session.id))
+    );
   },
   (effect, session) => Effect.catchTag(effect, "SessionTitleNotFound", () => Effect.succeed(session.name))
 );
 
-// A failed lookup counts as "no transcript": starting fresh is better than a resume that cannot work.
-const hasTranscript = Effect.fn("hasTranscript")(
-  function* (session: Session) {
-    yield* findTranscriptFilePath(session.id);
+const prepareTerminalLaunch = Effect.fn("prepareTerminalLaunch")(function* (session: Session, tabName: string) {
+  const harnessClient = yield* HarnessClient;
+  const terminalLaunch: TerminalLaunch = {
+    iconPath: harnessClient.iconPath,
+    launchPlan: yield* harnessClient.prepareLaunch(session),
+    tabName
+  };
 
-    return true;
-  },
-  Effect.catchTag("TranscriptNotFound", () => Effect.succeed(false)),
-  (effect, session) =>
-    Effect.catch(effect, (lookupError) =>
-      Effect.as(
-        Effect.logWarning(`Could not look up the transcript of session ${session.id}; starting it fresh`, lookupError),
-        false
-      )
-    )
-);
+  return terminalLaunch;
+});
 
-const getClaudeArguments = Effect.fn("getClaudeArguments")(function* (session: Session) {
-  return (yield* hasTranscript(session)) ? ["--resume", session.id] : ["--session-id", session.id];
+const openSessionTerminal = Effect.fn("openSessionTerminal")(function* (session: Session, tabName: string) {
+  const terminalLaunch = yield* withHarnessClient(session.harnessId, prepareTerminalLaunch(session, tabName));
+
+  yield* TerminalClient.use((terminalClient) => terminalClient.openSessionTerminal(session, terminalLaunch));
 });
 
 // A session whose terminal fails to launch is removed again, so no dead row stays behind.
 const openNewSessionTerminal = Effect.fn("openNewSessionTerminal")(
   function* (addedSession: Session) {
-    yield* TerminalClient.use((terminalClient) =>
-      terminalClient.openSessionTerminal(addedSession, {
-        claudeArguments: ["--session-id", addedSession.id],
-        tabName: addedSession.name
-      })
-    );
+    yield* openSessionTerminal(addedSession, addedSession.name);
   },
   (effect, addedSession) => Effect.tapError(effect, () => deleteSession(addedSession.id))
 );
@@ -106,11 +100,8 @@ const startSession = Effect.fn("startSession")(function* (clickedRepo: Repo | un
 
 const relaunchSession = Effect.fn("relaunchSession")(function* (sessionId: SessionId) {
   const session = yield* findSession(sessionId);
-  const [tabName, claudeArguments] = yield* Effect.all([getSessionDisplayName(session), getClaudeArguments(session)]);
 
-  yield* TerminalClient.use((terminalClient) =>
-    terminalClient.openSessionTerminal(session, {claudeArguments, tabName})
-  );
+  yield* openSessionTerminal(session, yield* getSessionDisplayName(session));
 });
 
 const confirmRunningSessionRemoval = Effect.fn("confirmRunningSessionRemoval")(function* (session: Session) {
@@ -143,7 +134,10 @@ const removeSessionAndStopAgent = Effect.fn("removeSessionAndStopAgent")(functio
   if (hasOpenTerminal) yield* stopSessionAgent(session.id);
   // ponytail: the dying agent's SessionEnd hook can rewrite the file after this; a few bytes per removed running
   // session. Wait for the process to exit first if the folder ever matters.
-  yield* StatusService.use((statusService) => statusService.clearStatusFile(session.id));
+  yield* withHarnessClient(
+    session.harnessId,
+    HarnessClient.use((harnessClient) => harnessClient.clearSessionStatus(session.id))
+  );
 });
 
 // The repo row's button passes its Repo; without one, the user picks a repo. VS Code passes title-bar buttons the

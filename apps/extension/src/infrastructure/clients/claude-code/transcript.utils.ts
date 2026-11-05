@@ -1,5 +1,5 @@
 import {addTitleEntry, decodeTitleLine} from "@/domain/transformers/claude-code.transformer.ts";
-import {TranscriptNotFound} from "@/errors/session.error.ts";
+import {TranscriptNotFound} from "@/infrastructure/errors/claude-code.error.ts";
 import {ByteSize, Config, Effect, Result, Stream} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
@@ -15,19 +15,23 @@ export interface TranscriptProgress {
   readonly transcriptFilePath: string;
 }
 
-export const getClaudeProjectsDirectoryPath = Effect.fn("getClaudeProjectsDirectoryPath")(function* () {
-  const path = yield* Path;
-  const claudeConfigDirectoryPath = yield* Config.withDefault(
-    Config.String("CLAUDE_CONFIG_DIR"),
-    path.join(homedir(), ".claude")
-  );
+export const getClaudeProjectsDirectoryPath = Effect.fn("ClaudeCodeHarnessClient.getClaudeProjectsDirectoryPath")(
+  function* () {
+    const path = yield* Path;
+    const claudeConfigDirectoryPath = yield* Config.withDefault(
+      Config.String("CLAUDE_CONFIG_DIR"),
+      path.join(homedir(), ".claude")
+    );
 
-  return path.join(claudeConfigDirectoryPath, "projects");
-});
+    return path.join(claudeConfigDirectoryPath, "projects");
+  }
+);
 
 // Claude writes <projects>/<encoded cwd>/<session id>.jsonl after the first message. Scanning every project folder
 // instead of encoding the cwd ourselves keeps symlinked and very long paths working.
-export const findTranscriptFilePath = Effect.fn("findTranscriptFilePath")(function* (sessionId: SessionId) {
+export const findTranscriptFilePath = Effect.fn("ClaudeCodeHarnessClient.findTranscriptFilePath")(function* (
+  sessionId: SessionId
+) {
   const fileSystem = yield* FileSystem;
   const path = yield* Path;
   const projectsDirectoryPath = yield* getClaudeProjectsDirectoryPath();
@@ -44,7 +48,7 @@ export const findTranscriptFilePath = Effect.fn("findTranscriptFilePath")(functi
 
 // Scans the bytes between the last read and `transcriptSize`. A line cut off by a concurrent write is never a title:
 // titles are short lines written in one go.
-export const readNewTitles = Effect.fn("readNewTitles")(function* (
+export const readNewTitles = Effect.fn("ClaudeCodeHarnessClient.readNewTitles")(function* (
   transcriptProgress: TranscriptProgress,
   transcriptSize: bigint
 ) {

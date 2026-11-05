@@ -9,6 +9,7 @@ import type {
   WindowUnfocused
 } from "@/application/errors/terminal.error.ts";
 import type {Session} from "@/domain/entities/session/session.entity.ts";
+import type {LaunchPlan} from "@/domain/value-objects/launch-plan.value-object.ts";
 import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
 import type {Effect, Result, Stream, SubscriptionRef} from "effect";
 
@@ -17,7 +18,8 @@ export type NoViewedSession = NoActiveTerminal | NotATerminalTab | UntrackedTerm
 
 // The tab is named once, when it opens: VS Code's stable API cannot rename a terminal afterwards.
 export interface TerminalLaunch {
-  readonly claudeArguments: readonly string[];
+  readonly iconPath: string;
+  readonly launchPlan: LaunchPlan;
   readonly tabName: string;
 }
 

@@ -1,32 +1,31 @@
-import {SessionRepository} from "@/domain/entities/session/session.repository.ts";
+import {SessionTitleNotFound} from "@/application/errors/harness.error.ts";
 import {getPreferredTitle, NO_TITLES} from "@/domain/transformers/claude-code.transformer.ts";
 import {decodeSessionId} from "@/domain/value-objects/session-id.value-object.ts";
-import {SessionTitleNotFound} from "@/errors/session.error.ts";
 import {
   findTranscriptFilePath,
   getClaudeProjectsDirectoryPath,
   readNewTitles
-} from "@/services/session/transcript.utils.ts";
-import {Context, Effect, Layer, Result, Schedule, Stream, SubscriptionRef} from "effect";
+} from "@/infrastructure/clients/claude-code/transcript.utils.ts";
+import {Effect, Result, Schedule, Stream, SubscriptionRef} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 
 import type {Session} from "@/domain/entities/session/session.entity.ts";
 import type {TitleNotFound} from "@/domain/errors/session.error.ts";
 import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
-import type {TranscriptProgress} from "@/services/session/transcript.utils.ts";
+import type {TranscriptProgress} from "@/infrastructure/clients/claude-code/transcript.utils.ts";
 
 // Each session's title, keyed by session id.
-type SessionTitlesReference = SubscriptionRef.SubscriptionRef<ReadonlyMap<SessionId, string>>;
+export type SessionTitlesReference = SubscriptionRef.SubscriptionRef<ReadonlyMap<SessionId, string>>;
 
 // What the title watcher reads and updates.
-interface TitleTracking {
+export interface TitleTracking {
   readonly sessionTitles: SessionTitlesReference;
   readonly trackedSessions: SubscriptionRef.SubscriptionRef<readonly Session[]>;
   readonly transcriptProgressBySessionId: Map<SessionId, TranscriptProgress>;
 }
 
-const getTranscriptProgress = Effect.fn("TranscriptService.getTranscriptProgress")(function* (
+const getTranscriptProgress = Effect.fn("ClaudeCodeHarnessClient.getTranscriptProgress")(function* (
   titleTracking: TitleTracking,
   sessionId: SessionId
 ) {
@@ -40,7 +39,7 @@ const getTranscriptProgress = Effect.fn("TranscriptService.getTranscriptProgress
 });
 
 // Only publishes real changes, since Claude writes to its transcript many times per turn.
-const publishSessionTitle = Effect.fn("TranscriptService.publishSessionTitle")(function* (
+const publishSessionTitle = Effect.fn("ClaudeCodeHarnessClient.publishSessionTitle")(function* (
   sessionTitles: SessionTitlesReference,
   sessionId: SessionId,
   sessionTitle: Result.Result<string, TitleNotFound>
@@ -51,7 +50,7 @@ const publishSessionTitle = Effect.fn("TranscriptService.publishSessionTitle")(f
   yield* SubscriptionRef.set(sessionTitles, new Map(currentTitles).set(sessionId, sessionTitle.success));
 });
 
-const refreshSessionTitle = Effect.fn("TranscriptService.refreshSessionTitle")(function* (
+const refreshSessionTitle = Effect.fn("ClaudeCodeHarnessClient.refreshSessionTitle")(function* (
   titleTracking: TitleTracking,
   sessionId: SessionId
 ) {
@@ -69,7 +68,7 @@ const refreshSessionTitle = Effect.fn("TranscriptService.refreshSessionTitle")(f
 
 // The watcher sees every Claude session on this machine; only ours are read. A session has no transcript until its
 // first message.
-const refreshTrackedSessionTitle = Effect.fn("TranscriptService.refreshTrackedSessionTitle")(
+const refreshTrackedSessionTitle = Effect.fn("ClaudeCodeHarnessClient.refreshTrackedSessionTitle")(
   function* (titleTracking: TitleTracking, sessionId: SessionId) {
     const trackedSessions = yield* SubscriptionRef.get(titleTracking.trackedSessions);
     if (!trackedSessions.some((session) => session.id === sessionId)) return;
@@ -81,14 +80,14 @@ const refreshTrackedSessionTitle = Effect.fn("TranscriptService.refreshTrackedSe
     Effect.ignore(effect, {log: "Warn", message: `Could not read the title of session ${sessionId}`})
 );
 
-const refreshSessionTitles = Effect.fn("TranscriptService.refreshSessionTitles")(function* (
+const refreshSessionTitles = Effect.fn("ClaudeCodeHarnessClient.refreshSessionTitles")(function* (
   titleTracking: TitleTracking,
   sessionIds: readonly SessionId[]
 ) {
   for (const sessionId of new Set(sessionIds)) yield* refreshTrackedSessionTitle(titleTracking, sessionId);
 });
 
-const watchClaudeProjects = Effect.fn("TranscriptService.watchClaudeProjects")(function* () {
+const watchClaudeProjects = Effect.fn("ClaudeCodeHarnessClient.watchClaudeProjects")(function* () {
   const fileSystem = yield* FileSystem;
   const projectsDirectoryPath = yield* getClaudeProjectsDirectoryPath();
 
@@ -96,7 +95,7 @@ const watchClaudeProjects = Effect.fn("TranscriptService.watchClaudeProjects")(f
 });
 
 // Every tracked session once per list change (which also covers startup), plus each transcript Claude writes.
-const watchSessionIdBatches = Effect.fn("TranscriptService.watchSessionIdBatches")(function* (
+const watchSessionIdBatches = Effect.fn("ClaudeCodeHarnessClient.watchSessionIdBatches")(function* (
   trackedSessions: SubscriptionRef.SubscriptionRef<readonly Session[]>
 ) {
   const path = yield* Path;
@@ -112,7 +111,7 @@ const watchSessionIdBatches = Effect.fn("TranscriptService.watchSessionIdBatches
 });
 
 // ~/.claude/projects does not exist until Claude's first run, so the watcher keeps trying.
-const watchTranscripts = Effect.fn("TranscriptService.watchTranscripts")(
+export const watchTranscripts = Effect.fn("ClaudeCodeHarnessClient.watchTranscripts")(
   function* (titleTracking: TitleTracking) {
     const sessionIdBatches = yield* watchSessionIdBatches(titleTracking.trackedSessions);
     yield* Stream.runForEach(sessionIdBatches, (sessionIds) => refreshSessionTitles(titleTracking, sessionIds));
@@ -123,7 +122,7 @@ const watchTranscripts = Effect.fn("TranscriptService.watchTranscripts")(
   Effect.retry(Schedule.spaced("30 seconds"))
 );
 
-const getSessionTitle = Effect.fn("TranscriptService.getSessionTitle")(function* (
+export const getSessionTitle = Effect.fn("ClaudeCodeHarnessClient.getSessionTitle")(function* (
   sessionTitles: SessionTitlesReference,
   sessionId: SessionId
 ) {
@@ -133,24 +132,3 @@ const getSessionTitle = Effect.fn("TranscriptService.getSessionTitle")(function*
     Result.fromNullishOr(currentTitles.get(sessionId), () => new SessionTitleNotFound({sessionId}))
   );
 });
-
-const makeTranscriptService = Effect.fn("TranscriptService.make")(function* () {
-  const {sessions} = yield* SessionRepository;
-  const sessionTitles: SessionTitlesReference = yield* SubscriptionRef.make<ReadonlyMap<SessionId, string>>(new Map());
-  yield* Effect.forkScoped(
-    watchTranscripts({sessionTitles, trackedSessions: sessions, transcriptProgressBySessionId: new Map()})
-  );
-
-  return {getSessionTitle: (sessionId: SessionId) => getSessionTitle(sessionTitles, sessionId), sessionTitles};
-});
-
-// The names Claude gives our sessions, read from its transcripts and kept current while Claude writes to them.
-export class TranscriptService extends Context.Service<
-  TranscriptService,
-  {
-    readonly getSessionTitle: (sessionId: SessionId) => Effect.Effect<string, SessionTitleNotFound>;
-    readonly sessionTitles: SessionTitlesReference;
-  }
->()("aggregor/services/session/transcript.service/TranscriptService") {
-  public static readonly layer = Layer.effect(TranscriptService, makeTranscriptService());
-}
