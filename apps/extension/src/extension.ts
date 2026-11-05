@@ -8,6 +8,7 @@ import {RoutesLayer} from "./presentation/routes.ts";
 
 import type {ExtensionContext} from "vscode";
 
+// eslint-disable-next-line no-restricted-syntax -- VS Code's entry point, which runs the runtime itself
 const activate = (extensionContext: ExtensionContext) => {
   // TraceLogLayer goes under everything, so every layer's startup work is traced and logged too.
   const runtime = ManagedRuntime.make(

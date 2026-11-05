@@ -166,6 +166,8 @@ const config: Config[] = defineConfig([
           sortBy: "path"
         }
       ],
+      // An Effect.fn body is a generator, and a pure one has nothing to yield.
+      "require-yield": "off",
       "sort-imports": "off",
       "sort-keys": "off",
       // Every dotted part and folder is camelCase; .claude's skill folders follow Claude Code's kebab-case names.

@@ -16,7 +16,7 @@ import type {Memento, WindowState} from "vscode";
 
 type ChangeSessions<ChangeResult> = (
   storedSessions: readonly SessionEntity[]
-) => readonly [ChangeResult, readonly SessionEntity[]];
+) => Effect.Effect<readonly [ChangeResult, readonly SessionEntity[]]>;
 
 // This window's copy of the stored sessions, which the view renders from.
 type SessionsReference = SubscriptionRef.SubscriptionRef<readonly SessionEntity[]>;
@@ -54,7 +54,7 @@ const writeSessionsChange = Effect.fn("SessionRepository.writeSessionsChange")(f
   changeSessions: ChangeSessions<ChangeResult>
 ) {
   const currentSessions = yield* loadSessions(globalState);
-  const [changeResult, nextSessions] = changeSessions(currentSessions);
+  const [changeResult, nextSessions] = yield* changeSessions(currentSessions);
   yield* saveSessions(globalState, nextSessions);
 
   return [changeResult, nextSessions] as const;
@@ -100,10 +100,9 @@ const makeSessionRepository = Effect.fn("SessionRepository.make")(function* () {
   const {globalState, window} = yield* VsCodeApi;
   const initialSessions = yield* loadInitialSessions(globalState);
   const sessions: SessionsReference = yield* SubscriptionRef.make(initialSessions);
+  const windowStateChanges = yield* fromEvent(window.onDidChangeWindowState);
   yield* Effect.forkScoped(
-    Stream.runForEach(fromEvent(window.onDidChangeWindowState), (windowState) =>
-      reloadSessionsOnFocus(globalState, sessions, windowState)
-    )
+    Stream.runForEach(windowStateChanges, (windowState) => reloadSessionsOnFocus(globalState, sessions, windowState))
   );
 
   return {

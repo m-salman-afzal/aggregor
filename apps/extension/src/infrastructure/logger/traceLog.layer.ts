@@ -7,8 +7,11 @@ import {format} from "node:util";
 import type {LogLevel} from "effect";
 import type {LogOutputChannel} from "vscode";
 
-// "aggregorApp.openSession > SessionController.openSession > SessionService.openSession": the span's name after its
-// ancestors'.
+// The formatters run while a span ends, so they stay plain functions: a span of their own would end inside the tracer.
+
+// "aggregorApp.openSession > SessionController.openClickedSession > SessionService.openSession": the span's name after
+// its ancestors'.
+// eslint-disable-next-line no-restricted-syntax -- runs while a span ends
 const formatSpanPath = (span: Tracer.AnySpan): string => {
   if (span._tag === "ExternalSpan") return "external";
 
@@ -18,6 +21,7 @@ const formatSpanPath = (span: Tracer.AnySpan): string => {
   );
 };
 
+// eslint-disable-next-line no-restricted-syntax -- runs while a span ends
 const formatFailureReason = (reason: Cause.Reason<unknown>) => {
   if (reason._tag === "Die") return "defect";
   if (reason._tag === "Interrupt") return "interrupted";
@@ -25,12 +29,13 @@ const formatFailureReason = (reason: Cause.Reason<unknown>) => {
   return Predicate.hasProperty(reason.error, "_tag") ? String(reason.error._tag) : format(reason.error);
 };
 
+// eslint-disable-next-line no-restricted-syntax -- runs while a span ends
 const formatSpanOutcome = (exit: Exit.Exit<unknown, unknown>) =>
   Exit.isSuccess(exit) ? "ok" : `failed: ${Array.join(Array.map(exit.cause.reasons, formatFailureReason), ", ")}`;
 
 // Writes one trace-level line per finished span: its path, how long it took, and how it ended.
-const makeSpanLineTracer = (outputChannel: LogOutputChannel) =>
-  Tracer.make({
+const makeSpanLineTracer = Effect.fn("TraceLog.makeSpanLineTracer")(function* (outputChannel: LogOutputChannel) {
+  return Tracer.make({
     span(spanOptions) {
       const span = new Tracer.NativeSpan(spanOptions);
       const endNativeSpan = span.end.bind(span);
@@ -46,6 +51,7 @@ const makeSpanLineTracer = (outputChannel: LogOutputChannel) =>
       return span;
     }
   });
+});
 
 const OUTPUT_CHANNEL_METHODS = {
   Debug: "debug",
@@ -57,8 +63,10 @@ const OUTPUT_CHANNEL_METHODS = {
 } as const satisfies Record<LogLevel.Severity, keyof LogOutputChannel>;
 
 // Effect's log calls, at the matching VS Code log level; the channel drops lines below the level the user picked.
-const makeOutputChannelLogger = (outputChannel: LogOutputChannel) =>
-  Logger.make(({cause, logLevel, message}) => {
+const makeOutputChannelLogger = Effect.fn("TraceLog.makeOutputChannelLogger")(function* (
+  outputChannel: LogOutputChannel
+) {
+  return Logger.make(({cause, logLevel, message}) => {
     const messageParts: readonly unknown[] = Array.isArray(message) ? message : [message];
     const logLine = Array.join(
       [format(...messageParts), ...(cause.reasons.length > 0 ? [Cause.pretty(cause)] : [])],
@@ -70,14 +78,17 @@ const makeOutputChannelLogger = (outputChannel: LogOutputChannel) =>
 
     outputChannel[OUTPUT_CHANNEL_METHODS[logLevel]](logLine);
   });
+});
 
 const makeTraceLog = Effect.fn("TraceLog.make")(function* () {
   const {window} = yield* VsCodeApi;
   const outputChannel = yield* acquireDisposable(() => window.createOutputChannel(APP_NAME, {log: true}));
+  const outputChannelLogger = yield* makeOutputChannelLogger(outputChannel);
+  const spanLineTracer = yield* makeSpanLineTracer(outputChannel);
 
   return Layer.mergeAll(
-    Logger.layer([makeOutputChannelLogger(outputChannel)]),
-    Layer.succeed(Tracer.Tracer, makeSpanLineTracer(outputChannel)),
+    Logger.layer([outputChannelLogger]),
+    Layer.succeed(Tracer.Tracer, spanLineTracer),
     Layer.succeed(References.MinimumLogLevel, "Trace")
   );
 });

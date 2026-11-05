@@ -59,7 +59,7 @@ export const readNewTitles = Effect.fn("ClaudeCodeHarnessInfraService.readNewTit
   ).pipe(
     Stream.splitLines,
     Stream.filterMap((transcriptLine) => decodeTitleLine(transcriptLine)),
-    Stream.runFold(() => transcriptProgress.titles, addTitleEntry)
+    Stream.runFoldEffect(() => transcriptProgress.titles, addTitleEntry)
   );
 
   return {...transcriptProgress, byteOffset: transcriptSize, titles: updatedTitles};

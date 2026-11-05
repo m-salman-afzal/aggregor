@@ -7,6 +7,7 @@
 
     // One alias per folder under a layer; eslint.layers.ts lists which layer may import each.
     "paths": {
+      "@domainServices/*": ["./src/domain/services/*"],
       "@entities/*": ["./src/domain/entities/*"],
       "@valueObjects/*": ["./src/domain/valueObjects/*"],
       "@interfaces/*": ["./src/application/interfaces/*"],

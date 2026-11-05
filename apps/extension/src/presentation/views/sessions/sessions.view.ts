@@ -1,6 +1,7 @@
 import {forEachHarnessInfraService} from "@appUtils/harness.utils.ts";
+import {getUnreadSessionIds} from "@domainServices/session.domainService.ts";
+import {ProjectEntity} from "@entities/project/project.entity.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
-import {getUnreadSessionIds} from "@entities/session/session.entity.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {acquireDisposable, fromEvent} from "@infraUtils/vscode.utils.ts";
 import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
@@ -15,8 +16,7 @@ import {
   getChildRows,
   getParentRow,
   getRowStatus,
-  getSessionRowUri,
-  isProject
+  getSessionRowUri
 } from "@views/sessions/sessions.utils.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Array, Effect, Layer, Ref, Result, Schedule, Schema, Stream, String, SubscriptionRef} from "effect";
@@ -117,7 +117,7 @@ const registerTreeView = Effect.fn("SessionsView.registerTreeView")(function* (
         getChildren: (parentRow) => [...runSyncUntraced(getChildRows(parentRow))],
         getParent: (row) => runSyncUntraced(getParentRow(row)),
         getTreeItem: (row) =>
-          isProject(row)
+          Schema.is(ProjectEntity)(row)
             ? runSyncUntraced(createProjectTreeItem(row))
             : runSyncUntraced(createSessionTreeItem(row, getDrawnRowStatus(row.id))),
         onDidChangeTreeData: treeChangedEmitter.event
@@ -140,7 +140,7 @@ const getAllSessionStatuses = Effect.fn("SessionsView.getAllSessionStatuses")(fu
   return allSessionStatuses;
 });
 
-// Compares the statuses with the previous look; the rule itself is the entity's.
+// Compares the statuses with the previous look; the rule itself is SessionDomainService's.
 const updateUnreadSessionIds = Effect.fn("SessionsView.updateUnreadSessionIds")(function* (
   viewParts: SessionsViewParts
 ) {
@@ -150,14 +150,16 @@ const updateUnreadSessionIds = Effect.fn("SessionsView.updateUnreadSessionIds")(
   const viewedSessionIdResult = yield* SubscriptionRef.get(viewedSessionId);
   const currentViewedSessionId = Result.getOrUndefined(viewedSessionIdResult);
 
-  return yield* Ref.updateAndGet(viewParts.unreadSessionIds, (previousUnreadSessionIds) =>
-    getUnreadSessionIds({
-      currentStatuses,
-      previousStatuses,
-      previousUnreadSessionIds,
-      viewedSessionId: currentViewedSessionId
-    })
-  );
+  const previousUnreadSessionIds = yield* Ref.get(viewParts.unreadSessionIds);
+  const currentUnreadSessionIds = yield* getUnreadSessionIds({
+    currentStatuses,
+    previousStatuses,
+    previousUnreadSessionIds,
+    viewedSessionId: currentViewedSessionId
+  });
+  yield* Ref.set(viewParts.unreadSessionIds, currentUnreadSessionIds);
+
+  return currentUnreadSessionIds;
 });
 
 const getChangedBadgeUris = Effect.fn("SessionsView.getChangedBadgeUris")(function* (
@@ -213,7 +215,7 @@ const watchRowChanges = Effect.fn("SessionsView.watchRowChanges")(function* () {
   );
   const rowChangeSources: readonly Stream.Stream<unknown>[] = [
     SubscriptionRef.changes((yield* IProjectRepository).addedProjectPaths),
-    fromEvent(workspace.onDidChangeWorkspaceFolders),
+    yield* fromEvent(workspace.onDidChangeWorkspaceFolders),
     SubscriptionRef.changes((yield* ISessionRepository).sessions),
     (yield* ITerminalInfraService).openSessionIds,
     SubscriptionRef.changes((yield* ITerminalInfraService).viewedSessionId),

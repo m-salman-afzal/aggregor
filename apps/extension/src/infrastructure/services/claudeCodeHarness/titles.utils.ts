@@ -57,7 +57,8 @@ const refreshSessionTitle = Effect.fn("ClaudeCodeHarnessInfraService.refreshSess
   const nextProgress = yield* readNewTitles(startingProgress, transcriptSize);
 
   yield* Effect.sync(() => titleTracking.transcriptProgressBySessionId.set(sessionId, nextProgress));
-  yield* publishSessionTitle(titleTracking.sessionTitles, sessionId, getPreferredTitle(nextProgress.titles));
+  const preferredTitle = yield* getPreferredTitle(nextProgress.titles);
+  yield* publishSessionTitle(titleTracking.sessionTitles, sessionId, preferredTitle);
 });
 
 // The watcher sees every Claude session on this machine; only ours are read. A session has no transcript until its

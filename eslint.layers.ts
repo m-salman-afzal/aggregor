@@ -16,7 +16,7 @@ export const IMPORT_BANS = [
 
 // Each layer's folders, by their tsconfig.json aliases. A layer's code is imported only through these, so each file has
 // one import path.
-const DOMAIN_ALIASES = "entities|valueObjects";
+const DOMAIN_ALIASES = "domainServices|entities|valueObjects";
 const APPLICATION_ALIASES = "interfaces|services|appUtils";
 const INFRASTRUCTURE_ALIASES = "config|models|di|logger|repositories|infraServices|infraUtils|vscodeApi";
 const PRESENTATION_ALIASES = "controllers|middlewares|presentationUtils|views";
@@ -79,7 +79,8 @@ export const SYNTAX_BANS = [
       `ExportNamedDeclaration[declaration.type='ClassDeclaration']:not(${EXPORTED_TAGGED_ERROR_CLASS})) ~ ` +
       `:matches(${TAGGED_ERROR_CLASS}, ${EXPORTED_TAGGED_ERROR_CLASS})`
   },
-  {message: "End an error class's name in Error.", selector: `${TAGGED_ERROR_CLASS}:not([id.name=/Error$/])`}
+  {message: "End an error class's name in Error.", selector: `${TAGGED_ERROR_CLASS}:not([id.name=/Error$/])`},
+  {message: "Import by name: list what the file takes from the module.", selector: "ImportNamespaceSpecifier"}
 ];
 
 // An interface's own types and error unions live in its .interface.ts; types several implementation files share, in a
@@ -98,6 +99,27 @@ const ERROR_FILE_BAN = {
     "Declare errors at the top of the file that raises them, or of the interface whose signatures name them; " +
     "there are no .error.ts files.",
   selector: "Program"
+};
+// An entity file holds its entity, whose own rules are its methods; rules across entities go in a .domainService.ts.
+const ENTITY_EXPORT_BAN = {
+  message: "Export only the entity class; a rule across entities goes in a .domainService.ts.",
+  selector: "ExportNamedDeclaration:not([declaration.type='ClassDeclaration']), ExportDefaultDeclaration"
+};
+// Every domain service function is an Effect.fn, so each rule shows up in a trace as its own span.
+const DOMAIN_SERVICE_EXPORT_BAN = {
+  message: "Export each domain service function as an Effect.fn, so it gets its span.",
+  selector:
+    "ExportNamedDeclaration > VariableDeclaration > VariableDeclarator:not([init.callee.callee.object.name='Effect']" +
+    "[init.callee.callee.property.name='fn']), ExportNamedDeclaration > FunctionDeclaration, ExportDefaultDeclaration"
+};
+// Every function is an Effect.fn, so each call shows up in a trace as its own span; functions nested in one are its
+// callbacks.
+const PLAIN_FUNCTION_BAN = {
+  message: "Declare each function as an Effect.fn, so it gets its span.",
+  selector:
+    "Program > VariableDeclaration > VariableDeclarator > :function, " +
+    "Program > ExportNamedDeclaration > VariableDeclaration > VariableDeclarator > :function, " +
+    "Program > FunctionDeclaration, ExportNamedDeclaration > FunctionDeclaration, ExportDefaultDeclaration > :function"
 };
 const NON_TYPE_BAN = {
   message: "A .type.ts file holds only types.",
@@ -181,19 +203,45 @@ export const LAYER_CONFIGS: Config[] = [
   {
     files: ["apps/extension/src/**/*.ts"],
     ignores: ["**/*.interface.ts", "**/*.type.ts", "**/*.valueObject.ts", "**/vscode.api.ts"],
-    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN, SERVICE_CLASS_BAN]}
+    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN, SERVICE_CLASS_BAN, PLAIN_FUNCTION_BAN]}
+  },
+  {
+    files: ["apps/extension/src/**/*.entity.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...SYNTAX_BANS,
+        EXPORTED_TYPE_BAN,
+        SERVICE_CLASS_BAN,
+        PLAIN_FUNCTION_BAN,
+        ENTITY_EXPORT_BAN
+      ]
+    }
+  },
+  {
+    files: ["apps/extension/src/**/*.domainService.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...SYNTAX_BANS,
+        EXPORTED_TYPE_BAN,
+        SERVICE_CLASS_BAN,
+        PLAIN_FUNCTION_BAN,
+        DOMAIN_SERVICE_EXPORT_BAN
+      ]
+    }
   },
   {
     files: ["apps/extension/src/**/*.interface.ts"],
-    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS]}
+    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, PLAIN_FUNCTION_BAN]}
   },
   {
     files: ["apps/extension/src/infrastructure/vscode/vscode.api.ts"],
-    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN]}
+    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN, PLAIN_FUNCTION_BAN]}
   },
   {
     files: ["apps/extension/src/**/*.valueObject.ts"],
-    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, SERVICE_CLASS_BAN]}
+    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, SERVICE_CLASS_BAN, PLAIN_FUNCTION_BAN]}
   },
   {
     files: ["apps/extension/src/**/*.type.ts"],

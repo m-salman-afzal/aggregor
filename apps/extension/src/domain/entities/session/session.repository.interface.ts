@@ -16,10 +16,12 @@ export class SessionsSaveFailedError extends Schema.TaggedError<
 export class ISessionRepository extends Context.Service<
   ISessionRepository,
   {
-    // Re-reads the saved sessions, applies the change and saves the result: a change never drops what another window
-    // saved, and unreadable data fails the change instead of being overwritten.
+    // Re-reads the saved sessions, runs the change on them and saves the result: a change never drops what another
+    // window saved, and unreadable data fails the change instead of being overwritten.
     readonly modifySessions: <ChangeResult>(
-      changeSessions: (savedSessions: readonly SessionEntity[]) => readonly [ChangeResult, readonly SessionEntity[]]
+      changeSessions: (
+        savedSessions: readonly SessionEntity[]
+      ) => Effect.Effect<readonly [ChangeResult, readonly SessionEntity[]]>
     ) => Effect.Effect<ChangeResult, SessionsCorruptError | SessionsSaveFailedError>;
     readonly sessions: SubscriptionRef.SubscriptionRef<readonly SessionEntity[]>;
   }
