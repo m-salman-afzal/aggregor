@@ -1,4 +1,5 @@
-import {Context, Data} from "effect";
+import {SessionIdValueObjectSchema} from "@valueObjects/sessionId.valueObject.ts";
+import {Context, Schema} from "effect";
 
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {HarnessIdValueObject} from "@valueObjects/harnessId.valueObject.ts";
@@ -7,9 +8,10 @@ import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts"
 import type {StatusValueObject} from "@valueObjects/status.valueObject.ts";
 import type {Effect, LayerMap, SubscriptionRef} from "effect";
 
-export class SessionTitleNotFoundError extends Data.TaggedError("SessionTitleNotFoundError")<{
-  readonly sessionId: SessionIdValueObject;
-}> {}
+export class SessionTitleNotFoundError extends Schema.TaggedError<
+  SessionTitleNotFoundError,
+  {readonly brand: unique symbol}
+>()("SessionTitleNotFoundError", {sessionId: SessionIdValueObjectSchema}) {}
 
 // One agent CLI, such as Claude Code: how to launch it, and what its sessions are doing and are called.
 export class IHarnessInfraService extends Context.Service<
@@ -25,10 +27,10 @@ export class IHarnessInfraService extends Context.Service<
     readonly sessionStatuses: SubscriptionRef.SubscriptionRef<ReadonlyMap<SessionIdValueObject, StatusValueObject>>;
     readonly sessionTitles: SubscriptionRef.SubscriptionRef<ReadonlyMap<SessionIdValueObject, string>>;
   }
->()("aggregor/application/interfaces/harness.infraService.interface/IHarnessInfraService") {}
+>()("aggregor-app/application/interfaces/harness.infraService.interface/IHarnessInfraService") {}
 
 // Each harness's infra service, by harness id; every session names its harness.
 export class IHarnessInfraServices extends Context.Service<
   IHarnessInfraServices,
   LayerMap.LayerMap<HarnessIdValueObject, IHarnessInfraService>
->()("aggregor/application/interfaces/harness.infraService.interface/IHarnessInfraServices") {}
+>()("aggregor-app/application/interfaces/harness.infraService.interface/IHarnessInfraServices") {}

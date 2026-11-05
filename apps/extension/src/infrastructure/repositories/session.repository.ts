@@ -10,7 +10,7 @@ import {NO_STORED_SESSIONS, StoredSessionsModel} from "@models/storedSessions.mo
 import {STORAGE_KEYS} from "@pkg/constants/src/extension.constant.ts";
 import {SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
-import {Effect, Layer, Schema, Stream, SubscriptionRef} from "effect";
+import {Array, Effect, Layer, Schema, Stream, SubscriptionRef} from "effect";
 
 import type {Memento, WindowState} from "vscode";
 
@@ -29,25 +29,32 @@ const loadSessions = Effect.fn("SessionRepository.loadSessions")(
     );
     const storedSessions = yield* Schema.decodeUnknownEffect(StoredSessionsModel)(storedValue);
 
-    return storedSessions.sessions.map((storedSession) => new SessionEntity(storedSession));
+    return Array.map(storedSessions.sessions, (storedSession) => SessionEntity.make(storedSession));
   },
-  Effect.mapError((cause) => new SessionsCorruptError({cause}))
+  Effect.mapError((cause) => SessionsCorruptError.make({cause}))
 );
 
-const saveSessions = Effect.fn("SessionRepository.saveSessions")(
-  function* (globalState: Memento, sessions: readonly SessionEntity[]) {
-    const storedValue = yield* Schema.encodeEffect(StoredSessionsModel)({sessions, version: 1});
+const saveSessions = Effect.fn("SessionRepository.saveSessions")(function* (
+  globalState: Memento,
+  sessions: readonly SessionEntity[]
+) {
+  const storedValue = yield* Effect.mapError(
+    Schema.encodeEffect(StoredSessionsModel)({sessions, version: 1}),
+    (cause) => SessionsSaveFailedError.make({cause})
+  );
 
-    yield* Effect.tryPromise(async () => globalState.update(STORAGE_KEYS.SAVED_SESSIONS, storedValue));
-  },
-  Effect.mapError((cause) => new SessionsSaveFailedError({cause}))
-);
+  yield* Effect.tryPromise({
+    catch: (cause) => SessionsSaveFailedError.make({cause}),
+    try: () => globalState.update(STORAGE_KEYS.SAVED_SESSIONS, storedValue)
+  });
+});
 
 const writeSessionsChange = Effect.fn("SessionRepository.writeSessionsChange")(function* <ChangeResult>(
   globalState: Memento,
   changeSessions: ChangeSessions<ChangeResult>
 ) {
-  const [changeResult, nextSessions] = changeSessions(yield* loadSessions(globalState));
+  const currentSessions = yield* loadSessions(globalState);
+  const [changeResult, nextSessions] = changeSessions(currentSessions);
   yield* saveSessions(globalState, nextSessions);
 
   return [changeResult, nextSessions] as const;
@@ -91,7 +98,8 @@ const reloadSessionsOnFocus = Effect.fn("SessionRepository.reloadSessionsOnFocus
 
 const makeSessionRepository = Effect.fn("SessionRepository.make")(function* () {
   const {globalState, window} = yield* VsCodeApi;
-  const sessions: SessionsReference = yield* SubscriptionRef.make(yield* loadInitialSessions(globalState));
+  const initialSessions = yield* loadInitialSessions(globalState);
+  const sessions: SessionsReference = yield* SubscriptionRef.make(initialSessions);
   yield* Effect.forkScoped(
     Stream.runForEach(fromEvent(window.onDidChangeWindowState), (windowState) =>
       reloadSessionsOnFocus(globalState, sessions, windowState)

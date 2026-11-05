@@ -1,10 +1,16 @@
-import {Context, Data} from "effect";
+import {Context, Schema} from "effect";
 
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Effect, SubscriptionRef} from "effect";
 
-export class ProjectsCorruptError extends Data.TaggedError("ProjectsCorruptError")<{readonly cause: unknown}> {}
-export class ProjectsSaveFailedError extends Data.TaggedError("ProjectsSaveFailedError")<{readonly cause: unknown}> {}
+export class ProjectsCorruptError extends Schema.TaggedError<ProjectsCorruptError, {readonly brand: unique symbol}>()(
+  "ProjectsCorruptError",
+  {cause: Schema.Unknown}
+) {}
+export class ProjectsSaveFailedError extends Schema.TaggedError<
+  ProjectsSaveFailedError,
+  {readonly brand: unique symbol}
+>()("ProjectsSaveFailedError", {cause: Schema.Unknown}) {}
 
 // The paths added with Add Project, saved per workspace. Workspace folders are not saved: VS Code already lists them.
 export class IProjectRepository extends Context.Service<
@@ -19,4 +25,4 @@ export class IProjectRepository extends Context.Service<
       ) => readonly ProjectPathValueObject[]
     ) => Effect.Effect<void, ProjectsCorruptError | ProjectsSaveFailedError>;
   }
->()("aggregor/domain/entities/project/project.repository.interface/IProjectRepository") {}
+>()("aggregor-app/domain/entities/project/project.repository.interface/IProjectRepository") {}

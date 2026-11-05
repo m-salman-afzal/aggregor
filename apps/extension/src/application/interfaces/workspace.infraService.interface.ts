@@ -6,5 +6,5 @@ import type {Effect} from "effect";
 // The folders open in this window's workspace.
 export class IWorkspaceInfraService extends Context.Service<
   IWorkspaceInfraService,
-  {readonly listWorkspaceFolderProjects: () => Effect.Effect<readonly ProjectEntity[]>}
->()("aggregor/application/interfaces/workspace.infraService.interface/IWorkspaceInfraService") {}
+  {readonly listWorkspaceFolderProjects: Effect.Effect<readonly ProjectEntity[]>}
+>()("aggregor-app/application/interfaces/workspace.infraService.interface/IWorkspaceInfraService") {}

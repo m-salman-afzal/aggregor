@@ -9,7 +9,8 @@ import {Effect} from "effect";
 export const newSessionInClickedProject = Effect.fn("SessionController.newSessionInClickedProject")(function* (
   clickedRow: unknown
 ) {
-  yield* SessionService.newSession(yield* decodeCommandArgument(ProjectEntity, clickedRow));
+  const clickedProject = yield* decodeCommandArgument(ProjectEntity, clickedRow);
+  yield* SessionService.newSession(clickedProject);
 });
 
 // VS Code passes title-bar buttons the focused row, which can be any row, so its arguments are dropped and the user
@@ -20,10 +21,12 @@ export const newSessionAskingForProject = Effect.fn("SessionController.newSessio
 
 // The session row's own command passes its session id.
 export const openSession = Effect.fn("SessionController.openSession")(function* (clickedSessionId: unknown) {
-  yield* SessionService.openSession(yield* decodeCommandArgument(SessionIdValueObjectSchema, clickedSessionId));
+  const sessionId = yield* decodeCommandArgument(SessionIdValueObjectSchema, clickedSessionId);
+  yield* SessionService.openSession(sessionId);
 });
 
 // The session row's … menu passes the Session itself.
 export const removeSession = Effect.fn("SessionController.removeSession")(function* (clickedRow: unknown) {
-  yield* SessionService.removeSession(yield* decodeCommandArgument(SessionEntity, clickedRow));
+  const clickedSession = yield* decodeCommandArgument(SessionEntity, clickedRow);
+  yield* SessionService.removeSession(clickedSession);
 });

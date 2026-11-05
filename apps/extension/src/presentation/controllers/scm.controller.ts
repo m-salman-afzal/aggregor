@@ -6,11 +6,14 @@ import {COMMIT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {offerToStageAllChanges, writeCommitMessageOrShowError} from "@services/scm.service.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
-import {Data, Effect, Predicate} from "effect";
+import {Effect, Predicate, Schema} from "effect";
 
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
-class RootUriUnavailableError extends Data.TaggedError("RootUriUnavailableError") {}
+class RootUriUnavailableError extends Schema.TaggedError<RootUriUnavailableError, {readonly brand: unique symbol}>()(
+  "RootUriUnavailableError",
+  {}
+) {}
 
 // The Source Control title button passes its SourceControl; the use cases name the project by its root folder.
 const getSourceControlProjectPath = Effect.fn("ScmController.getSourceControlProjectPath")(function* (
@@ -18,11 +21,11 @@ const getSourceControlProjectPath = Effect.fn("ScmController.getSourceControlPro
 ) {
   const {Uri} = yield* VsCodeApi;
   if (!Predicate.hasProperty(sourceControlArgument, "rootUri")) {
-    return yield* new InvalidCommandArgumentsError({cause: sourceControlArgument});
+    return yield* InvalidCommandArgumentsError.make({cause: sourceControlArgument});
   }
   const {rootUri} = sourceControlArgument;
-  if (rootUri === undefined) return yield* new RootUriUnavailableError();
-  if (!(rootUri instanceof Uri)) return yield* new InvalidCommandArgumentsError({cause: rootUri});
+  if (rootUri === undefined) return yield* RootUriUnavailableError.make();
+  if (!(rootUri instanceof Uri)) return yield* InvalidCommandArgumentsError.make({cause: rootUri});
 
   return ProjectPathValueObjectSchema.make(rootUri.fsPath);
 });
@@ -35,7 +38,7 @@ const stageAllAndRetry = Effect.fn("ScmController.stageAllAndRetry")(function* (
   if (!(yield* offerToStageAllChanges(projectPath))) return;
 
   const {commands} = yield* VsCodeApi;
-  yield* Effect.promise(async () =>
+  yield* Effect.promise(() =>
     commands.executeCommand(COMMANDS.SCM_TITLE.GENERATE_COMMIT_MESSAGE, sourceControlArgument)
   );
 });
@@ -66,7 +69,8 @@ const showGeneratingProgress = Effect.fn("ScmController.showGeneratingProgress")
 
 export const generateCommitMessage = Effect.fn("ScmController.generateCommitMessage")(
   function* (sourceControlArgument: unknown) {
-    yield* showGeneratingProgress(sourceControlArgument, yield* getSourceControlProjectPath(sourceControlArgument));
+    const projectPath = yield* getSourceControlProjectPath(sourceControlArgument);
+    yield* showGeneratingProgress(sourceControlArgument, projectPath);
   },
   Effect.catchTag("RootUriUnavailableError", () => showErrorInBackground(COMMIT_MESSAGES.ROOT_URI_UNAVAILABLE))
 );

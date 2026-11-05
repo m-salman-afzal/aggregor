@@ -1,4 +1,5 @@
-import {Context, Data} from "effect";
+import {SessionIdValueObjectSchema} from "@valueObjects/sessionId.valueObject.ts";
+import {Context, Schema} from "effect";
 
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {LaunchPlanValueObject} from "@valueObjects/launchPlan.valueObject.ts";
@@ -13,13 +14,18 @@ export interface TerminalLaunchRequest {
 }
 
 // No session's tab is in front of the user; TerminalInfraService's trace says why.
-export class NoViewedSessionError extends Data.TaggedError("NoViewedSessionError") {}
-export class TerminalLaunchFailedError extends Data.TaggedError("TerminalLaunchFailedError")<{
-  readonly cause: unknown;
-}> {}
-export class TerminalNotFoundError extends Data.TaggedError("TerminalNotFoundError")<{
-  readonly sessionId: SessionIdValueObject;
-}> {}
+export class NoViewedSessionError extends Schema.TaggedError<NoViewedSessionError, {readonly brand: unique symbol}>()(
+  "NoViewedSessionError",
+  {}
+) {}
+export class TerminalLaunchFailedError extends Schema.TaggedError<
+  TerminalLaunchFailedError,
+  {readonly brand: unique symbol}
+>()("TerminalLaunchFailedError", {cause: Schema.Unknown}) {}
+export class TerminalNotFoundError extends Schema.TaggedError<TerminalNotFoundError, {readonly brand: unique symbol}>()(
+  "TerminalNotFoundError",
+  {sessionId: SessionIdValueObjectSchema}
+) {}
 
 // Each session's terminal tab in this window: the agent runs in it, and closing it ends the agent.
 export class ITerminalInfraService extends Context.Service<
@@ -41,4 +47,4 @@ export class ITerminalInfraService extends Context.Service<
       Result.Result<SessionIdValueObject, NoViewedSessionError>
     >;
   }
->()("aggregor/application/interfaces/terminal.infraService.interface/ITerminalInfraService") {}
+>()("aggregor-app/application/interfaces/terminal.infraService.interface/ITerminalInfraService") {}

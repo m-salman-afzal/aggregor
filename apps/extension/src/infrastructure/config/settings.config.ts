@@ -14,13 +14,13 @@ const readSettings = Effect.fn("SettingsConfig.readSettings")(
 
     return yield* Schema.decodeUnknownEffect(SettingsSchema)(configuredSettings);
   },
-  Effect.mapError((schemaError) => new InvalidSettingsError({reason: schemaError.message}))
+  Effect.mapError((schemaError) => InvalidSettingsError.make({reason: schemaError.message}))
 );
 
 const makeSettingsConfig = Effect.fn("SettingsConfig.make")(function* () {
   const {getConfiguration} = yield* VsCodeApi;
 
-  return {readSettings: () => readSettings(getConfiguration)};
+  return {readSettings: readSettings(getConfiguration)};
 });
 
 export const SettingsConfig = Layer.effect(ISettingsConfig, makeSettingsConfig());

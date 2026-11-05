@@ -1,7 +1,7 @@
 import {HarnessIdValueObjectSchema} from "@valueObjects/harnessId.valueObject.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {SessionIdValueObjectSchema} from "@valueObjects/sessionId.valueObject.ts";
-import {Schema} from "effect";
+import {Array, Schema} from "effect";
 
 import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
 import type {StatusValueObject} from "@valueObjects/status.valueObject.ts";
@@ -23,7 +23,7 @@ export class SessionEntity extends Schema.Class<SessionEntity, {readonly brand: 
 
 // Lowest free "<project> #n", so removing #1 frees the name for the next session.
 export const getNewSessionName = (projectName: string, existingSessions: readonly SessionEntity[]) => {
-  const takenSessionNames = new Set(existingSessions.map((session) => session.name));
+  const takenSessionNames = new Set(Array.map(existingSessions, (session) => session.name));
   let sessionNumber = 1;
   while (takenSessionNames.has(`${projectName} #${sessionNumber}`)) sessionNumber += 1;
 
@@ -37,14 +37,16 @@ const TURN_IN_PROGRESS_STATUSES: ReadonlySet<StatusValueObject | undefined> = ne
 // Ended means idle now, and running or waiting on the user at the previous look.
 export const getUnreadSessionIds = (inputs: UnreadSessionIdsInputs): ReadonlySet<SessionIdValueObject> => {
   const {currentStatuses, previousStatuses, previousUnreadSessionIds, viewedSessionId} = inputs;
-  const endedSessionIds = [...currentStatuses]
-    .filter(
+  const endedSessionIds = Array.map(
+    Array.filter(
+      [...currentStatuses],
       ([sessionId, sessionStatus]) =>
         sessionStatus === "idle" && TURN_IN_PROGRESS_STATUSES.has(previousStatuses.get(sessionId))
-    )
-    .map(([sessionId]) => sessionId);
+    ),
+    ([sessionId]) => sessionId
+  );
   const isIdleAndOutOfView = (sessionId: SessionIdValueObject) =>
     currentStatuses.get(sessionId) === "idle" && sessionId !== viewedSessionId;
 
-  return new Set([...previousUnreadSessionIds, ...endedSessionIds].filter(isIdleAndOutOfView));
+  return new Set(Array.filter([...previousUnreadSessionIds, ...endedSessionIds], isIdleAndOutOfView));
 };

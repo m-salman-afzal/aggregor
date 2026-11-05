@@ -19,7 +19,7 @@ import {
   isProject
 } from "@views/sessions/sessions.utils.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
-import {Data, Effect, Layer, Ref, Result, Schedule, Stream, SubscriptionRef} from "effect";
+import {Array, Effect, Layer, Ref, Result, Schedule, Schema, Stream, String, SubscriptionRef} from "effect";
 
 import type {IHarnessInfraServices} from "@interfaces/harness.infraService.interface.ts";
 import type {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
@@ -54,7 +54,10 @@ type SessionsViewServices =
   | Path
   | VsCodeApi;
 
-class RevealFailedError extends Data.TaggedError("RevealFailedError")<{readonly cause: unknown}> {}
+class RevealFailedError extends Schema.TaggedError<RevealFailedError, {readonly brand: unique symbol}>()(
+  "RevealFailedError",
+  {cause: Schema.Unknown}
+) {}
 
 // Selects the session whose tab became active. Skipped while the view is hidden, since reveal would open it.
 const revealSession = Effect.fn("SessionsView.revealSession")(
@@ -63,15 +66,16 @@ const revealSession = Effect.fn("SessionsView.revealSession")(
     if (!sessionsTreeView.visible) return;
 
     yield* Effect.tryPromise({
-      catch: (cause) => new RevealFailedError({cause}),
-      try: async () => sessionsTreeView.reveal(session, {focus: false, select: true})
+      catch: (cause) => RevealFailedError.make({cause}),
+      try: () => sessionsTreeView.reveal(session, {focus: false, select: true})
     });
   },
   Effect.ignore({log: "Warn", message: "Could not select the active session in the Sessions view"})
 );
 
 const makeUntracedRunner = Effect.fn("SessionsView.makeUntracedRunner")(function* () {
-  const runSync = Effect.runSyncWith(yield* Effect.context<SessionsViewServices>());
+  const sessionsViewContext = yield* Effect.context<SessionsViewServices>();
+  const runSync = Effect.runSyncWith(sessionsViewContext);
   const runSyncUntraced: RunSyncUntraced = (effect) => runSync(Effect.withTracerEnabled(effect, false));
 
   return runSyncUntraced;
@@ -90,7 +94,7 @@ const registerStatusBadges = Effect.fn("SessionsView.registerStatusBadges")(func
       // VS Code asks about every file it shows, so anything not ours returns before running an effect.
       provideFileDecoration: (uri) =>
         uri.scheme === SESSION_URI_SCHEME
-          ? Result.match(decodeSessionId(uri.path.slice(1)), {
+          ? Result.match(decodeSessionId(String.slice(1)(uri.path)), {
               onFailure: () => undefined,
               onSuccess: (sessionId) => runSyncUntraced(createStatusBadge(getDrawnRowStatus(sessionId)))
             })
@@ -130,7 +134,7 @@ const getAllSessionStatuses = Effect.fn("SessionsView.getAllSessionStatuses")(fu
     IHarnessInfraService.use((harnessInfraService) => SubscriptionRef.get(harnessInfraService.sessionStatuses))
   );
   const allSessionStatuses: ReadonlyMap<SessionIdValueObject, StatusValueObject> = new Map(
-    statusesByHarness.flatMap((sessionStatuses) => [...sessionStatuses])
+    Array.flatMap(statusesByHarness, (sessionStatuses) => [...sessionStatuses])
   );
 
   return allSessionStatuses;
@@ -143,7 +147,8 @@ const updateUnreadSessionIds = Effect.fn("SessionsView.updateUnreadSessionIds")(
   const {viewedSessionId} = yield* ITerminalInfraService;
   const currentStatuses = yield* getAllSessionStatuses();
   const previousStatuses = yield* Ref.getAndSet(viewParts.previousSessionStatuses, currentStatuses);
-  const currentViewedSessionId = Result.getOrUndefined(yield* SubscriptionRef.get(viewedSessionId));
+  const viewedSessionIdResult = yield* SubscriptionRef.get(viewedSessionId);
+  const currentViewedSessionId = Result.getOrUndefined(viewedSessionIdResult);
 
   return yield* Ref.updateAndGet(viewParts.unreadSessionIds, (previousUnreadSessionIds) =>
     getUnreadSessionIds({
@@ -160,13 +165,13 @@ const getChangedBadgeUris = Effect.fn("SessionsView.getChangedBadgeUris")(functi
   currentUnreadSessionIds: ReadonlySet<SessionIdValueObject>
 ) {
   const allSessions = yield* listSessions();
-  const currentRowStatuses = new Map(
-    yield* Effect.forEach(allSessions, (session) =>
-      Effect.map(getRowStatus(session, currentUnreadSessionIds), (rowStatus) => [session.id, rowStatus] as const)
-    )
+  const currentRowStatusEntries = yield* Effect.forEach(allSessions, (session) =>
+    Effect.map(getRowStatus(session, currentUnreadSessionIds), (rowStatus) => [session.id, rowStatus] as const)
   );
+  const currentRowStatuses = new Map(currentRowStatusEntries);
   const previousRowStatuses = yield* Ref.getAndSet(viewParts.drawnRowStatuses, currentRowStatuses);
-  const changedRowStatuses = [...currentRowStatuses].filter(
+  const changedRowStatuses = Array.filter(
+    [...currentRowStatuses],
     ([sessionId, rowStatus]) => !previousRowStatuses.has(sessionId) || previousRowStatuses.get(sessionId) !== rowStatus
   );
 
@@ -174,7 +179,8 @@ const getChangedBadgeUris = Effect.fn("SessionsView.getChangedBadgeUris")(functi
 });
 
 const refreshSessionsTree = Effect.fn("SessionsView.refreshSessionsTree")(function* (viewParts: SessionsViewParts) {
-  const changedBadgeUris = yield* getChangedBadgeUris(viewParts, yield* updateUnreadSessionIds(viewParts));
+  const currentUnreadSessionIds = yield* updateUnreadSessionIds(viewParts);
+  const changedBadgeUris = yield* getChangedBadgeUris(viewParts, currentUnreadSessionIds);
 
   yield* Effect.sync(() => {
     viewParts.treeChangedEmitter.fire();
@@ -186,7 +192,7 @@ const refreshSessionsTree = Effect.fn("SessionsView.refreshSessionsTree")(functi
 // on status changes if the idle wake-ups ever show up in a profile.
 const advanceSpinnerFrames = Effect.fn("SessionsView.advanceSpinnerFrames")(function* (viewParts: SessionsViewParts) {
   const drawnRowStatuses = yield* Ref.get(viewParts.drawnRowStatuses);
-  const runningRows = [...drawnRowStatuses].filter(([, rowStatus]) => rowStatus === "running");
+  const runningRows = Array.filter([...drawnRowStatuses], ([, rowStatus]) => rowStatus === "running");
   if (!viewParts.sessionsTreeView.visible || runningRows.length === 0) return;
 
   const runningBadgeUris = yield* Effect.forEach(runningRows, ([sessionId]) => getSessionRowUri(sessionId));
@@ -236,7 +242,8 @@ const makeSessionsViewParts = Effect.fn("SessionsView.makeSessionsViewParts")(fu
 const makeSessionsView = Effect.fn("SessionsView.make")(function* () {
   const {activatedSessionIds} = yield* ITerminalInfraService;
   const viewParts = yield* makeSessionsViewParts();
-  yield* Effect.forkScoped(Stream.runForEach(yield* watchRowChanges(), () => refreshSessionsTree(viewParts)));
+  const rowChanges = yield* watchRowChanges();
+  yield* Effect.forkScoped(Stream.runForEach(rowChanges, () => refreshSessionsTree(viewParts)));
   yield* Effect.forkScoped(
     Effect.withTracerEnabled(
       Effect.repeat(advanceSpinnerFrames(viewParts), Schedule.spaced(SPINNER_INTERVAL_MS)),

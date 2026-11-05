@@ -18,7 +18,7 @@ export const fromEvent = <A>(event: Event<A>) =>
 export const setContext = Effect.fn("setContext")(function* (contextKey: string, contextValue: unknown) {
   const {commands} = yield* VsCodeApi;
 
-  yield* Effect.promise(async () => commands.executeCommand("setContext", contextKey, contextValue));
+  yield* Effect.promise(() => commands.executeCommand("setContext", contextKey, contextValue));
 });
 
 export const withProgress = Effect.fn("withProgress")(function* <A, R>(
@@ -26,7 +26,8 @@ export const withProgress = Effect.fn("withProgress")(function* <A, R>(
   effect: Effect.Effect<A, never, R>
 ) {
   const {window} = yield* VsCodeApi;
-  const runPromise = Effect.runPromiseWith(yield* Effect.context<R>());
+  const effectContext = yield* Effect.context<R>();
+  const runPromise = Effect.runPromiseWith(effectContext);
 
-  return yield* Effect.promise(async () => window.withProgress(progressOptions, async () => runPromise(effect)));
+  return yield* Effect.promise(() => window.withProgress(progressOptions, () => runPromise(effect)));
 });

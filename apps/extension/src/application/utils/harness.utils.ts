@@ -12,6 +12,8 @@ export const withHarnessInfraService = Effect.fn("withHarnessInfraService")(func
 ) {
   const harnessInfraServices = yield* IHarnessInfraServices;
 
+  // LayerMap owns each harness layer's lifetime, so providing one here leaves its scope intact.
+  // @effect-diagnostics-next-line strictEffectProvide:off
   return yield* Effect.provide(effect, harnessInfraServices.get(harnessId));
 });
 

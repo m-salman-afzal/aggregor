@@ -14,7 +14,7 @@ import {SESSION_LABELS, STATUS_LABELS} from "@pkg/constants/src/message.constant
 import {listProjects} from "@services/project.service.ts";
 import {getSessionDisplayName, listSessions} from "@services/session.service.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
-import {Clock, Effect, SubscriptionRef} from "effect";
+import {Array, Clock, Effect, Result, Schema, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
 import type {SessionEntity} from "@entities/session/session.entity.ts";
@@ -23,7 +23,7 @@ import type {Row, RowStatus} from "@views/sessions/sessions.view.type.ts";
 
 // How the Sessions tree draws its rows: project and session items, their status badges, and the tree's shape.
 
-export const isProject = (row: Row): row is ProjectEntity => row instanceof ProjectEntity;
+export const isProject = (row: Row): row is ProjectEntity => Schema.is(ProjectEntity)(row);
 
 // Without a terminal in this window the agent is gone; with one, the hooks say what it is doing.
 export const getRowStatus = Effect.fn("SessionsView.getRowStatus")(function* (
@@ -58,14 +58,13 @@ export const createSessionTreeItem = Effect.fn("SessionsView.createSessionTreeIt
   const statusLabel = rowStatus === undefined ? undefined : STATUS_LABELS[rowStatus];
   const rowLabel = yield* getSessionDisplayName(session);
   const projectFolderName = path.basename(session.projectPath);
+  const harnessIconPath = yield* withHarnessInfraService(
+    session.harnessId,
+    IHarnessInfraService.useSync((harnessInfraService) => harnessInfraService.iconPath)
+  );
   const treeItem = new TreeItem(rowLabel);
   treeItem.id = session.id;
-  treeItem.iconPath = Uri.file(
-    yield* withHarnessInfraService(
-      session.harnessId,
-      IHarnessInfraService.useSync((harnessInfraService) => harnessInfraService.iconPath)
-    )
-  );
+  treeItem.iconPath = Uri.file(harnessIconPath);
   treeItem.resourceUri = yield* getSessionRowUri(session.id);
   treeItem.tooltip = SESSION_LABELS.TOOLTIP(session.name, session.projectPath, statusLabel);
   treeItem.accessibilityInformation = {label: SESSION_LABELS.ACCESSIBLE(rowLabel, projectFolderName, statusLabel)};
@@ -109,7 +108,7 @@ export const getChildRows = Effect.fn("SessionsView.getChildRows")(function* (pa
 
   const allSessions = yield* listSessions();
 
-  return allSessions.filter((session) => session.projectPath === parentRow.path);
+  return Array.filter(allSessions, (session) => session.projectPath === parentRow.path);
 });
 
 export const getParentRow = Effect.fn("SessionsView.getParentRow")(function* (row: Row) {
@@ -117,5 +116,10 @@ export const getParentRow = Effect.fn("SessionsView.getParentRow")(function* (ro
 
   const projects = yield* listProjects();
 
-  return projects.find((project) => project.path === row.projectPath);
+  return Result.getOrUndefined(
+    Result.fromOption(
+      Array.findFirst(projects, (project) => project.path === row.projectPath),
+      () => undefined
+    )
+  );
 });

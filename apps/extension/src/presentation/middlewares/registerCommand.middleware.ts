@@ -2,14 +2,15 @@ import {showErrorInBackground} from "@appUtils/error.utils.ts";
 import {acquireDisposable} from "@infraUtils/vscode.utils.ts";
 import {COMMAND_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
-import {Data, Effect} from "effect";
+import {Effect, Schema} from "effect";
 
 import type {IPromptInfraService} from "@interfaces/prompt.infraService.interface.ts";
 
 // What VS Code passed a command is not what its menu entry sends.
-export class InvalidCommandArgumentsError extends Data.TaggedError("InvalidCommandArgumentsError")<{
-  readonly cause: unknown;
-}> {}
+export class InvalidCommandArgumentsError extends Schema.TaggedError<
+  InvalidCommandArgumentsError,
+  {readonly brand: unique symbol}
+>()("InvalidCommandArgumentsError", {cause: Schema.Unknown}) {}
 
 // Registered for the surrounding scope's lifetime. Each run is a root span named by the command ID, and a crash is
 // logged. Controllers handle their own errors except arguments that do not decode, which point at a broken menu entry:
@@ -19,7 +20,8 @@ export const registerCommand = Effect.fn("RegisterCommandMiddleware.registerComm
   controller: (...commandArguments: readonly unknown[]) => Effect.Effect<unknown, InvalidCommandArgumentsError, R>
 ) {
   const {commands} = yield* VsCodeApi;
-  const runPromise = Effect.runPromiseWith(yield* Effect.context<IPromptInfraService | R>());
+  const commandContext = yield* Effect.context<IPromptInfraService | R>();
+  const runPromise = Effect.runPromiseWith(commandContext);
   // eslint-disable-next-line aggregor/span-name -- a command's root span is named by its command ID
   const runCommand = Effect.fn(commandId, {root: true})(
     function* (commandArguments: readonly unknown[]) {
@@ -35,8 +37,6 @@ export const registerCommand = Effect.fn("RegisterCommandMiddleware.registerComm
   );
 
   yield* acquireDisposable(() =>
-    commands.registerCommand(commandId, async (...commandArguments: unknown[]) =>
-      runPromise(runCommand(commandArguments))
-    )
+    commands.registerCommand(commandId, (...commandArguments: unknown[]) => runPromise(runCommand(commandArguments)))
   );
 });

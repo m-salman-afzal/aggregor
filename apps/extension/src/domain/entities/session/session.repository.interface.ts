@@ -1,10 +1,16 @@
-import {Context, Data} from "effect";
+import {Context, Schema} from "effect";
 
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {Effect, SubscriptionRef} from "effect";
 
-export class SessionsCorruptError extends Data.TaggedError("SessionsCorruptError")<{readonly cause: unknown}> {}
-export class SessionsSaveFailedError extends Data.TaggedError("SessionsSaveFailedError")<{readonly cause: unknown}> {}
+export class SessionsCorruptError extends Schema.TaggedError<SessionsCorruptError, {readonly brand: unique symbol}>()(
+  "SessionsCorruptError",
+  {cause: Schema.Unknown}
+) {}
+export class SessionsSaveFailedError extends Schema.TaggedError<
+  SessionsSaveFailedError,
+  {readonly brand: unique symbol}
+>()("SessionsSaveFailedError", {cause: Schema.Unknown}) {}
 
 // The saved sessions, shared by every window. `sessions` is this window's copy, which the view renders from.
 export class ISessionRepository extends Context.Service<
@@ -17,4 +23,4 @@ export class ISessionRepository extends Context.Service<
     ) => Effect.Effect<ChangeResult, SessionsCorruptError | SessionsSaveFailedError>;
     readonly sessions: SubscriptionRef.SubscriptionRef<readonly SessionEntity[]>;
   }
->()("aggregor/domain/entities/session/session.repository.interface/ISessionRepository") {}
+>()("aggregor-app/domain/entities/session/session.repository.interface/ISessionRepository") {}

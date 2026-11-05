@@ -10,11 +10,13 @@ import {ProjectRepository} from "@repositories/project.repository.ts";
 import {SessionRepository} from "@repositories/session.repository.ts";
 import {startSourceControlSync} from "@services/scm.service.ts";
 import {Layer} from "effect";
+import {SecureRandom} from "effect/crypto";
 
 const IndependentLayers = Layer.mergeAll(
   GitInfraService,
   NodeServices.layer,
   PromptInfraService,
+  SecureRandom.layerWebCrypto,
   SettingsConfig,
   WorkspaceInfraService
 );

@@ -9,7 +9,7 @@ import {
 } from "@interfaces/git.infraService.interface.ts";
 import {EXTENSION_VERSIONS} from "@pkg/constants/src/extension.constant.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
-import {Effect, Layer, Result} from "effect";
+import {Effect, Layer, Result, Schema} from "effect";
 
 import type {API, GitExtension, Repository} from "@pkg/typings/src/git.js";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
@@ -17,20 +17,29 @@ import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject
 // What the git functions share: VS Code's commands, extensions and Uri.
 type GitDependencies = Pick<VsCodeApi["Service"], "commands" | "extensions" | "Uri">;
 
+class GitRepositoryCloseFailedError extends Schema.TaggedError<
+  GitRepositoryCloseFailedError,
+  {readonly brand: unique symbol}
+>()("GitRepositoryCloseFailedError", {cause: Schema.Unknown}) {}
+class GitRepositoryOpenFailedError extends Schema.TaggedError<
+  GitRepositoryOpenFailedError,
+  {readonly brand: unique symbol}
+>()("GitRepositoryOpenFailedError", {cause: Schema.Unknown}) {}
+
 const getGitApi = Effect.fn("GitInfraService.getGitApi")(function* ({extensions}: GitDependencies) {
   const gitExtension = yield* Effect.fromResult(
-    Result.fromNullishOr(extensions.getExtension<GitExtension>("vscode.git"), () => new GitExtensionUnavailableError())
+    Result.fromNullishOr(extensions.getExtension<GitExtension>("vscode.git"), () => GitExtensionUnavailableError.make())
   );
   // We can activate before git does (an open Sessions view activates us at startup), and git has no exports until it
   // is active. activate() returns them, at once when git is already active.
   const gitExports = yield* Effect.tryPromise({
-    catch: () => new GitExtensionUnavailableError(),
-    try: async () => gitExtension.activate()
+    catch: () => GitExtensionUnavailableError.make(),
+    try: () => gitExtension.activate()
   });
 
   // getAPI throws when git is turned off in the settings.
   return yield* Effect.try({
-    catch: () => new GitExtensionDisabledError(),
+    catch: () => GitExtensionDisabledError.make(),
     try: () => gitExports.getAPI(EXTENSION_VERSIONS.git)
   });
 });
@@ -41,9 +50,8 @@ const findGitRepository = Effect.fn("GitInfraService.findGitRepository")(functio
   projectPath: ProjectPathValueObject
 ) {
   return yield* Effect.fromResult(
-    Result.fromNullishOr(
-      gitApi.getRepository(gitDependencies.Uri.file(projectPath)),
-      () => new GitRepositoryUnavailableError()
+    Result.fromNullishOr(gitApi.getRepository(gitDependencies.Uri.file(projectPath)), () =>
+      GitRepositoryUnavailableError.make()
     )
   );
 });
@@ -52,7 +60,9 @@ const getGitRepository = Effect.fn("GitInfraService.getGitRepository")(function*
   gitDependencies: GitDependencies,
   projectPath: ProjectPathValueObject
 ) {
-  return yield* findGitRepository(gitDependencies, yield* getGitApi(gitDependencies), projectPath);
+  const gitApi = yield* getGitApi(gitDependencies);
+
+  return yield* findGitRepository(gitDependencies, gitApi, projectPath);
 });
 
 const getRepositoryWithStagedChanges = Effect.fn("GitInfraService.getRepositoryWithStagedChanges")(function* (
@@ -62,14 +72,14 @@ const getRepositoryWithStagedChanges = Effect.fn("GitInfraService.getRepositoryW
   return yield* Effect.filterOrFail(
     getGitRepository(gitDependencies, projectPath),
     (repository) => repository.state.indexChanges.length > 0,
-    () => new NothingStagedError()
+    () => NothingStagedError.make()
   );
 });
 
 const readStagedDiff = Effect.fn("GitInfraService.readStagedDiff")(function* (repository: Repository) {
   return yield* Effect.tryPromise({
-    catch: () => new GitDiffError(),
-    try: async () => repository.diff(true)
+    catch: () => GitDiffError.make(),
+    try: () => repository.diff(true)
   });
 });
 
@@ -77,7 +87,9 @@ const getStagedDiff = Effect.fn("GitInfraService.getStagedDiff")(function* (
   gitDependencies: GitDependencies,
   projectPath: ProjectPathValueObject
 ) {
-  return yield* readStagedDiff(yield* getRepositoryWithStagedChanges(gitDependencies, projectPath));
+  const repository = yield* getRepositoryWithStagedChanges(gitDependencies, projectPath);
+
+  return yield* readStagedDiff(repository);
 });
 
 const setCommitMessageInput = Effect.fn("GitInfraService.setCommitMessageInput")(function* (
@@ -100,8 +112,8 @@ const commit = Effect.fn("GitInfraService.commit")(function* (
   const repository = yield* getGitRepository(gitDependencies, projectPath);
 
   yield* Effect.tryPromise({
-    catch: (cause) => new CommitFailedError({cause}),
-    try: async () => repository.commit(commitMessage)
+    catch: (cause) => CommitFailedError.make({cause}),
+    try: () => repository.commit(commitMessage)
   });
 });
 
@@ -112,7 +124,7 @@ const stageAll = Effect.fn("GitInfraService.stageAll")(function* (
 ) {
   const {commands, Uri} = gitDependencies;
 
-  yield* Effect.promise(async () => commands.executeCommand("git.stageAll", Uri.file(projectPath)));
+  yield* Effect.promise(() => commands.executeCommand("git.stageAll", Uri.file(projectPath)));
 });
 
 // A folder that is not a git repository, or git being off, leaves the project in our sidebar only.
@@ -120,7 +132,10 @@ const openInSourceControl = Effect.fn("GitInfraService.openInSourceControl")(
   function* (gitDependencies: GitDependencies, projectPath: ProjectPathValueObject) {
     const gitApi = yield* getGitApi(gitDependencies);
 
-    yield* Effect.tryPromise(async () => gitApi.openRepository(gitDependencies.Uri.file(projectPath)));
+    yield* Effect.tryPromise({
+      catch: (cause) => GitRepositoryOpenFailedError.make({cause}),
+      try: () => gitApi.openRepository(gitDependencies.Uri.file(projectPath))
+    });
   },
   (effect, _gitDependencies, projectPath) =>
     Effect.ignore(effect, {log: "Warn", message: `Could not open ${projectPath} in Source Control`})
@@ -135,7 +150,10 @@ const closeInSourceControl = Effect.fn("GitInfraService.closeInSourceControl")(
     const repository = yield* getGitRepository(gitDependencies, projectPath);
     if (repository.rootUri.fsPath !== projectPath) return;
 
-    yield* Effect.tryPromise(async () => gitDependencies.commands.executeCommand("git.close", repository.rootUri));
+    yield* Effect.tryPromise({
+      catch: (cause) => GitRepositoryCloseFailedError.make({cause}),
+      try: () => gitDependencies.commands.executeCommand("git.close", repository.rootUri)
+    });
   },
   Effect.catchTag("GitRepositoryUnavailableError", () => Effect.void),
   (effect, _gitDependencies, projectPath) =>

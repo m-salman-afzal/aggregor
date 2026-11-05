@@ -1,4 +1,4 @@
-import {Context, Data} from "effect";
+import {Context, Schema} from "effect";
 
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Effect} from "effect";
@@ -7,12 +7,30 @@ import type {Effect} from "effect";
 export type GitUnavailableError =
   GitExtensionDisabledError | GitExtensionUnavailableError | GitRepositoryUnavailableError;
 
-export class CommitFailedError extends Data.TaggedError("CommitFailedError")<{readonly cause: unknown}> {}
-export class GitDiffError extends Data.TaggedError("GitDiffError") {}
-export class GitExtensionDisabledError extends Data.TaggedError("GitExtensionDisabledError") {}
-export class GitExtensionUnavailableError extends Data.TaggedError("GitExtensionUnavailableError") {}
-export class GitRepositoryUnavailableError extends Data.TaggedError("GitRepositoryUnavailableError") {}
-export class NothingStagedError extends Data.TaggedError("NothingStagedError") {}
+export class CommitFailedError extends Schema.TaggedError<CommitFailedError, {readonly brand: unique symbol}>()(
+  "CommitFailedError",
+  {cause: Schema.Unknown}
+) {}
+export class GitDiffError extends Schema.TaggedError<GitDiffError, {readonly brand: unique symbol}>()(
+  "GitDiffError",
+  {}
+) {}
+export class GitExtensionDisabledError extends Schema.TaggedError<
+  GitExtensionDisabledError,
+  {readonly brand: unique symbol}
+>()("GitExtensionDisabledError", {}) {}
+export class GitExtensionUnavailableError extends Schema.TaggedError<
+  GitExtensionUnavailableError,
+  {readonly brand: unique symbol}
+>()("GitExtensionUnavailableError", {}) {}
+export class GitRepositoryUnavailableError extends Schema.TaggedError<
+  GitRepositoryUnavailableError,
+  {readonly brand: unique symbol}
+>()("GitRepositoryUnavailableError", {}) {}
+export class NothingStagedError extends Schema.TaggedError<NothingStagedError, {readonly brand: unique symbol}>()(
+  "NothingStagedError",
+  {}
+) {}
 
 // The git repositories VS Code's Source Control shows, each named by its root folder.
 export class IGitInfraService extends Context.Service<
@@ -36,4 +54,4 @@ export class IGitInfraService extends Context.Service<
     ) => Effect.Effect<void, GitUnavailableError>;
     readonly stageAll: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;
   }
->()("aggregor/application/interfaces/git.infraService.interface/IGitInfraService") {}
+>()("aggregor-app/application/interfaces/git.infraService.interface/IGitInfraService") {}
