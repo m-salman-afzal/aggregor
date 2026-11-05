@@ -3,7 +3,7 @@ import {newSession, openSession, removeSession} from "@/application/session/sess
 import {AppLayer} from "@/infrastructure/di/app.layer.ts";
 import {TraceLogLayer} from "@/infrastructure/logger/trace-log.layer.ts";
 import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
-import {generateCommitMessage} from "@/services/scm/scm.utils.ts";
+import {generateCommitMessage} from "@/presentation/controllers/scm.controller.ts";
 import {registerCommand} from "@/services/vscode.utils.ts";
 import {SessionsView} from "@/views/sessions.view.ts";
 import {COMMANDS} from "@pkg/constants/src/extension.constant.ts";
