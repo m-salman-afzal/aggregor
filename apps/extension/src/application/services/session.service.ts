@@ -1,6 +1,6 @@
 import {showErrorInBackground} from "@appUtils/error.utils.ts";
 import {withHarnessInfraService} from "@appUtils/harness.utils.ts";
-import * as SessionDomainService from "@domainServices/session.domainService.ts";
+import {getNewSessionName} from "@domainServices/session.domainService.ts";
 import {SessionEntity} from "@entities/session/session.entity.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
@@ -52,7 +52,7 @@ const appendNewSession = Effect.fn("SessionService.appendNewSession")(function* 
   const addedSession = SessionEntity.make({
     harnessId: "claude-code",
     id: sessionId,
-    name: yield* SessionDomainService.getNewSessionName(project.name, storedSessions),
+    name: yield* getNewSessionName(project.name, storedSessions),
     projectPath: project.path
   });
 

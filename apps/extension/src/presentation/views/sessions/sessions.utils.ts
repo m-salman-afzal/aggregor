@@ -23,8 +23,6 @@ import type {Row, RowStatus} from "@views/sessions/sessions.view.type.ts";
 
 // How the Sessions tree draws its rows: project and session items, their status badges, and the tree's shape.
 
-export const isProject = (row: Row): row is ProjectEntity => Schema.is(ProjectEntity)(row);
-
 // Without a terminal in this window the agent is gone; with one, the hooks say what it is doing.
 export const getRowStatus = Effect.fn("SessionsView.getRowStatus")(function* (
   session: SessionEntity,
@@ -104,7 +102,7 @@ export const createStatusBadge = Effect.fn("SessionsView.createStatusBadge")(fun
 // whose project is not in this window is not shown here.
 export const getChildRows = Effect.fn("SessionsView.getChildRows")(function* (parentRow: Row | undefined) {
   if (parentRow === undefined) return yield* listProjects();
-  if (!isProject(parentRow)) return [];
+  if (!Schema.is(ProjectEntity)(parentRow)) return [];
 
   const allSessions = yield* listSessions();
 
@@ -112,7 +110,7 @@ export const getChildRows = Effect.fn("SessionsView.getChildRows")(function* (pa
 });
 
 export const getParentRow = Effect.fn("SessionsView.getParentRow")(function* (row: Row) {
-  if (isProject(row)) return undefined;
+  if (Schema.is(ProjectEntity)(row)) return undefined;
 
   const projects = yield* listProjects();
 

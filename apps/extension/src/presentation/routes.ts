@@ -1,6 +1,11 @@
-import * as ProjectController from "@controllers/project.controller.ts";
-import * as ScmController from "@controllers/scm.controller.ts";
-import * as SessionController from "@controllers/session.controller.ts";
+import {addProjectsAskingForFolders, removeClickedProject} from "@controllers/project.controller.ts";
+import {generateCommitMessage} from "@controllers/scm.controller.ts";
+import {
+  newSessionAskingForProject,
+  newSessionInClickedProject,
+  openClickedSession,
+  removeClickedSession
+} from "@controllers/session.controller.ts";
 import {registerCommand} from "@middlewares/registerCommand.middleware.ts";
 import {COMMANDS} from "@pkg/constants/src/extension.constant.ts";
 import {Effect, Layer} from "effect";
@@ -8,12 +13,12 @@ import {Effect, Layer} from "effect";
 // Every command the extension contributes, by command ID.
 export const RoutesLayer = Layer.effectDiscard(
   Effect.all([
-    registerCommand(COMMANDS.PROJECT_ROW.NEW_SESSION, SessionController.newSessionInClickedProject),
-    registerCommand(COMMANDS.PROJECT_ROW.REMOVE, ProjectController.removeProject),
-    registerCommand(COMMANDS.SCM_TITLE.GENERATE_COMMIT_MESSAGE, ScmController.generateCommitMessage),
-    registerCommand(COMMANDS.SESSION_ROW.OPEN, SessionController.openSession),
-    registerCommand(COMMANDS.SESSION_ROW.REMOVE, SessionController.removeSession),
-    registerCommand(COMMANDS.VIEW_TITLE.ADD_PROJECT, ProjectController.addProject),
-    registerCommand(COMMANDS.VIEW_TITLE.NEW_SESSION, SessionController.newSessionAskingForProject)
+    registerCommand(COMMANDS.PROJECT_ROW.NEW_SESSION, newSessionInClickedProject),
+    registerCommand(COMMANDS.PROJECT_ROW.REMOVE, removeClickedProject),
+    registerCommand(COMMANDS.SCM_TITLE.GENERATE_COMMIT_MESSAGE, generateCommitMessage),
+    registerCommand(COMMANDS.SESSION_ROW.OPEN, openClickedSession),
+    registerCommand(COMMANDS.SESSION_ROW.REMOVE, removeClickedSession),
+    registerCommand(COMMANDS.VIEW_TITLE.ADD_PROJECT, addProjectsAskingForFolders),
+    registerCommand(COMMANDS.VIEW_TITLE.NEW_SESSION, newSessionAskingForProject)
   ])
 );

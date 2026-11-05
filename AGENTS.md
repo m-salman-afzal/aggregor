@@ -30,8 +30,8 @@ names, and the lint that checks them. Read it before deciding where code goes, a
 change that moves where code goes. Each file's suffix names its role (`.entity.ts`, `.interface.ts`, `.infraService.ts`
 and so on), and `eslint.layers.ts` checks each layer's imports, the names each role requires, and where types and
 interfaces live. Code imports through one alias per folder under a layer (`@entities/`, `@interfaces/`,
-`@infraServices/` and so on, listed in `apps/extension/tsconfig.json`), never through a relative path. Enforce a new
-convention with a lint there, not only with prose here.
+`@infraServices/` and so on, listed in `apps/extension/tsconfig.json`), never through a relative path, and by name,
+never with `import * as`. Enforce a new convention with a lint there, not only with prose here.
 
 ## Effect
 
@@ -41,7 +41,10 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
 
 - **Every Effect rule is an error in the extension source.** `@effect/tsgo` checks them in `pnpm typecheck` and the
   editor; `packages/tsconfigs/tsconfig.base.json` lists each rule, and one turned off says why there.
-- **Every effectful function is an `Effect.fn`**, which gives it its span. Error handling and other combinators go in
+- **Every function is an `Effect.fn`**, which gives it its span, even one that only builds a stream, so the trace shows
+  it ran. Lint checks every top-level function in the extension source; one nested in an `Effect.fn` is its callback.
+  The exceptions carry an `eslint-disable` with the reason: the trace log's formatters, which run while a span ends,
+  `activate`, and `decodeTitleLine`, which runs once per transcript line. Error handling and other combinators go in
   `Effect.fn`'s extra arguments after the body, not in a `.pipe`; handling that only one caller needs gets its own small
   `Effect.fn`. A layer's body is a named `Effect.fn` such as `makeTerminalInfraService`, passed to `Layer.effect`. A
   service member that takes no arguments is an `Effect`, not a function: `make` calls its `Effect.fn` once
@@ -64,7 +67,7 @@ named `<owner>.<const>`: the owner comes from the file name (`session.service.ts
 belongs to the one owner in its folder, a layer's `make<Owner>` is `<Owner>.make`, and a file with no owner gives the
 bare const name. `eslint.plugin.ts` checks every name, and `pnpm lint:fix` corrects it. Finished spans and Effect logs
 go to the **Aggregor App** output channel, one trace-level line per span:
-`aggregorApp.openSession > SessionController.openSession > SessionService.openSession > TerminalInfraService.focusSessionTerminal 0.8ms failed: TerminalNotFoundError`.
+`aggregorApp.openSession > SessionController.openClickedSession > SessionService.openSession > TerminalInfraService.focusSessionTerminal 0.8ms failed: TerminalNotFoundError`.
 Work a layer starts in the background, such as a watcher, nests under that layer's `make` span. F5 starts the extension
 at trace level; elsewhere, pick it with **Developer: Set Log Level...**. VS Code also writes the channel to
 `<logs>/window<n>/exthost/SalmanAfzal.aggregor-app/Aggregor App.log`, so a test run's trace can be read from disk.

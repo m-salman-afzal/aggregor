@@ -1,51 +1,68 @@
 import {Context, Effect, Layer} from "effect";
-import * as vscode from "vscode";
+import {
+  commands,
+  EventEmitter,
+  extensions,
+  FileDecoration,
+  ProgressLocation,
+  TabInputTerminal,
+  ThemeColor,
+  ThemeIcon,
+  TreeItem,
+  TreeItemCollapsibleState,
+  Uri,
+  ViewColumn,
+  window,
+  workspace
+} from "vscode";
+
+import type {ExtensionContext, Memento, WorkspaceConfiguration} from "vscode";
 
 // The only runtime import of `vscode`. Everything else yields VsCodeApi and imports vscode types only.
 export class VsCodeApi extends Context.Service<
   VsCodeApi,
   {
-    readonly commands: typeof vscode.commands;
-    readonly EventEmitter: typeof vscode.EventEmitter;
-    readonly extensions: typeof vscode.extensions;
-    readonly extensionUri: vscode.Uri;
-    readonly FileDecoration: typeof vscode.FileDecoration;
-    readonly getConfiguration: (settingsSection: string) => Effect.Effect<vscode.WorkspaceConfiguration>;
-    readonly globalState: vscode.Memento;
-    readonly globalStorageUri: vscode.Uri;
-    readonly ProgressLocation: typeof vscode.ProgressLocation;
-    readonly TabInputTerminal: typeof vscode.TabInputTerminal;
-    readonly ThemeColor: typeof vscode.ThemeColor;
-    readonly ThemeIcon: typeof vscode.ThemeIcon;
-    readonly TreeItem: typeof vscode.TreeItem;
-    readonly TreeItemCollapsibleState: typeof vscode.TreeItemCollapsibleState;
-    readonly Uri: typeof vscode.Uri;
-    readonly ViewColumn: typeof vscode.ViewColumn;
-    readonly window: typeof vscode.window;
-    readonly workspace: typeof vscode.workspace;
-    readonly workspaceState: vscode.Memento;
+    readonly commands: typeof commands;
+    readonly EventEmitter: typeof EventEmitter;
+    readonly extensions: typeof extensions;
+    readonly extensionUri: Uri;
+    readonly FileDecoration: typeof FileDecoration;
+    readonly getConfiguration: (settingsSection: string) => Effect.Effect<WorkspaceConfiguration>;
+    readonly globalState: Memento;
+    readonly globalStorageUri: Uri;
+    readonly ProgressLocation: typeof ProgressLocation;
+    readonly TabInputTerminal: typeof TabInputTerminal;
+    readonly ThemeColor: typeof ThemeColor;
+    readonly ThemeIcon: typeof ThemeIcon;
+    readonly TreeItem: typeof TreeItem;
+    readonly TreeItemCollapsibleState: typeof TreeItemCollapsibleState;
+    readonly Uri: typeof Uri;
+    readonly ViewColumn: typeof ViewColumn;
+    readonly window: typeof window;
+    readonly workspace: typeof workspace;
+    readonly workspaceState: Memento;
   }
 >()("aggregor-app/infrastructure/vscode/vscode.api/VsCodeApi") {
-  public static readonly layer = (extensionContext: vscode.ExtensionContext) =>
+  public static readonly layer = (extensionContext: ExtensionContext) =>
     Layer.succeed(VsCodeApi, {
-      commands: vscode.commands,
-      EventEmitter: vscode.EventEmitter,
-      extensions: vscode.extensions,
+      commands,
+      EventEmitter,
+      extensions,
       extensionUri: extensionContext.extensionUri,
-      FileDecoration: vscode.FileDecoration,
-      getConfiguration: (settingsSection) => Effect.sync(() => vscode.workspace.getConfiguration(settingsSection)),
+      FileDecoration,
+      getConfiguration: (settingsSection) => Effect.sync(() => workspace.getConfiguration(settingsSection)),
       globalState: extensionContext.globalState,
       globalStorageUri: extensionContext.globalStorageUri,
-      ProgressLocation: vscode.ProgressLocation,
-      TabInputTerminal: vscode.TabInputTerminal,
-      ThemeColor: vscode.ThemeColor,
-      ThemeIcon: vscode.ThemeIcon,
-      TreeItem: vscode.TreeItem,
-      TreeItemCollapsibleState: vscode.TreeItemCollapsibleState,
-      Uri: vscode.Uri,
-      ViewColumn: vscode.ViewColumn,
-      window: vscode.window,
-      workspace: vscode.workspace,
+      ProgressLocation,
+      TabInputTerminal,
+      ThemeColor,
+      ThemeIcon,
+      TreeItem,
+      TreeItemCollapsibleState,
+      Uri,
+      ViewColumn,
+      window,
+      workspace,
       workspaceState: extensionContext.workspaceState
     });
 }

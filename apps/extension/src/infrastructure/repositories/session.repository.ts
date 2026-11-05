@@ -100,10 +100,9 @@ const makeSessionRepository = Effect.fn("SessionRepository.make")(function* () {
   const {globalState, window} = yield* VsCodeApi;
   const initialSessions = yield* loadInitialSessions(globalState);
   const sessions: SessionsReference = yield* SubscriptionRef.make(initialSessions);
+  const windowStateChanges = yield* fromEvent(window.onDidChangeWindowState);
   yield* Effect.forkScoped(
-    Stream.runForEach(fromEvent(window.onDidChangeWindowState), (windowState) =>
-      reloadSessionsOnFocus(globalState, sessions, windowState)
-    )
+    Stream.runForEach(windowStateChanges, (windowState) => reloadSessionsOnFocus(globalState, sessions, windowState))
   );
 
   return {

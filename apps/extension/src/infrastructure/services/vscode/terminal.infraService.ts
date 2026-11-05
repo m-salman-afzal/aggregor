@@ -159,10 +159,16 @@ const findActiveTerminalSessionId = Effect.fn("TerminalInfraService.findActiveTe
 });
 
 // No active terminal, or one that is not a session's, emits nothing.
-const watchActivatedSessionIds = ({sessionTerminals, window}: TerminalDependencies) =>
-  Stream.filterMapEffect(fromEvent(window.onDidChangeActiveTerminal), (activeTerminal) =>
+const watchActivatedSessionIds = Effect.fn("TerminalInfraService.watchActivatedSessionIds")(function* ({
+  sessionTerminals,
+  window
+}: TerminalDependencies) {
+  const activeTerminalChanges = yield* fromEvent(window.onDidChangeActiveTerminal);
+
+  return Stream.filterMapEffect(activeTerminalChanges, (activeTerminal) =>
     Effect.result(findActiveTerminalSessionId(sessionTerminals, activeTerminal))
   );
+});
 
 // A closed tab ends the agent but keeps the session listed, so clicking it can resume.
 const forgetClosedTerminal = Effect.fn("TerminalInfraService.forgetClosedTerminal")(
@@ -216,27 +222,29 @@ const updateViewedSessionId = Effect.fn("TerminalInfraService.updateViewedSessio
 
 // Switching tabs fires the tab and active-terminal events separately and in either order, so wait for them to settle;
 // reading in between could credit the tab being left.
-const watchFocusChanges = ({sessionTerminals, window}: TerminalDependencies) => {
+const watchFocusChanges = Effect.fn("TerminalInfraService.watchFocusChanges")(function* ({
+  sessionTerminals,
+  window
+}: TerminalDependencies) {
   const focusChangeSources: readonly Stream.Stream<unknown>[] = [
-    fromEvent(window.onDidChangeActiveTerminal),
-    fromEvent(window.onDidChangeWindowState),
-    fromEvent(window.tabGroups.onDidChangeTabs),
-    fromEvent(window.tabGroups.onDidChangeTabGroups),
+    yield* fromEvent(window.onDidChangeActiveTerminal),
+    yield* fromEvent(window.onDidChangeWindowState),
+    yield* fromEvent(window.tabGroups.onDidChangeTabs),
+    yield* fromEvent(window.tabGroups.onDidChangeTabGroups),
     SubscriptionRef.changes(sessionTerminals)
   ];
 
   return Stream.debounce(Stream.mergeAll(focusChangeSources, {concurrency: "unbounded"}), "100 millis");
-};
+});
 
 const trackViewedSessionId = Effect.fn("TerminalInfraService.trackViewedSessionId")(function* (
   terminalDependencies: TerminalDependencies
 ) {
   const initialViewedSessionId = yield* Effect.result(findViewedSessionId(terminalDependencies));
   const viewedSessionId = yield* SubscriptionRef.make(initialViewedSessionId);
+  const focusChanges = yield* watchFocusChanges(terminalDependencies);
   yield* Effect.forkScoped(
-    Stream.runForEach(watchFocusChanges(terminalDependencies), () =>
-      updateViewedSessionId(terminalDependencies, viewedSessionId)
-    )
+    Stream.runForEach(focusChanges, () => updateViewedSessionId(terminalDependencies, viewedSessionId))
   );
 
   return viewedSessionId;
@@ -254,14 +262,13 @@ const makeTerminalDependencies = Effect.fn("TerminalInfraService.makeTerminalDep
 const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function* () {
   const terminalDependencies = yield* makeTerminalDependencies();
   const {sessionTerminals, window} = terminalDependencies;
+  const closedTerminals = yield* fromEvent(window.onDidCloseTerminal);
   yield* Effect.forkScoped(
-    Stream.runForEach(fromEvent(window.onDidCloseTerminal), (closedTerminal) =>
-      forgetClosedTerminal(sessionTerminals, closedTerminal)
-    )
+    Stream.runForEach(closedTerminals, (closedTerminal) => forgetClosedTerminal(sessionTerminals, closedTerminal))
   );
 
   return {
-    activatedSessionIds: watchActivatedSessionIds(terminalDependencies),
+    activatedSessionIds: yield* watchActivatedSessionIds(terminalDependencies),
     closeSessionTerminal: (sessionId: SessionIdValueObject) => closeSessionTerminal(sessionTerminals, sessionId),
     focusSessionTerminal: (sessionId: SessionIdValueObject) => focusSessionTerminal(sessionTerminals, sessionId),
     isSessionTerminalOpen: (sessionId: SessionIdValueObject) => isSessionTerminalOpen(sessionTerminals, sessionId),

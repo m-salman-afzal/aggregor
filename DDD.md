@@ -30,10 +30,10 @@ Each folder directly under a layer has one import alias in `apps/extension/tscon
 | `infrastructure` | `@config`, `@models` (`database/models`), `@di`, `@logger`, `@repositories`, `@infraServices` (`services`), `@infraUtils` (`utils`), `@vscodeApi` |
 | `presentation`   | `@controllers`, `@middlewares`, `@presentationUtils` (`utils`), `@views`                                                                          |
 
-Code is imported only through them, so each file has one import path; `extension.ts` imports `./presentation/routes.ts`,
-the one file at a layer's root. `eslint.layers.ts` checks the import column with one
-`@typescript-eslint/no-restricted-imports` block per layer: a regex allow-list over the aliases, which also rejects
-relative imports.
+Code is imported only through them, so each file has one import path, and by name: lint (`no-restricted-syntax`) bans
+`import * as`, `vscode` included; `extension.ts` imports `./presentation/routes.ts`, the one file at a layer's root.
+`eslint.layers.ts` checks the import column with one `@typescript-eslint/no-restricted-imports` block per layer: a regex
+allow-list over the aliases, which also rejects relative imports.
 
 ## Naming
 
@@ -45,8 +45,8 @@ Each file's suffix names its role, each role lives in one layer, and the file's 
 | Entity                  | domain                            | `entities/<x>/<x>.entity.ts`                            | `SessionEntity`                                      |
 | Value object            | domain                            | `valueObjects/<x>.valueObject.ts`                       | `SessionIdValueObject`, `SessionIdValueObjectSchema` |
 | Repository interface    | domain                            | `entities/<x>/<x>.repository.interface.ts`              | `ISessionRepository`                                 |
-| Domain service          | domain                            | `services/<x>.domainService.ts`                         | functions, imported as `* as SessionDomainService`   |
-| Application service     | application                       | `services/<x>.service.ts`                               | functions, imported as `* as SessionService`         |
+| Domain service          | domain                            | `services/<x>.domainService.ts`                         | functions                                            |
+| Application service     | application                       | `services/<x>.service.ts`                               | functions                                            |
 | Infra service interface | application                       | `interfaces/<x>.infraService.interface.ts`              | `ITerminalInfraService`                              |
 | Config interface        | application                       | `interfaces/<x>.config.interface.ts`                    | `ISettingsConfig`                                    |
 | Repository              | infrastructure                    | `repositories/<x>.repository.ts`                        | `SessionRepository`                                  |
@@ -56,7 +56,7 @@ Each file's suffix names its role, each role lives in one layer, and the file's 
 | Config                  | infrastructure                    | `config/<x>.config.ts`                                  | `SettingsConfig`                                     |
 | Layer                   | infrastructure                    | `di/<x>.layer.ts`, `logger/<x>.layer.ts`                | `AppLayer`                                           |
 | Routes                  | presentation                      | `routes.ts`                                             | `RoutesLayer`                                        |
-| Controller              | presentation                      | `controllers/<x>.controller.ts`                         | functions, imported as `* as SessionController`      |
+| Controller              | presentation                      | `controllers/<x>.controller.ts`                         | functions                                            |
 | Middleware              | presentation                      | `middlewares/<x>.middleware.ts`                         | `registerCommand`                                    |
 | View                    | presentation                      | `views/<x>/<x>.view.ts`                                 | `SessionsView`                                       |
 | Helpers                 | any                               | `utils/<x>.utils.ts`, or beside the one file they serve | functions                                            |

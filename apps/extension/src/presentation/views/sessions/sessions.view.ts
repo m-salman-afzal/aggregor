@@ -1,5 +1,6 @@
 import {forEachHarnessInfraService} from "@appUtils/harness.utils.ts";
-import * as SessionDomainService from "@domainServices/session.domainService.ts";
+import {getUnreadSessionIds} from "@domainServices/session.domainService.ts";
+import {ProjectEntity} from "@entities/project/project.entity.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {acquireDisposable, fromEvent} from "@infraUtils/vscode.utils.ts";
@@ -15,8 +16,7 @@ import {
   getChildRows,
   getParentRow,
   getRowStatus,
-  getSessionRowUri,
-  isProject
+  getSessionRowUri
 } from "@views/sessions/sessions.utils.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Array, Effect, Layer, Ref, Result, Schedule, Schema, Stream, String, SubscriptionRef} from "effect";
@@ -117,7 +117,7 @@ const registerTreeView = Effect.fn("SessionsView.registerTreeView")(function* (
         getChildren: (parentRow) => [...runSyncUntraced(getChildRows(parentRow))],
         getParent: (row) => runSyncUntraced(getParentRow(row)),
         getTreeItem: (row) =>
-          isProject(row)
+          Schema.is(ProjectEntity)(row)
             ? runSyncUntraced(createProjectTreeItem(row))
             : runSyncUntraced(createSessionTreeItem(row, getDrawnRowStatus(row.id))),
         onDidChangeTreeData: treeChangedEmitter.event
@@ -151,7 +151,7 @@ const updateUnreadSessionIds = Effect.fn("SessionsView.updateUnreadSessionIds")(
   const currentViewedSessionId = Result.getOrUndefined(viewedSessionIdResult);
 
   const previousUnreadSessionIds = yield* Ref.get(viewParts.unreadSessionIds);
-  const currentUnreadSessionIds = yield* SessionDomainService.getUnreadSessionIds({
+  const currentUnreadSessionIds = yield* getUnreadSessionIds({
     currentStatuses,
     previousStatuses,
     previousUnreadSessionIds,
@@ -215,7 +215,7 @@ const watchRowChanges = Effect.fn("SessionsView.watchRowChanges")(function* () {
   );
   const rowChangeSources: readonly Stream.Stream<unknown>[] = [
     SubscriptionRef.changes((yield* IProjectRepository).addedProjectPaths),
-    fromEvent(workspace.onDidChangeWorkspaceFolders),
+    yield* fromEvent(workspace.onDidChangeWorkspaceFolders),
     SubscriptionRef.changes((yield* ISessionRepository).sessions),
     (yield* ITerminalInfraService).openSessionIds,
     SubscriptionRef.changes((yield* ITerminalInfraService).viewedSessionId),
