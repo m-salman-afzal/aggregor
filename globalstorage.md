@@ -50,7 +50,7 @@ JSON the extension alone reads and writes.
 
 - **Holds:** `{version: 1, sessions: [{id, name, customName?, projectPath, harnessId}]}`: the `StoredSessionsModel`
   (`infrastructure/database/models/`). `name` is the agent's latest title, or ours until it gives one; `customName` is
-  the user's, from Rename Session.
+  the user's, from the row menu's Rename.
 - **Written by:** `SessionRepository`, with a read-modify-write on every add, remove and rename, and when an agent's
   title changes.
 - **Read by:** `SessionRepository` at startup and whenever a window regains focus.

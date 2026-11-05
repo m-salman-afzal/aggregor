@@ -197,7 +197,7 @@
         "category": "Aggregor App"
       },
       {
-        "title": "Remove Session",
+        "title": "Remove",
         "command": "aggregorApp.removeSession",
         "category": "Aggregor App"
       },
@@ -219,7 +219,7 @@
         "icon": "$(root-folder)"
       },
       {
-        "title": "Rename Session",
+        "title": "Rename",
         "command": "aggregorApp.renameSession"
       }
     ]
