@@ -1,3 +1,4 @@
+import {showErrorInBackground} from "@/application/utils/error.utils.ts";
 import {RepoRepository} from "@/domain/entities/repo/repo.repository.ts";
 import {ReposCorrupt, ReposSaveFailed} from "@/domain/errors/repo.error.ts";
 import {
@@ -5,7 +6,6 @@ import {
   StoredAddedRepoPaths
 } from "@/infrastructure/database/models/stored-added-repo-paths.model.ts";
 import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
-import {showErrorInBackground} from "@/services/error.utils.ts";
 import {STORAGE_KEYS} from "@pkg/constants/src/extension.constant.ts";
 import {REPO_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {Effect, Layer, Schema, SubscriptionRef} from "effect";

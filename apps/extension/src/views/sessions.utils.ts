@@ -1,10 +1,9 @@
+import {TerminalClient} from "@/application/clients/terminal.client.ts";
+import {listRepos} from "@/application/repo/repo.service.ts";
+import {getSessionDisplayName, listSessions} from "@/application/session/session.service.ts";
 import {Repo} from "@/domain/entities/repo/repo.entity.ts";
 import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
-import {listRepos} from "@/services/repo/repo.utils.ts";
 import {StatusService} from "@/services/session/status.service.ts";
-import {listSessions} from "@/services/session/store.utils.ts";
-import {TerminalService} from "@/services/session/terminal.service.ts";
-import {getSessionDisplayName} from "@/services/session/terminal.utils.ts";
 import {getClaudeIcon} from "@/services/vscode.utils.ts";
 import {
   COMMANDS,
@@ -38,7 +37,7 @@ export const getRowStatus = Effect.fn("getRowStatus")(function* (
   sessionId: SessionId,
   unreadSessionIds: ReadonlySet<SessionId>
 ) {
-  const {isSessionTerminalOpen} = yield* TerminalService;
+  const {isSessionTerminalOpen} = yield* TerminalClient;
   if (!(yield* isSessionTerminalOpen(sessionId))) return "exited" satisfies RowStatus;
 
   const {sessionStatuses} = yield* StatusService;

@@ -1,13 +1,13 @@
+import {TerminalClient} from "@/application/clients/terminal.client.ts";
+import {findSession, listSessions} from "@/application/session/session.service.ts";
 import {RepoRepository} from "@/domain/entities/repo/repo.repository.ts";
 import {getUnreadSessionIds} from "@/domain/entities/session/session.entity.ts";
 import {SessionRepository} from "@/domain/entities/session/session.repository.ts";
 import {decodeSessionId} from "@/domain/value-objects/session-id.value-object.ts";
-import {NoActiveTerminal, RevealFailed} from "@/errors/session.error.ts";
+import {RevealFailed} from "@/errors/session.error.ts";
 import {acquireDisposable, fromEvent} from "@/infrastructure/utils/vscode.utils.ts";
 import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {StatusService} from "@/services/session/status.service.ts";
-import {findSession, listSessions} from "@/services/session/store.utils.ts";
-import {TerminalService} from "@/services/session/terminal.service.ts";
 import {TranscriptService} from "@/services/session/transcript.service.ts";
 import {
   createRepoTreeItem,
@@ -22,21 +22,26 @@ import {
 import {SESSION_URI_SCHEME, SPINNER_INTERVAL_MS, VIEWS} from "@pkg/constants/src/extension.constant.ts";
 import {Effect, Layer, Ref, Result, Schedule, Stream, SubscriptionRef} from "effect";
 
+import type {WorkspaceClient} from "@/application/clients/workspace.client.ts";
 import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
 import type {Status} from "@/domain/value-objects/status.value-object.ts";
 import type {Row, RowStatus} from "@/views/sessions.utils.ts";
 import type {Path} from "effect/Path";
-import type {EventEmitter, Terminal, TreeView, Uri} from "vscode";
+import type {EventEmitter, TreeView, Uri} from "vscode";
 
 type SessionsViewServices =
-  Path | RepoRepository | SessionRepository | StatusService | TerminalService | TranscriptService | VsCodeService;
+  | Path
+  | RepoRepository
+  | SessionRepository
+  | StatusService
+  | TerminalClient
+  | TranscriptService
+  | VsCodeService
+  | WorkspaceClient;
 
-// Selects the session whose tab became active. Skipped while the view is hidden, since reveal would open it. No active
-// terminal, or one that is not a session's, leaves nothing to select.
+// Selects the session whose tab became active. Skipped while the view is hidden, since reveal would open it.
 const revealSession = Effect.fn("revealSession")(
-  function* (sessionsTreeView: TreeView<Row>, activeTerminal: Terminal | undefined) {
-    const terminal = yield* Effect.fromResult(Result.fromNullishOr(activeTerminal, () => new NoActiveTerminal()));
-    const sessionId = yield* TerminalService.use((terminalService) => terminalService.findTerminalSessionId(terminal));
+  function* (sessionsTreeView: TreeView<Row>, sessionId: SessionId) {
     const session = yield* findSession(sessionId);
     if (!sessionsTreeView.visible) return;
 
@@ -45,7 +50,6 @@ const revealSession = Effect.fn("revealSession")(
       try: async () => sessionsTreeView.reveal(session, {focus: false, select: true})
     });
   },
-  Effect.catchTag(["NoActiveTerminal", "UntrackedTerminal"], () => Effect.void),
   Effect.ignore({log: "Warn", message: "Could not select the active session in the Sessions view"})
 );
 
@@ -124,7 +128,7 @@ const updateUnreadSessionIds = Effect.fn("SessionsView.updateUnreadSessionIds")(
   viewParts: SessionsViewParts
 ) {
   const {sessionStatuses} = yield* StatusService;
-  const {viewedSessionId} = yield* TerminalService;
+  const {viewedSessionId} = yield* TerminalClient;
   const currentStatuses = yield* SubscriptionRef.get(sessionStatuses);
   const previousStatuses = yield* Ref.getAndSet(viewParts.previousSessionStatuses, currentStatuses);
   const currentViewedSessionId = Result.getOrUndefined(yield* SubscriptionRef.get(viewedSessionId));
@@ -187,10 +191,10 @@ const watchRowChanges = Effect.fn("SessionsView.watchRowChanges")(function* () {
     SubscriptionRef.changes((yield* RepoRepository).addedRepoPaths),
     fromEvent(workspace.onDidChangeWorkspaceFolders),
     SubscriptionRef.changes((yield* SessionRepository).sessions),
-    SubscriptionRef.changes((yield* TerminalService).sessionTerminals),
+    (yield* TerminalClient).openSessionIds,
     SubscriptionRef.changes((yield* TranscriptService).sessionTitles),
     SubscriptionRef.changes((yield* StatusService).sessionStatuses),
-    SubscriptionRef.changes((yield* TerminalService).viewedSessionId)
+    SubscriptionRef.changes((yield* TerminalClient).viewedSessionId)
   ];
 
   return Stream.mergeAll(rowChangeSources, {concurrency: "unbounded"});
@@ -213,7 +217,7 @@ const makeSessionsViewParts = Effect.fn("SessionsView.makeSessionsViewParts")(fu
 
 // Registers the Sessions tree for the lifetime of the runtime; disposing the runtime unregisters it.
 const registerSessionsView = Effect.fn("registerSessionsView")(function* () {
-  const {window} = yield* VsCodeService;
+  const {activatedSessionIds} = yield* TerminalClient;
   const viewParts = yield* makeSessionsViewParts();
   yield* Effect.forkScoped(Stream.runForEach(yield* watchRowChanges(), () => refreshSessionsTree(viewParts)));
   yield* Effect.forkScoped(
@@ -223,9 +227,7 @@ const registerSessionsView = Effect.fn("registerSessionsView")(function* () {
     )
   );
   yield* Effect.forkScoped(
-    Stream.runForEach(fromEvent(window.onDidChangeActiveTerminal), (activeTerminal) =>
-      revealSession(viewParts.sessionsTreeView, activeTerminal)
-    )
+    Stream.runForEach(activatedSessionIds, (sessionId) => revealSession(viewParts.sessionsTreeView, sessionId))
   );
 });
 

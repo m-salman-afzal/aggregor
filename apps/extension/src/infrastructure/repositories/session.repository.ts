@@ -1,10 +1,10 @@
+import {showErrorInBackground} from "@/application/utils/error.utils.ts";
 import {Session} from "@/domain/entities/session/session.entity.ts";
 import {SessionRepository} from "@/domain/entities/session/session.repository.ts";
 import {SessionsCorrupt, SessionsSaveFailed} from "@/domain/errors/session.error.ts";
 import {NO_STORED_SESSIONS, StoredSessions} from "@/infrastructure/database/models/stored-sessions.model.ts";
 import {fromEvent} from "@/infrastructure/utils/vscode.utils.ts";
 import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
-import {showErrorInBackground} from "@/services/error.utils.ts";
 import {STORAGE_KEYS} from "@pkg/constants/src/extension.constant.ts";
 import {SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {Effect, Layer, Schema, Stream, SubscriptionRef} from "effect";

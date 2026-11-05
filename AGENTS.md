@@ -36,8 +36,9 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
 
 - **Every effectful function is an `Effect.fn`**, which gives it its span. Error handling and other combinators go in
   `Effect.fn`'s extra arguments after the body, not in a `.pipe`; handling that only one caller needs gets its own small
-  `Effect.fn`. A layer's body is a named `Effect.fn` such as `makeTerminalService`, passed to `Layer.effect`. `.pipe` is
-  only for what is not a function: layers, streams and schedules. Lint bans `Effect.gen` and `Effect.withSpan`.
+  `Effect.fn`. A layer's body is a named `Effect.fn` such as `makeTerminalClientOnVsCode`, passed to `Layer.effect`.
+  `.pipe` is only for what is not a function: layers, streams and schedules. Lint bans `Effect.gen` and
+  `Effect.withSpan`.
 - **No `?.` and no `??`.** Check the value explicitly, or take a default with `Result.getOrElse` or `UndefinedOr.match`.
   Lint bans both.
 - **`Result`, never `Option`.** A value that can be missing is a `Result`, or an effect that fails, whose tagged error
@@ -52,9 +53,9 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
 
 Every command runs as a root span named by its command ID, and each `Effect.fn` it calls is a child span. Name an
 `Effect.fn` after the function it defines; one that belongs to a service or view gets that name in front:
-`TerminalService.openSessionTerminal`. Finished spans and Effect logs go to the **Aggregor App** output channel, one
+`TerminalClient.openSessionTerminal`. Finished spans and Effect logs go to the **Aggregor App** output channel, one
 trace-level line per span:
-`aggregorApp.newSessionAskingForRepo > newSession > startSession > openNewSessionTerminal > TerminalService.openSessionTerminal 1.0ms ok`.
+`aggregorApp.newSessionAskingForRepo > newSession > startSession > openNewSessionTerminal > TerminalClient.openSessionTerminal 1.0ms ok`.
 Work a layer starts in the background, such as a watcher, nests under that layer's `make` span. F5 starts the extension
 at trace level; elsewhere, pick it with **Developer: Set Log Level...**. VS Code also writes the channel to
 `<logs>/window<n>/exthost/SalmanAfzal.aggregor-app/Aggregor App.log`, so a test run's trace can be read from disk.

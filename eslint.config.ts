@@ -25,7 +25,12 @@ const IMPORT_BANS = [
   {allowTypeImports: true, message: "Import only vscode's types; yield VsCodeService for its values.", name: "vscode"}
 ];
 
-// `@/services` holds the code that DDD.md's later steps still move into a layer.
+// The layers' allow-lists. `@/services` holds the code that DDD.md's later steps still move into a layer.
+const APPLICATION_IMPORTS = {
+  message: "The application layer imports only effect, @pkg, and domain, application or services code.",
+  regex: "^(?!effect(/|$)|@pkg/|@/(domain|application|services)/)"
+};
+
 const INFRASTRUCTURE_IMPORTS = {
   message:
     "The infrastructure layer imports only effect, @effect, vscode, node, @pkg, and domain, application, " +
@@ -206,6 +211,15 @@ const config: Config[] = defineConfig([
             }
           ]
         }
+      ]
+    }
+  },
+  {
+    files: ["apps/extension/src/application/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {paths: OPTION_IMPORT_BANS, patterns: [APPLICATION_IMPORTS]}
       ]
     }
   },
