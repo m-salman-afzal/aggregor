@@ -16,7 +16,7 @@ export const IMPORT_BANS = [
 
 // Each layer's folders, by their tsconfig.json aliases. A layer's code is imported only through these, so each file has
 // one import path.
-const DOMAIN_ALIASES = "entities|valueObjects";
+const DOMAIN_ALIASES = "domainServices|entities|valueObjects";
 const APPLICATION_ALIASES = "interfaces|services|appUtils";
 const INFRASTRUCTURE_ALIASES = "config|models|di|logger|repositories|infraServices|infraUtils|vscodeApi";
 const PRESENTATION_ALIASES = "controllers|middlewares|presentationUtils|views";
@@ -98,6 +98,18 @@ const ERROR_FILE_BAN = {
     "Declare errors at the top of the file that raises them, or of the interface whose signatures name them; " +
     "there are no .error.ts files.",
   selector: "Program"
+};
+// An entity file holds its entity, whose own rules are its methods; rules across entities go in a .domainService.ts.
+const ENTITY_EXPORT_BAN = {
+  message: "Export only the entity class; a rule across entities goes in a .domainService.ts.",
+  selector: "ExportNamedDeclaration:not([declaration.type='ClassDeclaration']), ExportDefaultDeclaration"
+};
+// Every domain service function is an Effect.fn, so each rule shows up in a trace as its own span.
+const DOMAIN_SERVICE_EXPORT_BAN = {
+  message: "Export each domain service function as an Effect.fn, so it gets its span.",
+  selector:
+    "ExportNamedDeclaration > VariableDeclaration > VariableDeclarator:not([init.callee.callee.object.name='Effect']" +
+    "[init.callee.callee.property.name='fn']), ExportNamedDeclaration > FunctionDeclaration, ExportDefaultDeclaration"
 };
 const NON_TYPE_BAN = {
   message: "A .type.ts file holds only types.",
@@ -182,6 +194,16 @@ export const LAYER_CONFIGS: Config[] = [
     files: ["apps/extension/src/**/*.ts"],
     ignores: ["**/*.interface.ts", "**/*.type.ts", "**/*.valueObject.ts", "**/vscode.api.ts"],
     rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN, SERVICE_CLASS_BAN]}
+  },
+  {
+    files: ["apps/extension/src/**/*.entity.ts"],
+    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN, SERVICE_CLASS_BAN, ENTITY_EXPORT_BAN]}
+  },
+  {
+    files: ["apps/extension/src/**/*.domainService.ts"],
+    rules: {
+      "no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN, SERVICE_CLASS_BAN, DOMAIN_SERVICE_EXPORT_BAN]
+    }
   },
   {
     files: ["apps/extension/src/**/*.interface.ts"],

@@ -1,6 +1,7 @@
 import {showErrorInBackground} from "@appUtils/error.utils.ts";
 import {withHarnessInfraService} from "@appUtils/harness.utils.ts";
-import {getNewSessionName, SessionEntity} from "@entities/session/session.entity.ts";
+import * as SessionDomainService from "@domainServices/session.domainService.ts";
+import {SessionEntity} from "@entities/session/session.entity.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
 import {IPromptInfraService} from "@interfaces/prompt.infraService.interface.ts";
@@ -42,28 +43,35 @@ export const findSession = Effect.fn("SessionService.findSession")(function* (se
   );
 });
 
+// Named against the sessions as saved now, so the name is free in every window.
+const appendNewSession = Effect.fn("SessionService.appendNewSession")(function* (
+  project: ProjectEntity,
+  sessionId: SessionIdValueObject,
+  storedSessions: readonly SessionEntity[]
+) {
+  const addedSession = SessionEntity.make({
+    harnessId: "claude-code",
+    id: sessionId,
+    name: yield* SessionDomainService.getNewSessionName(project.name, storedSessions),
+    projectPath: project.path
+  });
+
+  return [addedSession, [...storedSessions, addedSession]] as const;
+});
+
 const addSession = Effect.fn("SessionService.addSession")(function* (project: ProjectEntity) {
   const {modifySessions} = yield* ISessionRepository;
   const {uuidV4} = yield* SecureRandom.SecureRandom;
   const sessionUuid = yield* uuidV4();
   const sessionId = SessionIdValueObjectSchema.make(sessionUuid);
 
-  return yield* modifySessions((storedSessions) => {
-    const addedSession = SessionEntity.make({
-      harnessId: "claude-code",
-      id: sessionId,
-      name: getNewSessionName(project.name, storedSessions),
-      projectPath: project.path
-    });
-
-    return [addedSession, [...storedSessions, addedSession]] as const;
-  });
+  return yield* modifySessions((storedSessions) => appendNewSession(project, sessionId, storedSessions));
 });
 
 const deleteSession = Effect.fn("SessionService.deleteSession")(function* (sessionId: SessionIdValueObject) {
   const {modifySessions} = yield* ISessionRepository;
-  yield* modifySessions(
-    (storedSessions) => [sessionId, Array.filter(storedSessions, (session) => session.id !== sessionId)] as const
+  yield* modifySessions((storedSessions) =>
+    Effect.succeed([sessionId, Array.filter(storedSessions, (session) => session.id !== sessionId)] as const)
   );
 });
 

@@ -25,13 +25,13 @@ squash. The roadmap lives in `README.md`. Commit and push only when the user ask
 
 ## Architecture
 
-`DDD.md` holds the planned layering (domain, application, infrastructure, presentation) and the stack that moves the
-code there. Read it before deciding where code goes, and update it when a step lands or the plan changes. Each file's
-suffix names its role (`.entity.ts`, `.interface.ts`, `.infraService.ts` and so on), and `eslint.layers.ts` checks each
-layer's imports, the names each role requires, and where types and interfaces live. Code imports through one alias per
-folder under a layer (`@entities/`, `@interfaces/`, `@infraServices/` and so on, listed in
-`apps/extension/tsconfig.json`), never through a relative path. Enforce a new convention with a lint there, not only
-with prose here.
+`DDD.md` holds the layering (domain, application, infrastructure, presentation): where each kind of code goes, its
+names, and the lint that checks them. Read it before deciding where code goes, and update it in the same commit as a
+change that moves where code goes. Each file's suffix names its role (`.entity.ts`, `.interface.ts`, `.infraService.ts`
+and so on), and `eslint.layers.ts` checks each layer's imports, the names each role requires, and where types and
+interfaces live. Code imports through one alias per folder under a layer (`@entities/`, `@interfaces/`,
+`@infraServices/` and so on, listed in `apps/extension/tsconfig.json`), never through a relative path. Enforce a new
+convention with a lint there, not only with prose here.
 
 ## Effect
 

@@ -14,6 +14,7 @@ import type {Config} from "eslint/config";
 const OWNER_ROLE_SUFFIXES = new Map([
   ["config", "Config"],
   ["controller", "Controller"],
+  ["domainService", "DomainService"],
   ["infraService", "InfraService"],
   ["layer", ""],
   ["middleware", "Middleware"],

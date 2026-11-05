@@ -1,6 +1,6 @@
 import {forEachHarnessInfraService} from "@appUtils/harness.utils.ts";
+import * as SessionDomainService from "@domainServices/session.domainService.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
-import {getUnreadSessionIds} from "@entities/session/session.entity.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {acquireDisposable, fromEvent} from "@infraUtils/vscode.utils.ts";
 import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
@@ -140,7 +140,7 @@ const getAllSessionStatuses = Effect.fn("SessionsView.getAllSessionStatuses")(fu
   return allSessionStatuses;
 });
 
-// Compares the statuses with the previous look; the rule itself is the entity's.
+// Compares the statuses with the previous look; the rule itself is SessionDomainService's.
 const updateUnreadSessionIds = Effect.fn("SessionsView.updateUnreadSessionIds")(function* (
   viewParts: SessionsViewParts
 ) {
@@ -150,14 +150,16 @@ const updateUnreadSessionIds = Effect.fn("SessionsView.updateUnreadSessionIds")(
   const viewedSessionIdResult = yield* SubscriptionRef.get(viewedSessionId);
   const currentViewedSessionId = Result.getOrUndefined(viewedSessionIdResult);
 
-  return yield* Ref.updateAndGet(viewParts.unreadSessionIds, (previousUnreadSessionIds) =>
-    getUnreadSessionIds({
-      currentStatuses,
-      previousStatuses,
-      previousUnreadSessionIds,
-      viewedSessionId: currentViewedSessionId
-    })
-  );
+  const previousUnreadSessionIds = yield* Ref.get(viewParts.unreadSessionIds);
+  const currentUnreadSessionIds = yield* SessionDomainService.getUnreadSessionIds({
+    currentStatuses,
+    previousStatuses,
+    previousUnreadSessionIds,
+    viewedSessionId: currentViewedSessionId
+  });
+  yield* Ref.set(viewParts.unreadSessionIds, currentUnreadSessionIds);
+
+  return currentUnreadSessionIds;
 });
 
 const getChangedBadgeUris = Effect.fn("SessionsView.getChangedBadgeUris")(function* (
