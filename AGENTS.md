@@ -43,13 +43,13 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
   editor; `packages/tsconfigs/tsconfig.base.json` lists each rule, and one turned off says why there.
 - **Every function is an `Effect.fn`**, which gives it its span, even one that only builds a stream, so the trace shows
   it ran. Lint checks every top-level function in the extension source; one nested in an `Effect.fn` is its callback.
-  The exceptions carry an `eslint-disable` with the reason: the trace log's formatters, which run while a span ends,
-  `activate`, and `decodeTitleLine`, which runs once per transcript line. Error handling and other combinators go in
-  `Effect.fn`'s extra arguments after the body, not in a `.pipe`; handling that only one caller needs gets its own small
-  `Effect.fn`. A layer's body is a named `Effect.fn` such as `makeTerminalInfraService`, passed to `Layer.effect`. A
-  service member that takes no arguments is an `Effect`, not a function: `make` calls its `Effect.fn` once
-  (`readSettings: readSettings(getConfiguration)`), and every run still gets its own span. `.pipe` is only for what is
-  not a function: layers, streams and schedules. Lint bans `Effect.gen` and `Effect.withSpan`.
+  The exceptions carry an `eslint-disable` with the reason: the trace log's formatters, which run while a span ends, and
+  `activate`. Error handling and other combinators go in `Effect.fn`'s extra arguments after the body, not in a `.pipe`;
+  handling that only one caller needs gets its own small `Effect.fn`. A layer's body is a named `Effect.fn` such as
+  `makeTerminalInfraService`, passed to `Layer.effect`. A service member that takes no arguments is an `Effect`, not a
+  function: `make` calls its `Effect.fn` once (`readSettings: readSettings(getConfiguration)`), and every run still gets
+  its own span. `.pipe` is only for what is not a function: layers, streams and schedules. Lint bans `Effect.gen` and
+  `Effect.withSpan`.
 - **No `?.` and no `??`.** Check the value explicitly, or take a default with `Result.getOrElse` or `UndefinedOr.match`.
   Lint bans both.
 - **`Result`, never `Option`.** A value that can be missing is a `Result`, or an effect that fails, whose tagged error

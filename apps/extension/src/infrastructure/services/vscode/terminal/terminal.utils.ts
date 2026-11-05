@@ -1,7 +1,11 @@
 import {SESSION_ID_ENV} from "@pkg/constants/src/extension.constant.ts";
 import {decodeSessionId} from "@valueObjects/sessionId.valueObject.ts";
-import {Array, Effect, Schema} from "effect";
+import {Array, Effect, Ref, Schema, Stream, SubscriptionRef} from "effect";
 
+import type {
+  SessionTerminalsReference,
+  TerminalDependencies
+} from "@infraServices/vscode/terminal/terminal.infraService.type.ts";
 import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
 import type {Terminal} from "vscode";
 
@@ -10,6 +14,8 @@ class UntrackedTerminalError extends Schema.TaggedError<UntrackedTerminalError, 
   "UntrackedTerminalError",
   {}
 ) {}
+
+const TITLE_READ_INTERVAL = "1 second";
 
 // Every session terminal carries its session id in its env, which VS Code keeps across extension host restarts.
 export const findTerminalSessionId = Effect.fn("TerminalInfraService.findTerminalSessionId")(
@@ -36,4 +42,47 @@ export const findOpenSessionTerminals = Effect.fn("TerminalInfraService.findOpen
   );
 
   return openSessionTerminals;
+});
+
+// The titles that changed since the last read. Each is the raw title the agent set, since VS Code stops taking it from
+// the terminal only for a tab that has a name.
+const findChangedTitles = Effect.fn("TerminalInfraService.findChangedTitles")(function* (
+  sessionTerminals: SessionTerminalsReference,
+  readTitles: Ref.Ref<ReadonlyMap<SessionIdValueObject, string>>
+) {
+  const openTerminals = yield* SubscriptionRef.get(sessionTerminals);
+  const currentTitles: ReadonlyMap<SessionIdValueObject, string> = new Map(
+    Array.map([...openTerminals], ([sessionId, terminal]) => [sessionId, terminal.name] as const)
+  );
+  const previousTitles = yield* Ref.getAndSet(readTitles, currentTitles);
+
+  return Array.filter([...currentTitles], ([sessionId, title]) => previousTitles.get(sessionId) !== title);
+});
+
+// VS Code has no event for a terminal's title changing, so each tab's is read every second, untraced like the spinner.
+export const watchSessionTerminalTitles = Effect.fn("TerminalInfraService.watchSessionTerminalTitles")(function* (
+  sessionTerminals: SessionTerminalsReference
+) {
+  const readTitles = yield* Ref.make<ReadonlyMap<SessionIdValueObject, string>>(new Map());
+
+  return Stream.flatMap(Stream.tick(TITLE_READ_INTERVAL), () =>
+    Stream.fromIterableEffect(Effect.withTracerEnabled(findChangedTitles(sessionTerminals, readTitles), false))
+  );
+});
+
+// VS Code renames only the active terminal, so the tab comes to the front first. A closed tab has nothing to rename; the
+// session's next tab opens under the name.
+export const renameSessionTerminal = Effect.fn("TerminalInfraService.renameSessionTerminal")(function* (
+  {commands, sessionTerminals}: TerminalDependencies,
+  sessionId: SessionIdValueObject,
+  tabName: string
+) {
+  const openTerminals = yield* SubscriptionRef.get(sessionTerminals);
+  const sessionTerminal = openTerminals.get(sessionId);
+  if (sessionTerminal === undefined) return;
+
+  yield* Effect.sync(() => {
+    sessionTerminal.show();
+  });
+  yield* Effect.promise(() => commands.executeCommand("workbench.action.terminal.renameWithArg", {name: tabName}));
 });

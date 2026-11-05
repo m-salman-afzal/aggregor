@@ -8,6 +8,10 @@ export class FolderPickCancelledError extends Schema.TaggedError<
   FolderPickCancelledError,
   {readonly brand: unique symbol}
 >()("FolderPickCancelledError", {}) {}
+export class InputCancelledError extends Schema.TaggedError<InputCancelledError, {readonly brand: unique symbol}>()(
+  "InputCancelledError",
+  {}
+) {}
 export class ProjectPickCancelledError extends Schema.TaggedError<
   ProjectPickCancelledError,
   {readonly brand: unique symbol}
@@ -19,6 +23,8 @@ export class IPromptInfraService extends Context.Service<
   {
     // A modal warning; true when the user picks `confirmAction`.
     readonly confirm: (message: string, confirmAction: string) => Effect.Effect<boolean>;
+    // A one-line input box filled with `value`; resolves with what the user enters.
+    readonly inputText: (prompt: string, value: string) => Effect.Effect<string, InputCancelledError>;
     readonly pickProject: (
       projects: readonly ProjectEntity[],
       placeHolder: string

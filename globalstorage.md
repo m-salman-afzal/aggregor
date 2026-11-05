@@ -46,17 +46,19 @@ data that processes other than the extension write, or that is too big for `glob
 VS Code's key-value store for the extension, kept in its own database rather than in the folder above. Use it for small
 JSON the extension alone reads and writes.
 
-### `savedSessions`
+### `agentSessions`
 
-- **Holds:** `{version: 1, sessions: [{id, name, projectPath, harnessId}]}`: the `StoredSessionsModel`
-  (`infrastructure/database/models/`).
-- **Written by:** `SessionRepository`, with a read-modify-write on every add and remove.
+- **Holds:** `{version: 1, sessions: [{id, name, customName?, projectPath, harnessId}]}`: the `StoredSessionsModel`
+  (`infrastructure/database/models/`). `name` is the agent's latest title, or ours until it gives one; `customName` is
+  the user's, from Rename Session.
+- **Written by:** `SessionRepository`, with a read-modify-write on every add, remove and rename, and when an agent's
+  title changes.
 - **Read by:** `SessionRepository` at startup and whenever a window regains focus.
 - **Why:** sessions survive reloads and are shared by every window.
 - **Cleaned up:** an entry goes when its session is removed. Removing a project keeps its sessions, so adding the
   project again lists them again. Any change to the shape bumps `version`, so older windows refuse to decode it instead
   of overwriting it.
-- **Added in:** persist and resume (M1).
+- **Added in:** session titles from the terminal (M2), replacing `savedSessions`.
 
 ### `addedProjectPathsByWindow`
 
@@ -75,9 +77,10 @@ JSON the extension alone reads and writes.
   is a few hundred bytes. Any change to the shape bumps `version`, as for `savedSessions`.
 - **Added in:** one project in view (M2), replacing the `workspaceState` key `addedProjectPaths`.
 
-### `sessions` and `storedSessions` (no longer read)
+### `sessions`, `storedSessions` and `savedSessions` (no longer read)
 
-- **Holds:** sessions in older shapes: `sessions` with `cwd` and no `version`, `storedSessions` with `repoPath`.
+- **Holds:** sessions in older shapes: `sessions` with `cwd` and no `version`, `storedSessions` with `repoPath`,
+  `savedSessions` without `customName`.
 - **Read by:** nothing. Nothing deletes them either; each is a few hundred bytes. A new key must not reuse either name,
   since their values would fail to decode and block every write.
 

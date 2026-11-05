@@ -24,8 +24,9 @@ Control and diffs.
 - **Persistent sessions.** Sessions survive reloads and restarts, and every window that lists their project shows them.
   Closing a tab keeps the session listed as exited; clicking it resumes the conversation. The row's … menu removes a
   session.
-- **Claude's session names.** Each row shows the name Claude gives the conversation (or the one set with `/rename`),
-  updated live as Claude renames it.
+- **Session titles.** Each tab and row shows the title the agent gives its terminal, as it changes (for Claude, its own
+  title for the conversation or the one set with `/rename`); a closed session keeps the last one. Rename Session in the
+  row's … menu gives a session your own name in the row and the tab; an empty name hands both back to the agent.
 - **Live status.** Each row ends with a status badge: a blue spinner while Claude runs and a yellow dot when it needs
   input (a permission prompt or a question). A turn that finishes while you are looking elsewhere leaves a green dot
   until you open that session's tab; a session you have seen shows no badge, and a grey hollow dot means it has exited.

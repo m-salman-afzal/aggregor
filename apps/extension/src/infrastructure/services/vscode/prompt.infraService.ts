@@ -1,5 +1,6 @@
 import {
   FolderPickCancelledError,
+  InputCancelledError,
   IPromptInfraService,
   ProjectPickCancelledError
 } from "@interfaces/prompt.infraService.interface.ts";
@@ -38,6 +39,12 @@ const confirm = Effect.fn("PromptInfraService.confirm")(function* (
   const pickedAction = yield* Effect.promise(() => window.showWarningMessage(message, {modal: true}, confirmAction));
 
   return pickedAction === confirmAction;
+});
+
+const inputText = Effect.fn("PromptInfraService.inputText")(function* (window: Window, prompt: string, value: string) {
+  const enteredText = yield* Effect.promise(() => window.showInputBox({prompt, value}));
+
+  return yield* Effect.fromResult(Result.fromNullishOr(enteredText, () => InputCancelledError.make()));
 });
 
 const pickProject = Effect.fn("PromptInfraService.pickProject")(function* (
@@ -79,6 +86,7 @@ const makePromptInfraService = Effect.fn("PromptInfraService.make")(function* ()
 
   return {
     confirm: (message: string, confirmAction: string) => confirm(window, message, confirmAction),
+    inputText: (prompt: string, value: string) => inputText(window, prompt, value),
     pickProject: (projects: readonly ProjectEntity[], placeHolder: string) =>
       pickProject(window, projects, placeHolder),
     pickProjectFolderPaths: pickProjectFolderPaths(window),

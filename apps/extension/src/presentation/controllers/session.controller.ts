@@ -1,7 +1,7 @@
 import {ProjectEntity} from "@entities/project/project.entity.ts";
 import {SessionEntity} from "@entities/session/session.entity.ts";
 import {decodeCommandArgument} from "@presentationUtils/commandArguments.utils.ts";
-import {newSession, openSession, removeSession} from "@services/session.service.ts";
+import {newSession, openSession, removeSession, renameSession} from "@services/session.service.ts";
 import {SessionIdValueObjectSchema} from "@valueObjects/sessionId.valueObject.ts";
 import {Effect} from "effect";
 
@@ -33,4 +33,12 @@ export const removeClickedSession = Effect.fn("SessionController.removeClickedSe
 ) {
   const clickedSession = yield* decodeCommandArgument(SessionEntity, clickedRow);
   yield* removeSession(clickedSession);
+});
+
+// The session row's … menu passes the Session itself.
+export const renameClickedSession = Effect.fn("SessionController.renameClickedSession")(function* (
+  clickedRow: unknown
+) {
+  const clickedSession = yield* decodeCommandArgument(SessionEntity, clickedRow);
+  yield* renameSession(clickedSession);
 });

@@ -1,4 +1,9 @@
-import {findOpenSessionTerminals, findTerminalSessionId} from "@infraServices/vscode/terminal/terminal.utils.ts";
+import {
+  findOpenSessionTerminals,
+  findTerminalSessionId,
+  renameSessionTerminal,
+  watchSessionTerminalTitles
+} from "@infraServices/vscode/terminal/terminal.utils.ts";
 import {fromEvent} from "@infraUtils/vscode.utils.ts";
 import {
   ITerminalInfraService,
@@ -12,17 +17,13 @@ import {Effect, Layer, Result, Schema, Stream, SubscriptionRef} from "effect";
 
 import type {ProjectEntity} from "@entities/project/project.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
+import type {
+  SessionTerminalsReference,
+  TerminalDependencies
+} from "@infraServices/vscode/terminal/terminal.infraService.type.ts";
 import type {TerminalLaunchRequest} from "@interfaces/terminal.infraService.interface.ts";
 import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
 import type {Terminal} from "vscode";
-
-// Each session's terminal in this window, keyed by session id.
-type SessionTerminalsReference = SubscriptionRef.SubscriptionRef<ReadonlyMap<SessionIdValueObject, Terminal>>;
-
-// What the terminal functions share: the window's session terminals and VS Code's window.
-type TerminalDependencies = {
-  readonly sessionTerminals: SessionTerminalsReference;
-} & Pick<VsCodeApi["Service"], "TabInputTerminal" | "Uri" | "ViewColumn" | "window">;
 
 // Why no session is in view, private to this file: the interface only sees NoViewedSessionError.
 class NoActiveTerminalError extends Schema.TaggedError<NoActiveTerminalError, {readonly brand: unique symbol}>()(
@@ -76,7 +77,7 @@ const launchSessionTerminal = Effect.fn("TerminalInfraService.launchSessionTermi
         iconPath: Uri.file(iconPath),
         isTransient: true,
         location: {viewColumn: ViewColumn.Active},
-        name: tabName,
+        ...(tabName === undefined ? {} : {name: tabName}),
         shellArgs: [...launchPlan.commandArguments],
         shellPath: launchPlan.command
       })
@@ -275,6 +276,9 @@ const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function
     ),
     openSessionTerminal: (session: SessionEntity, terminalLaunchRequest: TerminalLaunchRequest) =>
       openSessionTerminal(terminalDependencies, session, terminalLaunchRequest),
+    renameSessionTerminal: (sessionId: SessionIdValueObject, tabName: string) =>
+      renameSessionTerminal(terminalDependencies, sessionId, tabName),
+    sessionTerminalTitles: yield* watchSessionTerminalTitles(sessionTerminals),
     viewedSessionId: yield* trackViewedSessionId(terminalDependencies)
   };
 });

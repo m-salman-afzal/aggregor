@@ -17,7 +17,8 @@ export const COMMANDS = {
   },
   SESSION_ROW: {
     OPEN: "aggregorApp.openSession",
-    REMOVE: "aggregorApp.removeSession"
+    REMOVE: "aggregorApp.removeSession",
+    RENAME: "aggregorApp.renameSession"
   },
   // The Terminal panel's title bar, next to its + button.
   TERMINAL_TITLE: {
@@ -72,7 +73,7 @@ export const SPINNER_INTERVAL_MS = 120;
 
 export const STORAGE_KEYS = {
   ADDED_PROJECT_PATHS: "addedProjectPathsByWindow",
-  SAVED_SESSIONS: "savedSessions"
+  SAVED_SESSIONS: "agentSessions"
 } as const;
 
 export const VIEWS = {

@@ -6,13 +6,14 @@ import {ISessionRepository} from "@entities/session/session.repository.interface
 import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
 import {IPromptInfraService} from "@interfaces/prompt.infraService.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
-import {ACTIONS, PROJECT_LABELS, SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
+import {ACTIONS, PROJECT_LABELS, SESSION_LABELS, SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {pickProject} from "@services/project.service.ts";
 import {SessionIdValueObjectSchema} from "@valueObjects/sessionId.valueObject.ts";
-import {Array, Effect, Match, Result, Schema, SubscriptionRef} from "effect";
+import {Array, Effect, Match, Result, Schema, Stream, String, SubscriptionRef} from "effect";
 import {SecureRandom} from "effect/crypto";
 
 import type {ProjectEntity} from "@entities/project/project.entity.ts";
+import type {SessionsCorruptError, SessionsSaveFailedError} from "@entities/session/session.repository.interface.ts";
 import type {TerminalLaunchRequest} from "@interfaces/terminal.infraService.interface.ts";
 import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
 
@@ -75,20 +76,25 @@ const deleteSession = Effect.fn("SessionService.deleteSession")(function* (sessi
   );
 });
 
-// The name the agent gave the conversation, or ours until it has one.
-export const getSessionDisplayName = Effect.fn("SessionService.getSessionDisplayName")(
-  function* (session: SessionEntity) {
-    return yield* withHarnessInfraService(
-      session.harnessId,
-      IHarnessInfraService.use((harnessInfraService) => harnessInfraService.getSessionTitle(session.id))
-    );
-  },
-  (effect, session) => Effect.catchTag(effect, "SessionTitleNotFoundError", () => Effect.succeed(session.name))
-);
+// Rewrites one session as saved now; a session removed meanwhile stays removed.
+const updateSession = Effect.fn("SessionService.updateSession")(function* (
+  sessionId: SessionIdValueObject,
+  changeSession: (storedSession: SessionEntity) => SessionEntity
+) {
+  const {modifySessions} = yield* ISessionRepository;
+  yield* modifySessions((storedSessions) =>
+    Effect.succeed([
+      undefined,
+      Array.map(storedSessions, (storedSession) =>
+        storedSession.id === sessionId ? changeSession(storedSession) : storedSession
+      )
+    ] as const)
+  );
+});
 
 const prepareTerminalLaunchRequest = Effect.fn("SessionService.prepareTerminalLaunchRequest")(function* (
   session: SessionEntity,
-  tabName: string
+  tabName: string | undefined
 ) {
   const harnessInfraService = yield* IHarnessInfraService;
   const terminalLaunchRequest: TerminalLaunchRequest = {
@@ -100,10 +106,9 @@ const prepareTerminalLaunchRequest = Effect.fn("SessionService.prepareTerminalLa
   return terminalLaunchRequest;
 });
 
-const openSessionTerminal = Effect.fn("SessionService.openSessionTerminal")(function* (
-  session: SessionEntity,
-  tabName: string
-) {
+// Only a session the user named gets a tab name; the others' tabs show the agent's own title.
+const openSessionTerminal = Effect.fn("SessionService.openSessionTerminal")(function* (session: SessionEntity) {
+  const tabName = session.customName;
   const terminalLaunchRequest = yield* withHarnessInfraService(
     session.harnessId,
     prepareTerminalLaunchRequest(session, tabName)
@@ -117,7 +122,7 @@ const openSessionTerminal = Effect.fn("SessionService.openSessionTerminal")(func
 // A session whose terminal fails to launch is removed again, so no dead row stays behind.
 const openNewSessionTerminal = Effect.fn("SessionService.openNewSessionTerminal")(
   function* (addedSession: SessionEntity) {
-    yield* openSessionTerminal(addedSession, addedSession.name);
+    yield* openSessionTerminal(addedSession);
   },
   (effect, addedSession) => Effect.tapError(effect, () => deleteSession(addedSession.id))
 );
@@ -132,19 +137,17 @@ const startSession = Effect.fn("SessionService.startSession")(function* (clicked
 
 const relaunchSession = Effect.fn("SessionService.relaunchSession")(function* (sessionId: SessionIdValueObject) {
   const session = yield* findSession(sessionId);
-  const sessionDisplayName = yield* getSessionDisplayName(session);
 
-  yield* openSessionTerminal(session, sessionDisplayName);
+  yield* openSessionTerminal(session);
 });
 
 const confirmRunningSessionRemoval = Effect.fn("SessionService.confirmRunningSessionRemoval")(function* (
   session: SessionEntity
 ) {
   const {confirm} = yield* IPromptInfraService;
-  const displayName = yield* getSessionDisplayName(session);
 
   yield* Effect.filterOrFail(
-    confirm(SESSION_MESSAGES.CONFIRM_REMOVE_RUNNING(displayName), ACTIONS.REMOVE),
+    confirm(SESSION_MESSAGES.CONFIRM_REMOVE_RUNNING(session.displayName), ACTIONS.REMOVE),
     (isConfirmed) => isConfirmed,
     () => RemoveCancelledError.make()
   );
@@ -225,4 +228,61 @@ export const removeSession = Effect.fn("SessionService.removeSession")(
       })
     )
   )
+);
+
+const showSessionRepositoryError = Effect.fn("SessionService.showSessionRepositoryError")(function* (
+  sessionRepositoryError: SessionsCorruptError | SessionsSaveFailedError
+) {
+  yield* showErrorInBackground(
+    Match.valueTags(sessionRepositoryError, {
+      SessionsCorruptError: () => SESSION_MESSAGES.UNREADABLE,
+      SessionsSaveFailedError: () => SESSION_MESSAGES.SAVE_FAILED
+    })
+  );
+});
+
+// The agent's title, as its tab shows it, becomes the session's name, so it outlasts the tab. A session the user named
+// has a tab of that name, which is not the agent's title.
+const saveSessionTitle = Effect.fn("SessionService.saveSessionTitle")(
+  function* (sessionId: SessionIdValueObject, terminalTitle: string) {
+    const session = yield* findSession(sessionId);
+    if (session.customName !== undefined) return;
+    const sessionTitle = yield* withHarnessInfraService(
+      session.harnessId,
+      IHarnessInfraService.use((harnessInfraService) => harnessInfraService.readSessionTitle(terminalTitle))
+    );
+    if (sessionTitle === session.name) return;
+
+    yield* updateSession(sessionId, (storedSession) => storedSession.withName(sessionTitle));
+  },
+  Effect.catchTags({SessionNotFoundError: () => Effect.void, SessionTitleNotFoundError: () => Effect.void}),
+  Effect.catch(showSessionRepositoryError)
+);
+
+// For the window's whole life, each session's name follows its agent's latest title.
+export const startSessionTitleSync = Effect.fn("SessionService.startSessionTitleSync")(function* () {
+  const {sessionTerminalTitles} = yield* ITerminalInfraService;
+
+  yield* Effect.forkScoped(
+    Stream.runForEach(sessionTerminalTitles, ([sessionId, terminalTitle]) => saveSessionTitle(sessionId, terminalTitle))
+  );
+});
+
+// The user's name for the session wins over the agent's title in the row and the tab. An empty name hands both back to
+// the agent; the open tab keeps the agent's last title until it reopens, since VS Code cannot unname a tab.
+export const renameSession = Effect.fn("SessionService.renameSession")(
+  function* (session: SessionEntity) {
+    const enteredName = yield* IPromptInfraService.use((promptInfraService) =>
+      promptInfraService.inputText(SESSION_LABELS.RENAME, session.displayName)
+    );
+    const trimmedName = String.trim(enteredName);
+    const customName = trimmedName === "" ? undefined : trimmedName;
+
+    yield* updateSession(session.id, (storedSession) => storedSession.withCustomName(customName));
+    yield* ITerminalInfraService.use((terminalInfraService) =>
+      terminalInfraService.renameSessionTerminal(session.id, customName === undefined ? session.name : customName)
+    );
+  },
+  Effect.catchTag("InputCancelledError", () => Effect.void),
+  Effect.catch(showSessionRepositoryError)
 );

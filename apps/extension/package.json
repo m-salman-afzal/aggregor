@@ -110,6 +110,9 @@
       ],
       "aggregorApp.sessionActions": [
         {
+          "command": "aggregorApp.renameSession"
+        },
+        {
           "command": "aggregorApp.removeSession"
         }
       ],
@@ -133,6 +136,10 @@
         },
         {
           "command": "aggregorApp.removeProject",
+          "when": "false"
+        },
+        {
+          "command": "aggregorApp.renameSession",
           "when": "false"
         }
       ]
@@ -210,6 +217,10 @@
         "command": "aggregorApp.newProjectTerminal",
         "category": "Aggregor App",
         "icon": "$(root-folder)"
+      },
+      {
+        "title": "Rename Session",
+        "command": "aggregorApp.renameSession"
       }
     ]
   },
