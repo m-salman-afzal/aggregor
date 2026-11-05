@@ -1,14 +1,25 @@
-import {Context} from "effect";
+import {Context, Data} from "effect";
 
-import type {
-  NoViewedSessionError,
-  TerminalLaunchFailedError,
-  TerminalNotFoundError
-} from "@/application/errors/terminal.infraService.error.ts";
-import type {TerminalLaunchRequest} from "@/application/interfaces/terminal.infraService.type.ts";
 import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
+import type {LaunchPlanValueObject} from "@/domain/valueObjects/launchPlan.valueObject.ts";
 import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
 import type {Effect, Result, Stream, SubscriptionRef} from "effect";
+
+// The tab is named once, when it opens: VS Code's stable API cannot rename a terminal afterwards.
+export interface TerminalLaunchRequest {
+  readonly iconPath: string;
+  readonly launchPlan: LaunchPlanValueObject;
+  readonly tabName: string;
+}
+
+// No session's tab is in front of the user; TerminalInfraService's trace says why.
+export class NoViewedSessionError extends Data.TaggedError("NoViewedSessionError") {}
+export class TerminalLaunchFailedError extends Data.TaggedError("TerminalLaunchFailedError")<{
+  readonly cause: unknown;
+}> {}
+export class TerminalNotFoundError extends Data.TaggedError("TerminalNotFoundError")<{
+  readonly sessionId: SessionIdValueObject;
+}> {}
 
 // Each session's terminal tab in this window: the agent runs in it, and closing it ends the agent.
 export class ITerminalInfraService extends Context.Service<

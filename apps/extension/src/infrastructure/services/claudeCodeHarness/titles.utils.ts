@@ -1,23 +1,23 @@
-import {SessionTitleNotFoundError} from "@/application/errors/harness.infraService.error.ts";
+import {SessionTitleNotFoundError} from "@/application/interfaces/harness.infraService.interface.ts";
 import {decodeSessionId} from "@/domain/valueObjects/sessionId.valueObject.ts";
-import {getPreferredTitle, NO_TITLES} from "@/infrastructure/services/claudeCode/claudeCode.transformer.ts";
+import {getPreferredTitle, NO_TITLES} from "@/infrastructure/services/claudeCodeHarness/claudeCode.transformer.ts";
 import {
   findTranscriptFilePath,
   getClaudeProjectsDirectoryPath,
   readNewTitles
-} from "@/infrastructure/services/claudeCode/transcript.utils.ts";
+} from "@/infrastructure/services/claudeCodeHarness/transcript.utils.ts";
 import {Effect, Result, Schedule, Stream, SubscriptionRef} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 
 import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
 import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
-import type {TitleNotFoundError} from "@/infrastructure/errors/claudeCodeHarness.infraService.error.ts";
+import type {TitleNotFoundError} from "@/infrastructure/services/claudeCodeHarness/claudeCode.transformer.ts";
 import type {
   SessionTitlesReference,
   TitleTracking,
   TranscriptProgress
-} from "@/infrastructure/services/claudeCode/claudeCodeHarness.infraService.type.ts";
+} from "@/infrastructure/services/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
 
 const getTranscriptProgress = Effect.fn("ClaudeCodeHarnessInfraService.getTranscriptProgress")(function* (
   titleTracking: TitleTracking,

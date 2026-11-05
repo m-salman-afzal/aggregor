@@ -1,5 +1,8 @@
-import {FolderPickCancelledError, ProjectPickCancelledError} from "@/application/errors/prompt.infraService.error.ts";
-import {IPromptInfraService} from "@/application/interfaces/prompt.infraService.interface.ts";
+import {
+  FolderPickCancelledError,
+  IPromptInfraService,
+  ProjectPickCancelledError
+} from "@/application/interfaces/prompt.infraService.interface.ts";
 import {ProjectPathValueObjectSchema} from "@/domain/valueObjects/projectPath.valueObject.ts";
 import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
 import {APP_NAME} from "@pkg/constants/src/extension.constant.ts";

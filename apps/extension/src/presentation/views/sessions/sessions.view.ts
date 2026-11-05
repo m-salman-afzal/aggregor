@@ -1,6 +1,6 @@
 import {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";
 import {ITerminalInfraService} from "@/application/interfaces/terminal.infraService.interface.ts";
-import {findSession, listSessions} from "@/application/session/session.service.ts";
+import {findSession, listSessions} from "@/application/services/session.service.ts";
 import {forEachHarnessInfraService} from "@/application/utils/harness.utils.ts";
 import {IProjectRepository} from "@/domain/entities/project/project.repository.interface.ts";
 import {getUnreadSessionIds} from "@/domain/entities/session/session.entity.ts";
@@ -8,7 +8,6 @@ import {ISessionRepository} from "@/domain/entities/session/session.repository.i
 import {decodeSessionId} from "@/domain/valueObjects/sessionId.valueObject.ts";
 import {acquireDisposable, fromEvent} from "@/infrastructure/utils/vscode.utils.ts";
 import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
-import {RevealFailedError} from "@/presentation/errors/sessions.view.error.ts";
 import {
   createProjectTreeItem,
   createSessionTreeItem,
@@ -20,7 +19,7 @@ import {
   isProject
 } from "@/presentation/views/sessions/sessions.utils.ts";
 import {SESSION_URI_SCHEME, SPINNER_INTERVAL_MS, VIEWS} from "@pkg/constants/src/extension.constant.ts";
-import {Effect, Layer, Ref, Result, Schedule, Stream, SubscriptionRef} from "effect";
+import {Data, Effect, Layer, Ref, Result, Schedule, Stream, SubscriptionRef} from "effect";
 
 import type {IHarnessInfraServices} from "@/application/interfaces/harness.infraService.interface.ts";
 import type {IWorkspaceInfraService} from "@/application/interfaces/workspace.infraService.interface.ts";
@@ -55,8 +54,10 @@ type SessionsViewServices =
   | Path
   | VsCodeApi;
 
+class RevealFailedError extends Data.TaggedError("RevealFailedError")<{readonly cause: unknown}> {}
+
 // Selects the session whose tab became active. Skipped while the view is hidden, since reveal would open it.
-const revealSession = Effect.fn("revealSession")(
+const revealSession = Effect.fn("SessionsView.revealSession")(
   function* (sessionsTreeView: TreeView<Row>, sessionId: SessionIdValueObject) {
     const session = yield* findSession(sessionId);
     if (!sessionsTreeView.visible) return;
@@ -232,7 +233,7 @@ const makeSessionsViewParts = Effect.fn("SessionsView.makeSessionsViewParts")(fu
 });
 
 // Registers the Sessions tree for the lifetime of the runtime; disposing the runtime unregisters it.
-const registerSessionsView = Effect.fn("registerSessionsView")(function* () {
+const makeSessionsView = Effect.fn("SessionsView.make")(function* () {
   const {activatedSessionIds} = yield* ITerminalInfraService;
   const viewParts = yield* makeSessionsViewParts();
   yield* Effect.forkScoped(Stream.runForEach(yield* watchRowChanges(), () => refreshSessionsTree(viewParts)));
@@ -247,4 +248,4 @@ const registerSessionsView = Effect.fn("registerSessionsView")(function* () {
   );
 });
 
-export const SessionsView = Layer.effectDiscard(registerSessionsView());
+export const SessionsView = Layer.effectDiscard(makeSessionsView());

@@ -1,5 +1,4 @@
-import {InvalidSettingsError} from "@/application/errors/settings.config.error.ts";
-import {ISettingsConfig} from "@/application/interfaces/settings.config.interface.ts";
+import {InvalidSettingsError, ISettingsConfig} from "@/application/interfaces/settings.config.interface.ts";
 import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/extension.constant.ts";
 import {Effect, Layer, Schema} from "effect";

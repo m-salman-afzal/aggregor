@@ -7,7 +7,8 @@ import {format} from "node:util";
 import type {LogLevel} from "effect";
 import type {LogOutputChannel} from "vscode";
 
-// "aggregorApp.newSessionAskingForProject > newSession > startSession": the span's name after its ancestors'.
+// "aggregorApp.openSession > SessionController.openSession > SessionService.openSession": the span's name after its
+// ancestors'.
 const formatSpanPath = (span: Tracer.AnySpan): string => {
   if (span._tag === "ExternalSpan") return "external";
 
@@ -67,7 +68,7 @@ const makeOutputChannelLogger = (outputChannel: LogOutputChannel) =>
     outputChannel[OUTPUT_CHANNEL_METHODS[logLevel]](logLine);
   });
 
-const makeTraceLogLayer = Effect.fn("makeTraceLogLayer")(function* () {
+const makeTraceLog = Effect.fn("TraceLog.make")(function* () {
   const {window} = yield* VsCodeApi;
   const outputChannel = yield* acquireDisposable(() => window.createOutputChannel(APP_NAME, {log: true}));
 
@@ -79,4 +80,4 @@ const makeTraceLogLayer = Effect.fn("makeTraceLogLayer")(function* () {
 });
 
 // Spans and logs go to the "Aggregor App" output channel, which VS Code also writes to a log file on disk.
-export const TraceLogLayer = Layer.unwrap(makeTraceLogLayer());
+export const TraceLogLayer = Layer.unwrap(makeTraceLog());

@@ -1,10 +1,11 @@
 import {StatusValueObjectSchema} from "@/domain/valueObjects/status.valueObject.ts";
-import {TitleNotFoundError} from "@/infrastructure/errors/claudeCodeHarness.infraService.error.ts";
-import {Result, Schema} from "effect";
+import {Data, Result, Schema} from "effect";
 
-import type {Titles} from "@/infrastructure/services/claudeCode/claudeCodeHarness.infraService.type.ts";
+import type {Titles} from "@/infrastructure/services/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
 
 // Claude Code's file formats, read into ours.
+
+export class TitleNotFoundError extends Data.TaggedError("TitleNotFoundError") {}
 
 // Claude appends one of these every time it (re)names a conversation. The format is undocumented, so anything that
 // stops matching just leaves the session with our own name.

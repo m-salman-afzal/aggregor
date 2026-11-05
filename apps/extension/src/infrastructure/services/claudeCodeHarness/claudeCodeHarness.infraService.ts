@@ -1,8 +1,8 @@
 import {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";
 import {ISessionRepository} from "@/domain/entities/session/session.repository.interface.ts";
-import {clearStatusFile, watchStatusDirectory} from "@/infrastructure/services/claudeCode/status.utils.ts";
-import {getSessionTitle, watchTranscripts} from "@/infrastructure/services/claudeCode/titles.utils.ts";
-import {findTranscriptFilePath} from "@/infrastructure/services/claudeCode/transcript.utils.ts";
+import {clearStatusFile, watchStatusDirectory} from "@/infrastructure/services/claudeCodeHarness/status.utils.ts";
+import {getSessionTitle, watchTranscripts} from "@/infrastructure/services/claudeCodeHarness/titles.utils.ts";
+import {findTranscriptFilePath} from "@/infrastructure/services/claudeCodeHarness/transcript.utils.ts";
 import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
 import {HOOKS_FILE, MODEL_ICONS, STATUS_ENV} from "@pkg/constants/src/extension.constant.ts";
 import {Context, Effect, Layer, SubscriptionRef} from "effect";
@@ -16,7 +16,7 @@ import type {StatusValueObject} from "@/domain/valueObjects/status.valueObject.t
 import type {
   SessionStatusesReference,
   SessionTitlesReference
-} from "@/infrastructure/services/claudeCode/claudeCodeHarness.infraService.type.ts";
+} from "@/infrastructure/services/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
 
 // Where the launch reads its hooks from and where the hooks write each session's status.
 interface StatusPaths {

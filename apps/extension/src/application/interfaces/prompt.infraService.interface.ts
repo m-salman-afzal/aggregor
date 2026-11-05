@@ -1,12 +1,11 @@
-import {Context} from "effect";
+import {Context, Data} from "effect";
 
-import type {
-  FolderPickCancelledError,
-  ProjectPickCancelledError
-} from "@/application/errors/prompt.infraService.error.ts";
 import type {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
 import type {ProjectPathValueObject} from "@/domain/valueObjects/projectPath.valueObject.ts";
 import type {Effect} from "effect";
+
+export class FolderPickCancelledError extends Data.TaggedError("FolderPickCancelledError") {}
+export class ProjectPickCancelledError extends Data.TaggedError("ProjectPickCancelledError") {}
 
 // What the extension asks the user, and the errors it shows them.
 export class IPromptInfraService extends Context.Service<

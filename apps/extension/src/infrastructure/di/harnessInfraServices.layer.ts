@@ -1,5 +1,5 @@
 import {IHarnessInfraServices} from "@/application/interfaces/harness.infraService.interface.ts";
-import {ClaudeCodeHarnessInfraService} from "@/infrastructure/services/claudeCode/claudeCodeHarness.infraService.ts";
+import {ClaudeCodeHarnessInfraService} from "@/infrastructure/services/claudeCodeHarness/claudeCodeHarness.infraService.ts";
 import {Effect, Layer, LayerMap} from "effect";
 
 import type {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";

@@ -1,8 +1,10 @@
-import {Context} from "effect";
+import {Context, Data} from "effect";
 
 import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
-import type {SessionsCorruptError, SessionsSaveFailedError} from "@/domain/errors/session.repository.error.ts";
 import type {Effect, SubscriptionRef} from "effect";
+
+export class SessionsCorruptError extends Data.TaggedError("SessionsCorruptError")<{readonly cause: unknown}> {}
+export class SessionsSaveFailedError extends Data.TaggedError("SessionsSaveFailedError")<{readonly cause: unknown}> {}
 
 // The saved sessions, shared by every window. `sessions` is this window's copy, which the view renders from.
 export class ISessionRepository extends Context.Service<

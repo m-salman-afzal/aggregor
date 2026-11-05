@@ -35,6 +35,12 @@ const INFRASTRUCTURE_IMPORTS = {
   regex: "^(?!effect(/|$)|@effect/|vscode$|node:|@pkg/|@/(domain|application|infrastructure)/)"
 };
 
+const TAGGED_ERROR_CLASS =
+  "ClassDeclaration[superClass.callee.object.name='Data'][superClass.callee.property.name='TaggedError']";
+const EXPORTED_TAGGED_ERROR_CLASS =
+  "ExportNamedDeclaration[declaration.superClass.callee.object.name='Data']" +
+  "[declaration.superClass.callee.property.name='TaggedError']";
+
 export const SYNTAX_BANS = [
   {message: "No optional chaining: check the value explicitly.", selector: "ChainExpression"},
   {
@@ -49,18 +55,36 @@ export const SYNTAX_BANS = [
       "ExportDefaultDeclaration, ExportNamedDeclaration[declaration.type=/^(VariableDeclaration|ClassDeclaration|" +
       "FunctionDeclaration)$/]) ~ :matches(TSTypeAliasDeclaration, TSInterfaceDeclaration, " +
       "ExportNamedDeclaration[declaration.type=/^TS(TypeAlias|Interface)Declaration$/])"
-  }
+  },
+  // Errors sit at the top of the file that raises them, or of the interface whose signatures name them.
+  {
+    message: "Declare errors at the top of the file, after the imports and types.",
+    selector:
+      "Program > :matches(VariableDeclaration, FunctionDeclaration, ExpressionStatement, ExportDefaultDeclaration, " +
+      `ClassDeclaration:not(${TAGGED_ERROR_CLASS}), ` +
+      "ExportNamedDeclaration[declaration.type=/^(VariableDeclaration|FunctionDeclaration)$/], " +
+      `ExportNamedDeclaration[declaration.type='ClassDeclaration']:not(${EXPORTED_TAGGED_ERROR_CLASS})) ~ ` +
+      `:matches(${TAGGED_ERROR_CLASS}, ${EXPORTED_TAGGED_ERROR_CLASS})`
+  },
+  {message: "End an error class's name in Error.", selector: `${TAGGED_ERROR_CLASS}:not([id.name=/Error$/])`}
 ];
 
-// The extension's shared types live in .type.ts files, its interfaces in .interface.ts files.
+// An interface's own types and error unions live in its .interface.ts; types several implementation files share, in a
+// .type.ts.
 const EXPORTED_TYPE_BAN = {
-  message: "Export types from a .type.ts file; only value objects and error unions stay in their own files.",
+  message: "Export types from a .type.ts or .interface.ts file; only a value object's type stays in its own file.",
   selector: "ExportNamedDeclaration > :matches(TSTypeAliasDeclaration, TSInterfaceDeclaration)"
 };
 const SERVICE_CLASS_BAN = {
   message: "A Context.Service is an interface: declare it in a .interface.ts file.",
   selector:
     "ClassDeclaration > CallExpression.superClass > CallExpression.callee > MemberExpression[object.name='Context']"
+};
+const ERROR_FILE_BAN = {
+  message:
+    "Declare errors at the top of the file that raises them, or of the interface whose signatures name them; " +
+    "there are no .error.ts files.",
+  selector: "Program"
 };
 const NON_TYPE_BAN = {
   message: "A .type.ts file holds only types.",
@@ -72,11 +96,12 @@ const NON_TYPE_BAN = {
 // Each file suffix names a role, and the file's main names carry it.
 const ROLE_NAMES = {
   "**/*.entity.ts": [{format: ["PascalCase"], selector: "class", suffix: ["Entity"]}],
-  "**/*.error.ts": [{format: ["PascalCase"], selector: ["class", "typeAlias"], suffix: ["Error"]}],
   "**/*.infraService.ts": [
     {format: ["PascalCase"], modifiers: ["exported"], selector: "variable", suffix: ["InfraService"]}
   ],
-  "**/*.interface.ts": [{format: ["PascalCase"], prefix: ["I"], selector: "class"}],
+  "**/*.interface.ts": [
+    {filter: {match: false, regex: "Error$"}, format: ["PascalCase"], prefix: ["I"], selector: "class"}
+  ],
   "**/*.layer.ts": [{format: ["PascalCase"], modifiers: ["exported"], selector: "variable", suffix: ["Layer"]}],
   "**/*.model.ts": [
     {
@@ -147,20 +172,53 @@ export const LAYER_CONFIGS: Config[] = [
   },
   {
     files: ["apps/extension/src/**/*.ts"],
-    ignores: ["**/*.error.ts", "**/*.interface.ts", "**/*.type.ts", "**/*.valueObject.ts", "**/vscode.api.ts"],
+    ignores: ["**/*.interface.ts", "**/*.type.ts", "**/*.valueObject.ts", "**/vscode.api.ts"],
     rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN, SERVICE_CLASS_BAN]}
   },
   {
-    files: ["apps/extension/src/**/*.interface.ts", "apps/extension/src/infrastructure/vscode/vscode.api.ts"],
+    files: ["apps/extension/src/**/*.interface.ts"],
+    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS]}
+  },
+  {
+    files: ["apps/extension/src/infrastructure/vscode/vscode.api.ts"],
     rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN]}
   },
   {
-    files: ["apps/extension/src/**/*.error.ts", "apps/extension/src/**/*.valueObject.ts"],
+    files: ["apps/extension/src/**/*.valueObject.ts"],
     rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, SERVICE_CLASS_BAN]}
   },
   {
     files: ["apps/extension/src/**/*.type.ts"],
     rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, NON_TYPE_BAN]}
+  },
+  {files: ["apps/extension/src/**/*.error.ts"], rules: {"no-restricted-syntax": ["error", ERROR_FILE_BAN]}},
+  // A file's errors sit at its top, above its other classes.
+  {
+    files: ["apps/extension/src/**/*.ts"],
+    rules: {
+      "max-classes-per-file": "off",
+      "perfectionist/sort-modules": [
+        "error",
+        {
+          customGroups: [{elementNamePattern: "Error$", groupName: "error-class", selector: "class"}],
+          groups: [
+            "declare-enum",
+            "export-enum",
+            "enum",
+            ["declare-interface", "declare-type"],
+            ["export-interface", "export-type"],
+            ["interface", "type"],
+            "error-class",
+            "declare-class",
+            "class",
+            "export-class",
+            "declare-function",
+            "export-function",
+            "function"
+          ]
+        }
+      ]
+    }
   },
   ...Object.entries(ROLE_NAMES).map(([filePattern, namingOptions]): Config => ({
     files: [`apps/extension/src/${filePattern}`],

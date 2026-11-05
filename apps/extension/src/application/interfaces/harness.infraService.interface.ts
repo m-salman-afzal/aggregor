@@ -1,13 +1,15 @@
-// eslint-disable-next-line max-classes-per-file
-import {Context} from "effect";
+import {Context, Data} from "effect";
 
-import type {SessionTitleNotFoundError} from "@/application/errors/harness.infraService.error.ts";
 import type {SessionEntity} from "@/domain/entities/session/session.entity.ts";
 import type {HarnessIdValueObject} from "@/domain/valueObjects/harnessId.valueObject.ts";
 import type {LaunchPlanValueObject} from "@/domain/valueObjects/launchPlan.valueObject.ts";
 import type {SessionIdValueObject} from "@/domain/valueObjects/sessionId.valueObject.ts";
 import type {StatusValueObject} from "@/domain/valueObjects/status.valueObject.ts";
 import type {Effect, LayerMap, SubscriptionRef} from "effect";
+
+export class SessionTitleNotFoundError extends Data.TaggedError("SessionTitleNotFoundError")<{
+  readonly sessionId: SessionIdValueObject;
+}> {}
 
 // One agent CLI, such as Claude Code: how to launch it, and what its sessions are doing and are called.
 export class IHarnessInfraService extends Context.Service<

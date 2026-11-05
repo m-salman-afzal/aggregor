@@ -1,13 +1,18 @@
-import {Context} from "effect";
+import {Context, Data} from "effect";
 
-import type {
-  CommitFailedError,
-  GitDiffError,
-  GitUnavailableError,
-  NothingStagedError
-} from "@/application/errors/git.infraService.error.ts";
 import type {ProjectPathValueObject} from "@/domain/valueObjects/projectPath.valueObject.ts";
 import type {Effect} from "effect";
+
+// Why the git repository at a path cannot be reached.
+export type GitUnavailableError =
+  GitExtensionDisabledError | GitExtensionUnavailableError | GitRepositoryUnavailableError;
+
+export class CommitFailedError extends Data.TaggedError("CommitFailedError")<{readonly cause: unknown}> {}
+export class GitDiffError extends Data.TaggedError("GitDiffError") {}
+export class GitExtensionDisabledError extends Data.TaggedError("GitExtensionDisabledError") {}
+export class GitExtensionUnavailableError extends Data.TaggedError("GitExtensionUnavailableError") {}
+export class GitRepositoryUnavailableError extends Data.TaggedError("GitRepositoryUnavailableError") {}
+export class NothingStagedError extends Data.TaggedError("NothingStagedError") {}
 
 // The git repositories VS Code's Source Control shows, each named by its root folder.
 export class IGitInfraService extends Context.Service<

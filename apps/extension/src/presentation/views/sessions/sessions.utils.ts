@@ -1,7 +1,7 @@
 import {IHarnessInfraService} from "@/application/interfaces/harness.infraService.interface.ts";
 import {ITerminalInfraService} from "@/application/interfaces/terminal.infraService.interface.ts";
-import {listProjects} from "@/application/project/project.service.ts";
-import {getSessionDisplayName, listSessions} from "@/application/session/session.service.ts";
+import {listProjects} from "@/application/services/project.service.ts";
+import {getSessionDisplayName, listSessions} from "@/application/services/session.service.ts";
 import {withHarnessInfraService} from "@/application/utils/harness.utils.ts";
 import {ProjectEntity} from "@/domain/entities/project/project.entity.ts";
 import {VsCodeApi} from "@/infrastructure/vscode/vscode.api.ts";
@@ -26,7 +26,7 @@ import type {Row, RowStatus} from "@/presentation/views/sessions/sessions.view.t
 export const isProject = (row: Row): row is ProjectEntity => row instanceof ProjectEntity;
 
 // Without a terminal in this window the agent is gone; with one, the hooks say what it is doing.
-export const getRowStatus = Effect.fn("getRowStatus")(function* (
+export const getRowStatus = Effect.fn("SessionsView.getRowStatus")(function* (
   session: SessionEntity,
   unreadSessionIds: ReadonlySet<SessionIdValueObject>
 ) {
@@ -43,13 +43,13 @@ export const getRowStatus = Effect.fn("getRowStatus")(function* (
 });
 
 // The handle the status badge hangs off; the decoration provider reads the session id back from the path.
-export const getSessionRowUri = Effect.fn("getSessionRowUri")(function* (sessionId: SessionIdValueObject) {
+export const getSessionRowUri = Effect.fn("SessionsView.getSessionRowUri")(function* (sessionId: SessionIdValueObject) {
   const {Uri} = yield* VsCodeApi;
 
   return Uri.from({path: `/${sessionId}`, scheme: SESSION_URI_SCHEME});
 });
 
-export const createSessionTreeItem = Effect.fn("createSessionTreeItem")(function* (
+export const createSessionTreeItem = Effect.fn("SessionsView.createSessionTreeItem")(function* (
   session: SessionEntity,
   rowStatus: RowStatus | undefined
 ) {
@@ -76,7 +76,9 @@ export const createSessionTreeItem = Effect.fn("createSessionTreeItem")(function
 });
 
 // The id is the path, which never collides with a session's UUID.
-export const createProjectTreeItem = Effect.fn("createProjectTreeItem")(function* (project: ProjectEntity) {
+export const createProjectTreeItem = Effect.fn("SessionsView.createProjectTreeItem")(function* (
+  project: ProjectEntity
+) {
   const {ThemeIcon, TreeItem, TreeItemCollapsibleState} = yield* VsCodeApi;
   const treeItem = new TreeItem(project.name, TreeItemCollapsibleState.Expanded);
   treeItem.id = project.path;
@@ -87,7 +89,9 @@ export const createProjectTreeItem = Effect.fn("createProjectTreeItem")(function
   return treeItem;
 });
 
-export const createStatusBadge = Effect.fn("createStatusBadge")(function* (rowStatus: RowStatus | undefined) {
+export const createStatusBadge = Effect.fn("SessionsView.createStatusBadge")(function* (
+  rowStatus: RowStatus | undefined
+) {
   if (rowStatus === undefined || rowStatus === "idle") return undefined;
 
   const {FileDecoration, ThemeColor} = yield* VsCodeApi;
@@ -99,7 +103,7 @@ export const createStatusBadge = Effect.fn("createStatusBadge")(function* (rowSt
 
 // Every project is listed, even one without sessions, so adding a project always shows. A session sits under its project; one
 // whose project is not in this window is not shown here.
-export const getChildRows = Effect.fn("getChildRows")(function* (parentRow: Row | undefined) {
+export const getChildRows = Effect.fn("SessionsView.getChildRows")(function* (parentRow: Row | undefined) {
   if (parentRow === undefined) return yield* listProjects();
   if (!isProject(parentRow)) return [];
 
@@ -108,7 +112,7 @@ export const getChildRows = Effect.fn("getChildRows")(function* (parentRow: Row 
   return allSessions.filter((session) => session.projectPath === parentRow.path);
 });
 
-export const getParentRow = Effect.fn("getParentRow")(function* (row: Row) {
+export const getParentRow = Effect.fn("SessionsView.getParentRow")(function* (row: Row) {
   if (isProject(row)) return undefined;
 
   const projects = yield* listProjects();
