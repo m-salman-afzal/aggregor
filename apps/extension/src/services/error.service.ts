@@ -1,4 +1,4 @@
-import {VsCodeService} from "@/services/vscode.service.ts";
+import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {APP_NAME} from "@pkg/constants/src/extension.constant.ts";
 import {Context, Effect, Layer} from "effect";
 

@@ -1,5 +1,5 @@
-import {VsCodeService} from "@/services/vscode.service.ts";
-import {acquireDisposable} from "@/services/vscode.utils.ts";
+import {acquireDisposable} from "@/infrastructure/utils/vscode.utils.ts";
+import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {APP_NAME} from "@pkg/constants/src/extension.constant.ts";
 import {Cause, Effect, Exit, Layer, Logger, Predicate, References, Result, Tracer} from "effect";
 import {format} from "node:util";

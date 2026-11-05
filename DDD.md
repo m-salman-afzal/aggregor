@@ -1,25 +1,27 @@
 # DDD plan
 
-Status: step 0 is done: `domain/` exists and the services use its entities and value objects. Steps 1 to 4 are still
-planned. The `ddd` stack moves the code; update this file in the same change as each step, so it always says where code
-goes.
+Status: steps 0 and 1 are done: `domain/` holds the entities, value objects and repository interfaces, and
+`infrastructure/` holds VS Code, storage, logging, settings and the layer graph. Steps 2 to 4 are still planned. The
+`ddd` stack moves the code; update this file in the same change as each step, so it always says where code goes.
 
 The layering follows vs-uc-api (a layered DDD Express API: `Domain`, `Application`, `Infrastructure`, plus `http/` for
 presentation), adapted to Effect, with the places where vs-uc-api's layers leaked into each other fixed.
 
 ## Layers
 
-| Layer             | Holds                                                                       | May import                                                                         |
-| ----------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `domain/`         | Entities, repository interfaces, value objects, transformers, domain errors | `effect` only                                                                      |
-| `application/`    | Services (the use cases), client interfaces, application errors             | `domain`                                                                           |
-| `infrastructure/` | VS Code, storage, outside clients, the layer graph, logging, settings       | `domain`, `application` (to implement its interfaces), `vscode`, node, `@effect/*` |
-| `presentation/`   | Command routes, controllers, the command middleware, views                  | `application`, `domain`, and from infrastructure only `vscode.service` and utils   |
-| `extension.ts`    | `activate`: builds the runtime from the layer graph                         | everything                                                                         |
+| Layer             | Holds                                                                       | May import                                                                                   |
+| ----------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `domain/`         | Entities, repository interfaces, value objects, transformers, domain errors | `effect` only                                                                                |
+| `application/`    | Services (the use cases), client interfaces, application errors             | `domain`, `@pkg/*`                                                                           |
+| `infrastructure/` | VS Code, storage, outside clients, the layer graph, logging, settings       | `domain`, `application` (to implement its interfaces), `vscode`, node, `@effect/*`, `@pkg/*` |
+| `presentation/`   | Command routes, controllers, the command middleware, views                  | `application`, `domain`, `@pkg/*`, and from infrastructure only `vscode.service` and utils   |
+| `extension.ts`    | `activate`: builds the runtime from the layer graph                         | everything                                                                                   |
 
 Lint enforces the import column with `@typescript-eslint/no-restricted-imports`: one block per layer in
-`eslint.config.ts`, with a regex allow-list over the `@/` import paths. `domain` is enforced today; each step adds its
-layer's block. `application` never sees `vscode`, not even its types.
+`eslint.config.ts`, with a regex allow-list over the `@/` import paths. `domain` and `infrastructure` are enforced
+today; each step adds its layer's block. `infrastructure` may also import `@/services`, which holds the code steps 2 to
+4 still move. Outside `infrastructure/vscode/vscode.service.ts`, `vscode` is a type-only import, and `application` never
+sees it, not even its types.
 
 ## From vs-uc-api to aggregor
 
@@ -51,15 +53,16 @@ apps/extension/src/
       session/
         session.entity.ts        Session (Schema.Class: id, repoPath, name, harnessId), getNewSessionName,
                                  getUnreadSessionIds (done)
-        session.repository.ts    SessionRepository interface: sessions ref, load, save ← SessionStore's interface
+        session.repository.ts    SessionRepository interface: sessions ref, modifySessions (done)
       repo/
         repo.entity.ts           Repo (Schema.Class: path, name, added) (done)
-        repo.repository.ts       RepoRepository interface ← RepoStore's interface
+        repo.repository.ts       RepoRepository interface: addedRepoPaths ref, modifyAddedRepoPaths (done)
     value-objects/               one <name>.value-object.ts each: SessionIdSchema, RepoPathSchema (branded),
                                  StatusSchema, HarnessIdSchema (literals) (done); LaunchPlan (step 3)
     transformers/
       claude-code.transformer.ts transcript line to title, status-file text to Status (done)
-    errors/                      SessionNotFound, TitleNotFound (done)
+    errors/                      SessionNotFound, TitleNotFound, and the repository errors SessionsCorrupt,
+                                 SessionsSaveFailed, ReposCorrupt, ReposSaveFailed (done)
   application/
     session/session.service.ts   newSession, openSession, removeSession, relaunchSession, getSessionDisplayName
                                  ← terminal.utils, store.utils add and delete
@@ -73,11 +76,11 @@ apps/extension/src/
     utils/                       showErrorInBackground
     errors/                      RemoveCancelled, RepoPickCancelled, NothingStaged, ...
   infrastructure/
-    vscode/vscode.service.ts     the only runtime import of vscode
-    database/models/             StoredSessions v1, StoredAddedRepoPaths v1
+    vscode/vscode.service.ts     the only runtime import of vscode (done)
+    database/models/             StoredSessions v1, StoredAddedRepoPaths v1 (done)
     repositories/
-      session.repository.ts      SessionRepository on globalState, reloads on window focus ← store.service
-      repo.repository.ts         RepoRepository on workspaceState ← repo.service
+      session.repository.ts      SessionRepositoryOnGlobalState: reloads on window focus (done)
+      repo.repository.ts         RepoRepositoryOnWorkspaceState (done)
     clients/
       claude-code/               HarnessClient for Claude Code: the `claude` launch, --settings hooks, the status env
                                  var, status-file and transcript watchers ← status.service, transcript.service
@@ -85,12 +88,12 @@ apps/extension/src/
                                  GitClient ← the git-extension parts of scm.utils
       commit-cli/                runs the configured commit command ← scm.utils getCommitMessage
     di/
-      app.layer.ts               the layer graph ← AppLayer in extension.ts
+      app.layer.ts               AppLayer: the layer graph under the commands and views (done)
       harnesses.layer.ts         LayerMap from HarnessId to that harness's HarnessClient layer
-    logger/trace-log.ts          ← trace.utils
-    config/settings.ts           ← settings.service
-    utils/vscode.utils.ts        acquireDisposable, fromEvent, setContext, withProgress
-    errors/                      SessionsCorrupt, ReposCorrupt, TerminalLaunchFailed, Git*, Commit*
+    logger/trace-log.layer.ts    TraceLogLayer (done)
+    config/settings.service.ts   SettingsService (done)
+    utils/vscode.utils.ts        acquireDisposable, fromEvent, setContext, withProgress (done)
+    errors/                      InvalidSettings (done); TerminalLaunchFailed, Git*, Commit*
   presentation/
     routes.ts                    command ID to controller ← CommandsLayer in extension.ts
     middlewares/register-command.ts  root span per command, crash logging ← registerCommand
@@ -106,7 +109,8 @@ The unread state stays with the view until the needs-input alerts (M2) need it t
 - **Interface:** a `Context.Service` class in `domain/entities` (repositories) or `application/clients`. It has no
   static `layer`.
 - **Implementation:** a `Layer` exported from `infrastructure`, such as `SessionRepositoryOnGlobalState`.
-- **Container:** `infrastructure/di/app.layer.ts` merges the layers. There is no resolver: a use case's type lists the
+- **Container:** `infrastructure/di/app.layer.ts` merges the layers into `AppLayer`; `extension.ts` puts the commands
+  and views on top, with the trace log and `VsCodeService` underneath. There is no resolver: a use case's type lists the
   interfaces it needs, so a missing layer is a compile error. vs-uc-api's string tokens failed at runtime.
 - **Several implementations at once:** `Harnesses` is a `LayerMap.Service` over a fixed record typed
   `Record<HarnessId, Layer<HarnessClient>>`, so a `HarnessId` without an implementation fails to compile. Use cases run
@@ -116,6 +120,14 @@ The unread state stays with the view until the needs-input alerts (M2) need it t
   terminal client runs it.
 - **Later, with their roadmap items:** a `Hosts` LayerMap keyed by host id for SSH, a worktree client for M3, and tmux
   as a wrapper around the `LaunchPlan`.
+
+## Repositories and models
+
+- Every window shares globalState, so a repository offers a read-modify-write (`modifySessions`) instead of `save`: it
+  re-reads before each write, so no caller can drop another window's save or overwrite unreadable data.
+- A model lists its own fields instead of embedding the entity, and the repository builds the entity from it. A new
+  entity field then fails to compile in the repository, which is where the model's `version` bump belongs.
+- Repository errors live in `domain/errors`, since the interfaces name them.
 
 ## Branded types
 
@@ -150,8 +162,8 @@ Each branch is verified in the headless VS Code (the `verify-in-vscode` skill).
 
 0. `refactor/domain-layer` (done): entities, value objects with brands, transformers, domain errors, lint for domain,
    the cast ban. Sessions are stored under `storedSessions`, with `repoPath` and `harnessId`.
-1. `refactor/infrastructure-layer`: `vscode.service`, database models, repositories behind the domain interfaces,
-   logger, config, `di/`.
+1. `refactor/infrastructure-layer` (done): `vscode.service`, database models, repositories behind the domain interfaces,
+   logger, config, `di/`, lint for infrastructure and for type-only `vscode` imports.
 2. `refactor/application-layer`: services and client interfaces; the VS Code terminal, prompt and git clients; the
    commit CLI.
 3. `refactor/harness-client`: Claude Code behind `HarnessClient`, plus the `Harnesses` LayerMap and `LaunchPlan`.

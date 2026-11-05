@@ -1,40 +1,35 @@
 import {Session} from "@/domain/entities/session/session.entity.ts";
-import {SessionsCorrupt, SessionsSaveFailed} from "@/errors/session.error.ts";
+import {SessionRepository} from "@/domain/entities/session/session.repository.ts";
+import {SessionsCorrupt, SessionsSaveFailed} from "@/domain/errors/session.error.ts";
+import {NO_STORED_SESSIONS, StoredSessions} from "@/infrastructure/database/models/stored-sessions.model.ts";
+import {fromEvent} from "@/infrastructure/utils/vscode.utils.ts";
+import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {showErrorInBackground} from "@/services/error.utils.ts";
-import {VsCodeService} from "@/services/vscode.service.ts";
-import {fromEvent} from "@/services/vscode.utils.ts";
 import {STORAGE_KEYS} from "@pkg/constants/src/extension.constant.ts";
 import {SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
-import {Context, Effect, Layer, Schema, Stream, SubscriptionRef} from "effect";
+import {Effect, Layer, Schema, Stream, SubscriptionRef} from "effect";
 
 import type {Memento, WindowState} from "vscode";
 
-// Any change to this shape bumps `version`, so windows still running older code fail to decode it instead of
-// writing back a copy with the new fields stripped.
-const StoredSessions = Schema.Struct({
-  sessions: Schema.Array(Session),
-  version: Schema.Literal(1)
-});
-
-const NO_STORED_SESSIONS: typeof StoredSessions.Encoded = {sessions: [], version: 1};
+type ChangeSessions<ChangeResult> = (storedSessions: readonly Session[]) => readonly [ChangeResult, readonly Session[]];
 
 // This window's copy of the stored sessions, which the view renders from.
 type SessionsReference = SubscriptionRef.SubscriptionRef<readonly Session[]>;
 
 // Re-reads globalState on every call.
-const loadSessions = Effect.fn("SessionStore.loadSessions")(
+const loadSessions = Effect.fn("SessionRepository.loadSessions")(
   function* (globalState: Memento) {
     const storedValue = yield* Effect.sync(() =>
       globalState.get<unknown>(STORAGE_KEYS.STORED_SESSIONS, NO_STORED_SESSIONS)
     );
     const storedSessions = yield* Schema.decodeUnknownEffect(StoredSessions)(storedValue);
 
-    return storedSessions.sessions;
+    return storedSessions.sessions.map((storedSession) => new Session(storedSession));
   },
   Effect.mapError((cause) => new SessionsCorrupt({cause}))
 );
 
-const saveSessions = Effect.fn("SessionStore.saveSessions")(
+const saveSessions = Effect.fn("SessionRepository.saveSessions")(
   function* (globalState: Memento, sessions: readonly Session[]) {
     const storedValue = yield* Schema.encodeEffect(StoredSessions)({sessions, version: 1});
 
@@ -43,7 +38,26 @@ const saveSessions = Effect.fn("SessionStore.saveSessions")(
   Effect.mapError((cause) => new SessionsSaveFailed({cause}))
 );
 
-const showUnreadableSessionsError = Effect.fn("SessionStore.showUnreadableSessionsError")(function* () {
+const writeSessionsChange = Effect.fn("SessionRepository.writeSessionsChange")(function* <ChangeResult>(
+  globalState: Memento,
+  changeSessions: ChangeSessions<ChangeResult>
+) {
+  const [changeResult, nextSessions] = changeSessions(yield* loadSessions(globalState));
+  yield* saveSessions(globalState, nextSessions);
+
+  return [changeResult, nextSessions] as const;
+});
+
+// Read-modify-write against globalState under the ref's permit, so a change never drops what another window saved.
+const modifySessions = Effect.fn("SessionRepository.modifySessions")(function* <ChangeResult>(
+  globalState: Memento,
+  sessions: SessionsReference,
+  changeSessions: ChangeSessions<ChangeResult>
+) {
+  return yield* SubscriptionRef.modifyEffect(sessions, () => writeSessionsChange(globalState, changeSessions));
+});
+
+const showUnreadableSessionsError = Effect.fn("SessionRepository.showUnreadableSessionsError")(function* () {
   yield* showErrorInBackground(SESSION_MESSAGES.UNREADABLE);
   const noSessions: readonly Session[] = [];
 
@@ -51,7 +65,7 @@ const showUnreadableSessionsError = Effect.fn("SessionStore.showUnreadableSessio
 });
 
 // Unreadable data starts the list empty; every write re-reads first, so it is never overwritten.
-const loadInitialSessions = Effect.fn("SessionStore.loadInitialSessions")(
+const loadInitialSessions = Effect.fn("SessionRepository.loadInitialSessions")(
   function* (globalState: Memento) {
     return yield* loadSessions(globalState);
   },
@@ -59,7 +73,7 @@ const loadInitialSessions = Effect.fn("SessionStore.loadInitialSessions")(
 );
 
 // Other windows write to the same globalState; pick up their changes when this window comes back into focus.
-const reloadSessionsOnFocus = Effect.fn("SessionStore.reloadSessionsOnFocus")(
+const reloadSessionsOnFocus = Effect.fn("SessionRepository.reloadSessionsOnFocus")(
   function* (globalState: Memento, sessions: SessionsReference, windowState: WindowState) {
     if (!windowState.focused) return;
 
@@ -70,7 +84,7 @@ const reloadSessionsOnFocus = Effect.fn("SessionStore.reloadSessionsOnFocus")(
   )
 );
 
-const makeSessionStore = Effect.fn("SessionStore.make")(function* () {
+const makeSessionRepositoryOnGlobalState = Effect.fn("SessionRepository.make")(function* () {
   const {globalState, window} = yield* VsCodeService;
   const sessions: SessionsReference = yield* SubscriptionRef.make(yield* loadInitialSessions(globalState));
   yield* Effect.forkScoped(
@@ -80,20 +94,11 @@ const makeSessionStore = Effect.fn("SessionStore.make")(function* () {
   );
 
   return {
-    loadSessions: () => loadSessions(globalState),
-    saveSessions: (nextSessions: readonly Session[]) => saveSessions(globalState, nextSessions),
+    modifySessions: <ChangeResult>(changeSessions: ChangeSessions<ChangeResult>) =>
+      modifySessions(globalState, sessions, changeSessions),
     sessions
   };
 });
 
 // globalState is the source of truth, shared by every window; `sessions` is this window's copy for the view.
-export class SessionStore extends Context.Service<
-  SessionStore,
-  {
-    readonly loadSessions: () => Effect.Effect<readonly Session[], SessionsCorrupt>;
-    readonly saveSessions: (sessions: readonly Session[]) => Effect.Effect<void, SessionsSaveFailed>;
-    readonly sessions: SessionsReference;
-  }
->()("aggregor/services/session/store.service/SessionStore") {
-  public static readonly layer = Layer.effect(SessionStore, makeSessionStore());
-}
+export const SessionRepositoryOnGlobalState = Layer.effect(SessionRepository, makeSessionRepositoryOnGlobalState());

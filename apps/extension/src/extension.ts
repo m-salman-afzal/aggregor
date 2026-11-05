@@ -1,18 +1,11 @@
-import {ErrorService} from "@/services/error.service.ts";
-import {RepoStore} from "@/services/repo/repo.service.ts";
+import {AppLayer} from "@/infrastructure/di/app.layer.ts";
+import {TraceLogLayer} from "@/infrastructure/logger/trace-log.layer.ts";
+import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {addRepo, removeRepo} from "@/services/repo/repo.utils.ts";
-import {generateCommitMessage, GitReposLayer} from "@/services/scm/scm.utils.ts";
-import {StatusService} from "@/services/session/status.service.ts";
-import {SessionStore} from "@/services/session/store.service.ts";
-import {TerminalService} from "@/services/session/terminal.service.ts";
+import {generateCommitMessage} from "@/services/scm/scm.utils.ts";
 import {newSession, openSession, removeSession} from "@/services/session/terminal.utils.ts";
-import {TranscriptService} from "@/services/session/transcript.service.ts";
-import {SettingsService} from "@/services/settings.service.ts";
-import {TraceLogLayer} from "@/services/trace.utils.ts";
-import {VsCodeService} from "@/services/vscode.service.ts";
 import {registerCommand} from "@/services/vscode.utils.ts";
 import {SessionsView} from "@/views/sessions.view.ts";
-import {NodeServices} from "@effect/platform-node";
 import {COMMANDS} from "@pkg/constants/src/extension.constant.ts";
 import {Effect, Layer, ManagedRuntime} from "effect";
 
@@ -31,21 +24,14 @@ const CommandsLayer = Layer.effectDiscard(
   ])
 );
 
-const IndependentLayers = Layer.mergeAll(ErrorService.layer, SettingsService.layer, NodeServices.layer);
-
-const AppLayer = Layer.mergeAll(CommandsLayer, GitReposLayer, SessionsView).pipe(
-  Layer.provideMerge(TerminalService.layer),
-  Layer.provideMerge(StatusService.layer),
-  Layer.provideMerge(TranscriptService.layer),
-  Layer.provideMerge(SessionStore.layer),
-  Layer.provideMerge(RepoStore.layer),
-  Layer.provideMerge(IndependentLayers)
-);
-
 const activate = async (extensionContext: ExtensionContext) => {
   // TraceLogLayer goes under everything, so every layer's startup work is traced and logged too.
   const runtime = ManagedRuntime.make(
-    AppLayer.pipe(Layer.provide(TraceLogLayer), Layer.provideMerge(VsCodeService.layer(extensionContext)))
+    Layer.mergeAll(CommandsLayer, SessionsView).pipe(
+      Layer.provideMerge(AppLayer),
+      Layer.provide(TraceLogLayer),
+      Layer.provideMerge(VsCodeService.layer(extensionContext))
+    )
   );
   extensionContext.subscriptions.push({dispose: async () => runtime.dispose()});
   // The runtime builds lazily; build it now so commands and views exist before activation finishes.

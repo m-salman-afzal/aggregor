@@ -19,6 +19,20 @@ const OPTION_IMPORT_BANS = [
   {message: "Use Result: its error says why a value is missing.", name: "effect/Option"}
 ];
 
+// infrastructure/vscode/vscode.service.ts holds the one runtime import of vscode; everything else yields that service.
+const IMPORT_BANS = [
+  ...OPTION_IMPORT_BANS,
+  {allowTypeImports: true, message: "Import only vscode's types; yield VsCodeService for its values.", name: "vscode"}
+];
+
+// `@/services` holds the code that DDD.md's later steps still move into a layer.
+const INFRASTRUCTURE_IMPORTS = {
+  message:
+    "The infrastructure layer imports only effect, @effect, vscode, node, @pkg, and domain, application, " +
+    "infrastructure or services code.",
+  regex: "^(?!effect(/|$)|@effect/|vscode$|node:|@pkg/|@/(domain|application|infrastructure|services)/)"
+};
+
 const config: Config[] = defineConfig([
   // ESLint does not read .gitignore. git.d.ts is synced from upstream vscode (also in .prettierignore).
   globalIgnores(["**/dist/**", "packages/typings/src/git.d.ts"]),
@@ -102,7 +116,7 @@ const config: Config[] = defineConfig([
       "@typescript-eslint/naming-convention": "off",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-magic-numbers": "off",
-      "@typescript-eslint/no-restricted-imports": ["error", {paths: OPTION_IMPORT_BANS}],
+      "@typescript-eslint/no-restricted-imports": ["error", {paths: IMPORT_BANS}],
       "@typescript-eslint/no-unused-vars": [
         "warn",
         {
@@ -192,6 +206,21 @@ const config: Config[] = defineConfig([
             }
           ]
         }
+      ]
+    }
+  },
+  {
+    files: ["apps/extension/src/infrastructure/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": ["error", {paths: IMPORT_BANS, patterns: [INFRASTRUCTURE_IMPORTS]}]
+    }
+  },
+  {
+    files: ["apps/extension/src/infrastructure/vscode/vscode.service.ts"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {paths: OPTION_IMPORT_BANS, patterns: [INFRASTRUCTURE_IMPORTS]}
       ]
     }
   }

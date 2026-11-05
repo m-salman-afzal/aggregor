@@ -1,3 +1,4 @@
+import {RepoRepository} from "@/domain/entities/repo/repo.repository.ts";
 import {
   CommitCliError,
   CommitFailed,
@@ -9,12 +10,11 @@ import {
   NothingStaged,
   RootUriUnavailable
 } from "@/errors/git.error.ts";
+import {SettingsService} from "@/infrastructure/config/settings.service.ts";
+import {setContext, withProgress} from "@/infrastructure/utils/vscode.utils.ts";
+import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {ErrorService} from "@/services/error.service.ts";
 import {showErrorInBackground} from "@/services/error.utils.ts";
-import {RepoStore} from "@/services/repo/repo.service.ts";
-import {SettingsService} from "@/services/settings.service.ts";
-import {VsCodeService} from "@/services/vscode.service.ts";
-import {setContext, withProgress} from "@/services/vscode.utils.ts";
 import {COMMANDS, CONTEXT_KEYS, EXTENSION_VERSIONS} from "@pkg/constants/src/extension.constant.ts";
 import {ACTIONS, COMMIT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {EXIT_CODES} from "@pkg/constants/src/process.constant.ts";
@@ -202,7 +202,7 @@ const closeRepoInSourceControl = Effect.fn("closeRepoInSourceControl")(
 // Keeps Source Control in step with the added repos: each opens there, at startup too, and closes when removed. The git
 // extension does not remember repos opened this way, so every startup opens them again.
 const startSourceControlSync = Effect.fn("startSourceControlSync")(function* () {
-  const {addedRepoPaths} = yield* RepoStore;
+  const {addedRepoPaths} = yield* RepoRepository;
   const syncedRepoPaths = yield* Ref.make<ReadonlySet<string>>(new Set());
 
   const syncAddedReposWithSourceControl = Effect.fn("GitReposLayer.syncAddedReposWithSourceControl")(

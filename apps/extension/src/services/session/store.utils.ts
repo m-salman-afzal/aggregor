@@ -1,30 +1,14 @@
 import {getNewSessionName, Session} from "@/domain/entities/session/session.entity.ts";
+import {SessionRepository} from "@/domain/entities/session/session.repository.ts";
 import {SessionNotFound} from "@/domain/errors/session.error.ts";
 import {SessionIdSchema} from "@/domain/value-objects/session-id.value-object.ts";
-import {SessionStore} from "@/services/session/store.service.ts";
 import {Effect, Result, SubscriptionRef} from "effect";
 
 import type {Repo} from "@/domain/entities/repo/repo.entity.ts";
 import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
 
-// Read-modify-write against globalState under the ref's permit, so a change never drops what another window saved.
-const modifyStoredSessions = Effect.fn("modifyStoredSessions")(function* <ChangeResult>(
-  changeSessions: (storedSessions: readonly Session[]) => readonly [ChangeResult, readonly Session[]]
-) {
-  const {loadSessions, saveSessions, sessions} = yield* SessionStore;
-
-  const writeSessionsChange = Effect.fn("writeSessionsChange")(function* () {
-    const [changeResult, nextSessions] = changeSessions(yield* loadSessions());
-    yield* saveSessions(nextSessions);
-
-    return [changeResult, nextSessions] as const;
-  });
-
-  return yield* SubscriptionRef.modifyEffect(sessions, () => writeSessionsChange());
-});
-
 export const listSessions = Effect.fn("listSessions")(function* () {
-  const {sessions} = yield* SessionStore;
+  const {sessions} = yield* SessionRepository;
 
   return yield* SubscriptionRef.get(sessions);
 });
@@ -41,9 +25,10 @@ export const findSession = Effect.fn("findSession")(function* (sessionId: Sessio
 });
 
 export const addSession = Effect.fn("addSession")(function* (repo: Repo) {
+  const {modifySessions} = yield* SessionRepository;
   const sessionId = yield* Effect.sync(() => SessionIdSchema.make(crypto.randomUUID()));
 
-  return yield* modifyStoredSessions((storedSessions) => {
+  return yield* modifySessions((storedSessions) => {
     const addedSession = new Session({
       harnessId: "claude-code",
       id: sessionId,
@@ -56,7 +41,8 @@ export const addSession = Effect.fn("addSession")(function* (repo: Repo) {
 });
 
 export const deleteSession = Effect.fn("deleteSession")(function* (sessionId: SessionId) {
-  yield* modifyStoredSessions(
+  const {modifySessions} = yield* SessionRepository;
+  yield* modifySessions(
     (storedSessions) => [sessionId, storedSessions.filter((session) => session.id !== sessionId)] as const
   );
 });

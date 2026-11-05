@@ -1,35 +1,20 @@
 import {Repo} from "@/domain/entities/repo/repo.entity.ts";
+import {RepoRepository} from "@/domain/entities/repo/repo.repository.ts";
 import {RepoPathSchema} from "@/domain/value-objects/repo-path.value-object.ts";
 import {FolderPickCancelled, NoRepo, RepoPickCancelled} from "@/errors/repo.error.ts";
+import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {showErrorInBackground} from "@/services/error.utils.ts";
-import {RepoStore} from "@/services/repo/repo.service.ts";
-import {VsCodeService} from "@/services/vscode.service.ts";
 import {ACTIONS, REPO_LABELS, REPO_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {Effect, Match, Result, SubscriptionRef, UndefinedOr} from "effect";
 import {Path} from "effect/Path";
 
-import type {RepoPath} from "@/domain/value-objects/repo-path.value-object.ts";
-import type {ReposCorrupt, ReposSaveFailed} from "@/errors/repo.error.ts";
+import type {ReposCorrupt, ReposSaveFailed} from "@/domain/errors/repo.error.ts";
 
-// Read-modify-write under the ref's permit. Re-reading first makes unreadable data fail the write, not get overwritten.
-const modifyAddedRepoPaths = Effect.fn("modifyAddedRepoPaths")(function* (
-  changeAddedRepoPaths: (storedAddedRepoPaths: readonly RepoPath[]) => readonly RepoPath[]
+const showRepoRepositoryError = Effect.fn("showRepoRepositoryError")(function* (
+  repoRepositoryError: ReposCorrupt | ReposSaveFailed
 ) {
-  const {addedRepoPaths, loadAddedRepoPaths, saveAddedRepoPaths} = yield* RepoStore;
-
-  const writeAddedRepoPathsChange = Effect.fn("writeAddedRepoPathsChange")(function* () {
-    const nextAddedRepoPaths = changeAddedRepoPaths(yield* loadAddedRepoPaths());
-    yield* saveAddedRepoPaths(nextAddedRepoPaths);
-
-    return nextAddedRepoPaths;
-  });
-
-  yield* SubscriptionRef.updateEffect(addedRepoPaths, () => writeAddedRepoPathsChange());
-});
-
-const showRepoStoreError = Effect.fn("showRepoStoreError")(function* (repoStoreError: ReposCorrupt | ReposSaveFailed) {
   yield* showErrorInBackground(
-    Match.valueTags(repoStoreError, {
+    Match.valueTags(repoRepositoryError, {
       ReposCorrupt: () => REPO_MESSAGES.UNREADABLE,
       ReposSaveFailed: () => REPO_MESSAGES.SAVE_FAILED
     })
@@ -39,7 +24,7 @@ const showRepoStoreError = Effect.fn("showRepoStoreError")(function* (repoStoreE
 // This window's repos: its workspace folders, then the added paths that are not also one of them.
 export const listRepos = Effect.fn("listRepos")(function* () {
   const {workspace} = yield* VsCodeService;
-  const {addedRepoPaths} = yield* RepoStore;
+  const {addedRepoPaths} = yield* RepoRepository;
   const path = yield* Path;
   const workspaceFolderRepos = UndefinedOr.match(workspace.workspaceFolders, {
     onDefined: (workspaceFolders) =>
@@ -99,6 +84,7 @@ const pickFolderPaths = Effect.fn("pickFolderPaths")(function* () {
 // ponytail: any folder counts as a repo, no git check. Worktree mode (M3) is where a non-git folder would first break.
 export const addRepo = Effect.fn("addRepo")(
   function* () {
+    const {modifyAddedRepoPaths} = yield* RepoRepository;
     const pickedFolderPaths = yield* pickFolderPaths();
 
     yield* modifyAddedRepoPaths((storedAddedRepoPaths) => [
@@ -106,13 +92,14 @@ export const addRepo = Effect.fn("addRepo")(
     ]);
   },
   Effect.catchTag("FolderPickCancelled", () => Effect.void),
-  Effect.catch(showRepoStoreError)
+  Effect.catch(showRepoRepositoryError)
 );
 
 // The repo row's … menu passes the Repo itself. Its sessions stay saved and their open tabs keep running; adding the
 // repo again lists them again.
 export const removeRepo = Effect.fn("removeRepo")(function* (repo: Repo) {
+  const {modifyAddedRepoPaths} = yield* RepoRepository;
   yield* modifyAddedRepoPaths((storedAddedRepoPaths) =>
     storedAddedRepoPaths.filter((addedRepoPath) => addedRepoPath !== repo.path)
   );
-}, Effect.catch(showRepoStoreError));
+}, Effect.catch(showRepoRepositoryError));

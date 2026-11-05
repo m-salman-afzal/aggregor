@@ -1,20 +1,7 @@
-import {VsCodeService} from "@/services/vscode.service.ts";
+import {acquireDisposable} from "@/infrastructure/utils/vscode.utils.ts";
+import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {MODEL_ICONS} from "@pkg/constants/src/extension.constant.ts";
-import {Effect, Queue, Stream} from "effect";
-
-import type {Disposable, Event, ProgressOptions} from "vscode";
-
-// A VS Code resource that lives as long as the surrounding scope: it is disposed when the scope closes.
-export const acquireDisposable = <A extends Disposable>(createDisposable: () => A) =>
-  Effect.acquireRelease(Effect.sync(createDisposable), (disposable) =>
-    Effect.sync(() => {
-      disposable.dispose();
-    })
-  );
-
-// A VS Code event as a Stream. The listener is disposed when whoever runs the stream closes its scope.
-export const fromEvent = <A>(event: Event<A>) =>
-  Stream.callback<A>((queue) => acquireDisposable(() => event((value) => Queue.offerUnsafe(queue, value))));
+import {Effect} from "effect";
 
 // Registered for the surrounding scope's lifetime. Each run is a root span named by the command ID, and a crash is
 // logged. Handlers handle their own errors (E = never) and type their own parameters: VS Code passes them untyped.
@@ -36,22 +23,6 @@ export const registerCommand = Effect.fn("registerCommand")(function* <R>(
       runPromise(runCommand(commandArguments))
     )
   );
-});
-
-export const setContext = Effect.fn("setContext")(function* (contextKey: string, contextValue: unknown) {
-  const {commands} = yield* VsCodeService;
-
-  yield* Effect.promise(async () => commands.executeCommand("setContext", contextKey, contextValue));
-});
-
-export const withProgress = Effect.fn("withProgress")(function* <A, R>(
-  progressOptions: ProgressOptions,
-  effect: Effect.Effect<A, never, R>
-) {
-  const {window} = yield* VsCodeService;
-  const runPromise = Effect.runPromiseWith(yield* Effect.context<R>());
-
-  return yield* Effect.promise(async () => window.withProgress(progressOptions, async () => runPromise(effect)));
 });
 
 // Claude's brand orange reads on light and dark themes, so one file serves both.

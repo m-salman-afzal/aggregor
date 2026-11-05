@@ -1,4 +1,5 @@
 import {RemoveCancelled} from "@/errors/session.error.ts";
+import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {showErrorInBackground} from "@/services/error.utils.ts";
 import {pickRepo} from "@/services/repo/repo.utils.ts";
 import {StatusService} from "@/services/session/status.service.ts";
@@ -6,7 +7,6 @@ import {addSession, deleteSession, findSession} from "@/services/session/store.u
 import {TerminalService} from "@/services/session/terminal.service.ts";
 import {TranscriptService} from "@/services/session/transcript.service.ts";
 import {findTranscriptFilePath} from "@/services/session/transcript.utils.ts";
-import {VsCodeService} from "@/services/vscode.service.ts";
 import {ACTIONS, SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {Effect, Match} from "effect";
 
