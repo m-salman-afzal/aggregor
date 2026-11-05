@@ -2,7 +2,7 @@ import {HarnessClient} from "@/application/clients/harness.client.ts";
 import {PromptClient} from "@/application/clients/prompt.client.ts";
 import {TerminalClient} from "@/application/clients/terminal.client.ts";
 import {RemoveCancelled} from "@/application/errors/session.error.ts";
-import {pickRepo} from "@/application/repo/repo.service.ts";
+import {pickProject} from "@/application/project/project.service.ts";
 import {showErrorInBackground} from "@/application/utils/error.utils.ts";
 import {withHarnessClient} from "@/application/utils/harness.utils.ts";
 import {getNewSessionName, Session} from "@/domain/entities/session/session.entity.ts";
@@ -13,7 +13,7 @@ import {ACTIONS, SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts"
 import {Effect, Match, Result, SubscriptionRef} from "effect";
 
 import type {TerminalLaunch} from "@/application/clients/terminal.client.ts";
-import type {Repo} from "@/domain/entities/repo/repo.entity.ts";
+import type {Project} from "@/domain/entities/project/project.entity.ts";
 import type {SessionId} from "@/domain/value-objects/session-id.value-object.ts";
 
 export const listSessions = Effect.fn("listSessions")(function* () {
@@ -33,7 +33,7 @@ export const findSession = Effect.fn("findSession")(function* (sessionId: Sessio
   );
 });
 
-const addSession = Effect.fn("addSession")(function* (repo: Repo) {
+const addSession = Effect.fn("addSession")(function* (project: Project) {
   const {modifySessions} = yield* SessionRepository;
   const sessionId = yield* Effect.sync(() => SessionIdSchema.make(crypto.randomUUID()));
 
@@ -41,8 +41,8 @@ const addSession = Effect.fn("addSession")(function* (repo: Repo) {
     const addedSession = new Session({
       harnessId: "claude-code",
       id: sessionId,
-      name: getNewSessionName(repo.name, storedSessions),
-      repoPath: repo.path
+      name: getNewSessionName(project.name, storedSessions),
+      projectPath: project.path
     });
 
     return [addedSession, [...storedSessions, addedSession]] as const;
@@ -92,10 +92,10 @@ const openNewSessionTerminal = Effect.fn("openNewSessionTerminal")(
   (effect, addedSession) => Effect.tapError(effect, () => deleteSession(addedSession.id))
 );
 
-const startSession = Effect.fn("startSession")(function* (clickedRepo: Repo | undefined) {
-  const sessionRepo = clickedRepo === undefined ? yield* pickRepo() : clickedRepo;
+const startSession = Effect.fn("startSession")(function* (clickedProject: Project | undefined) {
+  const sessionProject = clickedProject === undefined ? yield* pickProject() : clickedProject;
 
-  yield* openNewSessionTerminal(yield* addSession(sessionRepo));
+  yield* openNewSessionTerminal(yield* addSession(sessionProject));
 });
 
 const relaunchSession = Effect.fn("relaunchSession")(function* (sessionId: SessionId) {
@@ -140,16 +140,16 @@ const removeSessionAndStopAgent = Effect.fn("removeSessionAndStopAgent")(functio
   );
 });
 
-// Starts a session in the given repo; without one, the user picks a repo.
+// Starts a session in the given project; without one, the user picks a project.
 export const newSession = Effect.fn("newSession")(
-  function* (clickedRepo: Repo | undefined) {
-    yield* startSession(clickedRepo);
+  function* (clickedProject: Project | undefined) {
+    yield* startSession(clickedProject);
   },
-  Effect.catchTag("RepoPickCancelled", () => Effect.void),
+  Effect.catchTag("ProjectPickCancelled", () => Effect.void),
   Effect.catch((startError) =>
     showErrorInBackground(
       Match.valueTags(startError, {
-        NoRepo: () => SESSION_MESSAGES.REPO_REQUIRED,
+        NoProject: () => SESSION_MESSAGES.PROJECT_REQUIRED,
         SessionsCorrupt: () => SESSION_MESSAGES.UNREADABLE,
         SessionsSaveFailed: () => SESSION_MESSAGES.SAVE_FAILED,
         TerminalLaunchFailed: () => SESSION_MESSAGES.LAUNCH_FAILED

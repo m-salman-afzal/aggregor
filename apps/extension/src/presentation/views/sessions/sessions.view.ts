@@ -2,7 +2,7 @@ import {HarnessClient} from "@/application/clients/harness.client.ts";
 import {TerminalClient} from "@/application/clients/terminal.client.ts";
 import {findSession, listSessions} from "@/application/session/session.service.ts";
 import {forEachHarnessClient} from "@/application/utils/harness.utils.ts";
-import {RepoRepository} from "@/domain/entities/repo/repo.repository.ts";
+import {ProjectRepository} from "@/domain/entities/project/project.repository.ts";
 import {getUnreadSessionIds} from "@/domain/entities/session/session.entity.ts";
 import {SessionRepository} from "@/domain/entities/session/session.repository.ts";
 import {decodeSessionId} from "@/domain/value-objects/session-id.value-object.ts";
@@ -10,14 +10,14 @@ import {acquireDisposable, fromEvent} from "@/infrastructure/utils/vscode.utils.
 import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {RevealFailed} from "@/presentation/errors/sessions-view.error.ts";
 import {
-  createRepoTreeItem,
+  createProjectTreeItem,
   createSessionTreeItem,
   createStatusBadge,
   getChildRows,
   getParentRow,
   getRowStatus,
   getSessionRowUri,
-  isRepo
+  isProject
 } from "@/presentation/views/sessions/sessions.utils.ts";
 import {SESSION_URI_SCHEME, SPINNER_INTERVAL_MS, VIEWS} from "@pkg/constants/src/extension.constant.ts";
 import {Effect, Layer, Ref, Result, Schedule, Stream, SubscriptionRef} from "effect";
@@ -31,7 +31,7 @@ import type {Path} from "effect/Path";
 import type {EventEmitter, TreeView, Uri} from "vscode";
 
 type SessionsViewServices =
-  Harnesses | Path | RepoRepository | SessionRepository | TerminalClient | VsCodeService | WorkspaceClient;
+  Harnesses | Path | ProjectRepository | SessionRepository | TerminalClient | VsCodeService | WorkspaceClient;
 
 // Selects the session whose tab became active. Skipped while the view is hidden, since reveal would open it.
 const revealSession = Effect.fn("revealSession")(
@@ -106,8 +106,8 @@ const registerTreeView = Effect.fn("SessionsView.registerTreeView")(function* (
         getChildren: (parentRow) => [...runSyncUntraced(getChildRows(parentRow))],
         getParent: (row) => runSyncUntraced(getParentRow(row)),
         getTreeItem: (row) =>
-          isRepo(row)
-            ? runSyncUntraced(createRepoTreeItem(row))
+          isProject(row)
+            ? runSyncUntraced(createProjectTreeItem(row))
             : runSyncUntraced(createSessionTreeItem(row, getDrawnRowStatus(row.id))),
         onDidChangeTreeData: treeChangedEmitter.event
       }
@@ -188,7 +188,7 @@ const advanceSpinnerFrames = Effect.fn("SessionsView.advanceSpinnerFrames")(func
   });
 });
 
-// Rows change when a repo or workspace folder is added or removed, when a session is added or removed, when its tab
+// Rows change when a project or workspace folder is added or removed, when a session is added or removed, when its tab
 // opens or closes, when its agent renames it, when its status changes, and when it comes into view, which marks it read.
 const watchRowChanges = Effect.fn("SessionsView.watchRowChanges")(function* () {
   const {workspace} = yield* VsCodeService;
@@ -199,7 +199,7 @@ const watchRowChanges = Effect.fn("SessionsView.watchRowChanges")(function* () {
     ])
   );
   const rowChangeSources: readonly Stream.Stream<unknown>[] = [
-    SubscriptionRef.changes((yield* RepoRepository).addedRepoPaths),
+    SubscriptionRef.changes((yield* ProjectRepository).addedProjectPaths),
     fromEvent(workspace.onDidChangeWorkspaceFolders),
     SubscriptionRef.changes((yield* SessionRepository).sessions),
     (yield* TerminalClient).openSessionIds,

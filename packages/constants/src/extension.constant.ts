@@ -8,9 +8,9 @@ export const SETTINGS_SECTION = "aggregorApp";
 
 // Grouped by where each command's button lives.
 export const COMMANDS = {
-  REPO_ROW: {
-    NEW_SESSION: "aggregorApp.newSessionInClickedRepo",
-    REMOVE: "aggregorApp.removeRepo"
+  PROJECT_ROW: {
+    NEW_SESSION: "aggregorApp.newSessionInClickedProject",
+    REMOVE: "aggregorApp.removeProject"
   },
   SCM_TITLE: {
     GENERATE_COMMIT_MESSAGE: "aggregorApp.generateCommitMessage"
@@ -21,8 +21,8 @@ export const COMMANDS = {
   },
   // The Sessions view's title bar (the manifest's view/title).
   VIEW_TITLE: {
-    ADD_REPO: "aggregorApp.addRepo",
-    NEW_SESSION: "aggregorApp.newSessionAskingForRepo"
+    ADD_PROJECT: "aggregorApp.addProject",
+    NEW_SESSION: "aggregorApp.newSessionAskingForProject"
   }
 } as const;
 
@@ -30,14 +30,15 @@ export const CONTEXT_KEYS = {
   IS_GENERATING_COMMIT_MESSAGE: "aggregorApp.isGeneratingCommitMessage"
 } as const;
 
-// A workspace folder is a "repo"; only an "addedRepo" can be removed from the sidebar.
+// A workspace folder is a "project"; only an "addedProject" can be removed from the sidebar.
 export const CONTEXT_VALUES = {
-  ADDED_REPO: "addedRepo",
-  REPO: "repo",
+  ADDED_PROJECT: "addedProject",
+  PROJECT: "project",
   SESSION: "session"
 } as const;
 
-export const REPO_ICON = "repo";
+// Any folder can be a project, git or not, so the icon is a plain root folder.
+export const PROJECT_ICON = "root-folder";
 
 export const MODEL_ICONS = {
   CLAUDE: "assets/models/claude.svg"
@@ -63,8 +64,8 @@ export const STATUS_BADGES = {
 export const SPINNER_INTERVAL_MS = 120;
 
 export const STORAGE_KEYS = {
-  ADDED_REPO_PATHS: "addedRepoPaths",
-  STORED_SESSIONS: "storedSessions"
+  ADDED_PROJECT_PATHS: "addedProjectPaths",
+  SAVED_SESSIONS: "savedSessions"
 } as const;
 
 export const VIEWS = {

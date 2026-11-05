@@ -20,7 +20,7 @@ type SessionsReference = SubscriptionRef.SubscriptionRef<readonly Session[]>;
 const loadSessions = Effect.fn("SessionRepository.loadSessions")(
   function* (globalState: Memento) {
     const storedValue = yield* Effect.sync(() =>
-      globalState.get<unknown>(STORAGE_KEYS.STORED_SESSIONS, NO_STORED_SESSIONS)
+      globalState.get<unknown>(STORAGE_KEYS.SAVED_SESSIONS, NO_STORED_SESSIONS)
     );
     const storedSessions = yield* Schema.decodeUnknownEffect(StoredSessions)(storedValue);
 
@@ -33,7 +33,7 @@ const saveSessions = Effect.fn("SessionRepository.saveSessions")(
   function* (globalState: Memento, sessions: readonly Session[]) {
     const storedValue = yield* Schema.encodeEffect(StoredSessions)({sessions, version: 1});
 
-    yield* Effect.tryPromise(async () => globalState.update(STORAGE_KEYS.STORED_SESSIONS, storedValue));
+    yield* Effect.tryPromise(async () => globalState.update(STORAGE_KEYS.SAVED_SESSIONS, storedValue));
   },
   Effect.mapError((cause) => new SessionsSaveFailed({cause}))
 );

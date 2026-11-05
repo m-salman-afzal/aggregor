@@ -27,29 +27,40 @@ data that processes other than the extension write, or that is too big for `glob
 VS Code's key-value store for the extension, kept in its own database rather than in the folder above. Use it for small
 JSON the extension alone reads and writes.
 
-### `storedSessions`
+### `savedSessions`
 
-- **Holds:** `{version: 1, sessions: [{id, name, repoPath, harnessId}]}`: the `StoredSessions` model
+- **Holds:** `{version: 1, sessions: [{id, name, projectPath, harnessId}]}`: the `StoredSessions` model
   (`infrastructure/database/models/`).
 - **Written by:** `SessionRepositoryOnGlobalState`, with a read-modify-write on every add and remove.
 - **Read by:** `SessionRepositoryOnGlobalState` at startup and whenever a window regains focus.
 - **Why:** sessions survive reloads and are shared by every window.
-- **Cleaned up:** an entry goes when its session is removed. Removing a repo keeps its sessions, so adding the repo
-  again lists them again. Any change to the shape bumps `version`, so older windows refuse to decode it instead of
-  overwriting it.
+- **Cleaned up:** an entry goes when its session is removed. Removing a project keeps its sessions, so adding the
+  project again lists them again. Any change to the shape bumps `version`, so older windows refuse to decode it instead
+  of overwriting it.
 - **Added in:** persist and resume (M1).
+
+### `sessions` and `storedSessions` (no longer read)
+
+- **Holds:** sessions in older shapes: `sessions` with `cwd` and no `version`, `storedSessions` with `repoPath`.
+- **Read by:** nothing. Nothing deletes them either; each is a few hundred bytes. A new key must not reuse either name,
+  since their values would fail to decode and block every write.
 
 ## Keys in `workspaceState`
 
 The same kind of key-value store as `globalState`, but one per workspace: only a window on that workspace sees it.
 
-### `addedRepoPaths`
+### `addedProjectPaths`
 
-- **Holds:** `{version: 1, addedRepoPaths: [path]}`: the `StoredAddedRepoPaths` model, the absolute paths added with Add
-  Repo. Workspace folders are not stored.
-- **Written by:** `RepoRepositoryOnWorkspaceState`, with a read-modify-write on every Add Repo and Remove Repo.
-- **Read by:** `RepoRepositoryOnWorkspaceState` at startup and before every write.
-- **Why:** each window lists its own repos, so sessions started in one workspace don't show in the others.
-- **Cleaned up:** Remove Repo drops the path. VS Code deletes the key with the workspace's storage. Any change to the
-  shape bumps `version`, as for `storedSessions`.
-- **Added in:** repos (M2).
+- **Holds:** `{version: 1, addedProjectPaths: [path]}`: the `StoredAddedProjectPaths` model, the absolute paths added
+  with Add Project. Workspace folders are not stored.
+- **Written by:** `ProjectRepositoryOnWorkspaceState`, with a read-modify-write on every Add Project and Remove Project.
+- **Read by:** `ProjectRepositoryOnWorkspaceState` at startup and before every write.
+- **Why:** each window lists its own projects, so sessions started in one workspace don't show in the others.
+- **Cleaned up:** Remove Project drops the path. VS Code deletes the key with the workspace's storage. Any change to the
+  shape bumps `version`, as for `savedSessions`.
+- **Added in:** projects (M2).
+
+### `addedRepoPaths` (no longer read)
+
+- **Holds:** the paths added before the repo-to-project rename.
+- **Read by:** nothing. VS Code deletes it with the workspace's storage.

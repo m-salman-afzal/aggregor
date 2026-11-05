@@ -3,29 +3,29 @@ import {GitClient} from "@/application/clients/git.client.ts";
 import {PromptClient} from "@/application/clients/prompt.client.ts";
 import {SettingsClient} from "@/application/clients/settings.client.ts";
 import {showErrorInBackground} from "@/application/utils/error.utils.ts";
-import {RepoRepository} from "@/domain/entities/repo/repo.repository.ts";
+import {ProjectRepository} from "@/domain/entities/project/project.repository.ts";
 import {ACTIONS, COMMIT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {Effect, Ref, Stream, SubscriptionRef} from "effect";
 
-import type {RepoPath} from "@/domain/value-objects/repo-path.value-object.ts";
+import type {ProjectPath} from "@/domain/value-objects/project-path.value-object.ts";
 
 // The commit command writes the message for the staged changes into Source Control, and commits when autoCommit is on.
-const writeCommitMessage = Effect.fn("writeCommitMessage")(function* (repoPath: RepoPath) {
+const writeCommitMessage = Effect.fn("writeCommitMessage")(function* (projectPath: ProjectPath) {
   const {autoCommit, commitCommand} = yield* SettingsClient.use((settingsClient) => settingsClient.readSettings());
   const gitClient = yield* GitClient;
-  const stagedDiff = yield* gitClient.getStagedDiff(repoPath);
+  const stagedDiff = yield* gitClient.getStagedDiff(projectPath);
   const commitMessage = yield* CommitCliClient.use((commitCliClient) =>
-    commitCliClient.generateCommitMessage({commitCommand, repoPath, stagedDiff})
+    commitCliClient.generateCommitMessage({commitCommand, projectPath, stagedDiff})
   );
 
-  yield* gitClient.setCommitMessageInput(repoPath, commitMessage);
-  if (autoCommit) yield* gitClient.commit(repoPath, commitMessage);
+  yield* gitClient.setCommitMessageInput(projectPath, commitMessage);
+  if (autoCommit) yield* gitClient.commit(projectPath, commitMessage);
 });
 
 // Every failure but NothingStaged becomes a message; the caller answers NothingStaged by offering to stage everything.
 export const writeCommitMessageOrShowError = Effect.fn("writeCommitMessageOrShowError")(
-  function* (repoPath: RepoPath) {
-    yield* writeCommitMessage(repoPath);
+  function* (projectPath: ProjectPath) {
+    yield* writeCommitMessage(projectPath);
   },
   Effect.catchTags({
     CommitCliError: ({exitCode, stderr}) => showErrorInBackground(COMMIT_MESSAGES.COMMIT_CLI_FAILED(exitCode, stderr)),
@@ -41,43 +41,43 @@ export const writeCommitMessageOrShowError = Effect.fn("writeCommitMessageOrShow
 );
 
 // True when the user picked Stage All and everything is now staged.
-export const offerToStageAllChanges = Effect.fn("offerToStageAllChanges")(function* (repoPath: RepoPath) {
+export const offerToStageAllChanges = Effect.fn("offerToStageAllChanges")(function* (projectPath: ProjectPath) {
   const pickedAction = yield* PromptClient.use((promptClient) =>
     promptClient.showErrorMessage(COMMIT_MESSAGES.NOTHING_STAGED, ACTIONS.STAGE_ALL)
   );
   if (pickedAction !== ACTIONS.STAGE_ALL) return false;
 
-  yield* GitClient.use((gitClient) => gitClient.stageAll(repoPath));
+  yield* GitClient.use((gitClient) => gitClient.stageAll(projectPath));
 
   return true;
 });
 
-const syncAddedReposWithSourceControl = Effect.fn("syncAddedReposWithSourceControl")(function* (
-  syncedRepoPaths: Ref.Ref<ReadonlySet<RepoPath>>,
-  currentAddedRepoPaths: readonly RepoPath[]
+const syncAddedProjectsWithSourceControl = Effect.fn("syncAddedProjectsWithSourceControl")(function* (
+  syncedProjectPaths: Ref.Ref<ReadonlySet<ProjectPath>>,
+  currentAddedProjectPaths: readonly ProjectPath[]
 ) {
   const {closeInSourceControl, openInSourceControl} = yield* GitClient;
-  const previouslySyncedRepoPaths = yield* Ref.getAndSet(syncedRepoPaths, new Set(currentAddedRepoPaths));
+  const previouslySyncedProjectPaths = yield* Ref.getAndSet(syncedProjectPaths, new Set(currentAddedProjectPaths));
 
   yield* Effect.forEach(
-    currentAddedRepoPaths.filter((repoPath) => !previouslySyncedRepoPaths.has(repoPath)),
-    (repoPath) => openInSourceControl(repoPath)
+    currentAddedProjectPaths.filter((projectPath) => !previouslySyncedProjectPaths.has(projectPath)),
+    (projectPath) => openInSourceControl(projectPath)
   );
   yield* Effect.forEach(
-    [...previouslySyncedRepoPaths].filter((repoPath) => !currentAddedRepoPaths.includes(repoPath)),
-    (repoPath) => closeInSourceControl(repoPath)
+    [...previouslySyncedProjectPaths].filter((projectPath) => !currentAddedProjectPaths.includes(projectPath)),
+    (projectPath) => closeInSourceControl(projectPath)
   );
 });
 
-// Keeps Source Control in step with the added repos: each opens there, at startup too, and closes when removed. The git
-// extension does not remember repos opened this way, so every startup opens them again.
+// Keeps Source Control in step with the added projects: each opens there, at startup too, and closes when removed. The git
+// extension does not remember repositories opened this way, so every startup opens them again.
 export const startSourceControlSync = Effect.fn("startSourceControlSync")(function* () {
-  const {addedRepoPaths} = yield* RepoRepository;
-  const syncedRepoPaths = yield* Ref.make<ReadonlySet<RepoPath>>(new Set());
+  const {addedProjectPaths} = yield* ProjectRepository;
+  const syncedProjectPaths = yield* Ref.make<ReadonlySet<ProjectPath>>(new Set());
 
   yield* Effect.forkScoped(
-    Stream.runForEach(SubscriptionRef.changes(addedRepoPaths), (currentAddedRepoPaths) =>
-      syncAddedReposWithSourceControl(syncedRepoPaths, currentAddedRepoPaths)
+    Stream.runForEach(SubscriptionRef.changes(addedProjectPaths), (currentAddedProjectPaths) =>
+      syncAddedProjectsWithSourceControl(syncedProjectPaths, currentAddedProjectPaths)
     )
   );
 });

@@ -202,7 +202,10 @@ const config: Config[] = defineConfig([
         }
       ],
       "sort-imports": "off",
-      "unicorn/name-replacements": ["error", {checkFilenames: false, replacements: {repo: false}}]
+      "unicorn/name-replacements": [
+        "error",
+        {checkFilenames: false, replacements: {repo: {project: true, repository: false}}}
+      ]
     }
   },
   {

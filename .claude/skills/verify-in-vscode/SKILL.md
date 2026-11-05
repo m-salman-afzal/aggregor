@@ -45,8 +45,8 @@ The workspace defaults to `$AGGREGOR_VERIFY_WORKSPACE`, else `~/side/jsTester`. 
 trusts, or Claude's trust prompt blocks every session's hooks and statuses never appear. Use a throwaway repo, never one
 whose git state matters: Source Control checks can stage files there.
 
-The VS Code profile lives in `~/.cache/aggregor-verify/vscode-data` and persists between runs, sessions and added repos
-included. Delete that folder to start from a fresh profile.
+The VS Code profile lives in `~/.cache/aggregor-verify/vscode-data` and persists between runs, sessions and added
+projects included. Delete that folder to start from a fresh profile.
 
 ## Checking a change
 

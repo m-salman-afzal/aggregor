@@ -1,20 +1,20 @@
 import * as SessionService from "@/application/session/session.service.ts";
-import {Repo} from "@/domain/entities/repo/repo.entity.ts";
+import {Project} from "@/domain/entities/project/project.entity.ts";
 import {Session} from "@/domain/entities/session/session.entity.ts";
 import {SessionIdSchema} from "@/domain/value-objects/session-id.value-object.ts";
 import {decodeCommandArgument} from "@/presentation/utils/command-arguments.utils.ts";
 import {Effect} from "effect";
 
-// The repo row's button passes its Repo.
-export const newSessionInClickedRepo = Effect.fn("SessionController.newSessionInClickedRepo")(function* (
+// The project row's button passes its Project.
+export const newSessionInClickedProject = Effect.fn("SessionController.newSessionInClickedProject")(function* (
   clickedRow: unknown
 ) {
-  yield* SessionService.newSession(yield* decodeCommandArgument(Repo, clickedRow));
+  yield* SessionService.newSession(yield* decodeCommandArgument(Project, clickedRow));
 });
 
 // VS Code passes title-bar buttons the focused row, which can be any row, so its arguments are dropped and the user
-// picks the repo.
-export const newSessionAskingForRepo = Effect.fn("SessionController.newSessionAskingForRepo")(function* () {
+// picks the project.
+export const newSessionAskingForProject = Effect.fn("SessionController.newSessionAskingForProject")(function* () {
   yield* SessionService.newSession(undefined);
 });
 

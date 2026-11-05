@@ -2,5 +2,5 @@
 import {Data} from "effect";
 
 export class FolderPickCancelled extends Data.TaggedError("FolderPickCancelled") {}
-export class NoRepo extends Data.TaggedError("NoRepo") {}
-export class RepoPickCancelled extends Data.TaggedError("RepoPickCancelled") {}
+export class NoProject extends Data.TaggedError("NoProject") {}
+export class ProjectPickCancelled extends Data.TaggedError("ProjectPickCancelled") {}

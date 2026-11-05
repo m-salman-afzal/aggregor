@@ -1,12 +1,12 @@
 import {PromptClient} from "@/application/clients/prompt.client.ts";
-import {FolderPickCancelled, RepoPickCancelled} from "@/application/errors/repo.error.ts";
-import {RepoPathSchema} from "@/domain/value-objects/repo-path.value-object.ts";
+import {FolderPickCancelled, ProjectPickCancelled} from "@/application/errors/project.error.ts";
+import {ProjectPathSchema} from "@/domain/value-objects/project-path.value-object.ts";
 import {VsCodeService} from "@/infrastructure/vscode/vscode.service.ts";
 import {APP_NAME} from "@pkg/constants/src/extension.constant.ts";
-import {ACTIONS, REPO_LABELS} from "@pkg/constants/src/message.constant.ts";
+import {ACTIONS, PROJECT_LABELS} from "@pkg/constants/src/message.constant.ts";
 import {Effect, Layer, Result} from "effect";
 
-import type {Repo} from "@/domain/entities/repo/repo.entity.ts";
+import type {Project} from "@/domain/entities/project/project.entity.ts";
 import type {window as VsCodeWindow} from "vscode";
 
 type Window = typeof VsCodeWindow;
@@ -27,32 +27,34 @@ const confirm = Effect.fn("PromptClient.confirm")(function* (window: Window, mes
   return pickedAction === confirmAction;
 });
 
-const pickRepo = Effect.fn("PromptClient.pickRepo")(function* (window: Window, repos: readonly Repo[]) {
+const pickProject = Effect.fn("PromptClient.pickProject")(function* (window: Window, projects: readonly Project[]) {
   const pickedItem = yield* Effect.promise(async () =>
     window.showQuickPick(
-      repos.map((repo) => ({description: repo.path, label: repo.name, repo})),
-      {placeHolder: REPO_LABELS.PICK}
+      projects.map((project) => ({description: project.path, label: project.name, project})),
+      {placeHolder: PROJECT_LABELS.PICK}
     )
   );
-  const {repo: pickedRepo} = yield* Effect.fromResult(Result.fromNullishOr(pickedItem, () => new RepoPickCancelled()));
+  const {project: pickedProject} = yield* Effect.fromResult(
+    Result.fromNullishOr(pickedItem, () => new ProjectPickCancelled())
+  );
 
-  return pickedRepo;
+  return pickedProject;
 });
 
-const pickRepoFolderPaths = Effect.fn("PromptClient.pickRepoFolderPaths")(function* (window: Window) {
+const pickProjectFolderPaths = Effect.fn("PromptClient.pickProjectFolderPaths")(function* (window: Window) {
   const pickedFolderUris = yield* Effect.promise(async () =>
     window.showOpenDialog({
       canSelectFiles: false,
       canSelectFolders: true,
       canSelectMany: true,
-      openLabel: ACTIONS.ADD_REPO
+      openLabel: ACTIONS.ADD_PROJECT
     })
   );
   const confirmedFolderUris = yield* Effect.fromResult(
     Result.fromNullishOr(pickedFolderUris, () => new FolderPickCancelled())
   );
 
-  return confirmedFolderUris.map((folderUri) => RepoPathSchema.make(folderUri.fsPath));
+  return confirmedFolderUris.map((folderUri) => ProjectPathSchema.make(folderUri.fsPath));
 });
 
 const makePromptClientOnVsCode = Effect.fn("PromptClient.make")(function* () {
@@ -60,8 +62,8 @@ const makePromptClientOnVsCode = Effect.fn("PromptClient.make")(function* () {
 
   return {
     confirm: (message: string, confirmAction: string) => confirm(window, message, confirmAction),
-    pickRepo: (repos: readonly Repo[]) => pickRepo(window, repos),
-    pickRepoFolderPaths: () => pickRepoFolderPaths(window),
+    pickProject: (projects: readonly Project[]) => pickProject(window, projects),
+    pickProjectFolderPaths: () => pickProjectFolderPaths(window),
     showErrorMessage: (message: string, ...actions: string[]) => showErrorMessage(window, message, actions)
   };
 });

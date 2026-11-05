@@ -60,7 +60,7 @@ const findTerminalSessionId = Effect.fn("TerminalClient.findTerminalSessionId")(
   return sessionId;
 });
 
-// Runs the harness's launch plan as the terminal's shell, in the session's repo.
+// Runs the harness's launch plan as the terminal's shell, in the session's project.
 const launchSessionTerminal = Effect.fn("TerminalClient.launchSessionTerminal")(function* (
   terminalDependencies: TerminalDependencies,
   session: Session,
@@ -73,7 +73,7 @@ const launchSessionTerminal = Effect.fn("TerminalClient.launchSessionTerminal")(
     catch: (cause) => new TerminalLaunchFailed({cause}),
     try: () =>
       window.createTerminal({
-        cwd: session.repoPath,
+        cwd: session.projectPath,
         env: launchPlan.environmentVariables,
         iconPath: Uri.file(iconPath),
         isTransient: true,
