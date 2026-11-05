@@ -7,7 +7,7 @@ import {APP_NAME} from "@pkg/constants/src/extension.constant.ts";
 import {ACTIONS, PROJECT_LABELS} from "@pkg/constants/src/message.constant.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
-import {Effect, Layer, Result} from "effect";
+import {Array, Effect, Layer, Result} from "effect";
 
 import type {ProjectEntity} from "@entities/project/project.entity.ts";
 import type {window as VsCodeWindow} from "vscode";
@@ -19,7 +19,7 @@ const showErrorMessage = Effect.fn("PromptInfraService.showErrorMessage")(functi
   message: string,
   actions: readonly string[]
 ) {
-  return yield* Effect.promise(async () => window.showErrorMessage(`${APP_NAME}: ${message}`, ...actions));
+  return yield* Effect.promise(() => window.showErrorMessage(`${APP_NAME}: ${message}`, ...actions));
 });
 
 const confirm = Effect.fn("PromptInfraService.confirm")(function* (
@@ -27,9 +27,7 @@ const confirm = Effect.fn("PromptInfraService.confirm")(function* (
   message: string,
   confirmAction: string
 ) {
-  const pickedAction = yield* Effect.promise(async () =>
-    window.showWarningMessage(message, {modal: true}, confirmAction)
-  );
+  const pickedAction = yield* Effect.promise(() => window.showWarningMessage(message, {modal: true}, confirmAction));
 
   return pickedAction === confirmAction;
 });
@@ -38,21 +36,21 @@ const pickProject = Effect.fn("PromptInfraService.pickProject")(function* (
   window: Window,
   projects: readonly ProjectEntity[]
 ) {
-  const pickedItem = yield* Effect.promise(async () =>
+  const pickedItem = yield* Effect.promise(() =>
     window.showQuickPick(
-      projects.map((project) => ({description: project.path, label: project.name, project})),
+      Array.map(projects, (project) => ({description: project.path, label: project.name, project})),
       {placeHolder: PROJECT_LABELS.PICK}
     )
   );
   const {project: pickedProject} = yield* Effect.fromResult(
-    Result.fromNullishOr(pickedItem, () => new ProjectPickCancelledError())
+    Result.fromNullishOr(pickedItem, () => ProjectPickCancelledError.make())
   );
 
   return pickedProject;
 });
 
 const pickProjectFolderPaths = Effect.fn("PromptInfraService.pickProjectFolderPaths")(function* (window: Window) {
-  const pickedFolderUris = yield* Effect.promise(async () =>
+  const pickedFolderUris = yield* Effect.promise(() =>
     window.showOpenDialog({
       canSelectFiles: false,
       canSelectFolders: true,
@@ -61,10 +59,10 @@ const pickProjectFolderPaths = Effect.fn("PromptInfraService.pickProjectFolderPa
     })
   );
   const confirmedFolderUris = yield* Effect.fromResult(
-    Result.fromNullishOr(pickedFolderUris, () => new FolderPickCancelledError())
+    Result.fromNullishOr(pickedFolderUris, () => FolderPickCancelledError.make())
   );
 
-  return confirmedFolderUris.map((folderUri) => ProjectPathValueObjectSchema.make(folderUri.fsPath));
+  return Array.map(confirmedFolderUris, (folderUri) => ProjectPathValueObjectSchema.make(folderUri.fsPath));
 });
 
 const makePromptInfraService = Effect.fn("PromptInfraService.make")(function* () {
@@ -73,7 +71,7 @@ const makePromptInfraService = Effect.fn("PromptInfraService.make")(function* ()
   return {
     confirm: (message: string, confirmAction: string) => confirm(window, message, confirmAction),
     pickProject: (projects: readonly ProjectEntity[]) => pickProject(window, projects),
-    pickProjectFolderPaths: () => pickProjectFolderPaths(window),
+    pickProjectFolderPaths: pickProjectFolderPaths(window),
     showErrorMessage: (message: string, ...actions: string[]) => showErrorMessage(window, message, actions)
   };
 });

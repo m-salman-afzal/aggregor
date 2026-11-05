@@ -115,6 +115,8 @@ const config: Config[] = defineConfig([
       "@typescript-eslint/prefer-nullish-coalescing": "off",
       "@typescript-eslint/prefer-optional-chain": "off",
       "@typescript-eslint/prefer-readonly-parameter-types": "off",
+      // Effect's asyncFunction rule bans the async keyword, so a function that returns a promise is a plain function.
+      "@typescript-eslint/promise-function-async": "off",
       "capitalized-comments": "off",
       "func-names": ["error", "always", {generators: "never"}],
       "id-length": ["error", {min: 3, properties: "never"}],

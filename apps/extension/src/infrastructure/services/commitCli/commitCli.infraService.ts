@@ -5,7 +5,7 @@ import {
   ICommitCliInfraService
 } from "@interfaces/commitCli.infraService.interface.ts";
 import {EXIT_CODES} from "@pkg/constants/src/process.constant.ts";
-import {Effect, Layer, Stream} from "effect";
+import {Effect, Layer, Stream, String} from "effect";
 import {ChildProcess} from "effect/process";
 import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 
@@ -35,7 +35,7 @@ const runCommitCommand = Effect.fn("CommitCliInfraService.runCommitCommand")(
   },
   Effect.scoped,
   Effect.catchTag("PlatformError", (platformError) =>
-    Effect.fail(new CommitCliSpawnFailedError({reason: platformError.message}))
+    Effect.fail(CommitCliSpawnFailedError.make({reason: platformError.message}))
   )
 );
 
@@ -44,10 +44,10 @@ const generateCommitMessage = Effect.fn("CommitCliInfraService.generateCommitMes
   commitMessageRequest: CommitMessageRequest
 ) {
   const {exitCode, stderr, stdout} = yield* runCommitCommand(childProcessSpawner, commitMessageRequest);
-  if (exitCode !== EXIT_CODES.SUCCESSFUL) return yield* new CommitCliError({exitCode, stderr: stderr.trim()});
+  if (exitCode !== EXIT_CODES.SUCCESSFUL) return yield* CommitCliError.make({exitCode, stderr: String.trim(stderr)});
 
-  const commitMessage = stdout.trim();
-  if (commitMessage.length === 0) return yield* new EmptyCommitMessageError();
+  const commitMessage = String.trim(stdout);
+  if (commitMessage.length === 0) return yield* EmptyCommitMessageError.make();
 
   return commitMessage;
 });

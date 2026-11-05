@@ -6,7 +6,7 @@ import {
 } from "@infraServices/claudeCodeHarness/transcript.utils.ts";
 import {SessionTitleNotFoundError} from "@interfaces/harness.infraService.interface.ts";
 import {decodeSessionId} from "@valueObjects/sessionId.valueObject.ts";
-import {Effect, Result, Schedule, Stream, SubscriptionRef} from "effect";
+import {Array, Effect, Result, Schedule, Stream, SubscriptionRef} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 
@@ -65,7 +65,7 @@ const refreshSessionTitle = Effect.fn("ClaudeCodeHarnessInfraService.refreshSess
 const refreshTrackedSessionTitle = Effect.fn("ClaudeCodeHarnessInfraService.refreshTrackedSessionTitle")(
   function* (titleTracking: TitleTracking, sessionId: SessionIdValueObject) {
     const trackedSessions = yield* SubscriptionRef.get(titleTracking.trackedSessions);
-    if (!trackedSessions.some((session) => session.id === sessionId)) return;
+    if (!Array.some(trackedSessions, (session) => session.id === sessionId)) return;
 
     yield* refreshSessionTitle(titleTracking, sessionId);
   },
@@ -94,7 +94,7 @@ const watchSessionIdBatches = Effect.fn("ClaudeCodeHarnessInfraService.watchSess
 ) {
   const path = yield* Path;
   const trackedSessionIds = Stream.flatMap(SubscriptionRef.changes(trackedSessions), (sessions) =>
-    Stream.fromIterable(sessions.map((session) => session.id))
+    Stream.fromIterable(Array.map(sessions, (session) => session.id))
   );
   // Files not named after a session id, such as other projects' memory files, are not transcripts.
   const writtenSessionIds = Stream.filterMap(Stream.unwrap(watchClaudeProjects()), (fileSystemEvent) =>
@@ -123,6 +123,6 @@ export const getSessionTitle = Effect.fn("ClaudeCodeHarnessInfraService.getSessi
   const currentTitles = yield* SubscriptionRef.get(sessionTitles);
 
   return yield* Effect.fromResult(
-    Result.fromNullishOr(currentTitles.get(sessionId), () => new SessionTitleNotFoundError({sessionId}))
+    Result.fromNullishOr(currentTitles.get(sessionId), () => SessionTitleNotFoundError.make({sessionId}))
   );
 });

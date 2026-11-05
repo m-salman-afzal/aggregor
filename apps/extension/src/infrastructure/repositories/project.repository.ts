@@ -29,7 +29,7 @@ const loadAddedProjectPaths = Effect.fn("ProjectRepository.loadAddedProjectPaths
 
     return storedAddedProjectPaths.addedProjectPaths;
   },
-  Effect.mapError((cause) => new ProjectsCorruptError({cause}))
+  Effect.mapError((cause) => ProjectsCorruptError.make({cause}))
 );
 
 const saveAddedProjectPaths = Effect.fn("ProjectRepository.saveAddedProjectPaths")(function* (
@@ -39,8 +39,8 @@ const saveAddedProjectPaths = Effect.fn("ProjectRepository.saveAddedProjectPaths
   const storedValue: typeof StoredAddedProjectPathsModel.Encoded = {addedProjectPaths, version: 1};
 
   yield* Effect.tryPromise({
-    catch: (cause) => new ProjectsSaveFailedError({cause}),
-    try: async () => workspaceState.update(STORAGE_KEYS.ADDED_PROJECT_PATHS, storedValue)
+    catch: (cause) => ProjectsSaveFailedError.make({cause}),
+    try: () => workspaceState.update(STORAGE_KEYS.ADDED_PROJECT_PATHS, storedValue)
   });
 });
 
@@ -48,7 +48,8 @@ const writeAddedProjectPathsChange = Effect.fn("ProjectRepository.writeAddedProj
   workspaceState: Memento,
   changeAddedProjectPaths: ChangeAddedProjectPaths
 ) {
-  const nextAddedProjectPaths = changeAddedProjectPaths(yield* loadAddedProjectPaths(workspaceState));
+  const currentAddedProjectPaths = yield* loadAddedProjectPaths(workspaceState);
+  const nextAddedProjectPaths = changeAddedProjectPaths(currentAddedProjectPaths);
   yield* saveAddedProjectPaths(workspaceState, nextAddedProjectPaths);
 
   return nextAddedProjectPaths;
@@ -82,9 +83,8 @@ const loadInitialAddedProjectPaths = Effect.fn("ProjectRepository.loadInitialAdd
 
 const makeProjectRepository = Effect.fn("ProjectRepository.make")(function* () {
   const {workspaceState} = yield* VsCodeApi;
-  const addedProjectPaths: AddedProjectPathsReference = yield* SubscriptionRef.make(
-    yield* loadInitialAddedProjectPaths(workspaceState)
-  );
+  const initialAddedProjectPaths = yield* loadInitialAddedProjectPaths(workspaceState);
+  const addedProjectPaths: AddedProjectPathsReference = yield* SubscriptionRef.make(initialAddedProjectPaths);
 
   return {
     addedProjectPaths,

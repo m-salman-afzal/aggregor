@@ -39,11 +39,14 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
 `Effect.either` is `Effect.result`, `Effect.catchAll` is `Effect.catch`). Check `node_modules/effect/dist/*.d.ts` and
 `node_modules/effect/ai-docs/` before using an API.
 
+- **Every Effect rule is an error in the extension source.** `@effect/tsgo` checks them in `pnpm typecheck` and the
+  editor; `packages/tsconfigs/tsconfig.base.json` lists each rule, and one turned off says why there.
 - **Every effectful function is an `Effect.fn`**, which gives it its span. Error handling and other combinators go in
   `Effect.fn`'s extra arguments after the body, not in a `.pipe`; handling that only one caller needs gets its own small
-  `Effect.fn`. A layer's body is a named `Effect.fn` such as `makeTerminalInfraService`, passed to `Layer.effect`.
-  `.pipe` is only for what is not a function: layers, streams and schedules. Lint bans `Effect.gen` and
-  `Effect.withSpan`.
+  `Effect.fn`. A layer's body is a named `Effect.fn` such as `makeTerminalInfraService`, passed to `Layer.effect`. A
+  service member that takes no arguments is an `Effect`, not a function: `make` calls its `Effect.fn` once
+  (`readSettings: readSettings(getConfiguration)`), and every run still gets its own span. `.pipe` is only for what is
+  not a function: layers, streams and schedules. Lint bans `Effect.gen` and `Effect.withSpan`.
 - **No `?.` and no `??`.** Check the value explicitly, or take a default with `Result.getOrElse` or `UndefinedOr.match`.
   Lint bans both.
 - **`Result`, never `Option`.** A value that can be missing is a `Result`, or an effect that fails, whose tagged error

@@ -49,10 +49,10 @@ const INFRASTRUCTURE_IMPORTS = {
 };
 
 const TAGGED_ERROR_CLASS =
-  "ClassDeclaration[superClass.callee.object.name='Data'][superClass.callee.property.name='TaggedError']";
+  "ClassDeclaration[superClass.callee.callee.object.name='Schema'][superClass.callee.callee.property.name='TaggedError']";
 const EXPORTED_TAGGED_ERROR_CLASS =
-  "ExportNamedDeclaration[declaration.superClass.callee.object.name='Data']" +
-  "[declaration.superClass.callee.property.name='TaggedError']";
+  "ExportNamedDeclaration[declaration.superClass.callee.callee.object.name='Schema']" +
+  "[declaration.superClass.callee.callee.property.name='TaggedError']";
 
 export const SYNTAX_BANS = [
   {message: "No optional chaining: check the value explicitly.", selector: "ChainExpression"},

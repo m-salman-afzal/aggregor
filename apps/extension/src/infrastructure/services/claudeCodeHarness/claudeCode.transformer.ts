@@ -1,11 +1,14 @@
 import {StatusValueObjectSchema} from "@valueObjects/status.valueObject.ts";
-import {Data, Result, Schema} from "effect";
+import {Result, Schema, String} from "effect";
 
 import type {Titles} from "@infraServices/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
 
 // Claude Code's file formats, read into ours.
 
-export class TitleNotFoundError extends Data.TaggedError("TitleNotFoundError") {}
+export class TitleNotFoundError extends Schema.TaggedError<TitleNotFoundError, {readonly brand: unique symbol}>()(
+  "TitleNotFoundError",
+  {}
+) {}
 
 // Claude appends one of these every time it (re)names a conversation. The format is undocumented, so anything that
 // stops matching just leaves the session with our own name.
@@ -17,13 +20,13 @@ const TitleEntry = Schema.Union([
 const decodeTitleEntry = Schema.decodeUnknownResult(Schema.fromJsonString(TitleEntry));
 
 export const NO_TITLES: Titles = {
-  aiTitle: Result.fail(new TitleNotFoundError()),
-  customTitle: Result.fail(new TitleNotFoundError())
+  aiTitle: Result.fail(TitleNotFoundError.make()),
+  customTitle: Result.fail(TitleNotFoundError.make())
 };
 
 // One transcript line; most are not titles, so those skip the JSON parse.
 export const decodeTitleLine = (transcriptLine: string): Result.Result<typeof TitleEntry.Type, unknown> =>
-  transcriptLine.includes('-title"') ? decodeTitleEntry(transcriptLine) : Result.failVoid;
+  String.includes('-title"')(transcriptLine) ? decodeTitleEntry(transcriptLine) : Result.failVoid;
 
 export const addTitleEntry = (currentTitles: Titles, titleEntry: typeof TitleEntry.Type): Titles =>
   titleEntry.type === "ai-title"

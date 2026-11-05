@@ -8,17 +8,22 @@ import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface
 import {ACTIONS, SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {pickProject} from "@services/project.service.ts";
 import {SessionIdValueObjectSchema} from "@valueObjects/sessionId.valueObject.ts";
-import {Data, Effect, Match, Result, SubscriptionRef} from "effect";
+import {Array, Effect, Match, Result, Schema, SubscriptionRef} from "effect";
+import {SecureRandom} from "effect/crypto";
 
 import type {ProjectEntity} from "@entities/project/project.entity.ts";
 import type {TerminalLaunchRequest} from "@interfaces/terminal.infraService.interface.ts";
 import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
 
-class RemoveCancelledError extends Data.TaggedError("RemoveCancelledError") {}
+class RemoveCancelledError extends Schema.TaggedError<RemoveCancelledError, {readonly brand: unique symbol}>()(
+  "RemoveCancelledError",
+  {}
+) {}
 
-class SessionNotFoundError extends Data.TaggedError("SessionNotFoundError")<{
-  readonly sessionId: SessionIdValueObject;
-}> {}
+class SessionNotFoundError extends Schema.TaggedError<SessionNotFoundError, {readonly brand: unique symbol}>()(
+  "SessionNotFoundError",
+  {sessionId: SessionIdValueObjectSchema}
+) {}
 
 export const listSessions = Effect.fn("SessionService.listSessions")(function* () {
   const {sessions} = yield* ISessionRepository;
@@ -30,19 +35,21 @@ export const findSession = Effect.fn("SessionService.findSession")(function* (se
   const allSessions = yield* listSessions();
 
   return yield* Effect.fromResult(
-    Result.fromNullishOr(
-      allSessions.find((session) => session.id === sessionId),
-      () => new SessionNotFoundError({sessionId})
+    Result.fromOption(
+      Array.findFirst(allSessions, (session) => session.id === sessionId),
+      () => SessionNotFoundError.make({sessionId})
     )
   );
 });
 
 const addSession = Effect.fn("SessionService.addSession")(function* (project: ProjectEntity) {
   const {modifySessions} = yield* ISessionRepository;
-  const sessionId = yield* Effect.sync(() => SessionIdValueObjectSchema.make(crypto.randomUUID()));
+  const {uuidV4} = yield* SecureRandom.SecureRandom;
+  const sessionUuid = yield* uuidV4();
+  const sessionId = SessionIdValueObjectSchema.make(sessionUuid);
 
   return yield* modifySessions((storedSessions) => {
-    const addedSession = new SessionEntity({
+    const addedSession = SessionEntity.make({
       harnessId: "claude-code",
       id: sessionId,
       name: getNewSessionName(project.name, storedSessions),
@@ -56,7 +63,7 @@ const addSession = Effect.fn("SessionService.addSession")(function* (project: Pr
 const deleteSession = Effect.fn("SessionService.deleteSession")(function* (sessionId: SessionIdValueObject) {
   const {modifySessions} = yield* ISessionRepository;
   yield* modifySessions(
-    (storedSessions) => [sessionId, storedSessions.filter((session) => session.id !== sessionId)] as const
+    (storedSessions) => [sessionId, Array.filter(storedSessions, (session) => session.id !== sessionId)] as const
   );
 });
 
@@ -110,13 +117,15 @@ const openNewSessionTerminal = Effect.fn("SessionService.openNewSessionTerminal"
 const startSession = Effect.fn("SessionService.startSession")(function* (clickedProject: ProjectEntity | undefined) {
   const sessionProject = clickedProject === undefined ? yield* pickProject() : clickedProject;
 
-  yield* openNewSessionTerminal(yield* addSession(sessionProject));
+  const addedSession = yield* addSession(sessionProject);
+  yield* openNewSessionTerminal(addedSession);
 });
 
 const relaunchSession = Effect.fn("SessionService.relaunchSession")(function* (sessionId: SessionIdValueObject) {
   const session = yield* findSession(sessionId);
+  const sessionDisplayName = yield* getSessionDisplayName(session);
 
-  yield* openSessionTerminal(session, yield* getSessionDisplayName(session));
+  yield* openSessionTerminal(session, sessionDisplayName);
 });
 
 const confirmRunningSessionRemoval = Effect.fn("SessionService.confirmRunningSessionRemoval")(function* (
@@ -128,7 +137,7 @@ const confirmRunningSessionRemoval = Effect.fn("SessionService.confirmRunningSes
   yield* Effect.filterOrFail(
     confirm(SESSION_MESSAGES.CONFIRM_REMOVE_RUNNING(displayName), ACTIONS.REMOVE),
     (isConfirmed) => isConfirmed,
-    () => new RemoveCancelledError()
+    () => RemoveCancelledError.make()
   );
 });
 

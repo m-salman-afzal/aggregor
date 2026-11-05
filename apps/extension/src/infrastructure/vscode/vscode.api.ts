@@ -25,7 +25,7 @@ export class VsCodeApi extends Context.Service<
     readonly workspace: typeof vscode.workspace;
     readonly workspaceState: vscode.Memento;
   }
->()("aggregor/infrastructure/vscode/vscode.api/VsCodeApi") {
+>()("aggregor-app/infrastructure/vscode/vscode.api/VsCodeApi") {
   public static readonly layer = (extensionContext: vscode.ExtensionContext) =>
     Layer.succeed(VsCodeApi, {
       commands: vscode.commands,

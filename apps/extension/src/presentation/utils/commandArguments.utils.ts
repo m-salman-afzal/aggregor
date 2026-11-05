@@ -5,8 +5,7 @@ import {Effect, Schema} from "effect";
 export const decodeCommandArgument = Effect.fn("decodeCommandArgument")(function* <
   ArgumentSchema extends Schema.Constraint
 >(argumentSchema: ArgumentSchema, commandArgument: unknown) {
-  return yield* Effect.mapError(
-    Schema.decodeUnknownEffect(argumentSchema)(commandArgument),
-    (cause) => new InvalidCommandArgumentsError({cause})
+  return yield* Effect.mapError(Schema.decodeUnknownEffect(argumentSchema)(commandArgument), (cause) =>
+    InvalidCommandArgumentsError.make({cause})
   );
 });

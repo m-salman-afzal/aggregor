@@ -4,12 +4,15 @@ import {IProjectRepository} from "@entities/project/project.repository.interface
 import {IPromptInfraService} from "@interfaces/prompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {PROJECT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
-import {Data, Effect, Match, Result, SubscriptionRef} from "effect";
+import {Array, Effect, Match, Result, Schema, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
 import type {ProjectsCorruptError, ProjectsSaveFailedError} from "@entities/project/project.repository.interface.ts";
 
-export class NoProjectError extends Data.TaggedError("NoProjectError") {}
+export class NoProjectError extends Schema.TaggedError<NoProjectError, {readonly brand: unique symbol}>()(
+  "NoProjectError",
+  {}
+) {}
 
 const showProjectRepositoryError = Effect.fn("ProjectService.showProjectRepositoryError")(function* (
   projectRepositoryError: ProjectsCorruptError | ProjectsSaveFailedError
@@ -26,16 +29,16 @@ const showProjectRepositoryError = Effect.fn("ProjectService.showProjectReposito
 export const listProjects = Effect.fn("ProjectService.listProjects")(function* () {
   const {addedProjectPaths} = yield* IProjectRepository;
   const path = yield* Path;
-  const workspaceFolderProjects = yield* IWorkspaceInfraService.use((workspaceInfraService) =>
-    workspaceInfraService.listWorkspaceFolderProjects()
+  const workspaceFolderProjects = yield* IWorkspaceInfraService.use(
+    (workspaceInfraService) => workspaceInfraService.listWorkspaceFolderProjects
   );
-  const workspaceFolderPaths = new Set(workspaceFolderProjects.map((project) => project.path));
-  const addedProjects = (yield* SubscriptionRef.get(addedProjectPaths))
-    .filter((addedProjectPath) => !workspaceFolderPaths.has(addedProjectPath))
-    .map(
-      (addedProjectPath) =>
-        new ProjectEntity({added: true, name: path.basename(addedProjectPath), path: addedProjectPath})
-    );
+  const workspaceFolderPaths = new Set(Array.map(workspaceFolderProjects, (project) => project.path));
+  const currentAddedProjectPaths = yield* SubscriptionRef.get(addedProjectPaths);
+  const addedProjects = Array.map(
+    Array.filter(currentAddedProjectPaths, (addedProjectPath) => !workspaceFolderPaths.has(addedProjectPath)),
+    (addedProjectPath) =>
+      ProjectEntity.make({added: true, name: path.basename(addedProjectPath), path: addedProjectPath})
+  );
 
   return [...workspaceFolderProjects, ...addedProjects];
 });
@@ -46,15 +49,15 @@ export const pickProject = Effect.fn("ProjectService.pickProject")(function* () 
   if (projects.length > 1)
     return yield* IPromptInfraService.use((promptInfraService) => promptInfraService.pickProject(projects));
 
-  return yield* Effect.fromResult(Result.fromNullishOr(projects[0], () => new NoProjectError()));
+  return yield* Effect.fromResult(Result.fromNullishOr(projects[0], () => NoProjectError.make()));
 });
 
 // ponytail: any folder counts as a project, no git check. Worktree mode (M3) is where a non-git folder would first break.
 export const addProject = Effect.fn("ProjectService.addProject")(
   function* () {
     const {modifyAddedProjectPaths} = yield* IProjectRepository;
-    const pickedFolderPaths = yield* IPromptInfraService.use((promptInfraService) =>
-      promptInfraService.pickProjectFolderPaths()
+    const pickedFolderPaths = yield* IPromptInfraService.use(
+      (promptInfraService) => promptInfraService.pickProjectFolderPaths
     );
 
     yield* modifyAddedProjectPaths((storedAddedProjectPaths) => [
@@ -69,6 +72,6 @@ export const addProject = Effect.fn("ProjectService.addProject")(
 export const removeProject = Effect.fn("ProjectService.removeProject")(function* (project: ProjectEntity) {
   const {modifyAddedProjectPaths} = yield* IProjectRepository;
   yield* modifyAddedProjectPaths((storedAddedProjectPaths) =>
-    storedAddedProjectPaths.filter((addedProjectPath) => addedProjectPath !== project.path)
+    Array.filter(storedAddedProjectPaths, (addedProjectPath) => addedProjectPath !== project.path)
   );
 }, Effect.catch(showProjectRepositoryError));

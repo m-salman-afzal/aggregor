@@ -5,13 +5,13 @@ import {IGitInfraService} from "@interfaces/git.infraService.interface.ts";
 import {IPromptInfraService} from "@interfaces/prompt.infraService.interface.ts";
 import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
 import {ACTIONS, COMMIT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
-import {Effect, Ref, Stream, SubscriptionRef} from "effect";
+import {Array, Effect, Ref, Stream, SubscriptionRef} from "effect";
 
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
 // The commit command writes the message for the staged changes into Source Control, and commits when autoCommit is on.
 const writeCommitMessage = Effect.fn("ScmService.writeCommitMessage")(function* (projectPath: ProjectPathValueObject) {
-  const {autoCommit, commitCommand} = yield* ISettingsConfig.use((settingsConfig) => settingsConfig.readSettings());
+  const {autoCommit, commitCommand} = yield* ISettingsConfig.use((settingsConfig) => settingsConfig.readSettings);
   const gitInfraService = yield* IGitInfraService;
   const stagedDiff = yield* gitInfraService.getStagedDiff(projectPath);
   const commitMessage = yield* ICommitCliInfraService.use((commitCliInfraService) =>
@@ -62,11 +62,11 @@ const syncAddedProjectsWithSourceControl = Effect.fn("ScmService.syncAddedProjec
   const previouslySyncedProjectPaths = yield* Ref.getAndSet(syncedProjectPaths, new Set(currentAddedProjectPaths));
 
   yield* Effect.forEach(
-    currentAddedProjectPaths.filter((projectPath) => !previouslySyncedProjectPaths.has(projectPath)),
+    Array.filter(currentAddedProjectPaths, (projectPath) => !previouslySyncedProjectPaths.has(projectPath)),
     (projectPath) => openInSourceControl(projectPath)
   );
   yield* Effect.forEach(
-    [...previouslySyncedProjectPaths].filter((projectPath) => !currentAddedProjectPaths.includes(projectPath)),
+    Array.filter([...previouslySyncedProjectPaths], (projectPath) => !currentAddedProjectPaths.includes(projectPath)),
     (projectPath) => closeInSourceControl(projectPath)
   );
 });

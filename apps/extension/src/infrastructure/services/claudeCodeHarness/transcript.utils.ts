@@ -1,5 +1,6 @@
 import {addTitleEntry, decodeTitleLine} from "@infraServices/claudeCodeHarness/claudeCode.transformer.ts";
-import {ByteSize, Config, Data, Effect, Result, Stream} from "effect";
+import {SessionIdValueObjectSchema} from "@valueObjects/sessionId.valueObject.ts";
+import {ByteSize, Config, Effect, Result, Schema, Stream} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 import {homedir} from "node:os";
@@ -7,9 +8,10 @@ import {homedir} from "node:os";
 import type {TranscriptProgress} from "@infraServices/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
 import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
 
-export class TranscriptNotFoundError extends Data.TaggedError("TranscriptNotFoundError")<{
-  readonly sessionId: SessionIdValueObject;
-}> {}
+export class TranscriptNotFoundError extends Schema.TaggedError<
+  TranscriptNotFoundError,
+  {readonly brand: unique symbol}
+>()("TranscriptNotFoundError", {sessionId: SessionIdValueObjectSchema}) {}
 
 export const getClaudeProjectsDirectoryPath = Effect.fn("ClaudeCodeHarnessInfraService.getClaudeProjectsDirectoryPath")(
   function* () {
@@ -36,7 +38,7 @@ export const findTranscriptFilePath = Effect.fn("ClaudeCodeHarnessInfraService.f
     fileSystem.exists(path.join(projectsDirectoryPath, projectFolderName, `${sessionId}.jsonl`))
   );
   const projectFolderName = yield* Effect.fromResult(
-    Result.fromOption(matchingFolderName, () => new TranscriptNotFoundError({sessionId}))
+    Result.fromOption(matchingFolderName, () => TranscriptNotFoundError.make({sessionId}))
   );
 
   return path.join(projectsDirectoryPath, projectFolderName, `${sessionId}.jsonl`);

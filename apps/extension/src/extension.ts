@@ -2,13 +2,13 @@ import {AppLayer} from "@di/app.layer.ts";
 import {TraceLogLayer} from "@logger/traceLog.layer.ts";
 import {SessionsView} from "@views/sessions/sessions.view.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
-import {Layer, ManagedRuntime} from "effect";
+import {Effect, Layer, ManagedRuntime} from "effect";
 
 import {RoutesLayer} from "./presentation/routes.ts";
 
 import type {ExtensionContext} from "vscode";
 
-const activate = async (extensionContext: ExtensionContext) => {
+const activate = (extensionContext: ExtensionContext) => {
   // TraceLogLayer goes under everything, so every layer's startup work is traced and logged too.
   const runtime = ManagedRuntime.make(
     Layer.mergeAll(RoutesLayer, SessionsView).pipe(
@@ -17,9 +17,10 @@ const activate = async (extensionContext: ExtensionContext) => {
       Layer.provideMerge(VsCodeApi.layer(extensionContext))
     )
   );
-  extensionContext.subscriptions.push({dispose: async () => runtime.dispose()});
+  extensionContext.subscriptions.push({dispose: () => runtime.dispose()});
+
   // The runtime builds lazily; build it now so commands and views exist before activation finishes.
-  await runtime.context();
+  return runtime.runPromise(Effect.void);
 };
 
 export {activate};

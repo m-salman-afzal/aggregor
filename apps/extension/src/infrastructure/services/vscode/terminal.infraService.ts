@@ -6,7 +6,7 @@ import {
   TerminalNotFoundError
 } from "@interfaces/terminal.infraService.interface.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
-import {Data, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
+import {Array, Effect, Layer, Result, Schema, Stream, SubscriptionRef} from "effect";
 
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {TerminalLaunchRequest} from "@interfaces/terminal.infraService.interface.ts";
@@ -22,10 +22,22 @@ type TerminalDependencies = {
 } & Pick<VsCodeApi["Service"], "TabInputTerminal" | "Uri" | "ViewColumn" | "window">;
 
 // Why no session is in view, private to this file: the interface only sees NoViewedSessionError.
-class NoActiveTerminalError extends Data.TaggedError("NoActiveTerminalError") {}
-class NotATerminalTabError extends Data.TaggedError("NotATerminalTabError") {}
-class UntrackedTerminalError extends Data.TaggedError("UntrackedTerminalError") {}
-class WindowUnfocusedError extends Data.TaggedError("WindowUnfocusedError") {}
+class NoActiveTerminalError extends Schema.TaggedError<NoActiveTerminalError, {readonly brand: unique symbol}>()(
+  "NoActiveTerminalError",
+  {}
+) {}
+class NotATerminalTabError extends Schema.TaggedError<NotATerminalTabError, {readonly brand: unique symbol}>()(
+  "NotATerminalTabError",
+  {}
+) {}
+class UntrackedTerminalError extends Schema.TaggedError<UntrackedTerminalError, {readonly brand: unique symbol}>()(
+  "UntrackedTerminalError",
+  {}
+) {}
+class WindowUnfocusedError extends Schema.TaggedError<WindowUnfocusedError, {readonly brand: unique symbol}>()(
+  "WindowUnfocusedError",
+  {}
+) {}
 
 const findSessionTerminal = Effect.fn("TerminalInfraService.findSessionTerminal")(function* (
   sessionTerminals: SessionTerminalsReference,
@@ -34,7 +46,7 @@ const findSessionTerminal = Effect.fn("TerminalInfraService.findSessionTerminal"
   const openTerminals = yield* SubscriptionRef.get(sessionTerminals);
 
   return yield* Effect.fromResult(
-    Result.fromNullishOr(openTerminals.get(sessionId), () => new TerminalNotFoundError({sessionId}))
+    Result.fromNullishOr(openTerminals.get(sessionId), () => TerminalNotFoundError.make({sessionId}))
   );
 });
 
@@ -54,9 +66,9 @@ const findTerminalSessionId = Effect.fn("TerminalInfraService.findTerminalSessio
 ) {
   const openTerminals = yield* SubscriptionRef.get(sessionTerminals);
   const [sessionId] = yield* Effect.fromResult(
-    Result.fromNullishOr(
-      [...openTerminals].find(([, openTerminal]) => openTerminal === terminal),
-      () => new UntrackedTerminalError()
+    Result.fromOption(
+      Array.findFirst([...openTerminals], ([, openTerminal]) => openTerminal === terminal),
+      () => UntrackedTerminalError.make()
     )
   );
 
@@ -73,7 +85,7 @@ const launchSessionTerminal = Effect.fn("TerminalInfraService.launchSessionTermi
   const {iconPath, launchPlan, tabName} = terminalLaunchRequest;
 
   return yield* Effect.try({
-    catch: (cause) => new TerminalLaunchFailedError({cause}),
+    catch: (cause) => TerminalLaunchFailedError.make({cause}),
     try: () =>
       window.createTerminal({
         cwd: session.projectPath,
@@ -98,7 +110,8 @@ const focusSessionTerminal = Effect.fn("TerminalInfraService.focusSessionTermina
   sessionTerminals: SessionTerminalsReference,
   sessionId: SessionIdValueObject
 ) {
-  yield* showTerminal(yield* findSessionTerminal(sessionTerminals, sessionId));
+  const sessionTerminal = yield* findSessionTerminal(sessionTerminals, sessionId);
+  yield* showTerminal(sessionTerminal);
 });
 
 // Reuses the session's terminal when this window has one. Serialized on the map's permit, so a double-click shows the
@@ -140,7 +153,7 @@ const findActiveTerminalSessionId = Effect.fn("TerminalInfraService.findActiveTe
   sessionTerminals: SessionTerminalsReference,
   activeTerminal: Terminal | undefined
 ) {
-  const terminal = yield* Effect.fromResult(Result.fromNullishOr(activeTerminal, () => new NoActiveTerminalError()));
+  const terminal = yield* Effect.fromResult(Result.fromNullishOr(activeTerminal, () => NoActiveTerminalError.make()));
 
   return yield* findTerminalSessionId(sessionTerminals, terminal);
 });
@@ -172,12 +185,12 @@ const readViewedSessionId = Effect.fn("TerminalInfraService.readViewedSessionId"
   terminalDependencies: TerminalDependencies
 ) {
   const {TabInputTerminal, window} = terminalDependencies;
-  if (!window.state.focused) return yield* new WindowUnfocusedError();
+  if (!window.state.focused) return yield* WindowUnfocusedError.make();
   const {activeTab} = window.tabGroups.activeTabGroup;
   if (activeTab === undefined || !(activeTab.input instanceof TabInputTerminal))
-    return yield* new NotATerminalTabError();
+    return yield* NotATerminalTabError.make();
   const {activeTerminal} = window;
-  if (activeTerminal === undefined) return yield* new NoActiveTerminalError();
+  if (activeTerminal === undefined) return yield* NoActiveTerminalError.make();
 
   return yield* findTerminalSessionId(terminalDependencies.sessionTerminals, activeTerminal);
 });
@@ -187,7 +200,7 @@ const findViewedSessionId = Effect.fn("TerminalInfraService.findViewedSessionId"
   function* (terminalDependencies: TerminalDependencies) {
     return yield* readViewedSessionId(terminalDependencies);
   },
-  Effect.mapError(() => new NoViewedSessionError())
+  Effect.mapError(() => NoViewedSessionError.make())
 );
 
 const updateViewedSessionId = Effect.fn("TerminalInfraService.updateViewedSessionId")(function* (
@@ -218,7 +231,8 @@ const watchFocusChanges = ({sessionTerminals, window}: TerminalDependencies) => 
 const trackViewedSessionId = Effect.fn("TerminalInfraService.trackViewedSessionId")(function* (
   terminalDependencies: TerminalDependencies
 ) {
-  const viewedSessionId = yield* SubscriptionRef.make(yield* Effect.result(findViewedSessionId(terminalDependencies)));
+  const initialViewedSessionId = yield* Effect.result(findViewedSessionId(terminalDependencies));
+  const viewedSessionId = yield* SubscriptionRef.make(initialViewedSessionId);
   yield* Effect.forkScoped(
     Stream.runForEach(watchFocusChanges(terminalDependencies), () =>
       updateViewedSessionId(terminalDependencies, viewedSessionId)

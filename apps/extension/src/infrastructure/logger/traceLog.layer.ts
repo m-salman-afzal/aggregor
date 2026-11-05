@@ -1,7 +1,7 @@
 import {acquireDisposable} from "@infraUtils/vscode.utils.ts";
 import {APP_NAME} from "@pkg/constants/src/extension.constant.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
-import {Cause, Effect, Exit, Layer, Logger, Predicate, References, Result, Tracer} from "effect";
+import {Array, Cause, Effect, Exit, Layer, Logger, Predicate, References, Result, Tracer} from "effect";
 import {format} from "node:util";
 
 import type {LogLevel} from "effect";
@@ -26,7 +26,7 @@ const formatFailureReason = (reason: Cause.Reason<unknown>) => {
 };
 
 const formatSpanOutcome = (exit: Exit.Exit<unknown, unknown>) =>
-  Exit.isSuccess(exit) ? "ok" : `failed: ${exit.cause.reasons.map(formatFailureReason).join(", ")}`;
+  Exit.isSuccess(exit) ? "ok" : `failed: ${Array.join(Array.map(exit.cause.reasons, formatFailureReason), ", ")}`;
 
 // Writes one trace-level line per finished span: its path, how long it took, and how it ended.
 const makeSpanLineTracer = (outputChannel: LogOutputChannel) =>
@@ -60,7 +60,10 @@ const OUTPUT_CHANNEL_METHODS = {
 const makeOutputChannelLogger = (outputChannel: LogOutputChannel) =>
   Logger.make(({cause, logLevel, message}) => {
     const messageParts: readonly unknown[] = Array.isArray(message) ? message : [message];
-    const logLine = [format(...messageParts), ...(cause.reasons.length > 0 ? [Cause.pretty(cause)] : [])].join("\n");
+    const logLine = Array.join(
+      [format(...messageParts), ...(cause.reasons.length > 0 ? [Cause.pretty(cause)] : [])],
+      "\n"
+    );
 
     // "All" and "None" are thresholds for filtering, never the level of a log call.
     if (logLevel === "All" || logLevel === "None") return;
