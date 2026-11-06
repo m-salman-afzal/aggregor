@@ -15,12 +15,16 @@ export class IHarnessInfraService extends Context.Service<
     readonly clearSessionStatus: (sessionId: SessionIdValueObject) => Effect.Effect<void>;
     // The harness's icon file, for the session's tab and row.
     readonly iconPath: string;
+    // The mark the agent's terminal title starts with while it waits for the user.
+    readonly idleTitleMark: string;
     // The titles the agent gives its terminal before it names the conversation, such as its own name.
     readonly placeholderTitles: ReadonlySet<string>;
     // Clears the session's last status and plans the launch: a resume when the agent has the conversation, else a
     // fresh start under the session's id.
     readonly prepareLaunch: (session: SessionEntity) => Effect.Effect<LaunchPlanValueObject>;
     readonly sessionStatuses: SubscriptionRef.SubscriptionRef<ReadonlyMap<SessionIdValueObject, StatusValueObject>>;
+    // Marks the session idle when its turn ended without the agent reporting it, as when the user interrupts Claude.
+    readonly settleSessionTurn: (sessionId: SessionIdValueObject) => Effect.Effect<void>;
   }
 >()("aggregor-app/application/interfaces/harness.infraService.interface/IHarnessInfraService") {}
 

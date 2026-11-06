@@ -60,13 +60,16 @@ const findChangedTitles = Effect.fn("TerminalInfraService.findChangedTitles")(fu
 });
 
 // VS Code has no event for a terminal's title changing, so each tab's is read every second, untraced like the spinner.
+// Each subscriber keeps its own last-read titles, so one cannot take another's changes.
 export const watchSessionTerminalTitles = Effect.fn("TerminalInfraService.watchSessionTerminalTitles")(function* (
   sessionTerminals: SessionTerminalsReference
 ) {
-  const readTitles = yield* Ref.make<ReadonlyMap<SessionIdValueObject, string>>(new Map());
-
-  return Stream.flatMap(Stream.tick(TITLE_READ_INTERVAL), () =>
-    Stream.fromIterableEffect(Effect.withTracerEnabled(findChangedTitles(sessionTerminals, readTitles), false))
+  return Stream.unwrap(
+    Effect.map(Ref.make<ReadonlyMap<SessionIdValueObject, string>>(new Map()), (readTitles) =>
+      Stream.flatMap(Stream.tick(TITLE_READ_INTERVAL), () =>
+        Stream.fromIterableEffect(Effect.withTracerEnabled(findChangedTitles(sessionTerminals, readTitles), false))
+      )
+    )
   );
 });
 

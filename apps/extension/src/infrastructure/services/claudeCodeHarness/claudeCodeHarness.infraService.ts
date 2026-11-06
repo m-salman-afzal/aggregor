@@ -1,4 +1,8 @@
-import {clearStatusFile, watchStatusDirectory} from "@infraServices/claudeCodeHarness/status.utils.ts";
+import {
+  clearStatusFile,
+  watchStatusDirectory,
+  writeIdleStatusFile
+} from "@infraServices/claudeCodeHarness/status.utils.ts";
 import {findTranscriptFilePath} from "@infraServices/claudeCodeHarness/transcript.utils.ts";
 import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
 import {HOOKS_FILE, MODEL_ICONS, STATUS_ENV} from "@pkg/constants/src/extension.constant.ts";
@@ -22,6 +26,9 @@ interface StatusPaths {
 // Claude's terminal reads "claude", its process name, then "Claude Code" until the conversation has a title, and
 // "claude · resume" in its resume picker.
 const PLACEHOLDER_TITLES: ReadonlySet<string> = new Set(["claude", "claude · resume", "Claude Code"]);
+
+// Claude's title starts with ✳ while it waits for the user and with a spinner frame while a turn runs.
+const IDLE_TITLE_MARK = "✳";
 
 // A failed lookup counts as "no transcript": starting fresh is better than a resume that cannot work.
 const hasTranscript = Effect.fn("ClaudeCodeHarnessInfraService.hasTranscript")(
@@ -79,9 +86,12 @@ const makeClaudeCodeHarnessInfraService = Effect.fn("ClaudeCodeHarnessInfraServi
     clearSessionStatus: (sessionId: SessionIdValueObject) =>
       clearStatusFile(fileSystem, path.join(statusPaths.statusDirectoryPath, sessionId)),
     iconPath: Uri.joinPath(extensionUri, MODEL_ICONS.CLAUDE).fsPath,
+    idleTitleMark: IDLE_TITLE_MARK,
     placeholderTitles: PLACEHOLDER_TITLES,
     prepareLaunch: (session: SessionEntity) => Effect.provide(prepareLaunch(statusPaths, session), fileServices),
-    sessionStatuses
+    sessionStatuses,
+    settleSessionTurn: (sessionId: SessionIdValueObject) =>
+      writeIdleStatusFile(fileSystem, path.join(statusPaths.statusDirectoryPath, sessionId))
   };
 });
 

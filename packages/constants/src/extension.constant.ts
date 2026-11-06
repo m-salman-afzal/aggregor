@@ -71,6 +71,9 @@ export const STATUS_BADGES = {
 
 export const SPINNER_INTERVAL_MS = 120;
 
+// How long a running session's title must say idle before its turn counts as ended without its hook.
+export const INTERRUPTED_TURN_GRACE = "3 seconds";
+
 export const STORAGE_KEYS = {
   ADDED_PROJECT_PATHS: "addedProjectPathsByWindow",
   SAVED_SESSIONS: "agentSessions"
