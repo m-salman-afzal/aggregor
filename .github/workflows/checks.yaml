@@ -24,9 +24,9 @@ jobs:
       matrix:
         script: [lint:check, format:check, typecheck, vsix]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # Installs pnpm and Node from package.json (packageManager, devEngines.runtime), then runs pnpm install.
-      - uses: pnpm/setup@v3
+      - uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3
         with:
           cache: true
           require-lockfile: true
