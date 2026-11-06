@@ -1,6 +1,6 @@
 import {showErrorInBackground} from "@appUtils/error.utils.ts";
 import {withHarnessInfraService} from "@appUtils/harness.utils.ts";
-import {getNewSessionName} from "@domainServices/session.domainService.ts";
+import {getNewSessionName, getSessionTitle} from "@domainServices/session.domainService.ts";
 import {SessionEntity} from "@entities/session/session.entity.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
@@ -247,10 +247,11 @@ const saveSessionTitle = Effect.fn("SessionService.saveSessionTitle")(
   function* (sessionId: SessionIdValueObject, terminalTitle: string) {
     const session = yield* findSession(sessionId);
     if (session.customName !== undefined) return;
-    const sessionTitle = yield* withHarnessInfraService(
+    const {placeholderTitles} = yield* withHarnessInfraService(
       session.harnessId,
-      IHarnessInfraService.use((harnessInfraService) => harnessInfraService.readSessionTitle(terminalTitle))
+      IHarnessInfraService.useSync((harnessInfraService) => harnessInfraService)
     );
+    const sessionTitle = yield* getSessionTitle(terminalTitle, placeholderTitles);
     if (sessionTitle === session.name) return;
 
     yield* updateSession(sessionId, (storedSession) => storedSession.withName(sessionTitle));

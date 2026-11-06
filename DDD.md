@@ -102,7 +102,7 @@ apps/extension/src/
                                            ProjectsCorruptError, ProjectsSaveFailedError
     valueObjects/                          SessionIdValueObject, ProjectPathValueObject (branded), StatusValueObject,
                                            HarnessIdValueObject (literals), LaunchPlanValueObject (an interface)
-    services/session.domainService.ts      getNewSessionName, getUnreadSessionIds
+    services/session.domainService.ts      getNewSessionName, getSessionTitle, getUnreadSessionIds
   application/
     services/
       session.service.ts                   newSession, openSession, removeSession, renameSession, listSessions,
@@ -113,8 +113,8 @@ apps/extension/src/
       workspace.service.ts                 startShownProjectSync: the viewed session's project as the only
                                            project folder; startWorkspaceSaveOffer
     interfaces/                            each with the errors and types its signatures name
-      harness.infraService.interface.ts    IHarnessInfraService: prepareLaunch, clearSessionStatus, readSessionTitle,
-                                           sessionStatuses, iconPath; IHarnessInfraServices: a LayerMap
+      harness.infraService.interface.ts    IHarnessInfraService: prepareLaunch, clearSessionStatus,
+                                           placeholderTitles, sessionStatuses, iconPath; IHarnessInfraServices: a LayerMap
                                            of them by harness id
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
                                            openProjectTerminal, renameSessionTerminal, isSessionTerminalOpen,
@@ -140,8 +140,8 @@ apps/extension/src/
     services/
       claudeCodeHarness/                   ClaudeCodeHarnessInfraService: the `claude` launch plan, --settings hooks,
                                            the status env var, the status-file watcher, the transcript lookup that
-                                           picks resume or a fresh start, and the transformer from Claude Code's
-                                           formats (status files, terminal titles) to ours
+                                           picks resume or a fresh start, Claude's placeholder titles, and the
+                                           transformer from its status files to ours
       vscode/                              PromptInfraService, WorkspaceInfraService, GitInfraService
       vscode/terminal/                     TerminalInfraService: session tabs and project shells; terminal.utils
                                            reads a terminal's session id from its env
@@ -223,7 +223,7 @@ apps/extension/src/
   with `LayerMap.fromRecord` over a record that `satisfies Record<HarnessIdValueObject, Layer<IHarnessInfraService>>`,
   so a harness id without an implementation fails to compile. Every harness starts with the window and never idles out,
   since the view reads its statuses all the time. Use cases run `withHarnessInfraService(session.harnessId, effect)`,
-  and the view merges every harness's statuses and titles with `forEachHarnessInfraService`. A new harness is one
+  and the view merges every harness's statuses with `forEachHarnessInfraService`. A new harness is one
   `infrastructure/services/<harness>/` folder, with its infra service and transformer, and one record entry.
 - **Harness and terminal don't know each other:** the harness returns a `LaunchPlanValueObject` (command, arguments,
   environment variables) and the terminal infra service runs it.
@@ -238,5 +238,5 @@ apps/extension/src/
 - A model lists its own fields and a `version` instead of embedding the entity, and the repository builds the entity
   from it. A new entity field then fails to compile in the repository, which is where the model's `version` bump
   belongs. `globalstorage.md` lists every stored key.
-- A transformer turns an outside format (Claude Code's status files and transcripts) into domain types. It sits beside
-  the infra service that reads the format, since only infrastructure knows it.
+- A transformer turns an outside format (Claude Code's status files) into domain types. It sits beside the infra service
+  that reads the format, since only infrastructure knows it.
