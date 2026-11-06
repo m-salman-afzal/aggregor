@@ -112,10 +112,12 @@ apps/extension/src/
       scm.service.ts                       writeCommitMessageOrShowError, offerToStageAllChanges
       workspace.service.ts                 startShownProjectSync: the viewed session's project as the only
                                            project folder; startWorkspaceSaveOffer
+      status.service.ts                    startInterruptedTurnSettle: a running session whose title says idle
+                                           settles to idle, since an interrupted turn runs no Stop hook
     interfaces/                            each with the errors and types its signatures name
       harness.infraService.interface.ts    IHarnessInfraService: prepareLaunch, clearSessionStatus,
-                                           placeholderTitles, sessionStatuses, iconPath; IHarnessInfraServices: a LayerMap
-                                           of them by harness id
+                                           settleSessionTurn, placeholderTitles, idleTitleMark, sessionStatuses,
+                                           iconPath; IHarnessInfraServices: a LayerMap of them by harness id
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
                                            openProjectTerminal, renameSessionTerminal, isSessionTerminalOpen,
                                            openSessionIds, activatedSessionIds, viewedSessionId,
@@ -140,8 +142,8 @@ apps/extension/src/
     services/
       claudeCodeHarness/                   ClaudeCodeHarnessInfraService: the `claude` launch plan, --settings hooks,
                                            the status env var, the status-file watcher, the transcript lookup that
-                                           picks resume or a fresh start, Claude's placeholder titles, and the
-                                           transformer from its status files to ours
+                                           picks resume or a fresh start, Claude's placeholder titles and idle
+                                           title mark, and the transformer from its status files to ours
       vscode/                              PromptInfraService, WorkspaceInfraService, GitInfraService
       vscode/terminal/                     TerminalInfraService: session tabs and project shells; terminal.utils
                                            reads a terminal's session id from its env

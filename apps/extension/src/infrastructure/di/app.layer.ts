@@ -9,6 +9,7 @@ import {WorkspaceInfraService} from "@infraServices/vscode/workspace.infraServic
 import {ProjectRepository} from "@repositories/project.repository.ts";
 import {SessionRepository} from "@repositories/session.repository.ts";
 import {startSessionTitleSync} from "@services/session.service.ts";
+import {startInterruptedTurnSettle} from "@services/status.service.ts";
 import {startShownProjectSync, startWorkspaceSaveOffer} from "@services/workspace.service.ts";
 import {Layer} from "effect";
 import {SecureRandom} from "effect/crypto";
@@ -23,6 +24,7 @@ const IndependentLayers = Layer.mergeAll(
 
 // What runs in the background for the window's whole life.
 const BackgroundLayer = Layer.mergeAll(
+  Layer.effectDiscard(startInterruptedTurnSettle()),
   Layer.effectDiscard(startSessionTitleSync()),
   Layer.effectDiscard(startShownProjectSync()),
   Layer.effectDiscard(startWorkspaceSaveOffer())

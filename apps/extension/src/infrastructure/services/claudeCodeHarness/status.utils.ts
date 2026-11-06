@@ -54,6 +54,15 @@ export const watchStatusDirectory = Effect.fn("ClaudeCodeHarnessInfraService.wat
   Effect.ignore({log: "Warn", message: "Could not watch session statuses"})
 );
 
+// Claude runs no Stop hook for an interrupted turn, so this writes the word that hook would have.
+export const writeIdleStatusFile = Effect.fn("ClaudeCodeHarnessInfraService.writeIdleStatusFile")(
+  function* (fileSystem: FileSystem, statusFilePath: string) {
+    yield* fileSystem.writeFileString(statusFilePath, "idle" satisfies StatusValueObject);
+  },
+  (effect, _fileSystem, statusFilePath) =>
+    Effect.ignore(effect, {log: "Warn", message: `Could not write idle to the status file ${statusFilePath}`})
+);
+
 // Runs before each launch, so a word left by the last run never shows, and when a session is removed.
 export const clearStatusFile = Effect.fn("ClaudeCodeHarnessInfraService.clearStatusFile")(
   function* (fileSystem: FileSystem, statusFilePath: string) {

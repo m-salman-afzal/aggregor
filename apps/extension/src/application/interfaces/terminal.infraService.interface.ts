@@ -48,7 +48,7 @@ export class ITerminalInfraService extends Context.Service<
     // Reuses the session's tab when this window already has one.
     // Renames the session's tab when it is open; the tab then keeps the name instead of the agent's title.
     readonly renameSessionTerminal: (sessionId: SessionIdValueObject, tabName: string) => Effect.Effect<void>;
-    // A session tab's title whenever it changes, as the agent in it sets it.
+    // A session tab's title whenever it changes, as the agent in it sets it; every subscriber sees every change.
     readonly sessionTerminalTitles: Stream.Stream<readonly [SessionIdValueObject, string]>;
     readonly viewedSessionId: SubscriptionRef.SubscriptionRef<
       Result.Result<SessionIdValueObject, NoViewedSessionError>
