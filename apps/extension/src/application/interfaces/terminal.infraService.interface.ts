@@ -7,11 +7,11 @@ import type {LaunchPlanValueObject} from "@valueObjects/launchPlan.valueObject.t
 import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
 import type {Effect, Result, Stream, SubscriptionRef} from "effect";
 
-// The tab is named once, when it opens: VS Code's stable API cannot rename a terminal afterwards.
+// A tab with a name keeps it; one without shows the title the agent gives its terminal, as it changes.
 export interface TerminalLaunchRequest {
   readonly iconPath: string;
   readonly launchPlan: LaunchPlanValueObject;
-  readonly tabName: string;
+  readonly tabName: string | undefined;
 }
 
 // No session's tab is in front of the user; TerminalInfraService's trace says why.
@@ -41,11 +41,15 @@ export class ITerminalInfraService extends Context.Service<
     readonly openProjectTerminal: (project: ProjectEntity) => Effect.Effect<void, TerminalLaunchFailedError>;
     // The sessions with a tab in this window, now and after every change.
     readonly openSessionIds: Stream.Stream<ReadonlySet<SessionIdValueObject>>;
-    // Reuses the session's tab when this window already has one.
     readonly openSessionTerminal: (
       session: SessionEntity,
       terminalLaunchRequest: TerminalLaunchRequest
     ) => Effect.Effect<void, TerminalLaunchFailedError>;
+    // Reuses the session's tab when this window already has one.
+    // Renames the session's tab when it is open; the tab then keeps the name instead of the agent's title.
+    readonly renameSessionTerminal: (sessionId: SessionIdValueObject, tabName: string) => Effect.Effect<void>;
+    // A session tab's title whenever it changes, as the agent in it sets it.
+    readonly sessionTerminalTitles: Stream.Stream<readonly [SessionIdValueObject, string]>;
     readonly viewedSessionId: SubscriptionRef.SubscriptionRef<
       Result.Result<SessionIdValueObject, NoViewedSessionError>
     >;

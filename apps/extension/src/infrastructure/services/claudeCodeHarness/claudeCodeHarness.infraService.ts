@@ -1,6 +1,4 @@
-import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {clearStatusFile, watchStatusDirectory} from "@infraServices/claudeCodeHarness/status.utils.ts";
-import {getSessionTitle, watchTranscripts} from "@infraServices/claudeCodeHarness/titles.utils.ts";
 import {findTranscriptFilePath} from "@infraServices/claudeCodeHarness/transcript.utils.ts";
 import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
 import {HOOKS_FILE, MODEL_ICONS, STATUS_ENV} from "@pkg/constants/src/extension.constant.ts";
@@ -10,10 +8,7 @@ import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 
 import type {SessionEntity} from "@entities/session/session.entity.ts";
-import type {
-  SessionStatusesReference,
-  SessionTitlesReference
-} from "@infraServices/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
+import type {SessionStatusesReference} from "@infraServices/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
 import type {LaunchPlanValueObject} from "@valueObjects/launchPlan.valueObject.ts";
 import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
 import type {StatusValueObject} from "@valueObjects/status.valueObject.ts";
@@ -23,6 +18,10 @@ interface StatusPaths {
   readonly hooksFilePath: string;
   readonly statusDirectoryPath: string;
 }
+
+// Claude's terminal reads "claude", its process name, then "Claude Code" until the conversation has a title, and
+// "claude · resume" in its resume picker.
+const PLACEHOLDER_TITLES: ReadonlySet<string> = new Set(["claude", "claude · resume", "Claude Code"]);
 
 // A failed lookup counts as "no transcript": starting fresh is better than a resume that cannot work.
 const hasTranscript = Effect.fn("ClaudeCodeHarnessInfraService.hasTranscript")(
@@ -74,26 +73,18 @@ const makeClaudeCodeHarnessInfraService = Effect.fn("ClaudeCodeHarnessInfraServi
   const sessionStatuses: SessionStatusesReference = yield* SubscriptionRef.make<
     ReadonlyMap<SessionIdValueObject, StatusValueObject>
   >(new Map());
-  const sessionTitles: SessionTitlesReference = yield* SubscriptionRef.make<ReadonlyMap<SessionIdValueObject, string>>(
-    new Map()
-  );
-  const trackedSessions = (yield* ISessionRepository).sessions;
   yield* Effect.forkScoped(watchStatusDirectory(sessionStatuses, statusPaths.statusDirectoryPath));
-  yield* Effect.forkScoped(
-    watchTranscripts({sessionTitles, trackedSessions, transcriptProgressBySessionId: new Map()})
-  );
 
   return {
     clearSessionStatus: (sessionId: SessionIdValueObject) =>
       clearStatusFile(fileSystem, path.join(statusPaths.statusDirectoryPath, sessionId)),
-    getSessionTitle: (sessionId: SessionIdValueObject) => getSessionTitle(sessionTitles, sessionId),
     iconPath: Uri.joinPath(extensionUri, MODEL_ICONS.CLAUDE).fsPath,
+    placeholderTitles: PLACEHOLDER_TITLES,
     prepareLaunch: (session: SessionEntity) => Effect.provide(prepareLaunch(statusPaths, session), fileServices),
-    sessionStatuses,
-    sessionTitles
+    sessionStatuses
   };
 });
 
 // Claude Code's hooks (HOOKS_FILE) write one word per session to a file in global storage, which every window shares;
-// its transcripts under ~/.claude/projects carry the titles.
+// its terminal title carries the session's title.
 export const ClaudeCodeHarnessInfraService = Layer.effect(IHarnessInfraService, makeClaudeCodeHarnessInfraService());

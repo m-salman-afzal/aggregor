@@ -40,6 +40,7 @@ export const SESSION_LABELS = {
       ? `${rowLabel}, ${projectFolderName}`
       : `${rowLabel}, ${projectFolderName}, ${statusLabel}`,
   OPEN_SESSION: "Open Session",
+  RENAME: "Session name. Leave it empty to show the agent's own title again.",
   TOOLTIP: (sessionName: string, workingDirectory: string, statusLabel: string | undefined) =>
     statusLabel === undefined
       ? `${sessionName}\n${workingDirectory}`

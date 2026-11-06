@@ -1,4 +1,4 @@
-import {Array, Effect} from "effect";
+import {Array, Effect, Schema, String} from "effect";
 
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
@@ -11,7 +11,17 @@ interface UnreadSessionIdsInputs {
   readonly viewedSessionId: SessionIdValueObject | undefined;
 }
 
+// The terminal title carries no session title: it holds only status marks, or the agent has not named the conversation.
+export class SessionTitleNotFoundError extends Schema.TaggedError<
+  SessionTitleNotFoundError,
+  {readonly brand: unique symbol}
+>()("SessionTitleNotFoundError", {}) {}
+
 // The rules that span several sessions.
+
+// Agents put their status marks (Claude's ✳, Codex's ⠋, emoji) before the title, as symbols, so the title starts at the
+// first character that is not a symbol, space or control character. Matching Unicode classes keeps every language.
+const LEADING_STATUS_MARKS = /^[\p{C}\p{S}\p{Z}]+/u;
 
 // A turn is in progress while its session runs or waits on the user.
 const TURN_IN_PROGRESS_STATUSES: ReadonlySet<StatusValueObject | undefined> = new Set(["needs-input", "running"]);
@@ -26,6 +36,18 @@ export const getNewSessionName = Effect.fn("SessionDomainService.getNewSessionNa
   while (takenSessionNames.has(`${projectName} #${sessionNumber}`)) sessionNumber += 1;
 
   return `${projectName} #${sessionNumber}`;
+});
+
+// The session's title in the title its agent gives the terminal, without the agent's leading status marks. One of the
+// agent's placeholder titles, shown before it names the conversation, is no title.
+export const getSessionTitle = Effect.fn("SessionDomainService.getSessionTitle")(function* (
+  terminalTitle: string,
+  placeholderTitles: ReadonlySet<string>
+) {
+  const sessionTitle = String.trim(String.replace(LEADING_STATUS_MARKS, "")(terminalTitle));
+  if (sessionTitle === "" || placeholderTitles.has(sessionTitle)) return yield* SessionTitleNotFoundError.make();
+
+  return sessionTitle;
 });
 
 // A turn that ends while its session is out of view leaves it unread until it comes into view or starts another turn.

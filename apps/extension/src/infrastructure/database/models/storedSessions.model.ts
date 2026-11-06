@@ -8,6 +8,7 @@ import {Schema} from "effect";
 export const StoredSessionsModel = Schema.Struct({
   sessions: Schema.Array(
     Schema.Struct({
+      customName: Schema.optional(Schema.String),
       harnessId: HarnessIdValueObjectSchema,
       id: SessionIdValueObjectSchema,
       name: Schema.String,

@@ -12,7 +12,7 @@ import {
 } from "@pkg/constants/src/extension.constant.ts";
 import {SESSION_LABELS, STATUS_LABELS} from "@pkg/constants/src/message.constant.ts";
 import {listProjects} from "@services/project.service.ts";
-import {getSessionDisplayName, listSessions} from "@services/session.service.ts";
+import {listSessions} from "@services/session.service.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Array, Clock, Effect, Result, Schema, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
@@ -54,7 +54,7 @@ export const createSessionTreeItem = Effect.fn("SessionsView.createSessionTreeIt
   const {TreeItem, Uri} = yield* VsCodeApi;
   const path = yield* Path;
   const statusLabel = rowStatus === undefined ? undefined : STATUS_LABELS[rowStatus];
-  const rowLabel = yield* getSessionDisplayName(session);
+  const rowLabel = session.displayName;
   const projectFolderName = path.basename(session.projectPath);
   const harnessIconPath = yield* withHarnessInfraService(
     session.harnessId,

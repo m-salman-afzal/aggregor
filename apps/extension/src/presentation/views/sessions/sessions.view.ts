@@ -203,13 +203,12 @@ const advanceSpinnerFrames = Effect.fn("SessionsView.advanceSpinnerFrames")(func
   });
 });
 
-// Rows change when a project or workspace folder is added or removed, when a session is added or removed, when its tab
-// opens or closes, when its agent renames it, when its status changes, and when it comes into view, which marks it read.
+// Rows change when a project or workspace folder is added or removed, when a session is added, removed or renamed, when
+// its tab opens or closes, when its status changes, and when it comes into view, which marks it read.
 const watchRowChanges = Effect.fn("SessionsView.watchRowChanges")(function* () {
   const {workspace} = yield* VsCodeApi;
   const harnessChangeSources = yield* forEachHarnessInfraService(
     IHarnessInfraService.useSync((harnessInfraService): readonly Stream.Stream<unknown>[] => [
-      SubscriptionRef.changes(harnessInfraService.sessionTitles),
       SubscriptionRef.changes(harnessInfraService.sessionStatuses)
     ])
   );

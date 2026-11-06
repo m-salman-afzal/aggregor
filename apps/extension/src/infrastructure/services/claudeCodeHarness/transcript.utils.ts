@@ -1,11 +1,9 @@
-import {addTitleEntry, decodeTitleLine} from "@infraServices/claudeCodeHarness/claudeCode.transformer.ts";
 import {SessionIdValueObjectSchema} from "@valueObjects/sessionId.valueObject.ts";
-import {ByteSize, Config, Effect, Result, Schema, Stream} from "effect";
+import {Config, Effect, Result, Schema} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 import {homedir} from "node:os";
 
-import type {TranscriptProgress} from "@infraServices/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
 import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
 
 export class TranscriptNotFoundError extends Schema.TaggedError<
@@ -42,25 +40,4 @@ export const findTranscriptFilePath = Effect.fn("ClaudeCodeHarnessInfraService.f
   );
 
   return path.join(projectsDirectoryPath, projectFolderName, `${sessionId}.jsonl`);
-});
-
-// Scans the bytes between the last read and `transcriptSize`. A line cut off by a concurrent write is never a title:
-// titles are short lines written in one go.
-export const readNewTitles = Effect.fn("ClaudeCodeHarnessInfraService.readNewTitles")(function* (
-  transcriptProgress: TranscriptProgress,
-  transcriptSize: bigint
-) {
-  const fileSystem = yield* FileSystem;
-  const updatedTitles = yield* Stream.decodeText(
-    fileSystem.stream(transcriptProgress.transcriptFilePath, {
-      bytesToRead: ByteSize.bytes(transcriptSize - transcriptProgress.byteOffset),
-      offset: transcriptProgress.byteOffset
-    })
-  ).pipe(
-    Stream.splitLines,
-    Stream.filterMap((transcriptLine) => decodeTitleLine(transcriptLine)),
-    Stream.runFoldEffect(() => transcriptProgress.titles, addTitleEntry)
-  );
-
-  return {...transcriptProgress, byteOffset: transcriptSize, titles: updatedTitles};
 });
