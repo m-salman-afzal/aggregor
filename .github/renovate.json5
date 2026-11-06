@@ -2,8 +2,7 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: [
     // config:recommended (Dependency Dashboard issue, monorepo groups like effect and typescript-eslint, deprecated
-    // package replacements) plus GitHub Actions pinned to commit digests, config migration PRs, abandoned package
-    // warnings and weekly lock file maintenance.
+    // package replacements) plus config migration PRs, abandoned package warnings and weekly lock file maintenance.
     "config:best-practices",
     "schedule:weekly",
     // Dependency bumps land as `build(deps): ...`, like the hand-written `build: bump ...` commits. Forced on because
@@ -13,6 +12,8 @@
     // All minor and patch bumps share one PR, as with Dependabot. Majors still get a PR each.
     "group:allNonMajor"
   ],
+  // Workflows reference actions by their version tag (`@v7`), not a commit SHA.
+  ignorePresets: ["helpers:pinGitHubActionDigests"],
   // schedule:weekly means early Monday morning, local time. Security fixes skip the schedule.
   timezone: "Asia/Karachi",
   // Runs `pnpm dedupe` after each lockfile update, so older duplicate versions drop out where a newer one fits.
@@ -23,11 +24,11 @@
   dependencyDashboardOSVVulnerabilitySummary: "unresolved",
   packageRules: [
     {
-      // Wait 3 days after a release before proposing it; compromised npm releases are usually pulled within days.
-      // config:best-practices already does this for npm only; this rule covers every manager. Pins, digests and lock
-      // file maintenance are left out: they have no release date to age against.
+      // Wait 1 day after a release before proposing it, matching pnpm's own minimumReleaseAge default, so compromised
+      // releases have time to be pulled. Covers every manager and replaces config:best-practices' 3 days for npm. Pins,
+      // digests and lock file maintenance are left out: they have no release date to age against.
       matchUpdateTypes: ["major", "minor", "patch"],
-      minimumReleaseAge: "3 days"
+      minimumReleaseAge: "1 day"
     },
     {
       // husky is a finished shell shim with no release since Nov 2024; don't flag it as abandoned. Every other
