@@ -141,7 +141,7 @@
       "activitybar": [
         {
           "id": "aggregorApp",
-          "title": "Aggregor App",
+          "title": "Sessions",
           "icon": "./assets/aggregorLightIcon.svg"
         }
       ]
@@ -158,7 +158,7 @@
     "viewsWelcome": [
       {
         "view": "aggregorApp.sessions",
-        "contents": "No projects yet.\n[Add Project](command:aggregorApp.addProject)\n[Open Folder](command:workbench.action.files.openFolder)"
+        "contents": "No projects yet.\n[Add Project](command:aggregorApp.addProject)"
       }
     ],
     "commands": [

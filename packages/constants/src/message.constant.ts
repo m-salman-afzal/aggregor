@@ -1,6 +1,7 @@
 export const ACTIONS = {
   ADD_PROJECT: "Add Project",
   REMOVE: "Remove",
+  SAVE_WORKSPACE: "Save Workspace...",
   STAGE_ALL: "Stage All & Generate"
 } as const;
 
@@ -51,6 +52,11 @@ export const STATUS_LABELS = {
   "needs-input": "needs input",
   running: "running",
   unread: "finished"
+} as const;
+
+export const WORKSPACE_MESSAGES = {
+  OFFER_SAVE:
+    "This window is now an untitled workspace. Save it to have it named Aggregor, and closing the window stops asking to save it."
 } as const;
 
 export const TERMINAL_MESSAGES = {

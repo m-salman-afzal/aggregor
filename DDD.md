@@ -110,7 +110,7 @@ apps/extension/src/
                                            NoProjectError
       scm.service.ts                       writeCommitMessageOrShowError, offerToStageAllChanges
       workspace.service.ts                 startShownProjectSync: the viewed session's project as the only
-                                           project folder
+                                           project folder; startWorkspaceSaveOffer
     interfaces/                            each with the errors and types its signatures name
       harness.infraService.interface.ts    IHarnessInfraService: prepareLaunch, clearSessionStatus, getSessionTitle,
                                            sessionStatuses, sessionTitles, iconPath; IHarnessInfraServices: a LayerMap
@@ -118,9 +118,12 @@ apps/extension/src/
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
                                            openProjectTerminal, isSessionTerminalOpen, openSessionIds, activatedSessionIds,
                                            viewedSessionId; TerminalLaunchRequest
-      prompt.infraService.interface.ts     showErrorMessage, confirm, pickProject, pickProjectFolderPaths
-      workspace.infraService.interface.ts  listWorkspaceFolderProjects, showOnlyProjectFolder, removeProjectFolder
-      git.infraService.interface.ts        getStagedDiff, setCommitMessageInput, commit, stageAll
+      prompt.infraService.interface.ts     showErrorMessage, showInformationMessage, confirm, pickProject,
+                                           pickProjectFolderPaths
+      workspace.infraService.interface.ts  listWorkspaceFolderProjects, showOnlyProjectFolder, removeProjectFolder,
+                                           claimWorkspaceSaveOffer, saveWorkspaceAs
+      git.infraService.interface.ts        getStagedDiff, setCommitMessageInput, commit, stageAll,
+                                           openInSourceControl
       commitCli.infraService.interface.ts  generateCommitMessage; CommitMessageRequest
       settings.config.interface.ts         readSettings; Settings
     utils/

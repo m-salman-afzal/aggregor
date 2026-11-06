@@ -9,6 +9,7 @@ import {Array, Effect, Match, Result, Schema, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
 import type {ProjectsCorruptError, ProjectsSaveFailedError} from "@entities/project/project.repository.interface.ts";
+import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
 export class NoProjectError extends Schema.TaggedError<NoProjectError, {readonly brand: unique symbol}>()(
   "NoProjectError",
@@ -58,6 +59,19 @@ export const pickProject = Effect.fn("ProjectService.pickProject")(function* (pl
   return yield* Effect.fromResult(Result.fromNullishOr(projects[0], () => NoProjectError.make()));
 });
 
+// A window showing no project shows the first new one. An empty window gets its anchor folder that way, which keeps its
+// key; the extensions restart, but nothing runs there yet.
+const showFirstNewProject = Effect.fn("ProjectService.showFirstNewProject")(function* (
+  newProjectPaths: readonly ProjectPathValueObject[]
+) {
+  const workspaceInfraService = yield* IWorkspaceInfraService;
+  const workspaceFolderProjects = yield* workspaceInfraService.listWorkspaceFolderProjects;
+  const [firstNewProjectPath] = newProjectPaths;
+  if (workspaceFolderProjects.length > 0 || firstNewProjectPath === undefined) return;
+
+  yield* workspaceInfraService.showOnlyProjectFolder(firstNewProjectPath);
+});
+
 // ponytail: any folder counts as a project, no git check. Worktree mode (M3) is where a non-git folder would first break.
 export const addProject = Effect.fn("ProjectService.addProject")(
   function* () {
@@ -77,6 +91,7 @@ export const addProject = Effect.fn("ProjectService.addProject")(
     yield* modifyAddedProjectPaths((storedAddedProjectPaths) => [
       ...new Set([...storedAddedProjectPaths, ...newProjectPaths])
     ]);
+    yield* showFirstNewProject(newProjectPaths);
   },
   Effect.catchTag("FolderPickCancelledError", () => Effect.void),
   Effect.catch(showProjectRepositoryError)

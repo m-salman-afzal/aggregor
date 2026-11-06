@@ -55,7 +55,7 @@ projects included. Delete that folder to start from a fresh profile.
    checks.
 2. **Drive the window over CDP** for anything the user would see or click. Useful expressions:
    - Open the Sessions view. Clicking its activity-bar item toggles it, so click only when it is not already open:
-     `(() => { const item = [...document.querySelectorAll(".activitybar .action-label")].find((element) => String(element.getAttribute("aria-label")).startsWith("Aggregor App")); if (!item.closest(".action-item").classList.contains("checked")) item.click(); return "open"; })()`
+     `(() => { const item = [...document.querySelectorAll(".activitybar .action-label")].find((element) => element.getAttribute("aria-label") === "Sessions"); if (!item.closest(".action-item").classList.contains("checked")) item.click(); return "open"; })()`
    - List the rows with their status:
      `[...document.querySelectorAll(".monaco-list-row")].map((row) => row.getAttribute("aria-label")).filter(Boolean)`
    - Click a title or inline button by its label, such as `New Session...` or `New Claude Session`:
