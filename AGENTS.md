@@ -6,6 +6,10 @@ The agent writes the code; the user makes the architecture decisions (where code
 implemented). Before writing a PR's code, post its decision list with a recommended default per item and wait for the
 user to approve or change it. Call out any deviation from an agreed decision when handing the work back.
 
+`decisions.md` records every decision: the problem, the options weighed, what was picked and why, dependencies included.
+Add each one once it is agreed, in the same commit as the code it shapes, and before a session's last hand-back check
+that every decision the session made, or changed, is there.
+
 Work lands as small, feature-sliced, stacked PRs on `stack/<name>/<n>/<type>/<slug>` branches, each starting from the
 one below it. The `stack` skill (`.claude/skills/stack`) creates them; on push, the Auto PR workflow opens each PR into
 the branch below and joins them into a GitHub stack. Land a stack by merging its top PR with a merge commit, never

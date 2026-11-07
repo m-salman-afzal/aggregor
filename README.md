@@ -37,6 +37,9 @@ Control and diffs.
 
 Each item is one small PR, stacked on the previous one. Releases wait for the end of a milestone.
 
+[phase2.md](phase2.md) plans the next stack step by step: agents from settings, status from OSC 7501, SQLite storage,
+tmux and alerts.
+
 ### M1: local Claude sessions
 
 - [x] Sessions sidebar: start Claude in an editor tab, list and focus sessions
