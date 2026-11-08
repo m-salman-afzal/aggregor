@@ -4,7 +4,7 @@ import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraSer
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {ACTIONS, WORKSPACE_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {showRepositoryError} from "@services/base.service.ts";
-import {addProjectPathsToWindow, listProjects} from "@services/project.service.ts";
+import {addProjectPaths, listProjects} from "@services/project.service.ts";
 import {findSession} from "@services/session.service.ts";
 import {Array, Effect, Result, Stream, SubscriptionRef} from "effect";
 
@@ -24,7 +24,7 @@ const keepWorkspaceFoldersListed = Effect.fn("WorkspaceService.keepWorkspaceFold
   );
   if (leavingOwnFolderProjects.length === 0) return;
 
-  yield* addProjectPathsToWindow(Array.map(leavingOwnFolderProjects, (project) => project.path));
+  yield* addProjectPaths(Array.map(leavingOwnFolderProjects, (project) => project.path));
 });
 
 // The session's project becomes the workspace's only project folder. A session whose project is no longer listed

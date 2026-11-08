@@ -367,18 +367,17 @@ current entry. Leave a field out rather than guess.
 
 ## VS Code and agent integration
 
-### Windows, projects and sessions live in SQLite (2026-11-07)
+### Projects and sessions live in SQLite (2026-11-07)
 
 - **Problem:** `aggregor-pty` (phase 2, step 2) must write each session's status from outside VS Code, and the data has
-  relations: a project has many sessions, and a window has many added projects.
+  relations: a project has many sessions.
 - **Options:** `globalState` (2026-10-09 to 2026-11-07): one JSON value per key, read-modify-written by every window,
   out of reach of other processes. A native SQLite module, which needs a build per Electron version.
 - **Decision:** `~/.aggregor/aggregor.db` (`AGGREGOR_DATA_DIR` moves it), opened with `@effect/sql-sqlite-node` on
   Node's built-in `node:sqlite` (VS Code 1.145's Electron has Node 24.22 and SQLite 3.53.4), in WAL mode with foreign
-  keys on. The tables are `windows`, `projects`, `windowProjects` and `sessions`, every name camelCase, defined and
-  migrated through Drizzle (see its entry). Both SQL modules are unstable Effect APIs, allowed by name in
-  `tsconfig.base.json`. Windows re-read sessions on focus until the database is watched (phase 2, step 3). Each window
-  lists its projects and the sessions under them, so it never shows sessions from unrelated workspaces.
+  keys on. The tables are `projects` and `sessions`, every name camelCase, defined and migrated through Drizzle (see its
+  entry). Both SQL modules are unstable Effect APIs, allowed by name in `tsconfig.base.json`. A window re-reads sessions
+  on focus until the database is watched (phase 2, step 3).
 - **Why:** a file any process can write, real relations, and no native module to ship.
 
 ### Clicking a closed session resumes it (2026-10-08)
@@ -412,29 +411,35 @@ current entry. Leave a field out rather than guess.
   Code's own Agents window is exempt.
 - **Options:** swap folder 0 on each switch, restarting every extension each time; an extension-owned anchor at
   folder 0.
-- **Decision:** the first switch puts a hidden anchor folder (`globalStorage/anchors/<window key>/Aggregor`) at folder 0
-  and the viewed session's project at folder 1; later switches swap only folder 1. That first switch restarts the
-  extensions once. Session terminals carry `AGGREGOR_SESSION_ID` in their env, so they are found again after the
-  restart, and the anchor's `terminal.integrated.cwd` makes New Terminal open in the shown project.
+- **Decision:** the first switch puts a hidden anchor folder (`globalStorage/anchor/Aggregor`) at folder 0 and the
+  viewed session's project at folder 1; later switches swap only folder 1. That first switch restarts the extensions
+  once. Session terminals carry `AGGREGOR_SESSION_ID` in their env, so they are found again after the restart, and the
+  anchor's `terminal.integrated.cwd` makes New Terminal open in the shown project.
 - **Why:** one restart instead of one per switch. TypeScript, ESLint, Prettier, rust-analyzer and Lua all follow the
   shown project; mise needs `mise.selectWorkspaceFolder` after each switch.
 
-### Added projects are kept per window, by the window's key (2026-11-05; in SQLite since 2026-11-07)
+### One project list for every window (2026-11-08)
 
-- **Problem:** adding a second folder turns the window into an untitled workspace with an empty `workspaceState`.
-- **Options:** `workspaceState` (#27), which loses the list at that switch. `globalState` under the window's key
-  (2026-11-05 to 2026-11-07).
-- **Decision:** a `windows` row per window key, and a `windowProjects` row per project added to it. Removing a project
-  soft-deletes its `windowProjects` row. Adding a project again brings its row back with the next `sortId`, so it moves
-  to the end of the window's list.
-- **Why:** the window's key survives the switch to a multi-root workspace.
+- **Problem:** the user works in one VS Code window that holds all their projects, so a list per window is machinery
+  they don't use.
+- **Options:** a list per window, by the window's key (2026-11-05 to 2026-11-08): a `windows` row per key and a
+  `windowProjects` row per added project, plus an anchor folder per key; the key survived the switch to an untitled
+  workspace, whose `workspaceState` starts empty. Before that, `workspaceState` (#27), which loses the list at that
+  switch, and `globalState` under the window's key.
+- **Decision:** the `projects` table is the list: `added` marks a listed project, Add Project upserts it with `added`
+  (to the end of the list), and Remove Project clears it; its sessions stay and come back with it. A workspace folder's
+  project gets a row with its first session without being added, so it stays one of the window's own folders. One anchor
+  folder, `globalStorage/anchor/Aggregor`, with one save-offer marker. The windows tables went with a generated
+  migration, which leaves every project unadded.
+- **Why:** less to build and keep. Adding windows back is one table and a migration. Until step 6 runs agents in tmux, a
+  second window shows the same sessions, and opening a running one there would start a second agent on its id.
 
 ### The Sessions tree lists `ListedProjectValueObject`s (2026-11-07)
 
 - **Problem:** a workspace folder is listed before its project has a row, so the tree's project rows can't be the stored
   `ProjectEntity`.
 - **Decision:** the tree's project rows are `ListedProjectValueObject`s (path, name, added); a project's row is made the
-  first time it is added to a window or given a session.
+  first time it is added or given a session.
 
 ### Offer once to save the workspace as Aggregor (2026-11-06, #68)
 

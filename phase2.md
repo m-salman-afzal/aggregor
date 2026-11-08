@@ -12,8 +12,9 @@ before its code, as `AGENTS.md` asks, and moves into `decisions.md` with the cod
 - Status comes from the agent itself, through OSC 7501, read by a small Rust binary (`aggregor-pty`) that runs each
   agent. Hooks, transcript lookups and title guessing go away.
 - Every session runs in tmux, so closing a tab or reloading VS Code never kills an agent.
-- Windows, projects, sessions and live status live in related SQLite tables at `~/.aggregor/aggregor.db`, outside VS
-  Code's storage, behind a base entity, a base repository and a base service.
+- Projects, sessions and live status live in related SQLite tables at `~/.aggregor/aggregor.db`, outside VS Code's
+  storage, behind a base entity, a base repository and a base service. One project list serves every window; Aggregor is
+  meant for one window.
 - A session that changes state while you aren't looking at it raises a notification: inside VS Code, or from the OS when
   VS Code isn't focused.
 - A session row lists what runs inside it, such as Claude's subagents, each with its own status.
@@ -139,8 +140,8 @@ Other things the tests showed:
 
 **Branch:** `stack/harness-foundation/1/feat/sqlite-storage`
 
-Windows, projects and sessions move out of `globalState` into related tables in `~/.aggregor/aggregor.db`, behind a base
-entity, a base repository and a base service. Nothing changes for the user.
+Projects and sessions move out of `globalState` into related tables in `~/.aggregor/aggregor.db`, behind a base entity,
+a base repository and a base service. The added projects become one list for every window.
 
 **Tables.** Every table starts with the same four columns, and every name is camelCase:
 
@@ -151,18 +152,16 @@ entity, a base repository and a base service. Nothing changes for the user.
 | `updatedAt` | `TEXT NOT NULL`    | ISO 8601 in UTC (`2026-11-07T22:13:46.836Z`), set on every write                                   |
 | `deletedAt` | `TEXT`             | set by a soft delete, in the same format; reads skip the row                                       |
 
-| Table            | Its own columns                                       | Relations                                              |
-| ---------------- | ----------------------------------------------------- | ------------------------------------------------------ |
-| `windows`        | `key` (unique: the window key from `findWindowKey`)   | has many projects through `windowProjects`             |
-| `projects`       | `path` (unique)                                       | has many sessions; belongs to many windows             |
-| `windowProjects` | `windowId`, `projectId` (unique together)             | a project added to a window with Add Project           |
-| `sessions`       | `projectId`, `harnessId`, `name`, `customName` (null) | belongs to one project; step 2 adds its status columns |
+| Table      | Its own columns                                        | Relations                                              |
+| ---------- | ------------------------------------------------------ | ------------------------------------------------------ |
+| `projects` | `path` (unique), `added` (listed in the Sessions view) | has many sessions                                      |
+| `sessions` | `projectId`, `harnessId`, `name`, `customName` (null)  | belongs to one project; step 2 adds its status columns |
 
 - Relations point at `id` with `REFERENCES`, and `PRAGMA foreign_keys = ON` checks them.
-- A project's row is upserted by path the first time it is used: added to a window, or given a session (a workspace
-  folder's project too).
-- Remove Project soft-deletes the window's `windowProjects` row. The project and its sessions stay, so adding it again
-  lists them again, as today, and puts it at the end of the list. Remove Session soft-deletes the session.
+- Add Project upserts the project's row with `added`, which puts it at the end of the list. A session in a workspace
+  folder gives that folder's project a row without `added`, so it stays one of the window's own folders.
+- Remove Project clears `added`. The project and its sessions stay, so adding it again lists them again, as today, and
+  puts it at the end of the list. Remove Session soft-deletes the session.
 - WAL and a busy timeout on every connection. `drizzle-kit generate` writes a migration for each schema change, and a
   window applies the ones the database lacks when it starts, in one write transaction.
 
@@ -177,7 +176,7 @@ entity, a base repository and a base service. Nothing changes for the user.
   an absent field and the ISO text of `updatedAt` and `deletedAt` into a `DateTime`, then decodes the row into the
   entity.
 - **`IBaseRepository<Entity, AddRequest>`** (domain): `add`, `findById`, `findMany`, `update`, `upsert` and
-  `softDelete`. `ISessionRepository`, `IProjectRepository` and `IWindowRepository` extend it.
+  `softDelete`. `ISessionRepository` and `IProjectRepository` extend it.
 - **`makeBaseRepository`** (infrastructure), on Drizzle's query builder, given an entity, its table model and a join for
   columns it reads from another table:
   - reads skip soft-deleted rows, list rows in `sortId` order, and go through `BaseEntity.fromRow`, so services only
@@ -187,7 +186,7 @@ entity, a base repository and a base service. Nothing changes for the user.
   - `update` writes only the columns it is given, plus `updatedAt`, so the extension and `aggregor-pty` never overwrite
     each other's columns.
 - **`BaseService`** (application): `base.service.ts`, the same six calls for any entity's repository. The session,
-  project and window services build on it instead of calling their repositories, and it holds the one mapping from
+  project and workspace services build on it instead of calling their repositories, and it holds the one mapping from
   repository errors to messages.
 - Effect's `Model.Class` was tried for the entities and reverted: the domain entity would know how it is stored.
   Effect's `SqlModel.makeRepository` was weighed: its reads are `select *`, so no joined columns; its update writes the
@@ -207,8 +206,9 @@ entity, a base repository and a base service. Nothing changes for the user.
   added), since a workspace folder is listed before its project has a row.
 - `SessionEntity` gains `projectId`; `projectPath` comes from its project through a join. `withName` and
   `withCustomName` go: services pass `update` the columns that change.
-- `SessionRepository`, `ProjectRepository` and a new `WindowRepository` (which owns `windowProjects`) build on the base
-  repository instead of read-modify-writing `globalState`; `modifySessions` and `modifyAddedProjectPaths` go.
+- `SessionRepository` and `ProjectRepository` build on the base repository instead of read-modify-writing `globalState`;
+  `modifySessions` and `modifyAddedProjectPaths` go. The window key (`findWindowKey`) goes, and the anchor folder
+  becomes one: `globalStorage/anchor/Aggregor`.
 - `StoredSessionsModel` and `StoredAddedProjectPathsModel`, with their `version` fields, go; `database/models/` holds
   the table models.
 - `globalstorage.md` becomes `storage.md`, covers the database too, and lists only what is stored now.
@@ -226,13 +226,15 @@ entity, a base repository and a base service. Nothing changes for the user.
 5. Relations point at that id, which also keeps ids unique across machines if databases are ever merged.
 6. Timestamps are ISO 8601 text in UTC, such as `2026-11-07T22:13:46.836Z`, readable in `sqlite3`; entities still hold
    `DateTime.Utc`, parsed in `fromRow`.
-7. A project added to a window again, removed or not, moves to the end of the window's list.
+7. A project added again, removed or not, moves to the end of the list. Switching projects never moves one.
 8. Every row has a `sortId`, the table's highest plus one when added or upserted, which reads follow; moving projects
    and sessions up and down will change it. SQLite's `AUTOINCREMENT` needs an integer primary key, so the base
    repository sets it in the statement that writes the row.
 9. Drizzle on Effect (`drizzle-orm/effect-sqlite-node`, 1.0.0-rc.5, pinned) defines the tables, builds the queries and
    generates the migrations, one per schema change, even before 0.1.0. It replaces the hand-written `CREATE TABLE`s and
    the `PRAGMA user_version` rebuild.
+10. One project list for every window (2026-11-08): Aggregor is meant for one window. Until step 6, a second window
+    shows the same sessions, and opening a running one there would start a second agent on its id.
 
 **Verify:** add and remove projects; start, rename and remove sessions; reload; then read the rows with `sqlite3` and
 check the relations, the soft deletes, the timestamps, and that ids sort in creation order.
@@ -288,7 +290,7 @@ row.
 - `StatusValueObject` becomes the spec's states plus `exited` and `unknown`, with `kind`, `message` and `progress`.
 - `SessionEntity` gains the status fields, read through `SessionRepository` like the rest of the session; there is no
   separate status repository. A watch on the database's WAL file, confirmed with `PRAGMA data_version`, refreshes
-  sessions and projects for every window.
+  sessions and projects.
 - `startSessionTitleSync` reads `agentTitle` instead of `Terminal.name`. `getSessionTitle` also strips trailing status
   marks and ignores titles that are only an id.
 - Rows: an icon per state, the message in the tooltip, progress in the description, and the unread rule (Agreed 9).
@@ -424,9 +426,8 @@ straight to the default.
   that window (tmux takes a second client) and shows its project there.
 - **From the OS,** when no VS Code window is focused: `notify-send` on Linux (0.8.8 here) with an **Open** action,
   `osascript` on macOS, and a Windows toast through `powershell.exe` from WSL.
-- **One sender:** each window keeps its focus, with a heartbeat, on its `windows` row. On a state change, a window sends
-  the OS notification only after claiming that change in the database, with an update only one window can win, so
-  several open windows send one notification.
+- **One sender:** Aggregor's one window sends the OS notification when it isn't focused. With the `windows` table gone
+  (2026-11-08), a second open window would send one too; see To decide 2.
 - The Sessions view badge counts sessions blocked, errored, or finished and unseen; hovering lists them.
 
 **Decided:**
@@ -441,6 +442,8 @@ straight to the default.
 
 1. Stale notifications. VS Code can't close a notification an extension showed, so one can outlive its state.
    Recommended: accept it; **Open** still goes to the session, and the badge and row are always current.
+2. A second window. Recommended: accept a second notification; if it matters, a window claims each change in the
+   database with an update only one window can win.
 
 **To check when this step starts,** before building on it: clicking an OS notification. VS Code has no API to bring a
 window forward, so the plan is that the **Open** action runs `code` with that window's workspace, which should focus the
@@ -448,9 +451,8 @@ window that has it open. Check it for saved and untitled workspaces, and in WSL.
 can't carry an action, so a click does nothing useful there; if that matters, the options are `terminal-notifier` (a
 Homebrew install) or a notification crate inside `aggregor-pty`.
 
-**Verify:** two windows on different workspaces; a permission prompt in a session out of view raises the notification in
-the focused window, and **Open** attaches the session there; with VS Code unfocused, one OS notification appears, not
-one per window; Antigravity's startup auth raises nothing.
+**Verify:** a permission prompt in a session out of view raises the notification in the window, and **Open** attaches
+the session there; with VS Code unfocused, one OS notification appears; Antigravity's startup auth raises nothing.
 
 ## Step 8: session tasks
 

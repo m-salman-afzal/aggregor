@@ -1,7 +1,7 @@
 import {forEachHarnessInfraService} from "@appUtils/harness.utils.ts";
 import {getUnreadSessionIds} from "@domainServices/session.domainService.ts";
+import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
-import {IWindowRepository} from "@entities/window/window.repository.interface.ts";
 import {acquireDisposable, fromEvent} from "@infraUtils/vscode.utils.ts";
 import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
@@ -47,9 +47,9 @@ interface SessionsViewParts {
 
 type SessionsViewServices =
   | IHarnessInfraServices
+  | IProjectRepository
   | ISessionRepository
   | ITerminalInfraService
-  | IWindowRepository
   | IWorkspaceInfraService
   | Path
   | VsCodeApi;
@@ -213,7 +213,7 @@ const watchRowChanges = Effect.fn("SessionsView.watchRowChanges")(function* () {
     ])
   );
   const rowChangeSources: readonly Stream.Stream<unknown>[] = [
-    SubscriptionRef.changes((yield* IWindowRepository).addedProjectPaths),
+    SubscriptionRef.changes((yield* IProjectRepository).addedProjectPaths),
     yield* fromEvent(workspace.onDidChangeWorkspaceFolders),
     SubscriptionRef.changes((yield* ISessionRepository).sessions),
     (yield* ITerminalInfraService).openSessionIds,

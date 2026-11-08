@@ -1,7 +1,6 @@
 import {showErrorInBackground} from "@appUtils/error.utils.ts";
 import {withHarnessInfraService} from "@appUtils/harness.utils.ts";
 import {getNewSessionName, getSessionTitle} from "@domainServices/session.domainService.ts";
-import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
@@ -13,15 +12,8 @@ import {
   SESSION_LABELS,
   SESSION_MESSAGES
 } from "@pkg/constants/src/message.constant.ts";
-import {
-  addEntity,
-  findEntities,
-  removeEntity,
-  showRepositoryError,
-  updateEntity,
-  upsertEntity
-} from "@services/base.service.ts";
-import {pickProject} from "@services/project.service.ts";
+import {addEntity, findEntities, removeEntity, showRepositoryError, updateEntity} from "@services/base.service.ts";
+import {findOrAddProject, pickProject} from "@services/project.service.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {Array, Effect, Match, Result, Schema, Stream, String, SubscriptionRef} from "effect";
 
@@ -58,7 +50,7 @@ export const findSession = Effect.fn("SessionService.findSession")(function* (se
 });
 
 const addSession = Effect.fn("SessionService.addSession")(function* (listedProject: ListedProjectValueObject) {
-  const project = yield* upsertEntity(IProjectRepository, {path: listedProject.path});
+  const project = yield* findOrAddProject(listedProject.path);
   const storedSessions = yield* findEntities(ISessionRepository, {});
 
   return yield* addEntity(ISessionRepository, {

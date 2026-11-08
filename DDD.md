@@ -102,14 +102,9 @@ apps/extension/src/
                                            harnessId; displayName)
         session.repository.interface.ts    ISessionRepository: the base calls and sessions, this window's copy
       project/
-        project.entity.ts                  ProjectEntity (BaseEntity and path)
-        project.repository.interface.ts    IProjectRepository: the base calls
-      window/
-        window.entity.ts                   WindowEntity (BaseEntity and key)
-        window.repository.interface.ts     IWindowRepository: the base calls, addedProjectPaths, addProjects,
-                                           removeProject
-      windowProject/
-        windowProject.entity.ts            WindowProjectEntity (BaseEntity and windowId, projectId, projectPath)
+        project.entity.ts                  ProjectEntity (BaseEntity and path, added)
+        project.repository.interface.ts    IProjectRepository: the base calls and addedProjectPaths, the listed
+                                           projects
     valueObjects/                          EntityIdValueObject (a branded UUID v7), ProjectPathValueObject (branded),
                                            ListedProjectValueObject (a Schema.Class: a tree row), StatusValueObject,
                                            HarnessIdValueObject (literals), LaunchPlanValueObject (an interface)
@@ -122,8 +117,8 @@ apps/extension/src/
                                            removeEntity, on any repository; showRepositoryError
       session.service.ts                   newSession, openSession, removeSession, renameSession, listSessions,
                                            findSession, startSessionTitleSync
-      project.service.ts                   listProjects, pickProject, addProject, addProjectPathsToWindow,
-                                           removeProject, newProjectTerminal; NoProjectError
+      project.service.ts                   listProjects, pickProject, addProject, addProjectPaths,
+                                           findOrAddProject, removeProject, newProjectTerminal; NoProjectError
       scm.service.ts                       writeCommitMessageOrShowError, offerToStageAllChanges
       workspace.service.ts                 startShownProjectSync: the viewed session's project as the only
                                            project folder; startWorkspaceSaveOffer
@@ -160,8 +155,7 @@ apps/extension/src/
                                            repository.utils.ts
       session.repository.ts                SessionRepository: sessions with their project's path; re-reads after
                                            each write and on window focus
-      project.repository.ts                ProjectRepository: the base calls on projects
-      window.repository.ts                 WindowRepository: this window's row and its windowProjects
+      project.repository.ts                ProjectRepository: the added projects' paths; re-reads after each write
     services/
       claudeCodeHarness/                   ClaudeCodeHarnessInfraService: the `claude` launch plan, --settings hooks,
                                            the status env var, the status-file watcher, the transcript lookup that
@@ -180,8 +174,8 @@ apps/extension/src/
                                            infra service
     logger/traceLog.layer.ts               TraceLogLayer
     utils/vscode.utils.ts                  acquireDisposable, fromEvent, setContext, withProgress
-    utils/anchorFolder.utils.ts            findWindowKey, getAnchorFolderPath: the hidden folder 0 of a window that
-                                           shows one project
+    utils/anchorFolder.utils.ts            getAnchorFolderPath: the hidden folder 0 of the window once it shows one
+                                           project
   presentation/
     routes.ts                              RoutesLayer: command ID to controller
     middlewares/registerCommand.middleware.ts

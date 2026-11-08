@@ -21,31 +21,15 @@ shared columns.
   `__drizzle_migrations`.
 - **Cleaned up:** never; soft-deleted rows stay. Each row is a few hundred bytes.
 
-### `windows`
-
-- **Holds:** `key`, unique: the window's key from `findWindowKey` (`infrastructure/utils/anchorFolder.utils.ts`): its
-  anchor folder's directory name once it has one, else its first folder's name and a hash of its path, which is the name
-  its anchor folder's directory gets. A window without folders is `window-` and a hash of its session id; its first Add
-  Project gives it an anchor folder at once, which keeps the key.
-- **Written by:** `WindowRepository`, which upserts the window's row at startup.
-- **Why:** the key stays the same when a single-folder window turns into an untitled multi-root workspace, which VS Code
-  starts with an empty `workspaceState`.
-
 ### `projects`
 
-- **Holds:** `path`, unique: a folder sessions run in.
-- **Written by:** `ProjectService` through `BaseService.upsertEntity`, the first time a path is added to a window or
-  given a session; a workspace folder that is never used gets no row.
-
-### `windowProjects`
-
-- **Holds:** `windowId` and `projectId`, unique together: a project added to a window with Add Project, or a folder that
-  left the workspace for the shown project.
-- **Written by:** `WindowRepository`: Add Project upserts the row, bringing back a soft-deleted one; Remove Project
-  soft-deletes it. A window's own folder that makes way for the shown project gets a row; a project that has one keeps
-  it as it is, so switching projects never moves one.
-- **Read by:** `WindowRepository`, with its project's path, at startup and after each change. The window lists its added
-  projects in `sortId` order, so the one added last, again or for the first time, comes last.
+- **Holds:** `path`, unique: a folder sessions run in, and `added`: listed in the Sessions view. One list serves every
+  window.
+- **Written by:** `ProjectService` through the base service. Add Project upserts the row with `added` set, which puts it
+  at the end of the list, removed before or not; Remove Project clears `added`. A window's own folder that makes way for
+  the shown project is added the same way; a project already added keeps its place, so switching projects never moves
+  one. A session in a window's own folder gives that folder a row without `added`, so it stays one of the window's own.
+- **Read by:** `ProjectRepository`: the added projects in `sortId` order, at startup and after each write.
 
 ### `sessions`
 
@@ -61,7 +45,7 @@ shared columns.
 
 A folder the extension owns. On Linux it is `~/.config/Code/User/globalStorage/salmanafzal.aggregor-app/`.
 
-### `anchors/<window key>/`
+### `anchor/`
 
 - **Holds:**
   - `Aggregor/`, the anchor folder: empty but for `.vscode/settings.json`, with `files.exclude` set to `{"**": true}`
@@ -70,14 +54,14 @@ A folder the extension owns. On Linux it is `~/.config/Code/User/globalStorage/s
   - `saveOffered`, an empty file: the window was offered to save its workspace.
 - **Written by:** `WorkspaceInfraService`: the settings before every project switch, the marker when it offers; VS Code,
   the workspace file when the user saves it there.
-- **Read by:** VS Code, as that window's folder 0, which its own settings hide from Explorer; `WorkspaceInfraService`
+- **Read by:** VS Code, as the window's folder 0, which its own settings hide from Explorer; `WorkspaceInfraService`
   checks the marker.
 - **Why:** with the anchor folder at folder 0, the shown project swaps at folder 1; changing folder 0 restarts every
   extension. Its terminal cwd makes New Terminal count it and the project as one folder, so it opens in the project
   without asking. Named `Aggregor`, it names the saved workspace and its row in folder pickers. The marker makes the
-  offer once per window.
-- **Cleaned up:** never; each is an empty folder, a settings file of a few hundred bytes, an empty marker and maybe a
-  workspace file.
+  offer once. Aggregor is meant for one window; a second window would share the anchor folder and its settings.
+- **Cleaned up:** never; an empty folder, a settings file of a few hundred bytes, an empty marker and maybe a workspace
+  file.
 
 ### `status/<session id>`
 

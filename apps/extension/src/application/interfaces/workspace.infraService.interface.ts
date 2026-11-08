@@ -9,7 +9,7 @@ import type {Effect} from "effect";
 export class IWorkspaceInfraService extends Context.Service<
   IWorkspaceInfraService,
   {
-    // True once per window, when the first switch has left it an unsaved workspace.
+    // True once, when the first switch has left the window an unsaved workspace.
     readonly claimWorkspaceSaveOffer: Effect.Effect<boolean>;
     // The workspace folders that are projects: all but the anchor folder.
     readonly listWorkspaceFolderProjects: Effect.Effect<readonly ListedProjectValueObject[]>;

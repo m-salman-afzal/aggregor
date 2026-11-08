@@ -1,7 +1,12 @@
 import {makeEntityId} from "@domainServices/entityId.domainService.ts";
 import {BaseEntity} from "@entities/base/base.entity.ts";
 import {DatabaseReadError, DatabaseWriteError, EntityNotFoundError} from "@entities/base/base.repository.interface.ts";
-import {findUniqueColumns, formatNow, replaceUndefinedWithNull} from "@repositories/base/repository.utils.ts";
+import {
+  findUniqueColumns,
+  formatNow,
+  makeFilterClauses,
+  replaceUndefinedWithNull
+} from "@repositories/base/repository.utils.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {and, eq, getColumns, isNull, sql} from "drizzle-orm";
 import {makeWithDefaults} from "drizzle-orm/effect-sqlite-node";
@@ -13,14 +18,9 @@ import type {EntityTable, RepositoryTable, StoredColumns} from "@repositories/ba
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {SQLiteColumn} from "drizzle-orm/sqlite-core";
 
-// `IS`, not `=`, so a null filter value matches NULL.
 const findRows = Effect.fn("BaseRepository.findRows")(
   function* <Entity>({database, entitySchema, join, tableModel}: RepositoryTable<Entity>, filter: StoredColumns) {
-    const filterColumns = yield* replaceUndefinedWithNull(filter);
-    const filterClauses = Array.map(
-      Record.toEntries(filterColumns),
-      ([column, columnValue]) => sql`${tableModel}.${sql.identifier(column)} IS ${columnValue}`
-    );
+    const filterClauses = yield* makeFilterClauses(tableModel, filter);
     const joinedColumns = join === undefined ? {} : join.joinedColumns;
     const selectedRows = database
       .select({...getColumns(tableModel), ...joinedColumns})

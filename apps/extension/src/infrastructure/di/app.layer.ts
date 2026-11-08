@@ -9,7 +9,6 @@ import {UserInputPromptInfraService} from "@infraServices/vscode/userInputPrompt
 import {WorkspaceInfraService} from "@infraServices/vscode/workspace.infraService.ts";
 import {ProjectRepository} from "@repositories/project.repository.ts";
 import {SessionRepository} from "@repositories/session.repository.ts";
-import {WindowRepository} from "@repositories/window.repository.ts";
 import {startSessionTitleSync} from "@services/session.service.ts";
 import {startInterruptedTurnSettle} from "@services/status.service.ts";
 import {startShownProjectSync, startWorkspaceSaveOffer} from "@services/workspace.service.ts";
@@ -37,7 +36,6 @@ export const AppLayer = BackgroundLayer.pipe(
   Layer.provideMerge(TerminalInfraService),
   Layer.provideMerge(HarnessInfraServicesLayer),
   Layer.provideMerge(SessionRepository),
-  Layer.provideMerge(WindowRepository),
   Layer.provideMerge(ProjectRepository),
   Layer.provideMerge(DatabaseLayer),
   Layer.provideMerge(CommitCliInfraService),
