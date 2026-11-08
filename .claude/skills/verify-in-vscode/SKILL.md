@@ -33,7 +33,7 @@ From the repo root, as `node .claude/skills/verify-in-vscode/vscode.ts <command>
 
 | Command                 | What it does                                                                                                 |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `start [workspace]`     | Stops any earlier run, builds the extension (development mode), launches it and prints the trace log's path. |
+| `start [workspace]`     | Stops any earlier run, builds the extension and `aggregor-pty`, launches it and prints the trace log's path. |
 | `log`                   | Prints the trace log's path again.                                                                           |
 | `eval '<expression>'`   | Runs JavaScript in the VS Code window and prints the result as JSON. Return plain data, not DOM nodes.       |
 | `screenshot <png path>` | Saves a screenshot. Pass an absolute path in your scratchpad, never inside the repo; then read the image.    |

@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        script: [lint:check, format:check, typecheck, vsix]
+        script: [lint:check, format:check, typecheck, pty:check, pty:test, vsix]
     steps:
       - uses: actions/checkout@v7.0.1
       # Installs pnpm and Node from package.json (packageManager, devEngines.runtime), then runs pnpm install.
@@ -30,4 +30,11 @@ jobs:
         with:
           cache: true
           require-lockfile: true
+      # The runner has rustup; this installs the toolchain apps/pty/rust-toolchain.toml pins.
+      - if: startsWith(matrix.script, 'pty:') || matrix.script == 'vsix'
+        working-directory: apps/pty
+        run: rustup toolchain install
+      # Packaged with aggregor-pty built for the runner, as the linux-x64 release is.
+      - if: matrix.script == 'vsix'
+        run: pnpm --filter=aggregor-app build:pty
       - run: pnpm run ${{ matrix.script }}

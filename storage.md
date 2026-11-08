@@ -40,6 +40,18 @@ shared columns.
   the project again lists them again.
 - **Read by:** `SessionRepository`, with its project's path, at startup, after each write and when a window regains
   focus.
+- **Status columns:** `status` (`unknown` until a report, `exited` once the agent is gone), `statusKind`,
+  `statusMessage`, `statusProgress`, `statusChangedAt` (when the state last changed), `hasWorked` (it has reported
+  `working`), `reportedTitle` (the title in its latest OSC 7501 report) and `terminalTitle` (its latest window title).
+  Written only by `aggregor-pty` (`apps/pty`), which runs the agent and reads them from its output; nothing in the
+  extension reads them yet.
+
+### `aggregor-pty.log`
+
+- **Holds:** one line per error `aggregor-pty` hits with the database, such as a locked file or a missing session row,
+  with the time and session id; at most 10 lines a run.
+- **Written by:** `aggregor-pty`, beside the database, since the agent's terminal is no place for its errors.
+- **Cleaned up:** never; it only grows when something is wrong.
 
 ## Files under `globalStorageUri`
 

@@ -192,6 +192,7 @@ const start = async (workspaceArgument: string | undefined) => {
   // A running instance never loads a new build: its extension host only restarts with the whole app.
   await stopInstance();
   if ((await listCdpTargets()).length > 0) throw new Error(`Port ${CDP_PORT} is held by something else.`);
+  execFileSync("pnpm", ["run", "build:pty"], {cwd: EXTENSION_DIRECTORY, stdio: ["ignore", "ignore", "inherit"]});
   execFileSync("pnpm", ["exec", "vite", "build", "--mode", "development"], {
     cwd: EXTENSION_DIRECTORY,
     stdio: ["ignore", "ignore", "inherit"]

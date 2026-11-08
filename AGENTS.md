@@ -92,12 +92,16 @@ pnpm lint:fix      # Same, with --fix
 pnpm format:check  # Prettier over the whole repo; reports only
 pnpm format:fix    # Same, writing the changes
 pnpm typecheck     # tsc --noEmit in the apps, the root config files and .claude's scripts; packages are covered through the apps
-pnpm quality       # lint:check + format:check + typecheck, in parallel
+pnpm pty:check     # cargo fmt --check and cargo clippy -D warnings on apps/pty, the aggregor-pty binary
+pnpm pty:test      # aggregor-pty's tests, the end-to-end one included
+pnpm quality       # lint:check + format:check + typecheck + pty:check, in parallel
 pnpm lint-staged   # Same lint and format checks on staged files only (the husky pre-commit hook)
 pnpm db:generate   # After changing a table model, with --name <slug>: drizzle-kit writes its migration
+pnpm --filter=aggregor-app build:pty  # Builds aggregor-pty for this machine into apps/extension/bin
 pnpm bump          # On an up-to-date dev: pick the next version; pushes chore/bump-v<version> and opens its PR
 ```
 
 To release, run `pnpm bump` (`bump.config.ts`). Merging the bump PR into dev opens the release PR, dev into main
-(`release-pr.yaml`); merging that one publishes to the Marketplace and creates the GitHub release (`release.yaml`). The
-bump sets the same version in the root and `apps/extension` `package.json`.
+(`release-pr.yaml`); merging that one publishes to the Marketplace and creates the GitHub release (`release.yaml`): a
+VSIX per platform with its `aggregor-pty`, and a universal one without. The bump sets the same version in the root and
+`apps/extension` `package.json`.
