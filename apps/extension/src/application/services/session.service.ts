@@ -142,12 +142,6 @@ const removeSessionAndStopAgent = Effect.fn("SessionService.removeSessionAndStop
 
   yield* removeEntity(ISessionRepository, session.id);
   if (hasOpenTerminal) yield* stopSessionAgent(session.id);
-  // ponytail: the dying agent's SessionEnd hook can rewrite the file after this; a few bytes per removed running
-  // session. Wait for the process to exit first if the folder ever matters.
-  yield* withHarnessInfraService(
-    session.harnessId,
-    IHarnessInfraService.use((harnessInfraService) => harnessInfraService.clearSessionStatus(session.id))
-  );
 });
 
 // Starts a session in the given project; without one, the user picks a project.
@@ -162,13 +156,14 @@ export const newSession = Effect.fn("SessionService.newSession")(
         DatabaseReadError: () => DATABASE_MESSAGES.READ_FAILED,
         DatabaseWriteError: () => DATABASE_MESSAGES.WRITE_FAILED,
         NoProjectError: () => SESSION_MESSAGES.PROJECT_REQUIRED,
+        PtyBinaryNotFoundError: ({isWindows}) => SESSION_MESSAGES.PTY_BINARY_NOT_FOUND(isWindows),
         TerminalLaunchFailedError: () => SESSION_MESSAGES.LAUNCH_FAILED
       })
     )
   )
 );
 
-// Focuses the session's tab, or relaunches Claude on the same conversation when the tab is gone.
+// Focuses the session's tab, or relaunches its agent when the tab is gone, on the same conversation once it has one.
 export const openSession = Effect.fn("SessionService.openSession")(
   function* (sessionId: EntityIdValueObject) {
     yield* ITerminalInfraService.use((terminalInfraService) => terminalInfraService.focusSessionTerminal(sessionId));
@@ -177,6 +172,7 @@ export const openSession = Effect.fn("SessionService.openSession")(
   Effect.catch((openError) =>
     showErrorInBackground(
       Match.valueTags(openError, {
+        PtyBinaryNotFoundError: ({isWindows}) => SESSION_MESSAGES.PTY_BINARY_NOT_FOUND(isWindows),
         SessionNotFoundError: () => SESSION_MESSAGES.NOT_FOUND,
         TerminalLaunchFailedError: () => SESSION_MESSAGES.LAUNCH_FAILED
       })
@@ -193,35 +189,47 @@ export const removeSession = Effect.fn("SessionService.removeSession")(
   Effect.catch(showRepositoryError)
 );
 
-// The agent's title, as its tab shows it, becomes the session's name, so it outlasts the tab. A session the user named
-// has a tab of that name, which is not the agent's title.
-const saveSessionTitle = Effect.fn("SessionService.saveSessionTitle")(
-  function* (sessionId: EntityIdValueObject, terminalTitle: string) {
-    const session = yield* findSession(sessionId);
-    if (session.customName !== undefined) return;
-    const {placeholderTitles} = yield* withHarnessInfraService(
-      session.harnessId,
-      IHarnessInfraService.useSync((harnessInfraService) => harnessInfraService)
-    );
-    const sessionTitle = yield* getSessionTitle(terminalTitle, placeholderTitles);
-    if (sessionTitle === session.name) return;
+const findAgentTitle = Effect.fn("SessionService.findAgentTitle")(function* (session: SessionEntity) {
+  const {placeholderTitles} = yield* withHarnessInfraService(
+    session.harnessId,
+    IHarnessInfraService.useSync((harnessInfraService) => harnessInfraService)
+  );
 
-    yield* updateEntity(ISessionRepository, sessionId, {name: sessionTitle});
+  return yield* getSessionTitle(session, placeholderTitles);
+});
+
+// The sessions whose agent's title should replace their name: not one the user named, and only when the title changed.
+const findRetitledSessions = Effect.fn("SessionService.findRetitledSessions")(function* (
+  allSessions: readonly SessionEntity[]
+) {
+  const titleResults = yield* Effect.forEach(
+    Array.filter(allSessions, (session) => session.customName === undefined),
+    (session) => Effect.result(Effect.map(findAgentTitle(session), (agentTitle) => [session, agentTitle] as const))
+  );
+
+  return Array.filter(Array.getSuccesses(titleResults), ([session, agentTitle]) => agentTitle !== session.name);
+});
+
+// The agent's title becomes the session's name, so the row keeps it while the agent is gone or resuming.
+const saveSessionTitle = Effect.fn("SessionService.saveSessionTitle")(
+  function* (session: SessionEntity, agentTitle: string) {
+    yield* updateEntity(ISessionRepository, session.id, {name: agentTitle});
   },
-  Effect.catchTags({
-    EntityNotFoundError: () => Effect.void,
-    SessionNotFoundError: () => Effect.void,
-    SessionTitleNotFoundError: () => Effect.void
-  }),
+  Effect.catchTag("EntityNotFoundError", () => Effect.void),
   Effect.catch(showRepositoryError)
 );
 
-// For the window's whole life, each session's name follows its agent's latest title.
+// For the window's whole life, each session's name follows its agent's latest title. The check runs on every database
+// change, so it is untraced; only a save shows in the trace.
 export const startSessionTitleSync = Effect.fn("SessionService.startSessionTitleSync")(function* () {
-  const {sessionTerminalTitles} = yield* ITerminalInfraService;
+  const {sessions} = yield* ISessionRepository;
 
   yield* Effect.forkScoped(
-    Stream.runForEach(sessionTerminalTitles, ([sessionId, terminalTitle]) => saveSessionTitle(sessionId, terminalTitle))
+    Stream.runForEach(SubscriptionRef.changes(sessions), (allSessions) =>
+      Effect.flatMap(Effect.withTracerEnabled(findRetitledSessions(allSessions), false), (retitledSessions) =>
+        Effect.forEach(retitledSessions, ([session, agentTitle]) => saveSessionTitle(session, agentTitle))
+      )
+    )
   );
 });
 

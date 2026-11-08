@@ -387,7 +387,8 @@ current entry. Leave a field out rather than guess.
   VSIX without one, and publishes all five. Artifacts drop the executable bit, so packaging sets it again; a packaged
   binary keeps it through install. Checks packages the VSIX with the runner's own build.
 - **Why:** static musl binaries run on any Linux, two runners cover four targets, and the Marketplace serves the
-  universal VSIX to every other platform, Windows included, where step 3 tells the user to use WSL.
+  universal VSIX to every other platform, Windows included. Without the binary, starting or reopening a session says why
+  instead: reopen the folder in WSL on Windows, or that the platform isn't supported yet.
 
 ## VS Code and agent integration
 
@@ -400,8 +401,7 @@ current entry. Leave a field out rather than guess.
 - **Decision:** `~/.aggregor/aggregor.db` (`AGGREGOR_DATA_DIR` moves it), opened with `@effect/sql-sqlite-node` on
   Node's built-in `node:sqlite` (VS Code 1.145's Electron has Node 24.22 and SQLite 3.53.4), in WAL mode with foreign
   keys on. The tables are `projects` and `sessions`, every name camelCase, defined and migrated through Drizzle (see its
-  entry). Both SQL modules are unstable Effect APIs, allowed by name in `tsconfig.base.json`. A window re-reads sessions
-  on focus until the database is watched (phase 2, step 3).
+  entry). Both SQL modules are unstable Effect APIs, allowed by name in `tsconfig.base.json`.
 - **Why:** a file any process can write, real relations, and no native module to ship.
 
 ### `aggregor-pty` runs each agent and records its status (2026-11-08)
@@ -419,34 +419,72 @@ current entry. Leave a field out rather than guess.
   starts at `unknown`, `clear` and a full reset go back to `unknown`, and the agent's exit writes `exited`; reports with
   an `id` wait for step 8. A writer thread keeps the latest pending change and writes title changes at most every 500
   ms. The agent runs whatever happens to the database; errors go to `aggregor-pty.log` beside it, at most 10 lines a
-  run.
+  run. A session's terminal runs `aggregor-pty --database ‹path› --session ‹id› -- ‹agent command›`: the terminal infra
+  service wraps the harness's launch plan, and `getDatabaseFilePath` gives it and the database layer the same path.
 - **Why:** the reports carry what each agent knows, in one format. Two title columns leave step 4's title rule to the
   domain. Codex's title spinner changes about ten times a second, and from step 3 every write makes the window re-read
   its sessions.
 
-### Clicking a closed session resumes it (2026-10-08)
+### Windows see outside writes by polling `data_version` (2026-11-08)
 
-- **Decision:** when the session's Claude transcript exists, the tab runs `claude --resume`; otherwise it starts fresh.
+- **Problem:** `aggregor-pty` and other windows write the database, and a window has to notice within a moment.
+- **Options:** re-reading when the window regains focus (2026-11-07 to 2026-11-08), which misses every status change
+  while you look at the window. Watching the WAL file, which a checkpoint recreates and which doesn't exist before the
+  first write. A socket from the binary, planned for later (phase 2, Agreed 17).
+- **Decision:** `refreshOnDatabaseChanges` reads `PRAGMA data_version` every 250 ms, untraced, and each repository
+  re-reads its copy when the number changes. It changes only with another connection's commit, and a repository already
+  re-reads after its own writes. A project list that came back the same is not set again, so a status write redraws the
+  tree once.
+- **Why:** one small query, no file-watch edge cases, and a status shows within a quarter second.
 
-### Live status from Claude Code hooks (2026-10-09, #24)
+### Clicking a closed session resumes it (2026-10-08; `hasWorked` since 2026-11-08)
 
-- **Decision:** the extension passes hooks with `--settings`; they write status files the extension watches.
-  Screen-based status waits for a later agent that has no hooks.
+- **Options:** looking for Claude's transcript file (2026-10-08 to 2026-11-08), which only Claude has.
+- **Decision:** once the session has reported `working` (`hasWorked`), its tab runs the agent's resume command
+  (`claude --resume ‹id›`); before that it starts fresh under the session's id.
+- **Why:** an agent has a conversation to resume once it has worked, and the flag is the same for every agent.
 
-### An interrupted turn settles to idle (2026-11-06, #71)
+### Rows show the status on the session's row (2026-11-08)
 
-- **Problem:** Claude runs no Stop hook when the user interrupts a turn, so the session stayed running.
-- **Decision:** once the terminal title has shown Claude's idle mark for a few seconds, the session settles to idle.
+- **Problem:** status has to come from every agent, including a turn the user interrupts.
+- **Options:** Claude Code hooks passed with `--settings`, writing a word per session to a status file the extension
+  watched (2026-10-09 to 2026-11-08, #24): Claude only, and no hook runs for an interrupted turn. On top of them, the
+  interrupt settle (2026-11-06 to 2026-11-08, #71): a running session went idle once its terminal title had shown
+  Claude's idle mark for 3 seconds, which a renamed tab broke.
+- **Decision:** `aggregor-pty` runs every session's agent and writes its OSC 7501 reports onto the session's row. A row
+  with no terminal in this window shows exited, so an agent that died without writing `exited` never looks alive; with
+  one, `blocked`, `error`, `working` and `exited` show as themselves, and `done`, `idle` and `unknown` show done while
+  unread, else idle. Unread is the old rule on the new states: a session out of view that goes from working or blocked
+  to done or idle stays done until it comes into view or starts another turn. `error` shows as error, not as unread.
+- **Why:** every agent that speaks OSC 7501 reports the same states, an interrupt included, and an agent that never
+  reports (Copilot) sits at idle instead of looking stuck.
 
-### Session titles come from the agent's terminal title (2026-11-06, #69)
+### Each status has a row badge (2026-11-08)
+
+- **Problem:** six row states need to be told apart at a glance.
+- **Options:** codicons (`bell-dot`, `check`, `error`, `circle-outline`, `debug-stop`, as planned): a badge takes only
+  up to two characters of text, codicon badges are a proposed API, and as the row's icon they would replace the agent's
+  logo.
+- **Decision:** the row's icon stays the agent's logo, and its badge, which also tints the label, is working's blue
+  spinner, blocked's yellow `●`, done's green `✓`, error's red `✕` and exited's grey `○`; idle has none. A blocked row's
+  label names its kind (needs permission, has a question, needs sign-in), the tooltip carries the agent's message, and
+  progress shows as `42%` after the name.
+- **Why:** the agent's logo tells sessions apart once there are five agents, and text badges are what the stable API
+  draws.
+
+### Session titles come from what the agent reports (2026-11-06, #69; from the row since 2026-11-08)
 
 - **Options:** read Claude's transcript (the earlier build; Orca and cmux read OSC titles and the transcript); generate
-  a title with an LLM, as T3 Code and Conductor do.
-- **Decision:** session terminals open without a name, so the tab shows the agent's OSC title; the extension reads
-  `Terminal.name` every second, since no change event exists. One rule in `getSessionTitle` strips leading symbols,
-  spaces and control characters for every harness, and each harness lists only its placeholder titles. Rename stores a
-  `customName`, which wins in the row and the tab.
-- **Why:** one rule covers every agent's title, and a harness adds only data.
+  a title with an LLM, as T3 Code and Conductor do; read `Terminal.name` every second (2026-11-06 to 2026-11-08), since
+  no change event exists.
+- **Decision:** session terminals open without a name, so the tab shows the agent's OSC title. `aggregor-pty` stores the
+  title from the agent's 7501 report and its OSC 0/2 title on the row, and `getSessionTitle` takes the first that holds
+  a title: status marks (symbols, spaces and control characters) trimmed at both ends, and not empty, one of the
+  harness's placeholder titles, or only an id (a UUID, maybe with a prefix such as `ses_`). The title becomes the
+  session's `name`, so the row keeps it while the agent is gone or resuming; only that save is traced, since the check
+  runs on every database change. Rename stores a `customName`, which wins in the row and the tab.
+- **Why:** one rule covers every agent's title, and a harness adds only data. Dropping the agent's own name or the
+  project folder from a title waits for step 4, which brings each harness's name.
 
 ### One project in view, behind a hidden anchor folder (2026-11-05, #68)
 

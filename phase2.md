@@ -317,28 +317,53 @@ row.
 
 **Changes:**
 
-- `StatusValueObject` becomes the spec's states plus `exited` and `unknown`, with `kind`, `message` and `progress`.
-- `SessionEntity` gains the status fields, read through `SessionRepository` like the rest of the session; there is no
-  separate status repository. A watch on the database's WAL file, confirmed with `PRAGMA data_version`, refreshes
-  sessions and projects.
-- `startSessionTitleSync` reads `terminalTitle` and `reportedTitle` instead of `Terminal.name`. `getSessionTitle` also
-  strips trailing status marks and ignores titles that are only an id.
-- Rows: an icon per state, the message in the tooltip, progress in the description, and the unread rule (Agreed 9).
+- A session's terminal runs `‹extension›/bin/aggregor-pty --database ‹path› --session ‹sessionId› -- ‹agent command›`:
+  the terminal infra service wraps the harness's launch plan, and `getDatabaseFilePath` gives it and the database layer
+  the same path.
+- `StatusValueObject` is the spec's states plus `unknown` and `exited`, and `StatusKindValueObject` permission, question
+  or auth. `SessionEntity` gains `status`, `statusKind`, `statusMessage`, `statusProgress`, `hasWorked`, `reportedTitle`
+  and `terminalTitle`, read through `SessionRepository` like the rest of the session.
+- `refreshOnDatabaseChanges` polls `PRAGMA data_version` every 250 ms, and sessions and added projects are re-read when
+  another connection has written; the re-read on window focus is gone.
+- `startSessionTitleSync` follows the sessions instead of `Terminal.name`. `getSessionTitle` prefers `reportedTitle`,
+  else `terminalTitle`, trims status marks at both ends, and ignores an empty title, a placeholder or an id.
+- Rows: a badge per state, a blocked session's kind in its label, the agent's message in the tooltip, progress in the
+  description, and the unread rule (Agreed 9) on the new states.
 - Resume uses `hasWorked` instead of looking for Claude's transcript.
+- Without `aggregor-pty`, starting or reopening a session shows why: reopen in WSL on Windows, unsupported elsewhere.
 - Deleted: `assets/hooks.json`, `HOOKS_FILE`, `STATUS_ENV`, `INTERRUPTED_TURN_GRACE`, `status.service.ts`, Claude's
-  `status.utils.ts`, `transcript.utils.ts` and `claudeCode.transformer.ts`, `idleTitleMark`,
-  `watchSessionTerminalTitles` and `sessionTerminalTitles`.
-- Claude's harness service shrinks to its launch plan until step 4 removes it.
+  `status.utils.ts`, `transcript.utils.ts`, `claudeCode.transformer.ts` and `claudeCodeHarness.infraService.type.ts`,
+  `idleTitleMark`, `clearSessionStatus`, `settleSessionTurn`, `sessionStatuses`, `forEachHarnessInfraService`,
+  `watchSessionTerminalTitles`, `sessionTerminalTitles` and the launch plan's environment variables.
+- Claude's harness service is its launch plan, icon and placeholder titles until step 4 removes it.
 
 **Decided:**
 
-1. Row icons: working keeps today's spinner; blocked `bell-dot`; done `check`; error `error`; idle `circle-outline`;
-   exited `debug-stop`; unknown `circle-large-outline`, dimmed.
+1. Row badges: working keeps the blue spinner; blocked a yellow `●`; done a green `✓`; error a red `✕`; exited a grey
+   `○`; idle none. Planned as codicons, but a badge takes only text (codicon badges are a proposed API), and as the
+   row's icon they would replace the agent's logo.
 2. A session that is `unknown` while its process runs (Copilot) shows as idle with no turn tracking, so it never looks
-   stuck.
+   stuck; `unknown` has no badge of its own.
+3. Windows notice outside writes by polling `PRAGMA data_version` every 250 ms, instead of watching the WAL file, which
+   a checkpoint recreates and which doesn't exist before the first write.
+4. The terminal infra service wraps the launch plan in `aggregor-pty`; one function gives it and the database layer the
+   database path.
+5. Without the binary (the universal VSIX), starting or reopening a session shows an error instead.
+6. The domain half of step 4's title rule lands here: prefer the 7501 `title`, else the OSC title with status marks
+   trimmed at both ends; ignore an empty title, Claude's placeholders, or one that is only an id. Dropping the agent's
+   own name waits for step 4.
+7. With no terminal in this window, a row shows exited, which covers an agent that died without writing `exited`; with
+   one, `unknown` shows as idle. Step 6 replaces the terminal with the tmux session.
+8. The unread rule: a session out of view that goes from working or blocked to done or idle shows done until it comes
+   into view. `blocked` and `error` always show as themselves.
 
-**Verify:** in the headless VS Code with Claude: idle, working, done, then idle once viewed; a permission prompt shows
-blocked with its message; Esc and Ctrl+C mid-turn go idle; `/exit` goes exited; a renamed session still updates.
+**Verified (2026-11-08):** in the headless VS Code with Claude in `~/side/jsTester` and a scratch `AGGREGOR_DATA_DIR`:
+idle at start, working with the spinner while the name followed Claude's title, done after a turn that ended out of
+view; a question showed `has a question` with its message in the tooltip; Esc on the question, and Esc or Ctrl+C mid
+turn, went idle; a renamed session kept updating; `/exit` showed exited and closed the tab, and clicking the row resumed
+with `claude --resume ‹id›`; a project another connection added showed within a second; with the binary missing, New
+Session showed the unsupported-platform message and left no row. Not seen: a done row turning idle once viewed, since
+the headless window loses native focus when Claude starts; that path is the unread code from before.
 
 ## Step 4: harnesses from settings
 

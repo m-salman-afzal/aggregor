@@ -19,6 +19,13 @@ export class NoViewedSessionError extends Schema.TaggedError<NoViewedSessionErro
   "NoViewedSessionError",
   {}
 ) {}
+
+// This build has no aggregor-pty for the platform, which runs every session's agent: the universal VSIX on Windows, where
+// sessions need WSL, or on a platform no VSIX is built for.
+export class PtyBinaryNotFoundError extends Schema.TaggedError<
+  PtyBinaryNotFoundError,
+  {readonly brand: unique symbol}
+>()("PtyBinaryNotFoundError", {isWindows: Schema.Boolean}) {}
 export class TerminalLaunchFailedError extends Schema.TaggedError<
   TerminalLaunchFailedError,
   {readonly brand: unique symbol}
@@ -41,15 +48,14 @@ export class ITerminalInfraService extends Context.Service<
     readonly openProjectTerminal: (project: ListedProjectValueObject) => Effect.Effect<void, TerminalLaunchFailedError>;
     // The sessions with a tab in this window, now and after every change.
     readonly openSessionIds: Stream.Stream<ReadonlySet<EntityIdValueObject>>;
+    // Reuses the session's tab when this window already has one; else runs the launch plan under aggregor-pty, which
+    // records the agent's status on the session's row.
     readonly openSessionTerminal: (
       session: SessionEntity,
       terminalLaunchRequest: TerminalLaunchRequest
-    ) => Effect.Effect<void, TerminalLaunchFailedError>;
-    // Reuses the session's tab when this window already has one.
+    ) => Effect.Effect<void, PtyBinaryNotFoundError | TerminalLaunchFailedError>;
     // Renames the session's tab when it is open; the tab then keeps the name instead of the agent's title.
     readonly renameSessionTerminal: (sessionId: EntityIdValueObject, tabName: string) => Effect.Effect<void>;
-    // A session tab's title whenever it changes, as the agent in it sets it; every subscriber sees every change.
-    readonly sessionTerminalTitles: Stream.Stream<readonly [EntityIdValueObject, string]>;
     readonly viewedSessionId: SubscriptionRef.SubscriptionRef<Result.Result<EntityIdValueObject, NoViewedSessionError>>;
   }
 >()("aggregor-app/application/interfaces/terminal.infraService.interface/ITerminalInfraService") {}

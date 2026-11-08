@@ -63,7 +63,7 @@ Each file's suffix names its role, each role lives in one layer, and the file's 
 | Shared types            | any                               | `<declaring file>.type.ts`, beside it                   | plain names                                        |
 | Error                   | the highest layer that handles it | the top of a file (see Errors)                          | `SessionsCorruptError`                             |
 
-- File and folder names are camelCase in every dotted part, as in `claudeCodeHarness.infraService.type.ts`;
+- File and folder names are camelCase in every dotted part, as in `terminal.infraService.type.ts`;
   `unicorn/filename-case` checks them everywhere but `.claude`, whose skill folders follow Claude Code's names.
 - An implementation's file is its interface's file without `.interface`, so a search for `terminal.infraService` finds
   the interface, with its errors and types, and its implementation.
@@ -79,9 +79,9 @@ Each file's suffix names its role, each role lives in one layer, and the file's 
 - Every `Effect.fn` span is named `<owner>.<const>`. A config, controller, domain service, infra service, layer,
   middleware, repository, service or view file owns its spans, and the owner is its file name:
   `SessionService.openSession`, `RegisterCommandMiddleware.registerCommand`, and a layer's `make<Owner>` is
-  `<Owner>.make`. A helper file belongs to the one owner in its folder (`claudeCodeHarness/status.utils.ts` to
-  `ClaudeCodeHarnessInfraService`); a file with no owner gives the bare const name (`withHarnessInfraService`). A
-  command's root span is its command ID.
+  `<Owner>.make`. A helper file belongs to the one owner in its folder (`vscode/terminal/terminal.utils.ts` to
+  `TerminalInfraService`); a file with no owner gives the bare const name (`withHarnessInfraService`). A command's root
+  span is its command ID.
 - `eslint.plugin.ts` checks the span names, the `.type.ts` placement and the stem folders, and fixes span names.
 - Each entity is its own aggregate root; an aggregate of several entities gets an `.aggregate.ts`.
 
@@ -99,14 +99,16 @@ apps/extension/src/
                                            EntityNotFoundError
       session/
         session.entity.ts                  SessionEntity (BaseEntity and projectId, projectPath, name, customName,
-                                           harnessId; displayName)
+                                           harnessId, and aggregor-pty's status, statusKind, statusMessage,
+                                           statusProgress, hasWorked, reportedTitle and terminalTitle; displayName)
         session.repository.interface.ts    ISessionRepository: the base calls and sessions, this window's copy
       project/
         project.entity.ts                  ProjectEntity (BaseEntity and path, added)
         project.repository.interface.ts    IProjectRepository: the base calls and addedProjectPaths, the listed
                                            projects
     valueObjects/                          EntityIdValueObject (a branded UUID v7), ProjectPathValueObject (branded),
-                                           ListedProjectValueObject (a Schema.Class: a tree row), StatusValueObject,
+                                           ListedProjectValueObject (a Schema.Class: a tree row), StatusValueObject
+                                           and StatusKindValueObject (literals: OSC 7501's states and kinds),
                                            HarnessIdValueObject (literals), LaunchPlanValueObject (an interface)
     services/
       session.domainService.ts             getNewSessionName, getSessionTitle, getUnreadSessionIds
@@ -122,16 +124,13 @@ apps/extension/src/
       scm.service.ts                       writeCommitMessageOrShowError, offerToStageAllChanges
       workspace.service.ts                 startShownProjectSync: the viewed session's project as the only
                                            project folder; startWorkspaceSaveOffer
-      status.service.ts                    startInterruptedTurnSettle: a running session whose title says idle
-                                           settles to idle, since an interrupted turn runs no Stop hook
     interfaces/                            each with the errors and types its signatures name
-      harness.infraService.interface.ts    IHarnessInfraService: prepareLaunch, clearSessionStatus,
-                                           settleSessionTurn, placeholderTitles, idleTitleMark, sessionStatuses,
-                                           iconPath; IHarnessInfraServices: a LayerMap of them by harness id
+      harness.infraService.interface.ts    IHarnessInfraService: prepareLaunch, placeholderTitles, iconPath;
+                                           IHarnessInfraServices: a LayerMap of them by harness id
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
                                            openProjectTerminal, renameSessionTerminal, isSessionTerminalOpen,
-                                           openSessionIds, activatedSessionIds, viewedSessionId,
-                                           sessionTerminalTitles; TerminalLaunchRequest
+                                           openSessionIds, activatedSessionIds, viewedSessionId;
+                                           TerminalLaunchRequest, PtyBinaryNotFoundError
       userInputPrompt.infraService.interface.ts
                                            showErrorMessage, showInformationMessage, confirm, askForText, pickProject,
                                            pickProjectFolderPaths
@@ -143,27 +142,27 @@ apps/extension/src/
       settings.config.interface.ts         readSettings; Settings
     utils/
       error.utils.ts                       showErrorInBackground
-      harness.utils.ts                     withHarnessInfraService, forEachHarnessInfraService
+      harness.utils.ts                     withHarnessInfraService
   infrastructure/
     vscode/vscode.api.ts                   VsCodeApi: the only runtime import of vscode
     database/models/                       a Drizzle table per file (SessionTableModel...); base.model.ts:
                                            BASE_COLUMNS, the shared columns
     repositories/
       base/                                makeBaseRepository: the base calls on one table, on Drizzle's query
-                                           builder; its types in base.repository.type.ts, and the helpers that run
-                                           no query (formatNow, replaceUndefinedWithNull, findUniqueColumns) in
-                                           repository.utils.ts
-      session.repository.ts                SessionRepository: sessions with their project's path; re-reads after
-                                           each write and on window focus
+                                           builder; its types in base.repository.type.ts, and in repository.utils.ts
+                                           its helpers (formatNow, replaceUndefinedWithNull, findUniqueColumns) and
+                                           refreshOnDatabaseChanges, which polls PRAGMA data_version
+      session.repository.ts                SessionRepository: sessions with their project's path and status;
+                                           re-reads after each write and on another connection's
       project.repository.ts                ProjectRepository: the added projects' paths; re-reads after each write
+                                           and on another connection's
     services/
-      claudeCodeHarness/                   ClaudeCodeHarnessInfraService: the `claude` launch plan, --settings hooks,
-                                           the status env var, the status-file watcher, the transcript lookup that
-                                           picks resume or a fresh start, Claude's placeholder titles and idle
-                                           title mark, and the transformer from its status files to ours
+      claudeCodeHarness/                   ClaudeCodeHarnessInfraService: the `claude` launch plan, a resume once
+                                           the session has worked, and Claude's placeholder titles
       vscode/                              UserInputPromptInfraService, WorkspaceInfraService, GitInfraService
-      vscode/terminal/                     TerminalInfraService: session tabs and project shells; terminal.utils
-                                           reads a terminal's session id from its env
+      vscode/terminal/                     TerminalInfraService: session tabs, which run the launch plan under
+                                           aggregor-pty, and project shells; terminal.utils reads a terminal's
+                                           session id from its env and finds the binary
       commitCli/                           CommitCliInfraService: runs the configured commit command
     config/settings.config.ts              SettingsConfig
     di/
@@ -176,6 +175,7 @@ apps/extension/src/
     utils/vscode.utils.ts                  acquireDisposable, fromEvent, setContext, withProgress
     utils/anchorFolder.utils.ts            getAnchorFolderPath: the hidden folder 0 of the window once it shows one
                                            project
+    utils/database.utils.ts                getDatabaseFilePath: the window opens it, and aggregor-pty writes to it
   presentation/
     routes.ts                              RoutesLayer: command ID to controller
     middlewares/registerCommand.middleware.ts
@@ -223,8 +223,7 @@ apps/extension/src/
 - An error lives in the highest layer that handles it. One that an interface's signature names, because a layer above
   catches it, sits in that interface's file: `interfaces/terminal.infraService.interface.ts` holds
   `TerminalNotFoundError`, which `SessionService.openSession` answers by relaunching. Any other sits in the file that
-  raises it: `NoProjectError` in `project.service.ts`, `TranscriptNotFoundError` in
-  `claudeCodeHarness/transcript.utils.ts`.
+  raises it: `NoProjectError` in `project.service.ts`, `SessionTitleNotFoundError` in `session.domainService.ts`.
 - An error is exported only when another file catches or raises it. `SessionNotFoundError` in `session.service.ts` is
   private, and `TerminalInfraService` keeps private the reasons no session is in view, which it reports through the
   interface as one `NoViewedSessionError`.
@@ -246,11 +245,10 @@ apps/extension/src/
   `LayerMap<HarnessIdValueObject, IHarnessInfraService>`; `infrastructure/di/harnessInfraServices.layer.ts` builds it
   with `LayerMap.fromRecord` over a record that `satisfies Record<HarnessIdValueObject, Layer<IHarnessInfraService>>`,
   so a harness id without an implementation fails to compile. Every harness starts with the window and never idles out,
-  since the view reads its statuses all the time. Use cases run `withHarnessInfraService(session.harnessId, effect)`,
-  and the view merges every harness's statuses with `forEachHarnessInfraService`. A new harness is one
-  `infrastructure/services/<harness>/` folder, with its infra service and transformer, and one record entry.
-- **Harness and terminal don't know each other:** the harness returns a `LaunchPlanValueObject` (command, arguments,
-  environment variables) and the terminal infra service runs it.
+  since every row reads its icon. Use cases and the view run `withHarnessInfraService(session.harnessId, effect)`. A new
+  harness is one `infrastructure/services/<harness>/` folder and one record entry.
+- **Harness and terminal don't know each other:** the harness returns a `LaunchPlanValueObject` (command and arguments)
+  and the terminal infra service runs it under `aggregor-pty`.
 - **Planned with their roadmap items:** a `Hosts` LayerMap keyed by host id for SSH, a worktree infra service for M3,
   and tmux as a wrapper around the launch plan.
 
@@ -259,10 +257,11 @@ apps/extension/src/
 - Every repository is `makeBaseRepository` on its table, spread into its own object with its own queries. Writes are
   column-scoped: `update` sets only the columns it is given, so the extension and `aggregor-pty` never overwrite each
   other's columns. A repository that keeps a copy for the view (`sessions`, `addedProjectPaths`) refreshes it after each
-  of its writes.
+  of its writes and, through `refreshOnDatabaseChanges`, whenever another connection (`aggregor-pty`, another window)
+  has written, which `PRAGMA data_version` shows; it is polled every 250 ms, untraced.
 - Each table model is a Drizzle `sqliteTable` that spreads `BASE_COLUMNS`; its unique columns are what `upsert` matches
   on. A repository passes `makeBaseRepository` a join for the columns it reads from the rows it points at, such as a
   session's `projectPath`. After changing a model, `pnpm db:generate --name <slug>` writes its migration to
   `apps/extension/assets/migrations/`; commit it with the change. `storage.md` lists every stored table and key.
-- A transformer turns an outside format (Claude Code's status files) into domain types. It sits beside the infra service
-  that reads the format, since only infrastructure knows it.
+- A transformer turns an outside format into domain types (none today: `aggregor-pty` writes the domain's own values).
+  It sits beside the infra service that reads the format, since only infrastructure knows it.

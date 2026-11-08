@@ -1,26 +1,21 @@
 import {SqliteClient} from "@effect/sql-sqlite-node";
-import {DATA_DIRECTORY_ENV, MIGRATIONS_FOLDER} from "@pkg/constants/src/extension.constant.ts";
+import {getDatabaseFilePath} from "@infraUtils/database.utils.ts";
+import {MIGRATIONS_FOLDER} from "@pkg/constants/src/extension.constant.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {makeWithDefaults} from "drizzle-orm/effect-sqlite-node";
 import {migrate} from "drizzle-orm/effect-sqlite-node/migrator";
-import {Config, Effect, Layer} from "effect";
+import {Effect, Layer} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 import {SqlClient} from "effect/sql/SqlClient";
-import {homedir} from "node:os";
-
-const DATABASE_FILE_NAME = "aggregor.db";
 
 const openDatabaseFile = Effect.fn("Database.openDatabaseFile")(function* () {
   const fileSystem = yield* FileSystem;
   const path = yield* Path;
-  const dataDirectoryPath = yield* Config.withDefault(
-    Config.String(DATA_DIRECTORY_ENV),
-    path.join(homedir(), ".aggregor")
-  );
-  yield* fileSystem.makeDirectory(dataDirectoryPath, {mode: 0o700, recursive: true});
+  const databaseFilePath = yield* getDatabaseFilePath();
+  yield* fileSystem.makeDirectory(path.dirname(databaseFilePath), {mode: 0o700, recursive: true});
 
-  return SqliteClient.layer({filename: path.join(dataDirectoryPath, DATABASE_FILE_NAME)});
+  return SqliteClient.layer({filename: databaseFilePath});
 });
 
 // A migration that rebuilds a table drops it, which foreign keys block, and the setting can't change inside a

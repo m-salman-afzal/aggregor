@@ -1,18 +1,16 @@
 import {SessionEntity} from "@entities/session/session.entity.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
-import {fromEvent} from "@infraUtils/vscode.utils.ts";
 import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {ProjectTableModel} from "@models/project.model.ts";
 import {SessionTableModel} from "@models/session.model.ts";
 import {makeBaseRepository} from "@repositories/base/base.repository.ts";
+import {refreshOnDatabaseChanges} from "@repositories/base/repository.utils.ts";
 import {showRepositoryError} from "@services/base.service.ts";
-import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {eq} from "drizzle-orm";
-import {Context, Effect, Layer, Stream, SubscriptionRef} from "effect";
+import {Context, Effect, Layer, SubscriptionRef} from "effect";
 
 import type {IBaseRepository} from "@entities/base/base.repository.interface.ts";
 import type {AddSessionRequest} from "@entities/session/session.repository.interface.ts";
-import type {WindowState} from "vscode";
 
 type SessionBaseRepository = IBaseRepository<SessionEntity, AddSessionRequest>;
 
@@ -33,7 +31,6 @@ const refreshSessions = Effect.fn("SessionRepository.refreshSessions")(function*
 }, Effect.catch(showRepositoryError));
 
 const makeSessionRepository = Effect.fn("SessionRepository.make")(function* () {
-  const {window} = yield* VsCodeApi;
   const sessionBaseRepository = yield* makeBaseRepository<SessionEntity, AddSessionRequest>({
     entitySchema: SessionEntity,
     join: SESSION_PROJECT_JOIN,
@@ -44,11 +41,7 @@ const makeSessionRepository = Effect.fn("SessionRepository.make")(function* () {
   const userInputPromptContext = Context.make(IUserInputPromptInfraService, userInputPromptInfraService);
   const refresh = Effect.provide(refreshSessions(sessionBaseRepository, sessions), userInputPromptContext);
   yield* refresh;
-  // Until the database is watched, other windows' writes show up when this one regains focus.
-  const windowStateChanges = yield* fromEvent(window.onDidChangeWindowState);
-  yield* Effect.forkScoped(
-    Stream.runForEach(windowStateChanges, (windowState: WindowState) => (windowState.focused ? refresh : Effect.void))
-  );
+  yield* Effect.forkScoped(refreshOnDatabaseChanges(refresh));
   const refreshAfter = <Success, Failure>(write: Effect.Effect<Success, Failure>) => Effect.tap(write, () => refresh);
 
   return {

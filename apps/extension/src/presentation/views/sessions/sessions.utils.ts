@@ -9,12 +9,12 @@ import {
   SPINNER_INTERVAL_MS,
   STATUS_BADGES
 } from "@pkg/constants/src/extension.constant.ts";
-import {SESSION_LABELS, STATUS_LABELS} from "@pkg/constants/src/message.constant.ts";
+import {SESSION_LABELS, STATUS_KIND_LABELS, STATUS_LABELS} from "@pkg/constants/src/message.constant.ts";
 import {listProjects} from "@services/project.service.ts";
 import {listSessions} from "@services/session.service.ts";
 import {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
-import {Array, Clock, Effect, Result, Schema, SubscriptionRef} from "effect";
+import {Array, Clock, Effect, Result, Schema} from "effect";
 import {Path} from "effect/Path";
 
 import type {SessionEntity} from "@entities/session/session.entity.ts";
@@ -23,21 +23,18 @@ import type {Row, RowStatus} from "@views/sessions/sessions.view.type.ts";
 
 // How the Sessions tree draws its rows: project and session items, their status badges, and the tree's shape.
 
-// Without a terminal in this window the agent is gone; with one, the hooks say what it is doing.
+// Without a terminal in this window the agent is gone; with one, its agent's report says what it is doing. No report yet,
+// as from an agent that never reports, shows idle, so the row never looks stuck.
 export const getRowStatus = Effect.fn("SessionsView.getRowStatus")(function* (
   session: SessionEntity,
   unreadSessionIds: ReadonlySet<EntityIdValueObject>
 ) {
   const {isSessionTerminalOpen} = yield* ITerminalInfraService;
   if (!(yield* isSessionTerminalOpen(session.id))) return "exited" satisfies RowStatus;
+  if (session.status === "done" || session.status === "idle" || session.status === "unknown")
+    return unreadSessionIds.has(session.id) ? ("done" satisfies RowStatus) : ("idle" satisfies RowStatus);
 
-  const sessionStatuses = yield* withHarnessInfraService(
-    session.harnessId,
-    IHarnessInfraService.use((harnessInfraService) => SubscriptionRef.get(harnessInfraService.sessionStatuses))
-  );
-  const sessionStatus = sessionStatuses.get(session.id);
-
-  return sessionStatus === "idle" && unreadSessionIds.has(session.id) ? ("unread" satisfies RowStatus) : sessionStatus;
+  return session.status;
 });
 
 // The handle the status badge hangs off; the decoration provider reads the session id back from the path.
@@ -47,24 +44,53 @@ export const getSessionRowUri = Effect.fn("SessionsView.getSessionRowUri")(funct
   return Uri.from({path: `/${sessionId}`, scheme: SESSION_URI_SCHEME});
 });
 
+// A blocked session's label says what it waits for, when its agent says.
+const getStatusLabel = Effect.fn("SessionsView.getStatusLabel")(function* (
+  session: SessionEntity,
+  rowStatus: RowStatus | undefined
+) {
+  if (rowStatus === undefined) return undefined;
+
+  return rowStatus === "blocked" && session.statusKind !== undefined
+    ? STATUS_KIND_LABELS[session.statusKind]
+    : STATUS_LABELS[rowStatus];
+});
+
+// Progress shows only while the agent is at it.
+const getProgressDescription = Effect.fn("SessionsView.getProgressDescription")(function* (
+  session: SessionEntity,
+  rowStatus: RowStatus | undefined
+) {
+  const showsProgress = (rowStatus === "working" || rowStatus === "blocked") && session.statusProgress !== undefined;
+
+  return showsProgress ? `${session.statusProgress}%` : undefined;
+});
+
 export const createSessionTreeItem = Effect.fn("SessionsView.createSessionTreeItem")(function* (
   session: SessionEntity,
   rowStatus: RowStatus | undefined
 ) {
   const {TreeItem, Uri} = yield* VsCodeApi;
   const path = yield* Path;
-  const statusLabel = rowStatus === undefined ? undefined : STATUS_LABELS[rowStatus];
+  const statusLabel = yield* getStatusLabel(session, rowStatus);
   const rowLabel = session.displayName;
   const projectFolderName = path.basename(session.projectPath);
   const harnessIconPath = yield* withHarnessInfraService(
     session.harnessId,
     IHarnessInfraService.useSync((harnessInfraService) => harnessInfraService.iconPath)
   );
+  const progressDescription = yield* getProgressDescription(session, rowStatus);
   const treeItem = new TreeItem(rowLabel);
   treeItem.id = session.id;
   treeItem.iconPath = Uri.file(harnessIconPath);
+  if (progressDescription !== undefined) treeItem.description = progressDescription;
   treeItem.resourceUri = yield* getSessionRowUri(session.id);
-  treeItem.tooltip = SESSION_LABELS.TOOLTIP(session.name, session.projectPath, statusLabel);
+  treeItem.tooltip = SESSION_LABELS.TOOLTIP({
+    sessionName: session.name,
+    statusLabel,
+    statusMessage: session.statusMessage,
+    workingDirectory: session.projectPath
+  });
   treeItem.accessibilityInformation = {label: SESSION_LABELS.ACCESSIBLE(rowLabel, projectFolderName, statusLabel)};
   treeItem.contextValue = CONTEXT_VALUES.SESSION;
   treeItem.command = {arguments: [session.id], command: COMMANDS.SESSION_ROW.OPEN, title: SESSION_LABELS.OPEN_SESSION};

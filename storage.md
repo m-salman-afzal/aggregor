@@ -29,22 +29,23 @@ shared columns.
   at the end of the list, removed before or not; Remove Project clears `added`. A window's own folder that makes way for
   the shown project is added the same way; a project already added keeps its place, so switching projects never moves
   one. A session in a window's own folder gives that folder a row without `added`, so it stays one of the window's own.
-- **Read by:** `ProjectRepository`: the added projects in `sortId` order, at startup and after each write.
+- **Read by:** `ProjectRepository`: the added projects in `sortId` order, at startup, after each write and after another
+  window's.
 
 ### `sessions`
 
 - **Holds:** `projectId`, `harnessId`, `name` (the agent's latest title, or ours until it gives one) and `customName`
   (the user's, from the row menu's Rename, or NULL). The `id` is also the agent's session id.
-- **Written by:** `SessionService` through the base service: a row per New Session, `name` when the agent's title
-  changes, `customName` on Rename, and a soft delete on Remove Session. Removing a project keeps its sessions, so adding
-  the project again lists them again.
-- **Read by:** `SessionRepository`, with its project's path, at startup, after each write and when a window regains
-  focus.
+- **Written by:** `SessionService` through the base service: a row per New Session, `name` when the agent's title in the
+  row changes, `customName` on Rename, and a soft delete on Remove Session. Removing a project keeps its sessions, so
+  adding the project again lists them again.
+- **Read by:** `SessionRepository`, with its project's path, at startup, after each write, and within 250 ms of another
+  connection's write (`aggregor-pty`'s or another window's), which the window sees by polling `PRAGMA data_version`.
 - **Status columns:** `status` (`unknown` until a report, `exited` once the agent is gone), `statusKind`,
   `statusMessage`, `statusProgress`, `statusChangedAt` (when the state last changed), `hasWorked` (it has reported
   `working`), `reportedTitle` (the title in its latest OSC 7501 report) and `terminalTitle` (its latest window title).
-  Written only by `aggregor-pty` (`apps/pty`), which runs the agent and reads them from its output; nothing in the
-  extension reads them yet.
+  Written only by `aggregor-pty` (`apps/pty`), which runs the agent and reads them from its output. The Sessions view
+  shows the status, kind, message and progress; the titles become `name`; `hasWorked` picks resume over a fresh start.
 
 ### `aggregor-pty.log`
 
@@ -74,14 +75,3 @@ A folder the extension owns. On Linux it is `~/.config/Code/User/globalStorage/s
   offer once. Aggregor is meant for one window; a second window would share the anchor folder and its settings.
 - **Cleaned up:** never; an empty folder, a settings file of a few hundred bytes, an empty marker and maybe a workspace
   file.
-
-### `status/<session id>`
-
-- **Holds:** one word: `running`, `needs-input`, `idle` or `exited`.
-- **Written by:** the Claude Code hooks in [hooks.json](apps/extension/assets/hooks.json). Each session's terminal gets
-  the file's path in the `AGGREGOR_STATUS_FILE` env var.
-- **Read by:** `ClaudeCodeHarnessInfraService`, which watches the folder and feeds the Sessions tree.
-- **Why:** live status. Hooks are shell one-liners, so a plain file is the simplest thing they can write, and every
-  window can watch the same folder.
-- **Cleaned up:** deleted before each launch and when the session is removed. Removing a running session can leave the
-  file behind, because the agent's `SessionEnd` hook may write after the delete. Each leftover is a few bytes.

@@ -27,10 +27,12 @@ Control and diffs.
 - **Session titles.** Each tab and row shows the title the agent gives its terminal, as it changes (for Claude, its own
   title for the conversation or the one set with `/rename`); a closed session keeps the last one. Rename in the row's …
   menu gives a session your own name in the row and the tab; an empty name hands both back to the agent.
-- **Live status.** Each row ends with a status badge: a blue spinner while Claude runs and a yellow dot when it needs
-  input (a permission prompt or a question). A turn that finishes while you are looking elsewhere leaves a green dot
-  until you open that session's tab; a session you have seen shows no badge, and a grey hollow dot means it has exited.
-  The status comes from Claude Code hooks the extension passes with `--settings`.
+- **Live status.** Each row ends with a status badge: a blue spinner while the agent works, a yellow dot when it waits
+  on you (the row says for what: permission, a question or a sign-in, and the tooltip shows the agent's message) and a
+  red cross on an error. A turn that finishes while you are looking elsewhere leaves a green check until you open that
+  session's tab; a session you have seen shows no badge, and a grey hollow dot means it has exited. Reported progress
+  shows next to the name. The status comes from the agent's own OSC 7501 reports, read by `aggregor-pty`, which runs
+  every session's agent; the Linux and macOS builds carry it, and on Windows sessions run in WSL.
 - **AI commit messages.** A Source Control button writes the commit message for the staged diff.
 
 ## Roadmap
@@ -45,7 +47,7 @@ tmux and alerts.
 - [x] Sessions sidebar: start Claude in an editor tab, list and focus sessions
 - [x] Persist and resume: sessions survive reloads; clicking a closed one runs `claude --resume`
 - [x] Cleanup before the first release: remove dead ACP, webview and React code, align `@types/vscode` with `engines`
-- [x] Live status: running, needs input, idle and exited, from Claude Code hooks
+- [x] Live status: running, needs input, idle and exited (from Claude Code hooks then, from OSC 7501 now)
 
 ### M2: alerts, multi-project
 
@@ -77,8 +79,8 @@ tmux and alerts.
 
 ### Later
 
-Read-only diffs for SSH sessions in the local window, per-turn checkpoints, screen-based status for agents without
-hooks, cloud hosts through SSH config, and VS Code's agent sessions API if it becomes stable.
+Read-only diffs for SSH sessions in the local window, per-turn checkpoints, screen-based status for agents without OSC
+7501, cloud hosts through SSH config, and VS Code's agent sessions API if it becomes stable.
 
 ## Development
 

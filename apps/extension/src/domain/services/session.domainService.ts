@@ -1,4 +1,4 @@
-import {Array, Effect, Schema, String} from "effect";
+import {Array, Effect, Predicate, Result, Schema, String} from "effect";
 
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
@@ -11,7 +11,7 @@ interface UnreadSessionIdsInputs {
   readonly viewedSessionId: EntityIdValueObject | undefined;
 }
 
-// The terminal title carries no session title: it holds only status marks, or the agent has not named the conversation.
+// The agent's titles carry no session title: they hold only status marks or an id, or it has not named the conversation.
 export class SessionTitleNotFoundError extends Schema.TaggedError<
   SessionTitleNotFoundError,
   {readonly brand: unique symbol}
@@ -19,12 +19,18 @@ export class SessionTitleNotFoundError extends Schema.TaggedError<
 
 // The rules that span several sessions.
 
-// Agents put their status marks (Claude's ✳, Codex's ⠋, emoji) before the title, as symbols, so the title starts at the
-// first character that is not a symbol, space or control character. Matching Unicode classes keeps every language.
-const LEADING_STATUS_MARKS = /^[\p{C}\p{S}\p{Z}]+/u;
+// Agents put status marks (Claude's ✳, Codex's ⠋, emoji) around the title, as symbols, so the title runs from the first
+// character that is not a symbol, space or control character to the last. Matching Unicode classes keeps every language.
+const STATUS_MARKS_AT_ENDS = /^[\p{C}\p{S}\p{Z}]+|[\p{C}\p{S}\p{Z}]+$/gu;
 
-// A turn is in progress while its session runs or waits on the user.
-const TURN_IN_PROGRESS_STATUSES: ReadonlySet<StatusValueObject | undefined> = new Set(["needs-input", "running"]);
+// Some agents show their session's id until it has a title: a UUID, maybe with a prefix such as OpenCode's ses_.
+const ID_ONLY_TITLE = /^(?:[a-z]+_)?(?=[\da-f-]*\d)[\da-f-]{16,}$/iu;
+
+// A turn is in progress while its agent works or waits on the user.
+const TURN_IN_PROGRESS_STATUSES: ReadonlySet<StatusValueObject | undefined> = new Set(["blocked", "working"]);
+
+// A turn has ended once its agent says done, or goes straight back to idle as Codex and OpenCode do.
+const TURN_ENDED_STATUSES: ReadonlySet<StatusValueObject | undefined> = new Set(["done", "idle"]);
 
 // Lowest free "<project> #n", so removing #1 frees the name for the next session.
 export const getNewSessionName = Effect.fn("SessionDomainService.getNewSessionName")(function* (
@@ -38,20 +44,23 @@ export const getNewSessionName = Effect.fn("SessionDomainService.getNewSessionNa
   return `${projectName} #${sessionNumber}`;
 });
 
-// The session's title in the title its agent gives the terminal, without the agent's leading status marks. One of the
-// agent's placeholder titles, shown before it names the conversation, is no title.
+// The session's title from what its agent reports: the title in its OSC 7501 report first, else its window title, without
+// status marks. A placeholder, an id or nothing at all is no title.
 export const getSessionTitle = Effect.fn("SessionDomainService.getSessionTitle")(function* (
-  terminalTitle: string,
+  session: SessionEntity,
   placeholderTitles: ReadonlySet<string>
 ) {
-  const sessionTitle = String.trim(String.replace(LEADING_STATUS_MARKS, "")(terminalTitle));
-  if (sessionTitle === "" || placeholderTitles.has(sessionTitle)) return yield* SessionTitleNotFoundError.make();
+  const agentTitles = Array.filter([session.reportedTitle, session.terminalTitle], Predicate.isNotUndefined);
+  const sessionTitle = Array.findFirst(
+    Array.map(agentTitles, String.replace(STATUS_MARKS_AT_ENDS, "")),
+    (title) => title !== "" && !placeholderTitles.has(title) && !ID_ONLY_TITLE.test(title)
+  );
 
-  return sessionTitle;
+  return yield* Effect.fromResult(Result.fromOption(sessionTitle, () => SessionTitleNotFoundError.make()));
 });
 
 // A turn that ends while its session is out of view leaves it unread until it comes into view or starts another turn.
-// Ended means idle now, and running or waiting on the user at the previous look.
+// Ended means done or idle now, and working or waiting on the user at the previous look.
 export const getUnreadSessionIds = Effect.fn("SessionDomainService.getUnreadSessionIds")(function* (
   inputs: UnreadSessionIdsInputs
 ) {
@@ -60,14 +69,14 @@ export const getUnreadSessionIds = Effect.fn("SessionDomainService.getUnreadSess
     Array.filter(
       [...currentStatuses],
       ([sessionId, sessionStatus]) =>
-        sessionStatus === "idle" && TURN_IN_PROGRESS_STATUSES.has(previousStatuses.get(sessionId))
+        TURN_ENDED_STATUSES.has(sessionStatus) && TURN_IN_PROGRESS_STATUSES.has(previousStatuses.get(sessionId))
     ),
     ([sessionId]) => sessionId
   );
-  const isIdleAndOutOfView = (sessionId: EntityIdValueObject) =>
-    currentStatuses.get(sessionId) === "idle" && sessionId !== viewedSessionId;
+  const isEndedAndOutOfView = (sessionId: EntityIdValueObject) =>
+    TURN_ENDED_STATUSES.has(currentStatuses.get(sessionId)) && sessionId !== viewedSessionId;
   const unreadSessionIds: ReadonlySet<EntityIdValueObject> = new Set(
-    Array.filter([...previousUnreadSessionIds, ...endedSessionIds], isIdleAndOutOfView)
+    Array.filter([...previousUnreadSessionIds, ...endedSessionIds], isEndedAndOutOfView)
   );
 
   return unreadSessionIds;

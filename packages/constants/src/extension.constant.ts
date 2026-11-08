@@ -49,15 +49,16 @@ export const MODEL_ICONS = {
   CLAUDE: "assets/models/claude.svg"
 } as const;
 
-// Claude settings passed with --settings: hooks that write the session's status to the file named in STATUS_ENV.
-export const HOOKS_FILE = "assets/hooks.json";
-
-export const STATUS_ENV = "AGGREGOR_STATUS_FILE";
+// Runs each session's agent and records its status in the database; release VSIXs carry the one for their platform.
+export const PTY_BINARY = "bin/aggregor-pty";
 
 // Every session terminal carries its session id, so a restarted extension host can tell which tab is whose.
 export const SESSION_ID_ENV = "AGGREGOR_SESSION_ID";
 
 export const DATA_DIRECTORY_ENV = "AGGREGOR_DATA_DIR";
+
+// How often a window checks the database for other connections' writes, such as aggregor-pty's statuses.
+export const DATABASE_POLL_INTERVAL = "250 millis";
 
 // drizzle-kit writes one folder per migration here (apps/extension/drizzle.config.ts).
 export const MIGRATIONS_FOLDER = "assets/migrations";
@@ -65,19 +66,17 @@ export const MIGRATIONS_FOLDER = "assets/migrations";
 // Each Sessions row gets a URI in this scheme so a FileDecorationProvider can draw its status badge.
 export const SESSION_URI_SCHEME = "aggregor-session";
 
-// The badge at the end of a session row; an idle session the user has seen has none. Running steps through its frames,
-// one per SPINNER_INTERVAL_MS. Colors are theme color ids, and VS Code tints the row's label with them too.
+// The badge at the end of a session row; an idle session has none. Working steps through its frames, one per
+// SPINNER_INTERVAL_MS. Colors are theme color ids, and VS Code tints the row's label with them too.
 export const STATUS_BADGES = {
+  blocked: {color: "charts.yellow", frames: ["●"]},
+  done: {color: "charts.green", frames: ["✓"]},
+  error: {color: "errorForeground", frames: ["✕"]},
   exited: {color: "disabledForeground", frames: ["○"]},
-  "needs-input": {color: "charts.yellow", frames: ["●"]},
-  running: {color: "charts.blue", frames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]},
-  unread: {color: "charts.green", frames: ["●"]}
+  working: {color: "charts.blue", frames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]}
 } as const;
 
 export const SPINNER_INTERVAL_MS = 120;
-
-// How long a running session's title must say idle before its turn counts as ended without its hook.
-export const INTERRUPTED_TURN_GRACE = "3 seconds";
 
 export const VIEWS = {
   SESSIONS: "aggregorApp.sessions"

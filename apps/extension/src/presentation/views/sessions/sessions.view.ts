@@ -1,9 +1,7 @@
-import {forEachHarnessInfraService} from "@appUtils/harness.utils.ts";
 import {getUnreadSessionIds} from "@domainServices/session.domainService.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {acquireDisposable, fromEvent} from "@infraUtils/vscode.utils.ts";
-import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {SESSION_URI_SCHEME, SPINNER_INTERVAL_MS, VIEWS} from "@pkg/constants/src/extension.constant.ts";
 import {findSession, listSessions} from "@services/session.service.ts";
@@ -128,13 +126,10 @@ const registerTreeView = Effect.fn("SessionsView.registerTreeView")(function* (
   return {sessionsTreeView, treeChangedEmitter};
 });
 
-// Every harness's statuses in one map; session ids are unique across harnesses.
 const getAllSessionStatuses = Effect.fn("SessionsView.getAllSessionStatuses")(function* () {
-  const statusesByHarness = yield* forEachHarnessInfraService(
-    IHarnessInfraService.use((harnessInfraService) => SubscriptionRef.get(harnessInfraService.sessionStatuses))
-  );
+  const allSessions = yield* listSessions();
   const allSessionStatuses: ReadonlyMap<EntityIdValueObject, StatusValueObject> = new Map(
-    Array.flatMap(statusesByHarness, (sessionStatuses) => [...sessionStatuses])
+    Array.map(allSessions, (session) => [session.id, session.status] as const)
   );
 
   return allSessionStatuses;
@@ -190,35 +185,29 @@ const refreshSessionsTree = Effect.fn("SessionsView.refreshSessionsTree")(functi
   });
 });
 
-// ponytail: ticks for the view's whole life and returns at once when it is hidden or nothing runs. Start and stop it
+// ponytail: ticks for the view's whole life and returns at once when it is hidden or nothing works. Start and stop it
 // on status changes if the idle wake-ups ever show up in a profile.
 const advanceSpinnerFrames = Effect.fn("SessionsView.advanceSpinnerFrames")(function* (viewParts: SessionsViewParts) {
   const drawnRowStatuses = yield* Ref.get(viewParts.drawnRowStatuses);
-  const runningRows = Array.filter([...drawnRowStatuses], ([, rowStatus]) => rowStatus === "running");
-  if (!viewParts.sessionsTreeView.visible || runningRows.length === 0) return;
+  const workingRows = Array.filter([...drawnRowStatuses], ([, rowStatus]) => rowStatus === "working");
+  if (!viewParts.sessionsTreeView.visible || workingRows.length === 0) return;
 
-  const runningBadgeUris = yield* Effect.forEach(runningRows, ([sessionId]) => getSessionRowUri(sessionId));
+  const workingBadgeUris = yield* Effect.forEach(workingRows, ([sessionId]) => getSessionRowUri(sessionId));
   yield* Effect.sync(() => {
-    viewParts.badgesChangedEmitter.fire(runningBadgeUris);
+    viewParts.badgesChangedEmitter.fire(workingBadgeUris);
   });
 });
 
-// Rows change when a project or workspace folder is added or removed, when a session is added, removed or renamed, when
-// its tab opens or closes, when its status changes, and when it comes into view, which marks it read.
+// Rows change when a project or workspace folder is added or removed, when a session is added, removed or renamed or its
+// status changes, when its tab opens or closes, and when it comes into view, which marks it read.
 const watchRowChanges = Effect.fn("SessionsView.watchRowChanges")(function* () {
   const {workspace} = yield* VsCodeApi;
-  const harnessChangeSources = yield* forEachHarnessInfraService(
-    IHarnessInfraService.useSync((harnessInfraService): readonly Stream.Stream<unknown>[] => [
-      SubscriptionRef.changes(harnessInfraService.sessionStatuses)
-    ])
-  );
   const rowChangeSources: readonly Stream.Stream<unknown>[] = [
     SubscriptionRef.changes((yield* IProjectRepository).addedProjectPaths),
     yield* fromEvent(workspace.onDidChangeWorkspaceFolders),
     SubscriptionRef.changes((yield* ISessionRepository).sessions),
     (yield* ITerminalInfraService).openSessionIds,
-    SubscriptionRef.changes((yield* ITerminalInfraService).viewedSessionId),
-    ...harnessChangeSources.flat()
+    SubscriptionRef.changes((yield* ITerminalInfraService).viewedSessionId)
   ];
 
   return Stream.mergeAll(rowChangeSources, {concurrency: "unbounded"});

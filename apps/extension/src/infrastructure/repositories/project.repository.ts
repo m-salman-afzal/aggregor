@@ -3,8 +3,9 @@ import {IProjectRepository} from "@entities/project/project.repository.interface
 import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {ProjectTableModel} from "@models/project.model.ts";
 import {makeBaseRepository} from "@repositories/base/base.repository.ts";
+import {refreshOnDatabaseChanges} from "@repositories/base/repository.utils.ts";
 import {showRepositoryError} from "@services/base.service.ts";
-import {Array, Context, Effect, Layer, SubscriptionRef} from "effect";
+import {Array, Context, Effect, Layer, String, SubscriptionRef} from "effect";
 
 import type {IBaseRepository} from "@entities/base/base.repository.interface.ts";
 import type {AddProjectRequest} from "@entities/project/project.repository.interface.ts";
@@ -14,15 +15,19 @@ type ProjectBaseRepository = IBaseRepository<ProjectEntity, AddProjectRequest>;
 
 type ProjectPathsReference = SubscriptionRef.SubscriptionRef<readonly ProjectPathValueObject[]>;
 
+const ProjectPathsEquivalence = Array.makeEquivalence(String.Equivalence);
+
 const refreshAddedProjectPaths = Effect.fn("ProjectRepository.refreshAddedProjectPaths")(function* (
   projectBaseRepository: ProjectBaseRepository,
   addedProjectPaths: ProjectPathsReference
 ) {
   const addedProjects = yield* projectBaseRepository.findMany({added: true});
-  yield* SubscriptionRef.set(
-    addedProjectPaths,
-    Array.map(addedProjects, (project) => project.path)
-  );
+  const nextAddedProjectPaths = Array.map(addedProjects, (project) => project.path);
+  const currentAddedProjectPaths = yield* SubscriptionRef.get(addedProjectPaths);
+  // Every agent's status write reaches here too; only a real change redraws the tree.
+  if (ProjectPathsEquivalence(nextAddedProjectPaths, currentAddedProjectPaths)) return;
+
+  yield* SubscriptionRef.set(addedProjectPaths, nextAddedProjectPaths);
 }, Effect.catch(showRepositoryError));
 
 const makeProjectRepository = Effect.fn("ProjectRepository.make")(function* () {
@@ -38,6 +43,7 @@ const makeProjectRepository = Effect.fn("ProjectRepository.make")(function* () {
     userInputPromptContext
   );
   yield* refresh;
+  yield* Effect.forkScoped(refreshOnDatabaseChanges(refresh));
   const refreshAfter = <Success, Failure>(write: Effect.Effect<Success, Failure>) => Effect.tap(write, () => refresh);
 
   return {

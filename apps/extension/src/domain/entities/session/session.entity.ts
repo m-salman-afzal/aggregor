@@ -2,14 +2,24 @@ import {BaseEntity} from "@entities/base/base.entity.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {HarnessIdValueObjectSchema} from "@valueObjects/harnessId.valueObject.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
+import {StatusValueObjectSchema} from "@valueObjects/status.valueObject.ts";
+import {StatusKindValueObjectSchema} from "@valueObjects/statusKind.valueObject.ts";
 import {Schema} from "effect";
 
+// The status fields and titles are aggregor-pty's, from the agent's output; the rest are ours.
 export class SessionEntity extends BaseEntity.extend<SessionEntity>("Session")({
   customName: Schema.optional(Schema.String),
   harnessId: HarnessIdValueObjectSchema,
+  hasWorked: Schema.Boolean,
   name: Schema.String,
   projectId: EntityIdValueObjectSchema,
-  projectPath: ProjectPathValueObjectSchema
+  projectPath: ProjectPathValueObjectSchema,
+  reportedTitle: Schema.optional(Schema.String),
+  status: StatusValueObjectSchema,
+  statusKind: Schema.optional(StatusKindValueObjectSchema),
+  statusMessage: Schema.optional(Schema.String),
+  statusProgress: Schema.optional(Schema.Int),
+  terminalTitle: Schema.optional(Schema.String)
 }) {
   public get displayName(): string {
     return this.customName === undefined ? this.name : this.customName;

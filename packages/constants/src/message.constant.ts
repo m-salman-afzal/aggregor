@@ -41,18 +41,39 @@ export const SESSION_LABELS = {
       : `${rowLabel}, ${projectFolderName}, ${statusLabel}`,
   OPEN_SESSION: "Open Session",
   RENAME: "Session name. Leave it empty to show the agent's own title again.",
-  TOOLTIP: (sessionName: string, workingDirectory: string, statusLabel: string | undefined) =>
-    statusLabel === undefined
-      ? `${sessionName}\n${workingDirectory}`
-      : `${sessionName} · ${statusLabel}\n${workingDirectory}`
+  // The agent's message, such as the permission it asks for, sits between the name and the folder.
+  TOOLTIP: ({
+    sessionName,
+    statusLabel,
+    statusMessage,
+    workingDirectory
+  }: {
+    readonly sessionName: string;
+    readonly statusLabel: string | undefined;
+    readonly statusMessage: string | undefined;
+    readonly workingDirectory: string;
+  }) =>
+    [
+      statusLabel === undefined ? sessionName : `${sessionName} · ${statusLabel}`,
+      ...(statusMessage === undefined ? [] : [statusMessage]),
+      workingDirectory
+    ].join("\n")
 } as const;
 
 export const STATUS_LABELS = {
+  blocked: "needs input",
+  done: "finished",
+  error: "failed",
   exited: "exited",
   idle: "idle",
-  "needs-input": "needs input",
-  running: "running",
-  unread: "finished"
+  working: "working"
+} as const;
+
+// What a blocked session waits for, when its agent says.
+export const STATUS_KIND_LABELS = {
+  auth: "needs sign-in",
+  permission: "needs permission",
+  question: "has a question"
 } as const;
 
 export const WORKSPACE_MESSAGES = {
@@ -70,5 +91,10 @@ export const SESSION_MESSAGES = {
     `Remove "${displayName}"? Its agent is still running and will be stopped.`,
   LAUNCH_FAILED: "Could not open a terminal for the session.",
   NOT_FOUND: "This session no longer exists.",
-  PROJECT_REQUIRED: "Add a project or open a folder to start a session."
+  PROJECT_REQUIRED: "Add a project or open a folder to start a session.",
+  // The universal VSIX, which has no aggregor-pty, still runs sessions on Windows, inside WSL.
+  PTY_BINARY_NOT_FOUND: (isWindows: boolean) =>
+    isWindows
+      ? "On Windows, sessions run in WSL. Reopen the folder in WSL to start one."
+      : "Sessions can't run on this platform yet: this build of Aggregor has no aggregor-pty for it."
 } as const;

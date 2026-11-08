@@ -1,9 +1,13 @@
+import {DATABASE_POLL_INTERVAL} from "@pkg/constants/src/extension.constant.ts";
 import {eq, getColumns, isNull} from "drizzle-orm";
 import {getTableConfig} from "drizzle-orm/sqlite-core";
-import {Array, DateTime, Effect, Record} from "effect";
+import {Array, DateTime, Effect, Record, Schedule, Schema, Stream} from "effect";
+import {SqlClient} from "effect/sql/SqlClient";
 
 import type {BaseTableModel, StoredColumns} from "@repositories/base/base.repository.type.ts";
 import type {SQLiteColumn} from "drizzle-orm/sqlite-core";
+
+const DataVersionRowsSchema = Schema.Tuple([Schema.Struct({dataVersion: Schema.Int})]);
 
 export const formatNow = Effect.fn("BaseRepository.formatNow")(function* () {
   const now = yield* DateTime.now;
@@ -41,3 +45,25 @@ export const makeFilterClauses = Effect.fn("BaseRepository.makeFilterClauses")(f
     return Effect.succeed(columnValue === undefined || columnValue === null ? isNull(column) : eq(column, columnValue));
   });
 });
+
+const readDataVersion = Effect.fn("BaseRepository.readDataVersion")(function* () {
+  const sql = yield* SqlClient;
+  const dataVersionRows = yield* sql`SELECT data_version AS dataVersion FROM pragma_data_version`;
+  const [dataVersionRow] = yield* Schema.decodeUnknownEffect(DataVersionRowsSchema)(dataVersionRows);
+
+  return dataVersionRow.dataVersion;
+});
+
+// data_version changes with each commit from another connection (aggregor-pty, another window), never with this one's
+// own, which every repository re-reads after anyway. The poll runs untraced, like the spinner; only a change refreshes.
+export const refreshOnDatabaseChanges = Effect.fn("BaseRepository.refreshOnDatabaseChanges")(
+  function* (refresh: Effect.Effect<void>) {
+    const dataVersions = Stream.fromEffectSchedule(
+      Effect.withTracerEnabled(readDataVersion(), false),
+      Schedule.spaced(DATABASE_POLL_INTERVAL)
+    );
+
+    yield* Stream.runForEach(Stream.drop(Stream.changes(dataVersions), 1), () => refresh);
+  },
+  Effect.ignore({log: "Warn", message: "Could not watch the database for other windows' and agents' changes"})
+);

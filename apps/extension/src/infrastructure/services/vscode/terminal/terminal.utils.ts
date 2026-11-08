@@ -1,11 +1,11 @@
+import {PtyBinaryNotFoundError} from "@interfaces/terminal.infraService.interface.ts";
 import {SESSION_ID_ENV} from "@pkg/constants/src/extension.constant.ts";
 import {decodeEntityId} from "@valueObjects/entityId.valueObject.ts";
-import {Array, Effect, Ref, Schema, Stream, SubscriptionRef} from "effect";
+import {Array, Effect, Schema, SubscriptionRef} from "effect";
+import {FileSystem} from "effect/FileSystem";
+import {platform} from "node:os";
 
-import type {
-  SessionTerminalsReference,
-  TerminalDependencies
-} from "@infraServices/vscode/terminal/terminal.infraService.type.ts";
+import type {TerminalDependencies} from "@infraServices/vscode/terminal/terminal.infraService.type.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {Terminal} from "vscode";
 
@@ -14,8 +14,6 @@ class UntrackedTerminalError extends Schema.TaggedError<UntrackedTerminalError, 
   "UntrackedTerminalError",
   {}
 ) {}
-
-const TITLE_READ_INTERVAL = "1 second";
 
 // Every session terminal carries its session id in its env, which VS Code keeps across extension host restarts.
 export const findTerminalSessionId = Effect.fn("TerminalInfraService.findTerminalSessionId")(
@@ -44,33 +42,14 @@ export const findOpenSessionTerminals = Effect.fn("TerminalInfraService.findOpen
   return openSessionTerminals;
 });
 
-// The titles that changed since the last read. Each is the raw title the agent set, since VS Code stops taking it from
-// the terminal only for a tab that has a name.
-const findChangedTitles = Effect.fn("TerminalInfraService.findChangedTitles")(function* (
-  sessionTerminals: SessionTerminalsReference,
-  readTitles: Ref.Ref<ReadonlyMap<EntityIdValueObject, string>>
-) {
-  const openTerminals = yield* SubscriptionRef.get(sessionTerminals);
-  const currentTitles: ReadonlyMap<EntityIdValueObject, string> = new Map(
-    Array.map([...openTerminals], ([sessionId, terminal]) => [sessionId, terminal.name] as const)
-  );
-  const previousTitles = yield* Ref.getAndSet(readTitles, currentTitles);
+// Linux and macOS VSIXs carry aggregor-pty; the universal one, for every other platform, does not. A failed check counts
+// as missing, so the user hears why no session starts.
+export const findPtyBinaryPath = Effect.fn("TerminalInfraService.findPtyBinaryPath")(function* (ptyBinaryPath: string) {
+  const fileSystem = yield* FileSystem;
+  const isPtyBinaryFound = yield* Effect.orElseSucceed(fileSystem.exists(ptyBinaryPath), () => false);
+  if (!isPtyBinaryFound) return yield* PtyBinaryNotFoundError.make({isWindows: platform() === "win32"});
 
-  return Array.filter([...currentTitles], ([sessionId, title]) => previousTitles.get(sessionId) !== title);
-});
-
-// VS Code has no event for a terminal's title changing, so each tab's is read every second, untraced like the spinner.
-// Each subscriber keeps its own last-read titles, so one cannot take another's changes.
-export const watchSessionTerminalTitles = Effect.fn("TerminalInfraService.watchSessionTerminalTitles")(function* (
-  sessionTerminals: SessionTerminalsReference
-) {
-  return Stream.unwrap(
-    Effect.map(Ref.make<ReadonlyMap<EntityIdValueObject, string>>(new Map()), (readTitles) =>
-      Stream.flatMap(Stream.tick(TITLE_READ_INTERVAL), () =>
-        Stream.fromIterableEffect(Effect.withTracerEnabled(findChangedTitles(sessionTerminals, readTitles), false))
-      )
-    )
-  );
+  return ptyBinaryPath;
 });
 
 // VS Code renames only the active terminal, so the tab comes to the front first. A closed tab has nothing to rename; the
