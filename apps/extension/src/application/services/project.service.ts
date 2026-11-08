@@ -1,14 +1,15 @@
 import {showErrorInBackground} from "@appUtils/error.utils.ts";
-import {ProjectEntity} from "@entities/project/project.entity.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
-import {IPromptInfraService} from "@interfaces/prompt.infraService.interface.ts";
+import {IWindowRepository} from "@entities/window/window.repository.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
+import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import {PROJECT_LABELS, PROJECT_MESSAGES, TERMINAL_MESSAGES} from "@pkg/constants/src/message.constant.ts";
+import {PROJECT_LABELS, TERMINAL_MESSAGES} from "@pkg/constants/src/message.constant.ts";
+import {showRepositoryError, upsertEntity} from "@services/base.service.ts";
+import {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
 import {Array, Effect, Match, Result, Schema, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
-import type {ProjectsCorruptError, ProjectsSaveFailedError} from "@entities/project/project.repository.interface.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
 export class NoProjectError extends Schema.TaggedError<NoProjectError, {readonly brand: unique symbol}>()(
@@ -16,21 +17,10 @@ export class NoProjectError extends Schema.TaggedError<NoProjectError, {readonly
   {}
 ) {}
 
-export const showProjectRepositoryError = Effect.fn("ProjectService.showProjectRepositoryError")(function* (
-  projectRepositoryError: ProjectsCorruptError | ProjectsSaveFailedError
-) {
-  yield* showErrorInBackground(
-    Match.valueTags(projectRepositoryError, {
-      ProjectsCorruptError: () => PROJECT_MESSAGES.UNREADABLE,
-      ProjectsSaveFailedError: () => PROJECT_MESSAGES.SAVE_FAILED
-    })
-  );
-});
-
 // This window's projects: its own workspace folders, then the added projects. The added project shown as a workspace
 // folder stays an added project.
 export const listProjects = Effect.fn("ProjectService.listProjects")(function* () {
-  const {addedProjectPaths} = yield* IProjectRepository;
+  const {addedProjectPaths} = yield* IWindowRepository;
   const path = yield* Path;
   const workspaceFolderProjects = yield* IWorkspaceInfraService.use(
     (workspaceInfraService) => workspaceInfraService.listWorkspaceFolderProjects
@@ -42,7 +32,7 @@ export const listProjects = Effect.fn("ProjectService.listProjects")(function* (
     (workspaceFolderProject) => !addedProjectPathSet.has(workspaceFolderProject.path)
   );
   const addedProjects = Array.map(currentAddedProjectPaths, (addedProjectPath) =>
-    ProjectEntity.make({added: true, name: path.basename(addedProjectPath), path: addedProjectPath})
+    ListedProjectValueObject.make({added: true, name: path.basename(addedProjectPath), path: addedProjectPath})
   );
 
   return [...ownFolderProjects, ...addedProjects];
@@ -52,8 +42,8 @@ export const listProjects = Effect.fn("ProjectService.listProjects")(function* (
 export const pickProject = Effect.fn("ProjectService.pickProject")(function* (placeHolder: string) {
   const projects = yield* listProjects();
   if (projects.length > 1)
-    return yield* IPromptInfraService.use((promptInfraService) =>
-      promptInfraService.pickProject(projects, placeHolder)
+    return yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
+      userInputPromptInfraService.pickProject(projects, placeHolder)
     );
 
   return yield* Effect.fromResult(Result.fromNullishOr(projects[0], () => NoProjectError.make()));
@@ -72,12 +62,20 @@ const showFirstNewProject = Effect.fn("ProjectService.showFirstNewProject")(func
   yield* workspaceInfraService.showOnlyProjectFolder(firstNewProjectPath);
 });
 
+export const addProjectPathsToWindow = Effect.fn("ProjectService.addProjectPathsToWindow")(function* (
+  projectPaths: readonly ProjectPathValueObject[]
+) {
+  const projects = yield* Effect.forEach(projectPaths, (projectPath) =>
+    upsertEntity(IProjectRepository, {path: projectPath})
+  );
+  yield* IWindowRepository.use((windowRepository) => windowRepository.addProjects(projects));
+});
+
 // ponytail: any folder counts as a project, no git check. Worktree mode (M3) is where a non-git folder would first break.
 export const addProject = Effect.fn("ProjectService.addProject")(
   function* () {
-    const {modifyAddedProjectPaths} = yield* IProjectRepository;
-    const pickedFolderPaths = yield* IPromptInfraService.use(
-      (promptInfraService) => promptInfraService.pickProjectFolderPaths
+    const pickedFolderPaths = yield* IUserInputPromptInfraService.use(
+      (userInputPromptInfraService) => userInputPromptInfraService.pickProjectFolderPaths
     );
     // One of the window's own folders is listed already.
     const listedProjects = yield* listProjects();
@@ -88,24 +86,19 @@ export const addProject = Effect.fn("ProjectService.addProject")(
       (pickedFolderPath) => !ownFolderPaths.has(pickedFolderPath)
     );
 
-    yield* modifyAddedProjectPaths((storedAddedProjectPaths) => [
-      ...new Set([...storedAddedProjectPaths, ...newProjectPaths])
-    ]);
+    yield* addProjectPathsToWindow(newProjectPaths);
     yield* showFirstNewProject(newProjectPaths);
   },
   Effect.catchTag("FolderPickCancelledError", () => Effect.void),
-  Effect.catch(showProjectRepositoryError)
+  Effect.catch(showRepositoryError)
 );
 
 // Its sessions stay saved and their open tabs keep running; adding the project again lists them again. Its folder leaves
 // the workspace first, since a workspace folder that is not added is listed as one of the window's own.
-export const removeProject = Effect.fn("ProjectService.removeProject")(function* (project: ProjectEntity) {
-  const {modifyAddedProjectPaths} = yield* IProjectRepository;
+export const removeProject = Effect.fn("ProjectService.removeProject")(function* (project: ListedProjectValueObject) {
   yield* IWorkspaceInfraService.use((workspaceInfraService) => workspaceInfraService.removeProjectFolder(project.path));
-  yield* modifyAddedProjectPaths((storedAddedProjectPaths) =>
-    Array.filter(storedAddedProjectPaths, (addedProjectPath) => addedProjectPath !== project.path)
-  );
-}, Effect.catch(showProjectRepositoryError));
+  yield* IWindowRepository.use((windowRepository) => windowRepository.removeProject(project.path));
+}, Effect.catch(showRepositoryError));
 
 const openPickedProjectTerminal = Effect.fn("ProjectService.openPickedProjectTerminal")(function* () {
   const pickedProject = yield* pickProject(PROJECT_LABELS.PICK_FOR_TERMINAL);

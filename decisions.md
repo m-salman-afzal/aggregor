@@ -1,8 +1,7 @@
 # Decisions
 
 What we decided, what we weighed it against, and why: dependencies, architecture, and the problems we hit and how we
-solved them. The code, [DDD.md](DDD.md) and [globalstorage.md](globalstorage.md) say what is there now; this file says
-why.
+solved them. The code, [DDD.md](DDD.md) and [storage.md](storage.md) say what is there now; this file says why.
 
 Add an entry when a decision is agreed, in the same commit as the code it shapes, under the section it belongs to. When
 a decision changes, rewrite its entry to the new one and move what it replaced into **Options**, so each topic has one
@@ -65,15 +64,18 @@ current entry. Leave a field out rather than guess.
   `eslint.plugin.ts`. When no installed rule can check it, write a selector rather than add a plugin.
 - **Why:** lint constrains Claude better than docs do.
 
-### Comments say only what the code does now (2026-11-02)
+### Comments are rare and say only what the code does now (2026-11-02; rare since 2026-11-07)
 
-- **Decision:** one or two lines on why; no history, no library defaults we override, no options we didn't take. History
-  and options go here instead.
+- **Problem:** comments restated what well-named code already says, and described history and options not taken.
+- **Decision:** a comment only where the code can't say why at a glance, such as a platform limit or a hidden
+  constraint, in one line; no history, no library defaults we override, no options we didn't take. History and options
+  go here instead.
+- **Why:** the naming rules make code readable on its own, so comments stay a rarity.
 
 ### Ledgers for storage and decisions (2026-10-09, 2026-11-07)
 
-- **Decision:** `globalstorage.md` gets an entry for anything new kept in `globalStorageUri` or `globalState`; this file
-  gets every decision, kept up to date each session.
+- **Decision:** `storage.md` gets an entry for anything new the extension stores: a table in its database, a file under
+  `globalStorageUri`, or a key in `globalState`; this file gets every decision, kept up to date each session.
 - **Why:** the user wants a running record of what the extension stores, and of each choice and its reasons.
 
 ### Verify changes in a headless VS Code (2026-11-01)
@@ -101,6 +103,99 @@ current entry. Leave a field out rather than guess.
   `eslint.layers.ts` checks imports and names.
 - **Why:** a use case never depends on VS Code or on one agent.
 
+### A base entity, a base repository and a base service (2026-11-07)
+
+- **Problem:** with related tables, every repository would repeat the same reads, writes and soft deletes, and every
+  entity the same id and timestamps.
+- **Options:** Effect's `SqlModel.makeRepository`: its reads are `select *`, so a row can't carry what it reads through
+  a join (a session's project path); its update writes the whole row outside a transaction; its soft delete writes
+  `CURRENT_TIMESTAMP`, which isn't ISO text. No base service: the services are use cases, and a base one only forwards
+  to the repository; the user picked it as the foundation.
+- **Decision:** `BaseEntity` holds `id`, `sortId`, `updatedAt` and `deletedAt`, and every entity extends it.
+  `IBaseRepository` and `makeBaseRepository` give `add`, `findById`, `findMany`, `update`, `upsert` and `softDelete`.
+  Reads skip soft-deleted rows and follow `sortId`; `upsert` brings a soft-deleted row back; `update` writes only the
+  columns it is given, so the extension and `aggregor-pty` never overwrite each other's. `base.service.ts` has the same
+  six calls for any repository, which the entity services use instead of their repositories, and `showRepositoryError`.
+- **Why:** each new table is a Drizzle table, its generated migration, an entity and a few lines of repository.
+
+### Rows are read through the entity's factory; entities don't know how they're stored (2026-11-07)
+
+- **Problem:** stored rows carry NULLs and timestamps as text, not what the domain uses.
+- **Options:** entities as Effect `Model.Class`es (tried and reverted the same day): one schema per table with insert
+  and update variants, but the domain entity then knows how it is stored, such as which columns the database generates
+  and that timestamps are text. A `Model.Class` row model per table in infrastructure beside each entity, which repeats
+  the entity's fields for four small tables. Services calling the factory themselves, which hands rows to the
+  application layer.
+- **Decision:** entities are plain `Schema.Class`es with domain types. `BaseEntity.fromRow` turns NULL into an absent
+  field and the ISO text of `updatedAt` and `deletedAt` into a `DateTime`, then decodes the row into the entity; the
+  base repository passes every row it returns through it, and writes plain columns.
+- **Why:** the domain stays storage-agnostic, services only ever receive entities, and the cleanup lives in one place. A
+  `Model.Class` earns its place where the stored or wire shape is its own thing: a row model in infrastructure once a
+  table's columns differ a lot from its entity, or the messages of an HTTP or socket API through its `json` variants.
+
+### Every row has a `sortId` (2026-11-07)
+
+- **Problem:** the user will move projects and sessions up and down, so rows need an order of their own, apart from when
+  they were made.
+- **Options:** SQLite's `AUTOINCREMENT`, which works only on an integer primary key, and the key is the UUID v7 `id`.
+  Ordering by `updatedAt`, which every write changes.
+- **Decision:** a `sortId INTEGER NOT NULL` base column. The base repository gives a written row the table's highest
+  `sortId` plus one, in the statement that writes it; `upsert` does the same for the row it brings back, so an
+  added-again project moves to the end. Reads list rows in `sortId` order. Moving a row is a `sortId` change, for when
+  that feature comes.
+- **Why:** a writing statement holds SQLite's write lock, so two windows never get the same `sortId`; soft-deleted rows
+  keep theirs, so none is reused.
+
+### Timestamps are stored as ISO 8601 text in UTC (2026-11-07)
+
+- **Problem:** `updatedAt`, `deletedAt` and later timestamps need one stored format that the extension, `aggregor-pty`
+  and a person reading the database all agree on.
+- **Options:** milliseconds since the epoch as an integer: smaller, but unreadable in `sqlite3`.
+- **Decision:** text such as `2026-11-07T22:13:46.836Z`: `DateTime.formatIso` in the extension, and SQLite's
+  `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')` in `aggregor-pty`, which give the same shape. Entities hold `DateTime.Utc`,
+  parsed in `BaseEntity.fromRow`.
+- **Why:** readable in the database, sorts in time order as text, and SQLite's date functions read it.
+
+### One UUID v7 id per row (2026-11-07)
+
+- **Problem:** every table was to carry an auto-increment `id`, a random `uuid` and `createdAt`.
+- **Options:** all three columns, with relations on the integer id, which collides between databases.
+- **Decision:** one `id` column holding a UUID v7, the `EntityIdValueObject` every entity's id is. Its factory service,
+  `entityId.domainService.ts`, makes ids (`makeEntityId`, on Effect's `SecureRandom.uuidV7`) and reads their creation
+  time (`getEntityIdCreatedAt`); ids sort by creation time as text. A session's id is also its agent's session id, so
+  `SessionIdValueObject` folded into it. Claude Code accepts a UUID v7 for `--session-id` (checked 2026-11-07).
+- **Why:** one column gives uniqueness, creation order and creation time, and stays unique across machines.
+
+### Drizzle on Effect defines the tables, builds the queries and generates the migrations (2026-11-08)
+
+- **Problem:** the tables must be created and later changed, and the user wanted Effect's ecosystem to do that work
+  rather than hand-written SQL.
+- **Options:** hand-written `CREATE TABLE`s, one file per table, with `PRAGMA user_version` dropping and creating them
+  again on a mismatch (2026-11-07 to 2026-11-08). Effect's `Model.Class` with `SqlModel.makeRepository` behind our base
+  repository: a Model knows no column types or constraints, so it can't create tables, Effect's `Migrator` runs
+  hand-written migrations, every column would be declared three times (entity, Model, migration), and only `insert` and
+  `findById` fit our base repository. The `@effect/sql-drizzle` and `@effect/sql-kysely` adapters, which need Effect 3.
+  An `effect-orm` project, not evaluated.
+- **Decision:** `drizzle-orm` 1.0.0-rc.5, pinned, through its own Effect 4 driver `drizzle-orm/effect-sqlite-node`,
+  which runs on the same `@effect/sql-sqlite-node` client; `drizzle-kit` 1.0.0-rc.5 for development.
+  - Each `infrastructure/database/models/<table>.model.ts` is a `sqliteTable` (`ProjectTableModel`...) spreading
+    `BASE_COLUMNS` from `base.model.ts`.
+  - `pnpm db:generate --name <slug>` (`drizzle-kit generate`, configured in `apps/extension/drizzle.config.ts`) writes a
+    migration per schema change into `apps/extension/assets/migrations/`, committed and shipped in the VSIX without
+    drizzle-kit's snapshots. That holds before 0.1.0 too, since generated migrations cost nothing.
+  - `DatabaseLayer` runs Drizzle's `migrate` when a window starts, in one `BEGIN IMMEDIATE` transaction so a second
+    window starting at once sees the first one's migrations, with foreign keys off around it so a migration can rebuild
+    a table.
+  - The base repository builds its queries with Drizzle's builder; a repository passes a join for the columns it reads
+    from another table (a session's `projectPath`), and `upsert` conflicts on the table's unique columns, read from the
+    table.
+- **Why:** each table is declared once, in TypeScript, and drizzle-kit derives its migrations, including SQLite's table
+  rebuilds; queries still run through Effect's client and show in the trace. `aggregor-pty` writes plain SQL against the
+  same tables. Costs: a release candidate; every query error is one `EffectDrizzleQueryError`, which the base repository
+  maps to `DatabaseReadError` or `DatabaseWriteError`; generated SQL needs reading before it is committed; about 120 KB
+  of bundle. drizzle-kit writes no `NOT NULL` on a text primary key, which SQLite then lets be NULL; every id comes from
+  `makeEntityId`.
+
 ### Agents sit behind a harness interface (2026-11-03, #57)
 
 - **Decision:** Claude Code's launch, status and title code lives in `ClaudeCodeHarnessInfraService`, behind
@@ -113,9 +208,24 @@ current entry. Leave a field out rather than guess.
 - **Decision:** "repository" means only a DDD repository or a git repository. Lint's abbreviation rule suggests
   "project" for "repo".
 
+### Names say what a thing is to the user (2026-11-08)
+
+- **Problem:** `IPromptInfraService` read like an LLM prompt, and `clickedProject` named the gesture, not the thing.
+- **Options:** `activeProject` or `openedProject`: "active" and "opened" already describe the project shown in the
+  window, and a session you remove or rename may be closed or idle. `selectedProject`: VS Code's tree selection, which
+  an inline button doesn't change.
+- **Decision:** `IUserInputPromptInfraService` (`userInputPrompt.infraService.ts`), whose `askForText` takes a
+  `question`; "prompt" is kept for LLM prompts. `chosenProject` and `chosenSession` for what a command acts on, chosen
+  from its row or the picker: `newSessionInChosenProject` (also the command ID), `openChosenSession`,
+  `renameChosenSession`, `removeChosenSession` and `removeChosenProject`, with the raw argument named `projectRow` or
+  `sessionRow`. `prepareColumns` became `replaceUndefinedWithNull`, and `writeRowLast` `writeRowAtEnd`. Lint's
+  abbreviation rule suggests "chosen" for "clicked", and `AGENTS.md`'s naming rule says it.
+- **Why:** a name a person reads without the code open should say what the thing is.
+
 ### No users before 0.1.0 (2026-10-31)
 
-- **Decision:** rename command IDs, setting keys and storage keys, and change stored data, with no migrations or shims.
+- **Decision:** rename command IDs, setting keys and storage keys, and change stored data, with no hand-written
+  migrations or shims. drizzle-kit's generated schema migrations (2026-11-08) are kept, since they cost nothing.
 - **Why:** until 0.1.0 the author is the only user. Sessions moved keys four times (`sessions`, `storedSessions`,
   `savedSessions`, `agentSessions`).
 
@@ -257,10 +367,19 @@ current entry. Leave a field out rather than guess.
 
 ## VS Code and agent integration
 
-### Sessions live in `globalState` (2026-10-09; per project since 2026-10-26, #27)
+### Windows, projects and sessions live in SQLite (2026-11-07)
 
-- **Decision:** sessions are stored in `globalState`, shared by every window, and re-read on window focus. Each window
+- **Problem:** `aggregor-pty` (phase 2, step 2) must write each session's status from outside VS Code, and the data has
+  relations: a project has many sessions, and a window has many added projects.
+- **Options:** `globalState` (2026-10-09 to 2026-11-07): one JSON value per key, read-modify-written by every window,
+  out of reach of other processes. A native SQLite module, which needs a build per Electron version.
+- **Decision:** `~/.aggregor/aggregor.db` (`AGGREGOR_DATA_DIR` moves it), opened with `@effect/sql-sqlite-node` on
+  Node's built-in `node:sqlite` (VS Code 1.145's Electron has Node 24.22 and SQLite 3.53.4), in WAL mode with foreign
+  keys on. The tables are `windows`, `projects`, `windowProjects` and `sessions`, every name camelCase, defined and
+  migrated through Drizzle (see its entry). Both SQL modules are unstable Effect APIs, allowed by name in
+  `tsconfig.base.json`. Windows re-read sessions on focus until the database is watched (phase 2, step 3). Each window
   lists its projects and the sessions under them, so it never shows sessions from unrelated workspaces.
+- **Why:** a file any process can write, real relations, and no native module to ship.
 
 ### Clicking a closed session resumes it (2026-10-08)
 
@@ -300,11 +419,22 @@ current entry. Leave a field out rather than guess.
 - **Why:** one restart instead of one per switch. TypeScript, ESLint, Prettier, rust-analyzer and Lua all follow the
   shown project; mise needs `mise.selectWorkspaceFolder` after each switch.
 
-### Added projects live in `globalState`, keyed by window (2026-11-05)
+### Added projects are kept per window, by the window's key (2026-11-05; in SQLite since 2026-11-07)
 
 - **Problem:** adding a second folder turns the window into an untitled workspace with an empty `workspaceState`.
-- **Options:** `workspaceState` (#27), which loses the list at that switch.
-- **Decision:** added projects live in `globalState` under the window's key, so they survive that switch.
+- **Options:** `workspaceState` (#27), which loses the list at that switch. `globalState` under the window's key
+  (2026-11-05 to 2026-11-07).
+- **Decision:** a `windows` row per window key, and a `windowProjects` row per project added to it. Removing a project
+  soft-deletes its `windowProjects` row. Adding a project again brings its row back with the next `sortId`, so it moves
+  to the end of the window's list.
+- **Why:** the window's key survives the switch to a multi-root workspace.
+
+### The Sessions tree lists `ListedProjectValueObject`s (2026-11-07)
+
+- **Problem:** a workspace folder is listed before its project has a row, so the tree's project rows can't be the stored
+  `ProjectEntity`.
+- **Decision:** the tree's project rows are `ListedProjectValueObject`s (path, name, added); a project's row is made the
+  first time it is added to a window or given a session.
 
 ### Offer once to save the workspace as Aggregor (2026-11-06, #68)
 

@@ -13,8 +13,8 @@ import {Path} from "effect/Path";
 
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {SessionStatusesReference} from "@infraServices/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
+import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {LaunchPlanValueObject} from "@valueObjects/launchPlan.valueObject.ts";
-import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
 import type {StatusValueObject} from "@valueObjects/status.valueObject.ts";
 
 // Where the launch reads its hooks from and where the hooks write each session's status.
@@ -78,19 +78,19 @@ const makeClaudeCodeHarnessInfraService = Effect.fn("ClaudeCodeHarnessInfraServi
     statusDirectoryPath: path.join(globalStorageUri.fsPath, "status")
   };
   const sessionStatuses: SessionStatusesReference = yield* SubscriptionRef.make<
-    ReadonlyMap<SessionIdValueObject, StatusValueObject>
+    ReadonlyMap<EntityIdValueObject, StatusValueObject>
   >(new Map());
   yield* Effect.forkScoped(watchStatusDirectory(sessionStatuses, statusPaths.statusDirectoryPath));
 
   return {
-    clearSessionStatus: (sessionId: SessionIdValueObject) =>
+    clearSessionStatus: (sessionId: EntityIdValueObject) =>
       clearStatusFile(fileSystem, path.join(statusPaths.statusDirectoryPath, sessionId)),
     iconPath: Uri.joinPath(extensionUri, MODEL_ICONS.CLAUDE).fsPath,
     idleTitleMark: IDLE_TITLE_MARK,
     placeholderTitles: PLACEHOLDER_TITLES,
     prepareLaunch: (session: SessionEntity) => Effect.provide(prepareLaunch(statusPaths, session), fileServices),
     sessionStatuses,
-    settleSessionTurn: (sessionId: SessionIdValueObject) =>
+    settleSessionTurn: (sessionId: EntityIdValueObject) =>
       writeIdleStatusFile(fileSystem, path.join(statusPaths.statusDirectoryPath, sessionId))
   };
 });

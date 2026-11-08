@@ -1,6 +1,6 @@
-import {ProjectEntity} from "@entities/project/project.entity.ts";
 import {decodeCommandArgument} from "@presentationUtils/commandArguments.utils.ts";
 import {addProject, newProjectTerminal, removeProject} from "@services/project.service.ts";
+import {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
 import {Effect} from "effect";
 
 // The view title's button; the user picks the folders.
@@ -9,11 +9,9 @@ export const addProjectsAskingForFolders = Effect.fn("ProjectController.addProje
 });
 
 // The project row's … menu passes the Project itself.
-export const removeClickedProject = Effect.fn("ProjectController.removeClickedProject")(function* (
-  clickedRow: unknown
-) {
-  const clickedProject = yield* decodeCommandArgument(ProjectEntity, clickedRow);
-  yield* removeProject(clickedProject);
+export const removeChosenProject = Effect.fn("ProjectController.removeChosenProject")(function* (projectRow: unknown) {
+  const chosenProject = yield* decodeCommandArgument(ListedProjectValueObject, projectRow);
+  yield* removeProject(chosenProject);
 });
 
 // The Terminal panel's title button; the user picks the project.

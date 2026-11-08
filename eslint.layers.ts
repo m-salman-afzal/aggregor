@@ -43,9 +43,9 @@ const PRESENTATION_IMPORTS = {
 
 const INFRASTRUCTURE_IMPORTS = {
   message:
-    "The infrastructure layer imports only effect, @effect, vscode, node, @pkg, and domain, application or " +
-    "infrastructure code, through their aliases.",
-  regex: `^(?!effect(/|$)|@effect/|vscode$|node:|@pkg/|@(${DOMAIN_ALIASES}|${APPLICATION_ALIASES}|${INFRASTRUCTURE_ALIASES})/)`
+    "The infrastructure layer imports only effect, @effect, drizzle-orm, vscode, node, @pkg, and domain, " +
+    "application or infrastructure code, through their aliases.",
+  regex: `^(?!effect(/|$)|@effect/|drizzle-orm(/|$)|vscode$|node:|@pkg/|@(${DOMAIN_ALIASES}|${APPLICATION_ALIASES}|${INFRASTRUCTURE_ALIASES})/)`
 };
 
 const TAGGED_ERROR_CLASS =
@@ -161,8 +161,14 @@ const ROLE_NAMES = {
   "infrastructure/config/*.config.ts": [
     {format: ["PascalCase"], modifiers: ["exported"], selector: "variable", suffix: ["Config"]}
   ],
-  "infrastructure/repositories/*.repository.ts": [
-    {format: ["PascalCase"], modifiers: ["exported"], selector: "variable", suffix: ["Repository"]}
+  // A repository's layer, or makeBaseRepository, which every repository builds on.
+  "infrastructure/repositories/**/*.repository.ts": [
+    {
+      custom: {match: true, regex: "^(make)?[A-Z]\\w*Repository$"},
+      format: null,
+      modifiers: ["exported"],
+      selector: "variable"
+    }
   ]
 };
 

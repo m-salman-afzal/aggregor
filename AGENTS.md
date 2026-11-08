@@ -23,9 +23,13 @@ squash. The roadmap lives in `README.md`. Commit and push only when the user ask
 - **Delete aggressively.** Less code means fewer bugs.
 - **Semantic naming.** Name variables, parameters, functions and APIs with verbose, self-explanatory names that optimize
   for comprehension by both humans and LLMs, not brevity: `sessionId`, not `id`; `stagedDiff`, not `diff`. The commit
-  message code in `application/services/scm.service.ts` and `infrastructure/services/commitCli` is the reference.
+  message code in `application/services/scm.service.ts` and `infrastructure/services/commitCli` is the reference. Name a
+  thing by what it is to the user, not by the gesture that reached it (`chosenProject`, not `clickedProject`), and give
+  each word one meaning: a "prompt" is an LLM's, so asking the user is a user-input prompt
+  (`IUserInputPromptInfraService`).
 - **No users before 0.1.0.** Until 0.1.0 ships, the author is the only user. Be brave: rename command IDs, setting keys
-  and storage keys, change stored data without migrations, and leave no compatibility shims or deprecation paths.
+  and storage keys, change stored data without hand-written migrations, and leave no compatibility shims or deprecation
+  paths. A schema change still commits the migration `pnpm db:generate` writes.
 
 ## Architecture
 
@@ -62,7 +66,8 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
 - **Small functions.** Give each function one job, so each shows up as its own span; lint caps a function at 30 lines.
   Functions sit at module level and take the state they share (refs, VS Code handles) as parameters. A layer's `make`
   function only creates that state, starts its watchers and wires up the service.
-- **Short, true comments.** One or two lines on why. Update or delete a comment in the same change as its code.
+- **Comments are rare.** Names say what code does, so a comment appears only where the code can't say why at a glance: a
+  platform limit, a workaround, a constraint that isn't visible. One true line; update or delete it with its code.
 
 ## Traces
 
@@ -71,7 +76,7 @@ named `<owner>.<const>`: the owner comes from the file name (`session.service.ts
 belongs to the one owner in its folder, a layer's `make<Owner>` is `<Owner>.make`, and a file with no owner gives the
 bare const name. `eslint.plugin.ts` checks every name, and `pnpm lint:fix` corrects it. Finished spans and Effect logs
 go to the **Aggregor App** output channel, one trace-level line per span:
-`aggregorApp.openSession > SessionController.openClickedSession > SessionService.openSession > TerminalInfraService.focusSessionTerminal 0.8ms failed: TerminalNotFoundError`.
+`aggregorApp.openSession > SessionController.openChosenSession > SessionService.openSession > TerminalInfraService.focusSessionTerminal 0.8ms failed: TerminalNotFoundError`.
 Work a layer starts in the background, such as a watcher, nests under that layer's `make` span. F5 starts the extension
 at trace level; elsewhere, pick it with **Developer: Set Log Level...**. VS Code also writes the channel to
 `<logs>/window<n>/exthost/SalmanAfzal.aggregor-app/Aggregor App.log`, so a test run's trace can be read from disk.
@@ -89,6 +94,7 @@ pnpm format:fix    # Same, writing the changes
 pnpm typecheck     # tsc --noEmit in the apps, the root config files and .claude's scripts; packages are covered through the apps
 pnpm quality       # lint:check + format:check + typecheck, in parallel
 pnpm lint-staged   # Same lint and format checks on staged files only (the husky pre-commit hook)
+pnpm db:generate   # After changing a table model, with --name <slug>: drizzle-kit writes its migration
 pnpm bump          # On an up-to-date dev: pick the next version; pushes chore/bump-v<version> and opens its PR
 ```
 

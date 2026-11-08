@@ -1,17 +1,17 @@
 import {decodeStatusFileText} from "@infraServices/claudeCodeHarness/claudeCode.transformer.ts";
-import {decodeSessionId} from "@valueObjects/sessionId.valueObject.ts";
+import {decodeEntityId} from "@valueObjects/entityId.valueObject.ts";
 import {Effect, Result, Stream, SubscriptionRef} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 
 import type {SessionStatusesReference} from "@infraServices/claudeCodeHarness/claudeCodeHarness.infraService.type.ts";
-import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
+import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {StatusValueObject} from "@valueObjects/status.valueObject.ts";
 
 // Only publishes real changes, since every tool call rewrites "running".
 const publishSessionStatus = Effect.fn("ClaudeCodeHarnessInfraService.publishSessionStatus")(function* (
   sessionStatuses: SessionStatusesReference,
-  sessionId: SessionIdValueObject,
+  sessionId: EntityIdValueObject,
   sessionStatus: Result.Result<StatusValueObject, unknown>
 ) {
   const currentStatuses = yield* SubscriptionRef.get(sessionStatuses);
@@ -28,7 +28,7 @@ const publishSessionStatus = Effect.fn("ClaudeCodeHarnessInfraService.publishSes
 const refreshSessionStatus = Effect.fn("ClaudeCodeHarnessInfraService.refreshSessionStatus")(function* (
   sessionStatuses: SessionStatusesReference,
   statusDirectoryPath: string,
-  sessionId: SessionIdValueObject
+  sessionId: EntityIdValueObject
 ) {
   const fileSystem = yield* FileSystem;
   const path = yield* Path;
@@ -45,7 +45,7 @@ export const watchStatusDirectory = Effect.fn("ClaudeCodeHarnessInfraService.wat
     const path = yield* Path;
     yield* fileSystem.makeDirectory(statusDirectoryPath, {recursive: true});
     const changedSessionIds = Stream.filterMap(fileSystem.watch(statusDirectoryPath), (fileSystemEvent) =>
-      decodeSessionId(path.basename(fileSystemEvent.path))
+      decodeEntityId(path.basename(fileSystemEvent.path))
     );
     yield* Stream.runForEach(changedSessionIds, (sessionId) =>
       refreshSessionStatus(sessionStatuses, statusDirectoryPath, sessionId)

@@ -1,12 +1,12 @@
 import {SESSION_ID_ENV} from "@pkg/constants/src/extension.constant.ts";
-import {decodeSessionId} from "@valueObjects/sessionId.valueObject.ts";
+import {decodeEntityId} from "@valueObjects/entityId.valueObject.ts";
 import {Array, Effect, Ref, Schema, Stream, SubscriptionRef} from "effect";
 
 import type {
   SessionTerminalsReference,
   TerminalDependencies
 } from "@infraServices/vscode/terminal/terminal.infraService.type.ts";
-import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
+import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {Terminal} from "vscode";
 
 // A terminal without a session id in its env is not a session's.
@@ -24,7 +24,7 @@ export const findTerminalSessionId = Effect.fn("TerminalInfraService.findTermina
     const environmentVariables = "env" in creationOptions ? creationOptions.env : undefined;
     const sessionIdValue = environmentVariables === undefined ? undefined : environmentVariables[SESSION_ID_ENV];
 
-    return yield* Effect.fromResult(decodeSessionId(sessionIdValue));
+    return yield* Effect.fromResult(decodeEntityId(sessionIdValue));
   },
   Effect.mapError(() => UntrackedTerminalError.make())
 );
@@ -37,7 +37,7 @@ export const findOpenSessionTerminals = Effect.fn("TerminalInfraService.findOpen
   const sessionTerminalResults = yield* Effect.forEach(terminals, (terminal) =>
     Effect.result(Effect.map(findTerminalSessionId(terminal), (sessionId) => [sessionId, terminal] as const))
   );
-  const openSessionTerminals: ReadonlyMap<SessionIdValueObject, Terminal> = new Map(
+  const openSessionTerminals: ReadonlyMap<EntityIdValueObject, Terminal> = new Map(
     Array.getSuccesses(sessionTerminalResults)
   );
 
@@ -48,10 +48,10 @@ export const findOpenSessionTerminals = Effect.fn("TerminalInfraService.findOpen
 // the terminal only for a tab that has a name.
 const findChangedTitles = Effect.fn("TerminalInfraService.findChangedTitles")(function* (
   sessionTerminals: SessionTerminalsReference,
-  readTitles: Ref.Ref<ReadonlyMap<SessionIdValueObject, string>>
+  readTitles: Ref.Ref<ReadonlyMap<EntityIdValueObject, string>>
 ) {
   const openTerminals = yield* SubscriptionRef.get(sessionTerminals);
-  const currentTitles: ReadonlyMap<SessionIdValueObject, string> = new Map(
+  const currentTitles: ReadonlyMap<EntityIdValueObject, string> = new Map(
     Array.map([...openTerminals], ([sessionId, terminal]) => [sessionId, terminal.name] as const)
   );
   const previousTitles = yield* Ref.getAndSet(readTitles, currentTitles);
@@ -65,7 +65,7 @@ export const watchSessionTerminalTitles = Effect.fn("TerminalInfraService.watchS
   sessionTerminals: SessionTerminalsReference
 ) {
   return Stream.unwrap(
-    Effect.map(Ref.make<ReadonlyMap<SessionIdValueObject, string>>(new Map()), (readTitles) =>
+    Effect.map(Ref.make<ReadonlyMap<EntityIdValueObject, string>>(new Map()), (readTitles) =>
       Stream.flatMap(Stream.tick(TITLE_READ_INTERVAL), () =>
         Stream.fromIterableEffect(Effect.withTracerEnabled(findChangedTitles(sessionTerminals, readTitles), false))
       )
@@ -77,7 +77,7 @@ export const watchSessionTerminalTitles = Effect.fn("TerminalInfraService.watchS
 // session's next tab opens under the name.
 export const renameSessionTerminal = Effect.fn("TerminalInfraService.renameSessionTerminal")(function* (
   {commands, sessionTerminals}: TerminalDependencies,
-  sessionId: SessionIdValueObject,
+  sessionId: EntityIdValueObject,
   tabName: string
 ) {
   const openTerminals = yield* SubscriptionRef.get(sessionTerminals);

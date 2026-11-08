@@ -1,14 +1,14 @@
 import {forEachHarnessInfraService} from "@appUtils/harness.utils.ts";
 import {getUnreadSessionIds} from "@domainServices/session.domainService.ts";
-import {ProjectEntity} from "@entities/project/project.entity.ts";
-import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
+import {IWindowRepository} from "@entities/window/window.repository.interface.ts";
 import {acquireDisposable, fromEvent} from "@infraUtils/vscode.utils.ts";
 import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {SESSION_URI_SCHEME, SPINNER_INTERVAL_MS, VIEWS} from "@pkg/constants/src/extension.constant.ts";
 import {findSession, listSessions} from "@services/session.service.ts";
-import {decodeSessionId} from "@valueObjects/sessionId.valueObject.ts";
+import {decodeEntityId} from "@valueObjects/entityId.valueObject.ts";
+import {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
 import {
   createProjectTreeItem,
   createSessionTreeItem,
@@ -23,14 +23,14 @@ import {Array, Effect, Layer, Ref, Result, Schedule, Schema, Stream, String, Sub
 
 import type {IHarnessInfraServices} from "@interfaces/harness.infraService.interface.ts";
 import type {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
+import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {StatusValueObject} from "@valueObjects/status.valueObject.ts";
 import type {Row, RowStatus} from "@views/sessions/sessions.view.type.ts";
 import type {Path} from "effect/Path";
 import type {EventEmitter, TreeView, Uri} from "vscode";
 
 // The status each row was last drawn with, by session id.
-type DrawnRowStatus = (sessionId: SessionIdValueObject) => RowStatus | undefined;
+type DrawnRowStatus = (sessionId: EntityIdValueObject) => RowStatus | undefined;
 
 // VS Code calls the tree and badge callbacks for every row on every refresh and spinner frame, so they run untraced.
 type RunSyncUntraced = <A, E>(effect: Effect.Effect<A, E, SessionsViewServices>) => A;
@@ -38,18 +38,18 @@ type RunSyncUntraced = <A, E>(effect: Effect.Effect<A, E, SessionsViewServices>)
 // What the view's functions share: the tree and its change events, and the statuses its rows were drawn from.
 interface SessionsViewParts {
   readonly badgesChangedEmitter: EventEmitter<Uri[]>;
-  readonly drawnRowStatuses: Ref.Ref<ReadonlyMap<SessionIdValueObject, RowStatus | undefined>>;
-  readonly previousSessionStatuses: Ref.Ref<ReadonlyMap<SessionIdValueObject, StatusValueObject>>;
+  readonly drawnRowStatuses: Ref.Ref<ReadonlyMap<EntityIdValueObject, RowStatus | undefined>>;
+  readonly previousSessionStatuses: Ref.Ref<ReadonlyMap<EntityIdValueObject, StatusValueObject>>;
   readonly sessionsTreeView: TreeView<Row>;
   readonly treeChangedEmitter: EventEmitter<void>;
-  readonly unreadSessionIds: Ref.Ref<ReadonlySet<SessionIdValueObject>>;
+  readonly unreadSessionIds: Ref.Ref<ReadonlySet<EntityIdValueObject>>;
 }
 
 type SessionsViewServices =
   | IHarnessInfraServices
-  | IProjectRepository
   | ISessionRepository
   | ITerminalInfraService
+  | IWindowRepository
   | IWorkspaceInfraService
   | Path
   | VsCodeApi;
@@ -61,7 +61,7 @@ class RevealFailedError extends Schema.TaggedError<RevealFailedError, {readonly 
 
 // Selects the session whose tab became active. Skipped while the view is hidden, since reveal would open it.
 const revealSession = Effect.fn("SessionsView.revealSession")(
-  function* (sessionsTreeView: TreeView<Row>, sessionId: SessionIdValueObject) {
+  function* (sessionsTreeView: TreeView<Row>, sessionId: EntityIdValueObject) {
     const session = yield* findSession(sessionId);
     if (!sessionsTreeView.visible) return;
 
@@ -94,7 +94,7 @@ const registerStatusBadges = Effect.fn("SessionsView.registerStatusBadges")(func
       // VS Code asks about every file it shows, so anything not ours returns before running an effect.
       provideFileDecoration: (uri) =>
         uri.scheme === SESSION_URI_SCHEME
-          ? Result.match(decodeSessionId(String.slice(1)(uri.path)), {
+          ? Result.match(decodeEntityId(String.slice(1)(uri.path)), {
               onFailure: () => undefined,
               onSuccess: (sessionId) => runSyncUntraced(createStatusBadge(getDrawnRowStatus(sessionId)))
             })
@@ -117,7 +117,7 @@ const registerTreeView = Effect.fn("SessionsView.registerTreeView")(function* (
         getChildren: (parentRow) => [...runSyncUntraced(getChildRows(parentRow))],
         getParent: (row) => runSyncUntraced(getParentRow(row)),
         getTreeItem: (row) =>
-          Schema.is(ProjectEntity)(row)
+          Schema.is(ListedProjectValueObject)(row)
             ? runSyncUntraced(createProjectTreeItem(row))
             : runSyncUntraced(createSessionTreeItem(row, getDrawnRowStatus(row.id))),
         onDidChangeTreeData: treeChangedEmitter.event
@@ -133,7 +133,7 @@ const getAllSessionStatuses = Effect.fn("SessionsView.getAllSessionStatuses")(fu
   const statusesByHarness = yield* forEachHarnessInfraService(
     IHarnessInfraService.use((harnessInfraService) => SubscriptionRef.get(harnessInfraService.sessionStatuses))
   );
-  const allSessionStatuses: ReadonlyMap<SessionIdValueObject, StatusValueObject> = new Map(
+  const allSessionStatuses: ReadonlyMap<EntityIdValueObject, StatusValueObject> = new Map(
     Array.flatMap(statusesByHarness, (sessionStatuses) => [...sessionStatuses])
   );
 
@@ -164,7 +164,7 @@ const updateUnreadSessionIds = Effect.fn("SessionsView.updateUnreadSessionIds")(
 
 const getChangedBadgeUris = Effect.fn("SessionsView.getChangedBadgeUris")(function* (
   viewParts: SessionsViewParts,
-  currentUnreadSessionIds: ReadonlySet<SessionIdValueObject>
+  currentUnreadSessionIds: ReadonlySet<EntityIdValueObject>
 ) {
   const allSessions = yield* listSessions();
   const currentRowStatusEntries = yield* Effect.forEach(allSessions, (session) =>
@@ -213,7 +213,7 @@ const watchRowChanges = Effect.fn("SessionsView.watchRowChanges")(function* () {
     ])
   );
   const rowChangeSources: readonly Stream.Stream<unknown>[] = [
-    SubscriptionRef.changes((yield* IProjectRepository).addedProjectPaths),
+    SubscriptionRef.changes((yield* IWindowRepository).addedProjectPaths),
     yield* fromEvent(workspace.onDidChangeWorkspaceFolders),
     SubscriptionRef.changes((yield* ISessionRepository).sessions),
     (yield* ITerminalInfraService).openSessionIds,
@@ -226,13 +226,13 @@ const watchRowChanges = Effect.fn("SessionsView.watchRowChanges")(function* () {
 
 const makeSessionsViewParts = Effect.fn("SessionsView.makeSessionsViewParts")(function* () {
   const runSyncUntraced = yield* makeUntracedRunner();
-  const drawnRowStatuses = yield* Ref.make<ReadonlyMap<SessionIdValueObject, RowStatus | undefined>>(new Map());
+  const drawnRowStatuses = yield* Ref.make<ReadonlyMap<EntityIdValueObject, RowStatus | undefined>>(new Map());
   const getDrawnRowStatus: DrawnRowStatus = (sessionId) => runSyncUntraced(Ref.get(drawnRowStatuses)).get(sessionId);
   const viewParts: SessionsViewParts = {
     badgesChangedEmitter: yield* registerStatusBadges(getDrawnRowStatus, runSyncUntraced),
     drawnRowStatuses,
-    previousSessionStatuses: yield* Ref.make<ReadonlyMap<SessionIdValueObject, StatusValueObject>>(new Map()),
-    unreadSessionIds: yield* Ref.make<ReadonlySet<SessionIdValueObject>>(new Set()),
+    previousSessionStatuses: yield* Ref.make<ReadonlyMap<EntityIdValueObject, StatusValueObject>>(new Map()),
+    unreadSessionIds: yield* Ref.make<ReadonlySet<EntityIdValueObject>>(new Set()),
     ...(yield* registerTreeView(getDrawnRowStatus, runSyncUntraced))
   };
 

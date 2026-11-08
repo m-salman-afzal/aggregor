@@ -9,6 +9,11 @@ export const COMMAND_MESSAGES = {
   UNEXPECTED_ARGUMENTS: (commandId: string) => `${commandId} got unexpected arguments.`
 } as const;
 
+export const DATABASE_MESSAGES = {
+  READ_FAILED: "Could not read Aggregor's database in ~/.aggregor. The trace log has the reason.",
+  WRITE_FAILED: "Could not save to Aggregor's database in ~/.aggregor. The trace log has the reason."
+} as const;
+
 export const COMMIT_MESSAGES = {
   CLAUDE_CLI_FAILED: (reason: string) => `Could not run the Claude CLI: ${reason}`,
   COMMIT_CLI_FAILED: (exitCode: number, stderr: string) => `Commit command exited with code ${exitCode}. ${stderr}`,
@@ -27,11 +32,6 @@ export const COMMIT_MESSAGES = {
 export const PROJECT_LABELS = {
   PICK_FOR_SESSION: "Project for the new session",
   PICK_FOR_TERMINAL: "Project for the new terminal"
-} as const;
-
-export const PROJECT_MESSAGES = {
-  SAVE_FAILED: "Could not save projects.",
-  UNREADABLE: "Saved projects could not be read. They may come from a newer version; reload the window."
 } as const;
 
 export const SESSION_LABELS = {
@@ -70,7 +70,5 @@ export const SESSION_MESSAGES = {
     `Remove "${displayName}"? Its agent is still running and will be stopped.`,
   LAUNCH_FAILED: "Could not open a terminal for the session.",
   NOT_FOUND: "This session no longer exists.",
-  PROJECT_REQUIRED: "Add a project or open a folder to start a session.",
-  SAVE_FAILED: "Could not save sessions.",
-  UNREADABLE: "Saved sessions could not be read. They may come from a newer version; reload the window."
+  PROJECT_REQUIRED: "Add a project or open a folder to start a session."
 } as const;

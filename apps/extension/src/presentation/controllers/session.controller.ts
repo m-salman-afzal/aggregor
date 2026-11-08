@@ -1,16 +1,16 @@
-import {ProjectEntity} from "@entities/project/project.entity.ts";
 import {SessionEntity} from "@entities/session/session.entity.ts";
 import {decodeCommandArgument} from "@presentationUtils/commandArguments.utils.ts";
 import {newSession, openSession, removeSession, renameSession} from "@services/session.service.ts";
-import {SessionIdValueObjectSchema} from "@valueObjects/sessionId.valueObject.ts";
+import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
+import {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
 import {Effect} from "effect";
 
 // The project row's button passes its Project.
-export const newSessionInClickedProject = Effect.fn("SessionController.newSessionInClickedProject")(function* (
-  clickedRow: unknown
+export const newSessionInChosenProject = Effect.fn("SessionController.newSessionInChosenProject")(function* (
+  projectRow: unknown
 ) {
-  const clickedProject = yield* decodeCommandArgument(ProjectEntity, clickedRow);
-  yield* newSession(clickedProject);
+  const chosenProject = yield* decodeCommandArgument(ListedProjectValueObject, projectRow);
+  yield* newSession(chosenProject);
 });
 
 // VS Code passes title-bar buttons the focused row, which can be any row, so its arguments are dropped and the user
@@ -20,25 +20,19 @@ export const newSessionAskingForProject = Effect.fn("SessionController.newSessio
 });
 
 // The session row's own command passes its session id.
-export const openClickedSession = Effect.fn("SessionController.openClickedSession")(function* (
-  clickedSessionId: unknown
-) {
-  const sessionId = yield* decodeCommandArgument(SessionIdValueObjectSchema, clickedSessionId);
+export const openChosenSession = Effect.fn("SessionController.openChosenSession")(function* (chosenSessionId: unknown) {
+  const sessionId = yield* decodeCommandArgument(EntityIdValueObjectSchema, chosenSessionId);
   yield* openSession(sessionId);
 });
 
 // The session row's … menu passes the Session itself.
-export const removeClickedSession = Effect.fn("SessionController.removeClickedSession")(function* (
-  clickedRow: unknown
-) {
-  const clickedSession = yield* decodeCommandArgument(SessionEntity, clickedRow);
-  yield* removeSession(clickedSession);
+export const removeChosenSession = Effect.fn("SessionController.removeChosenSession")(function* (sessionRow: unknown) {
+  const chosenSession = yield* decodeCommandArgument(SessionEntity, sessionRow);
+  yield* removeSession(chosenSession);
 });
 
 // The session row's … menu passes the Session itself.
-export const renameClickedSession = Effect.fn("SessionController.renameClickedSession")(function* (
-  clickedRow: unknown
-) {
-  const clickedSession = yield* decodeCommandArgument(SessionEntity, clickedRow);
-  yield* renameSession(clickedSession);
+export const renameChosenSession = Effect.fn("SessionController.renameChosenSession")(function* (sessionRow: unknown) {
+  const chosenSession = yield* decodeCommandArgument(SessionEntity, sessionRow);
+  yield* renameSession(chosenSession);
 });

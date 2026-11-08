@@ -1,6 +1,6 @@
-import {ProjectEntity} from "@entities/project/project.entity.ts";
 import {findWindowKey, getAnchorFolderPath} from "@infraUtils/anchorFolder.utils.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
+import {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Array, Effect, Layer, Ref, Schema} from "effect";
@@ -76,7 +76,7 @@ const listWorkspaceFolderProjects = Effect.fn("WorkspaceInfraService.listWorkspa
     const projectFolders = Array.filter(workspaceFolders, (folder) => folder.uri.fsPath !== anchorFolderPath);
 
     return Array.map(projectFolders, (projectFolder) =>
-      ProjectEntity.make({
+      ListedProjectValueObject.make({
         added: false,
         name: projectFolder.name,
         path: ProjectPathValueObjectSchema.make(projectFolder.uri.fsPath)

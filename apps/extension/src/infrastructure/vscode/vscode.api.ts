@@ -17,7 +17,7 @@ import {
   workspace
 } from "vscode";
 
-import type {ExtensionContext, Memento, WorkspaceConfiguration} from "vscode";
+import type {ExtensionContext, WorkspaceConfiguration} from "vscode";
 
 // The only runtime import of `vscode`. Everything else yields VsCodeApi and imports vscode types only.
 export class VsCodeApi extends Context.Service<
@@ -30,7 +30,6 @@ export class VsCodeApi extends Context.Service<
     readonly extensionUri: Uri;
     readonly FileDecoration: typeof FileDecoration;
     readonly getConfiguration: (settingsSection: string) => Effect.Effect<WorkspaceConfiguration>;
-    readonly globalState: Memento;
     readonly globalStorageUri: Uri;
     readonly ProgressLocation: typeof ProgressLocation;
     readonly TabInputTerminal: typeof TabInputTerminal;
@@ -53,7 +52,6 @@ export class VsCodeApi extends Context.Service<
       extensionUri: extensionContext.extensionUri,
       FileDecoration,
       getConfiguration: (settingsSection) => Effect.sync(() => workspace.getConfiguration(settingsSection)),
-      globalState: extensionContext.globalState,
       globalStorageUri: extensionContext.globalStorageUri,
       ProgressLocation,
       TabInputTerminal,

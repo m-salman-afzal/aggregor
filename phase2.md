@@ -110,10 +110,10 @@ Other things the tests showed:
 ### Storage
 
 16. **SQLite at `~/.aggregor/aggregor.db`**, overridden by `AGGREGOR_DATA_DIR` for tests, in WAL mode, with related
-    tables that share `id` (a UUID v7), `updatedAt` and `deletedAt`, camelCase names, and a base entity, base repository
-    and base service; under step 1. The extension uses `@effect/sql-sqlite-node` 4.1.2 (Effect's client on Node's
-    built-in `node:sqlite`, so no native module); the binary uses rusqlite. No migrations before 0.1.0: a schema change
-    starts the database from empty, and today's `globalState` data is not imported. The anchor folders stay in VS Code's
+    tables that share `id` (a UUID v7), `sortId`, `updatedAt` and `deletedAt`, camelCase names, and a base entity, base
+    repository and base service; under step 1. The extension uses `@effect/sql-sqlite-node` 4.1.2 (Effect's client on
+    Node's built-in `node:sqlite`, so no native module), with Drizzle's tables, query builder and generated migrations
+    on top; the binary uses rusqlite. Today's `globalState` data is not imported. The anchor folders stay in VS Code's
     global storage.
 17. **A socket later**, once the extension needs to talk to a running binary: one per session, through the interprocess
     crate.
@@ -142,13 +142,14 @@ Other things the tests showed:
 Windows, projects and sessions move out of `globalState` into related tables in `~/.aggregor/aggregor.db`, behind a base
 entity, a base repository and a base service. Nothing changes for the user.
 
-**Tables.** Every table starts with the same three columns, and every name is camelCase:
+**Tables.** Every table starts with the same four columns, and every name is camelCase:
 
 | Column      | Type               | Meaning                                                                                            |
 | ----------- | ------------------ | -------------------------------------------------------------------------------------------------- |
 | `id`        | `TEXT PRIMARY KEY` | a UUID v7: unique, sorted by creation time and carrying that time, so no `uuid` or `createdAt` too |
-| `updatedAt` | `INTEGER NOT NULL` | milliseconds since the epoch, set on every write                                                   |
-| `deletedAt` | `INTEGER`          | set by a soft delete; reads skip the row                                                           |
+| `sortId`    | `INTEGER NOT NULL` | the row's place in its table's order: a new row gets the highest plus one; moving a row changes it |
+| `updatedAt` | `TEXT NOT NULL`    | ISO 8601 in UTC (`2026-11-07T22:13:46.836Z`), set on every write                                   |
+| `deletedAt` | `TEXT`             | set by a soft delete, in the same format; reads skip the row                                       |
 
 | Table            | Its own columns                                       | Relations                                              |
 | ---------------- | ----------------------------------------------------- | ------------------------------------------------------ |
@@ -161,67 +162,77 @@ entity, a base repository and a base service. Nothing changes for the user.
 - A project's row is upserted by path the first time it is used: added to a window, or given a session (a workspace
   folder's project too).
 - Remove Project soft-deletes the window's `windowProjects` row. The project and its sessions stay, so adding it again
-  lists them again, as today. Remove Session soft-deletes the session.
-- WAL and a busy timeout on every connection. The schema's version sits in `PRAGMA user_version`; a database with
-  another version has its tables dropped and created again, inside one transaction, so every schema change before 0.1.0
-  starts from empty. No migrations. Dropping rather than deleting the file keeps windows that have it open on the same
-  database.
+  lists them again, as today, and puts it at the end of the list. Remove Session soft-deletes the session.
+- WAL and a busy timeout on every connection. `drizzle-kit generate` writes a migration for each schema change, and a
+  window applies the ones the database lacks when it starts, in one write transaction.
 
 **Base pieces:**
 
 - **`EntityIdValueObject`** (domain): the branded UUID v7 that every entity's `id` is; it replaces
   `SessionIdValueObject`. Its factory service, `entityId.domainService.ts`, gives what the three old columns did:
-  - `makeEntityId`: a new id, from Effect's `SecureRandom.uuidV7`, which also orders the ids made within one
-    millisecond;
-  - `getEntityIdCreatedAt`: the creation time, from the id's first 48 bits;
-  - order: ids sort by creation time as plain text, so `ORDER BY id` lists rows in the order they were made.
-- **`BaseEntity`** (domain): `id`, `updatedAt` and `deletedAt`, with `DateTime.Utc` timestamps. Every entity extends it.
-  Its factory, `fromRow`, cleans a stored row (NULL to absent, the milliseconds of every `…At` column to `DateTime`) and
-  decodes it into the entity, failing with a tagged error on a bad row.
+  `makeEntityId` (on Effect's `SecureRandom.uuidV7`), `getEntityIdCreatedAt`, and order, since ids sort by creation time
+  as text.
+- **`BaseEntity`** (domain): a `Schema.Class` with `id`, `sortId`, `updatedAt` and `deletedAt`, timestamps as
+  `DateTime.Utc`; every entity extends it and knows nothing of how it is stored. Its factory, `fromRow`, turns NULL into
+  an absent field and the ISO text of `updatedAt` and `deletedAt` into a `DateTime`, then decodes the row into the
+  entity.
 - **`IBaseRepository<Entity, AddRequest>`** (domain): `add`, `findById`, `findMany`, `update`, `upsert` and
   `softDelete`. `ISessionRepository`, `IProjectRepository` and `IWindowRepository` extend it.
-- **`makeBaseRepository`** (infrastructure), on Effect's `SqlClient`, given a table, its unique columns, and the entity
-  its rows decode into:
-  - reads skip soft-deleted rows and list rows in `id` order;
-  - `add` makes the id with `makeEntityId`;
-  - `update` writes only the columns it is given, plus `updatedAt`, so two writers (the extension and `aggregor-pty`)
-    never overwrite each other's columns;
-  - `upsert` inserts, or updates the given columns of the row with the same unique columns, bringing back a soft-deleted
-    one;
-  - every row it returns goes through the entity's `fromRow`, so services only ever receive entities.
+- **`makeBaseRepository`** (infrastructure), on Drizzle's query builder, given an entity, its table model and a join for
+  columns it reads from another table:
+  - reads skip soft-deleted rows, list rows in `sortId` order, and go through `BaseEntity.fromRow`, so services only
+    ever receive entities;
+  - `add` and `upsert` put the row last; `upsert` updates the row with the same unique columns instead, bringing back a
+    soft-deleted one;
+  - `update` writes only the columns it is given, plus `updatedAt`, so the extension and `aggregor-pty` never overwrite
+    each other's columns.
 - **`BaseService`** (application): `base.service.ts`, the same six calls for any entity's repository. The session,
   project and window services build on it instead of calling their repositories, and it holds the one mapping from
   repository errors to messages.
-- No Effect `Model.Class` row models: the entity's `fromRow` reads rows and the repository writes plain columns, so a
-  second schema per table would repeat the entity. Effect's `SqlModel.makeRepository` was weighed too: its update
-  rewrites every column and it finds rows only by id.
+- Effect's `Model.Class` was tried for the entities and reverted: the domain entity would know how it is stored.
+  Effect's `SqlModel.makeRepository` was weighed: its reads are `select *`, so no joined columns; its update writes the
+  whole row outside a transaction; its soft delete writes `CURRENT_TIMESTAMP`, which isn't ISO text. A `Model.Class`
+  can't create tables either, and Effect's `Migrator` runs hand-written migrations.
+- **Table models** (`infrastructure/database/models/`): one Drizzle `sqliteTable` per file, spreading `BASE_COLUMNS`
+  from `base.model.ts`. `drizzle-kit generate` (`apps/extension/drizzle.config.ts`) writes the migrations into
+  `apps/extension/assets/migrations/`, which ship in the VSIX; the database layer runs Drizzle's `migrate`.
 
 **Other changes:**
 
-- Add `@effect/sql-sqlite-node` 4.1.2. `node:sqlite` works in VS Code 1.145's Electron (Node 24.22, SQLite 3.53.4), and
-  `vite.config.ts` already keeps every `node:` import external.
-- A database layer opens the file, creating `~/.aggregor` with mode 0700, turns on foreign keys and creates the tables.
+- Add `@effect/sql-sqlite-node` 4.1.2, `drizzle-orm` 1.0.0-rc.5 and, for development, `drizzle-kit` 1.0.0-rc.5.
+  `node:sqlite` works in VS Code 1.145's Electron (Node 24.22, SQLite 3.53.4), and `vite.config.ts` already keeps every
+  `node:` import external. Drizzle supports Effect 4 itself, on the same `@effect/sql-sqlite-node` client.
+- A database layer opens the file, creating `~/.aggregor` with mode 0700, and applies the migrations.
 - `ProjectEntity` becomes the stored project. The tree's project rows become `ListedProjectValueObject` (path, name,
   added), since a workspace folder is listed before its project has a row.
 - `SessionEntity` gains `projectId`; `projectPath` comes from its project through a join. `withName` and
-  `withCustomName` go, since `update` writes single columns.
+  `withCustomName` go: services pass `update` the columns that change.
 - `SessionRepository`, `ProjectRepository` and a new `WindowRepository` (which owns `windowProjects`) build on the base
   repository instead of read-modify-writing `globalState`; `modifySessions` and `modifyAddedProjectPaths` go.
 - `StoredSessionsModel` and `StoredAddedProjectPathsModel`, with their `version` fields, go; `database/models/` holds
-  the tables' SQL.
-- `globalstorage.md` becomes `storage.md` and covers the database too. The `agentSessions` and
-  `addedProjectPathsByWindow` keys move to "no longer read".
+  the table models.
+- `globalstorage.md` becomes `storage.md`, covers the database too, and lists only what is stored now.
 
 **Decided:**
 
 1. The file lives at `~/.aggregor/aggregor.db`; windows keep re-reading on focus until step 3 watches the database; the
    generic `update` replaces the read-modify-write; today's data is not imported.
-2. The entity factory runs inside the base repository, on every row it returns.
+2. The entity factory, `BaseEntity.fromRow`, runs inside the base repository on every row it returns; entities don't
+   know how they're stored.
 3. A `BaseService` now, as the foundation the entity services build on.
 4. One id per row: a UUID v7 value object replaces `id`, `uuid` and `createdAt`. A session's id is also the id its agent
    gets (`--session-id`; Claude Code accepts a UUID v7, checked on 2026-11-07), so `SessionIdValueObject` folds into
    `EntityIdValueObject` and no `sessionUuid` rename is needed.
 5. Relations point at that id, which also keeps ids unique across machines if databases are ever merged.
+6. Timestamps are ISO 8601 text in UTC, such as `2026-11-07T22:13:46.836Z`, readable in `sqlite3`; entities still hold
+   `DateTime.Utc`, parsed in `fromRow`.
+7. A project added to a window again, removed or not, moves to the end of the window's list.
+8. Every row has a `sortId`, the table's highest plus one when added or upserted, which reads follow; moving projects
+   and sessions up and down will change it. SQLite's `AUTOINCREMENT` needs an integer primary key, so the base
+   repository sets it in the statement that writes the row.
+9. Drizzle on Effect (`drizzle-orm/effect-sqlite-node`, 1.0.0-rc.5, pinned) defines the tables, builds the queries and
+   generates the migrations, one per schema change, even before 0.1.0. It replaces the hand-written `CREATE TABLE`s and
+   the `PRAGMA user_version` rebuild.
 
 **Verify:** add and remove projects; start, rename and remove sessions; reload; then read the rows with `sqlite3` and
 check the relations, the soft deletes, the timestamps, and that ids sort in creation order.
@@ -245,8 +256,8 @@ check the relations, the soft deletes, the timestamps, and that ids sort in crea
   - when the agent exits, writes `exited` and exits with the agent's code.
 - The extension's schema gains the status columns on `sessions`: `status`, `statusKind`, `statusMessage`,
   `statusProgress`, `agentTitle`, `hasWorked` and `statusChangedAt`. Only the binary writes them, one `UPDATE` of those
-  columns and `updatedAt` by `id`; the extension's row model has them read-only. The schema's new version starts the
-  database from empty once.
+  columns and `updatedAt` by `id`, with timestamps from SQLite's `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`, the
+  extension's format; the extension's row model has them read-only. `drizzle-kit generate` writes their migration.
 - Rust tests: the scanner (split sequences, both terminators, oversize, bad base64, control characters, the check) and
   one end-to-end run of a `printf` script under the binary against a temporary database.
 - CI: `cargo fmt --check`, `cargo clippy -D warnings` and `cargo test`; a build matrix for `x86_64` and `aarch64` musl

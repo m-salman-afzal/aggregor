@@ -18,8 +18,9 @@ import {PLUGIN_CONFIG} from "./eslint.plugin.ts";
 import type {Config} from "eslint/config";
 
 const config: Config[] = defineConfig([
-  // ESLint does not read .gitignore. git.d.ts is synced from upstream vscode (also in .prettierignore).
-  globalIgnores(["**/dist/**", "packages/typings/src/git.d.ts"]),
+  // ESLint does not read .gitignore. git.d.ts is synced from upstream vscode, and drizzle-kit writes the migrations
+  // (both also in .prettierignore).
+  globalIgnores(["**/dist/**", "apps/extension/assets/migrations/**", "packages/typings/src/git.d.ts"]),
   {
     extends: ["package-json/recommended"],
     files: ["**/package.json"],
@@ -177,7 +178,7 @@ const config: Config[] = defineConfig([
       ],
       "unicorn/name-replacements": [
         "error",
-        {checkFilenames: false, replacements: {repo: {project: true, repository: false}}}
+        {checkFilenames: false, replacements: {clicked: {chosen: true}, repo: {project: true, repository: false}}}
       ]
     }
   },

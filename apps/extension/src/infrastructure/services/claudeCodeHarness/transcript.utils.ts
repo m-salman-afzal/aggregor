@@ -1,15 +1,15 @@
-import {SessionIdValueObjectSchema} from "@valueObjects/sessionId.valueObject.ts";
+import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {Config, Effect, Result, Schema} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 import {homedir} from "node:os";
 
-import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
+import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 
 export class TranscriptNotFoundError extends Schema.TaggedError<
   TranscriptNotFoundError,
   {readonly brand: unique symbol}
->()("TranscriptNotFoundError", {sessionId: SessionIdValueObjectSchema}) {}
+>()("TranscriptNotFoundError", {sessionId: EntityIdValueObjectSchema}) {}
 
 export const getClaudeProjectsDirectoryPath = Effect.fn("ClaudeCodeHarnessInfraService.getClaudeProjectsDirectoryPath")(
   function* () {
@@ -26,7 +26,7 @@ export const getClaudeProjectsDirectoryPath = Effect.fn("ClaudeCodeHarnessInfraS
 // Claude writes <projects>/<encoded cwd>/<session id>.jsonl after the first message. Scanning every project folder
 // instead of encoding the cwd ourselves keeps symlinked and very long paths working.
 export const findTranscriptFilePath = Effect.fn("ClaudeCodeHarnessInfraService.findTranscriptFilePath")(function* (
-  sessionId: SessionIdValueObject
+  sessionId: EntityIdValueObject
 ) {
   const fileSystem = yield* FileSystem;
   const path = yield* Path;

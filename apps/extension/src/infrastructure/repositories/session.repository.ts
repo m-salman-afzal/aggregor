@@ -1,116 +1,65 @@
-import {showErrorInBackground} from "@appUtils/error.utils.ts";
 import {SessionEntity} from "@entities/session/session.entity.ts";
-import {
-  ISessionRepository,
-  SessionsCorruptError,
-  SessionsSaveFailedError
-} from "@entities/session/session.repository.interface.ts";
+import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {fromEvent} from "@infraUtils/vscode.utils.ts";
-import {NO_STORED_SESSIONS, StoredSessionsModel} from "@models/storedSessions.model.ts";
-import {STORAGE_KEYS} from "@pkg/constants/src/extension.constant.ts";
-import {SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
+import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
+import {ProjectTableModel} from "@models/project.model.ts";
+import {SessionTableModel} from "@models/session.model.ts";
+import {makeBaseRepository} from "@repositories/base/base.repository.ts";
+import {showRepositoryError} from "@services/base.service.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
-import {Array, Effect, Layer, Schema, Stream, SubscriptionRef} from "effect";
+import {eq} from "drizzle-orm";
+import {Context, Effect, Layer, Stream, SubscriptionRef} from "effect";
 
-import type {Memento, WindowState} from "vscode";
+import type {IBaseRepository} from "@entities/base/base.repository.interface.ts";
+import type {AddSessionRequest} from "@entities/session/session.repository.interface.ts";
+import type {WindowState} from "vscode";
 
-type ChangeSessions<ChangeResult> = (
-  storedSessions: readonly SessionEntity[]
-) => Effect.Effect<readonly [ChangeResult, readonly SessionEntity[]]>;
+type SessionBaseRepository = IBaseRepository<SessionEntity, AddSessionRequest>;
 
-// This window's copy of the stored sessions, which the view renders from.
 type SessionsReference = SubscriptionRef.SubscriptionRef<readonly SessionEntity[]>;
 
-// Re-reads globalState on every call.
-const loadSessions = Effect.fn("SessionRepository.loadSessions")(
-  function* (globalState: Memento) {
-    const storedValue = yield* Effect.sync(() =>
-      globalState.get<unknown>(STORAGE_KEYS.SAVED_SESSIONS, NO_STORED_SESSIONS)
-    );
-    const storedSessions = yield* Schema.decodeUnknownEffect(StoredSessionsModel)(storedValue);
+const SESSION_PROJECT_JOIN = {
+  joinCondition: eq(ProjectTableModel.id, SessionTableModel.projectId),
+  joinedColumns: {projectPath: ProjectTableModel.path},
+  joinedTable: ProjectTableModel
+};
 
-    return Array.map(storedSessions.sessions, (storedSession) => SessionEntity.make(storedSession));
-  },
-  Effect.mapError((cause) => SessionsCorruptError.make({cause}))
-);
-
-const saveSessions = Effect.fn("SessionRepository.saveSessions")(function* (
-  globalState: Memento,
-  sessions: readonly SessionEntity[]
+const refreshSessions = Effect.fn("SessionRepository.refreshSessions")(function* (
+  sessionBaseRepository: SessionBaseRepository,
+  sessions: SessionsReference
 ) {
-  const storedValue = yield* Effect.mapError(
-    Schema.encodeEffect(StoredSessionsModel)({sessions, version: 1}),
-    (cause) => SessionsSaveFailedError.make({cause})
-  );
-
-  yield* Effect.tryPromise({
-    catch: (cause) => SessionsSaveFailedError.make({cause}),
-    try: () => globalState.update(STORAGE_KEYS.SAVED_SESSIONS, storedValue)
-  });
-});
-
-const writeSessionsChange = Effect.fn("SessionRepository.writeSessionsChange")(function* <ChangeResult>(
-  globalState: Memento,
-  changeSessions: ChangeSessions<ChangeResult>
-) {
-  const currentSessions = yield* loadSessions(globalState);
-  const [changeResult, nextSessions] = yield* changeSessions(currentSessions);
-  yield* saveSessions(globalState, nextSessions);
-
-  return [changeResult, nextSessions] as const;
-});
-
-// Read-modify-write against globalState under the ref's permit, so a change never drops what another window saved.
-const modifySessions = Effect.fn("SessionRepository.modifySessions")(function* <ChangeResult>(
-  globalState: Memento,
-  sessions: SessionsReference,
-  changeSessions: ChangeSessions<ChangeResult>
-) {
-  return yield* SubscriptionRef.modifyEffect(sessions, () => writeSessionsChange(globalState, changeSessions));
-});
-
-const showUnreadableSessionsError = Effect.fn("SessionRepository.showUnreadableSessionsError")(function* () {
-  yield* showErrorInBackground(SESSION_MESSAGES.UNREADABLE);
-  const noSessions: readonly SessionEntity[] = [];
-
-  return noSessions;
-});
-
-// Unreadable data starts the list empty; every write re-reads first, so it is never overwritten.
-const loadInitialSessions = Effect.fn("SessionRepository.loadInitialSessions")(
-  function* (globalState: Memento) {
-    return yield* loadSessions(globalState);
-  },
-  Effect.catchTag("SessionsCorruptError", () => showUnreadableSessionsError())
-);
-
-// Other windows write to the same globalState; pick up their changes when this window comes back into focus.
-const reloadSessionsOnFocus = Effect.fn("SessionRepository.reloadSessionsOnFocus")(
-  function* (globalState: Memento, sessions: SessionsReference, windowState: WindowState) {
-    if (!windowState.focused) return;
-
-    yield* SubscriptionRef.updateEffect(sessions, () => loadSessions(globalState));
-  },
-  Effect.catchTag("SessionsCorruptError", (sessionsCorrupt) =>
-    Effect.andThen(Effect.logError(SESSION_MESSAGES.UNREADABLE, sessionsCorrupt.cause), showUnreadableSessionsError())
-  )
-);
+  const storedSessions = yield* sessionBaseRepository.findMany({});
+  yield* SubscriptionRef.set(sessions, storedSessions);
+}, Effect.catch(showRepositoryError));
 
 const makeSessionRepository = Effect.fn("SessionRepository.make")(function* () {
-  const {globalState, window} = yield* VsCodeApi;
-  const initialSessions = yield* loadInitialSessions(globalState);
-  const sessions: SessionsReference = yield* SubscriptionRef.make(initialSessions);
+  const {window} = yield* VsCodeApi;
+  const sessionBaseRepository = yield* makeBaseRepository<SessionEntity, AddSessionRequest>({
+    entitySchema: SessionEntity,
+    join: SESSION_PROJECT_JOIN,
+    tableModel: SessionTableModel
+  });
+  const sessions: SessionsReference = yield* SubscriptionRef.make<readonly SessionEntity[]>([]);
+  const userInputPromptInfraService = yield* IUserInputPromptInfraService;
+  const userInputPromptContext = Context.make(IUserInputPromptInfraService, userInputPromptInfraService);
+  const refresh = Effect.provide(refreshSessions(sessionBaseRepository, sessions), userInputPromptContext);
+  yield* refresh;
+  // Until the database is watched, other windows' writes show up when this one regains focus.
   const windowStateChanges = yield* fromEvent(window.onDidChangeWindowState);
   yield* Effect.forkScoped(
-    Stream.runForEach(windowStateChanges, (windowState) => reloadSessionsOnFocus(globalState, sessions, windowState))
+    Stream.runForEach(windowStateChanges, (windowState: WindowState) => (windowState.focused ? refresh : Effect.void))
   );
+  const refreshAfter = <Success, Failure>(write: Effect.Effect<Success, Failure>) => Effect.tap(write, () => refresh);
 
   return {
-    modifySessions: <ChangeResult>(changeSessions: ChangeSessions<ChangeResult>) =>
-      modifySessions(globalState, sessions, changeSessions),
-    sessions
+    ...sessionBaseRepository,
+    add: (addRequest: AddSessionRequest) => refreshAfter(sessionBaseRepository.add(addRequest)),
+    sessions,
+    softDelete: (sessionId: SessionEntity["id"]) => refreshAfter(sessionBaseRepository.softDelete(sessionId)),
+    update: (sessionId: SessionEntity["id"], changes: Partial<AddSessionRequest>) =>
+      refreshAfter(sessionBaseRepository.update(sessionId, changes)),
+    upsert: (addRequest: AddSessionRequest) => refreshAfter(sessionBaseRepository.upsert(addRequest))
   };
 });
 
-// globalState is the source of truth, shared by every window; `sessions` is this window's copy for the view.
 export const SessionRepository = Layer.effect(ISessionRepository, makeSessionRepository());

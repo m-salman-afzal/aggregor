@@ -4,7 +4,7 @@ import {COMMAND_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Effect, Schema} from "effect";
 
-import type {IPromptInfraService} from "@interfaces/prompt.infraService.interface.ts";
+import type {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 
 // What VS Code passed a command is not what its menu entry sends.
 export class InvalidCommandArgumentsError extends Schema.TaggedError<
@@ -20,7 +20,7 @@ export const registerCommand = Effect.fn("RegisterCommandMiddleware.registerComm
   controller: (...commandArguments: readonly unknown[]) => Effect.Effect<unknown, InvalidCommandArgumentsError, R>
 ) {
   const {commands} = yield* VsCodeApi;
-  const commandContext = yield* Effect.context<IPromptInfraService | R>();
+  const commandContext = yield* Effect.context<IUserInputPromptInfraService | R>();
   const runPromise = Effect.runPromiseWith(commandContext);
   // eslint-disable-next-line aggregor/span-name -- a command's root span is named by its command ID
   const runCommand = Effect.fn(commandId, {root: true})(

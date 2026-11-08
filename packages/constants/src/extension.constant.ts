@@ -9,7 +9,7 @@ export const SETTINGS_SECTION = "aggregorApp";
 // Grouped by where each command's button lives.
 export const COMMANDS = {
   PROJECT_ROW: {
-    NEW_SESSION: "aggregorApp.newSessionInClickedProject",
+    NEW_SESSION: "aggregorApp.newSessionInChosenProject",
     REMOVE: "aggregorApp.removeProject"
   },
   SCM_TITLE: {
@@ -57,6 +57,11 @@ export const STATUS_ENV = "AGGREGOR_STATUS_FILE";
 // Every session terminal carries its session id, so a restarted extension host can tell which tab is whose.
 export const SESSION_ID_ENV = "AGGREGOR_SESSION_ID";
 
+export const DATA_DIRECTORY_ENV = "AGGREGOR_DATA_DIR";
+
+// drizzle-kit writes one folder per migration here (apps/extension/drizzle.config.ts).
+export const MIGRATIONS_FOLDER = "assets/migrations";
+
 // Each Sessions row gets a URI in this scheme so a FileDecorationProvider can draw its status badge.
 export const SESSION_URI_SCHEME = "aggregor-session";
 
@@ -73,11 +78,6 @@ export const SPINNER_INTERVAL_MS = 120;
 
 // How long a running session's title must say idle before its turn counts as ended without its hook.
 export const INTERRUPTED_TURN_GRACE = "3 seconds";
-
-export const STORAGE_KEYS = {
-  ADDED_PROJECT_PATHS: "addedProjectPathsByWindow",
-  SAVED_SESSIONS: "agentSessions"
-} as const;
 
 export const VIEWS = {
   SESSIONS: "aggregorApp.sessions"

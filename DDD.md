@@ -10,7 +10,7 @@ moves where code goes updates this file in the same commit.
 | ----------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `domain/`         | Entities, value objects, domain services, repository interfaces and their errors          | `effect`, domain                                                                                                         |
 | `application/`    | Services (the use cases), the interfaces of the infra services and config they use, utils | `effect`, `@pkg/*`, domain, application                                                                                  |
-| `infrastructure/` | `VsCodeApi`, models, repositories, infra services, config, the layer graph, the trace log | `effect`, `@effect/*`, `vscode`, `node:*`, `@pkg/*`, domain, application, infrastructure                                 |
+| `infrastructure/` | `VsCodeApi`, models, repositories, infra services, config, the layer graph, the trace log | `effect`, `@effect/*`, `drizzle-orm`, `vscode`, `node:*`, `@pkg/*`, domain, application, infrastructure                  |
 | `presentation/`   | Command routes, controllers, the command middleware, views                                | `effect`, `vscode` types, `@pkg/*`, domain, application, presentation, and from infrastructure `vscode.api.ts` and utils |
 | `extension.ts`    | `activate`: builds the runtime from the layer graph                                       | everything                                                                                                               |
 
@@ -40,35 +40,35 @@ allow-list over the aliases, which also rejects relative imports.
 Each file's suffix names its role, each role lives in one layer, and the file's main names carry the role.
 `eslint.layers.ts` checks the names with `@typescript-eslint/naming-convention`, one block per file suffix.
 
-| Role                    | Layer                             | File                                                    | Names                                                |
-| ----------------------- | --------------------------------- | ------------------------------------------------------- | ---------------------------------------------------- |
-| Entity                  | domain                            | `entities/<x>/<x>.entity.ts`                            | `SessionEntity`                                      |
-| Value object            | domain                            | `valueObjects/<x>.valueObject.ts`                       | `SessionIdValueObject`, `SessionIdValueObjectSchema` |
-| Repository interface    | domain                            | `entities/<x>/<x>.repository.interface.ts`              | `ISessionRepository`                                 |
-| Domain service          | domain                            | `services/<x>.domainService.ts`                         | functions                                            |
-| Application service     | application                       | `services/<x>.service.ts`                               | functions                                            |
-| Infra service interface | application                       | `interfaces/<x>.infraService.interface.ts`              | `ITerminalInfraService`                              |
-| Config interface        | application                       | `interfaces/<x>.config.interface.ts`                    | `ISettingsConfig`                                    |
-| Repository              | infrastructure                    | `repositories/<x>.repository.ts`                        | `SessionRepository`                                  |
-| Model                   | infrastructure                    | `database/models/<x>.model.ts`                          | `StoredSessionsModel`, `NO_STORED_SESSIONS`          |
-| Infra service           | infrastructure                    | `services/<backend>/<x>.infraService.ts`                | `TerminalInfraService`                               |
-| Transformer             | infrastructure                    | `services/<backend>/<x>.transformer.ts`                 | functions                                            |
-| Config                  | infrastructure                    | `config/<x>.config.ts`                                  | `SettingsConfig`                                     |
-| Layer                   | infrastructure                    | `di/<x>.layer.ts`, `logger/<x>.layer.ts`                | `AppLayer`                                           |
-| Routes                  | presentation                      | `routes.ts`                                             | `RoutesLayer`                                        |
-| Controller              | presentation                      | `controllers/<x>.controller.ts`                         | functions                                            |
-| Middleware              | presentation                      | `middlewares/<x>.middleware.ts`                         | `registerCommand`                                    |
-| View                    | presentation                      | `views/<x>/<x>.view.ts`                                 | `SessionsView`                                       |
-| Helpers                 | any                               | `utils/<x>.utils.ts`, or beside the one file they serve | functions                                            |
-| Shared types            | any                               | `<declaring file>.type.ts`, beside it                   | plain names                                          |
-| Error                   | the highest layer that handles it | the top of a file (see Errors)                          | `SessionsCorruptError`                               |
+| Role                    | Layer                             | File                                                    | Names                                              |
+| ----------------------- | --------------------------------- | ------------------------------------------------------- | -------------------------------------------------- |
+| Entity                  | domain                            | `entities/<x>/<x>.entity.ts`                            | `SessionEntity`                                    |
+| Value object            | domain                            | `valueObjects/<x>.valueObject.ts`                       | `EntityIdValueObject`, `EntityIdValueObjectSchema` |
+| Repository interface    | domain                            | `entities/<x>/<x>.repository.interface.ts`              | `ISessionRepository`                               |
+| Domain service          | domain                            | `services/<x>.domainService.ts`                         | functions                                          |
+| Application service     | application                       | `services/<x>.service.ts`                               | functions                                          |
+| Infra service interface | application                       | `interfaces/<x>.infraService.interface.ts`              | `ITerminalInfraService`                            |
+| Config interface        | application                       | `interfaces/<x>.config.interface.ts`                    | `ISettingsConfig`                                  |
+| Repository              | infrastructure                    | `repositories/<x>.repository.ts`                        | `SessionRepository`, `makeBaseRepository`          |
+| Model                   | infrastructure                    | `database/models/<x>.model.ts`                          | `SessionTableModel`, `BASE_COLUMNS`                |
+| Infra service           | infrastructure                    | `services/<backend>/<x>.infraService.ts`                | `TerminalInfraService`                             |
+| Transformer             | infrastructure                    | `services/<backend>/<x>.transformer.ts`                 | functions                                          |
+| Config                  | infrastructure                    | `config/<x>.config.ts`                                  | `SettingsConfig`                                   |
+| Layer                   | infrastructure                    | `di/<x>.layer.ts`, `logger/<x>.layer.ts`                | `AppLayer`                                         |
+| Routes                  | presentation                      | `routes.ts`                                             | `RoutesLayer`                                      |
+| Controller              | presentation                      | `controllers/<x>.controller.ts`                         | functions                                          |
+| Middleware              | presentation                      | `middlewares/<x>.middleware.ts`                         | `registerCommand`                                  |
+| View                    | presentation                      | `views/<x>/<x>.view.ts`                                 | `SessionsView`                                     |
+| Helpers                 | any                               | `utils/<x>.utils.ts`, or beside the one file they serve | functions                                          |
+| Shared types            | any                               | `<declaring file>.type.ts`, beside it                   | plain names                                        |
+| Error                   | the highest layer that handles it | the top of a file (see Errors)                          | `SessionsCorruptError`                             |
 
 - File and folder names are camelCase in every dotted part, as in `claudeCodeHarness.infraService.type.ts`;
   `unicorn/filename-case` checks them everywhere but `.claude`, whose skill folders follow Claude Code's names.
 - An implementation's file is its interface's file without `.interface`, so a search for `terminal.infraService` finds
   the interface, with its errors and types, and its implementation.
-- `I` marks only our interfaces, the `Context.Service` classes, and lint keeps those in `.interface.ts` files. Data
-  shapes take no prefix.
+- `I` marks only our interfaces: the `Context.Service` classes, which lint keeps in `.interface.ts` files, and
+  `IBaseRepository`, the shape every repository interface extends. Data shapes take no prefix.
 - Types and interfaces sit at the top of a file, right after the imports. An interface's own types (its inputs, which
   end in `Request`, and `Settings`) sit in its `.interface.ts`. Types several implementation files share live in a
   `.type.ts`, which holds nothing else; a value object's type stays with its value object, and an error union with its
@@ -91,24 +91,39 @@ Each file's suffix names its role, each role lives in one layer, and the file's 
 apps/extension/src/
   domain/
     entities/
+      base/
+        base.entity.ts                     BaseEntity (Schema.Class: id, sortId, updatedAt, deletedAt; fromRow, the
+                                           factory every stored row goes through)
+        base.repository.interface.ts       IBaseRepository<Entity, AddRequest>: add, findById, findMany, update,
+                                           upsert, softDelete; DatabaseReadError, DatabaseWriteError,
+                                           EntityNotFoundError
       session/
-        session.entity.ts                  SessionEntity (Schema.Class: id, projectPath, name, customName, harnessId;
-                                           displayName, withName, withCustomName)
-        session.repository.interface.ts    ISessionRepository: sessions, modifySessions; SessionsCorruptError,
-                                           SessionsSaveFailedError
+        session.entity.ts                  SessionEntity (BaseEntity and projectId, projectPath, name, customName,
+                                           harnessId; displayName)
+        session.repository.interface.ts    ISessionRepository: the base calls and sessions, this window's copy
       project/
-        project.entity.ts                  ProjectEntity (Schema.Class: path, name, added)
-        project.repository.interface.ts    IProjectRepository: addedProjectPaths, modifyAddedProjectPaths;
-                                           ProjectsCorruptError, ProjectsSaveFailedError
-    valueObjects/                          SessionIdValueObject, ProjectPathValueObject (branded), StatusValueObject,
+        project.entity.ts                  ProjectEntity (BaseEntity and path)
+        project.repository.interface.ts    IProjectRepository: the base calls
+      window/
+        window.entity.ts                   WindowEntity (BaseEntity and key)
+        window.repository.interface.ts     IWindowRepository: the base calls, addedProjectPaths, addProjects,
+                                           removeProject
+      windowProject/
+        windowProject.entity.ts            WindowProjectEntity (BaseEntity and windowId, projectId, projectPath)
+    valueObjects/                          EntityIdValueObject (a branded UUID v7), ProjectPathValueObject (branded),
+                                           ListedProjectValueObject (a Schema.Class: a tree row), StatusValueObject,
                                            HarnessIdValueObject (literals), LaunchPlanValueObject (an interface)
-    services/session.domainService.ts      getNewSessionName, getSessionTitle, getUnreadSessionIds
+    services/
+      session.domainService.ts             getNewSessionName, getSessionTitle, getUnreadSessionIds
+      entityId.domainService.ts            makeEntityId, getEntityIdCreatedAt: the entity id's factory
   application/
     services/
+      base.service.ts                      addEntity, findEntityById, findEntities, updateEntity, upsertEntity,
+                                           removeEntity, on any repository; showRepositoryError
       session.service.ts                   newSession, openSession, removeSession, renameSession, listSessions,
                                            findSession, startSessionTitleSync
-      project.service.ts                   listProjects, pickProject, addProject, removeProject, newProjectTerminal;
-                                           NoProjectError
+      project.service.ts                   listProjects, pickProject, addProject, addProjectPathsToWindow,
+                                           removeProject, newProjectTerminal; NoProjectError
       scm.service.ts                       writeCommitMessageOrShowError, offerToStageAllChanges
       workspace.service.ts                 startShownProjectSync: the viewed session's project as the only
                                            project folder; startWorkspaceSaveOffer
@@ -122,7 +137,8 @@ apps/extension/src/
                                            openProjectTerminal, renameSessionTerminal, isSessionTerminalOpen,
                                            openSessionIds, activatedSessionIds, viewedSessionId,
                                            sessionTerminalTitles; TerminalLaunchRequest
-      prompt.infraService.interface.ts     showErrorMessage, showInformationMessage, confirm, inputText, pickProject,
+      userInputPrompt.infraService.interface.ts
+                                           showErrorMessage, showInformationMessage, confirm, askForText, pickProject,
                                            pickProjectFolderPaths
       workspace.infraService.interface.ts  listWorkspaceFolderProjects, showOnlyProjectFolder, removeProjectFolder,
                                            claimWorkspaceSaveOffer, saveWorkspaceAs
@@ -135,22 +151,31 @@ apps/extension/src/
       harness.utils.ts                     withHarnessInfraService, forEachHarnessInfraService
   infrastructure/
     vscode/vscode.api.ts                   VsCodeApi: the only runtime import of vscode
-    database/models/                       StoredSessionsModel, StoredAddedProjectPathsModel
+    database/models/                       a Drizzle table per file (SessionTableModel...); base.model.ts:
+                                           BASE_COLUMNS, the shared columns
     repositories/
-      session.repository.ts                SessionRepository, on globalState: reloads on window focus
-      project.repository.ts                ProjectRepository, on globalState, keyed by the window's key
+      base/                                makeBaseRepository: the base calls on one table, on Drizzle's query
+                                           builder; its types in base.repository.type.ts, and the helpers that run
+                                           no query (formatNow, replaceUndefinedWithNull, findUniqueColumns) in
+                                           repository.utils.ts
+      session.repository.ts                SessionRepository: sessions with their project's path; re-reads after
+                                           each write and on window focus
+      project.repository.ts                ProjectRepository: the base calls on projects
+      window.repository.ts                 WindowRepository: this window's row and its windowProjects
     services/
       claudeCodeHarness/                   ClaudeCodeHarnessInfraService: the `claude` launch plan, --settings hooks,
                                            the status env var, the status-file watcher, the transcript lookup that
                                            picks resume or a fresh start, Claude's placeholder titles and idle
                                            title mark, and the transformer from its status files to ours
-      vscode/                              PromptInfraService, WorkspaceInfraService, GitInfraService
+      vscode/                              UserInputPromptInfraService, WorkspaceInfraService, GitInfraService
       vscode/terminal/                     TerminalInfraService: session tabs and project shells; terminal.utils
                                            reads a terminal's session id from its env
       commitCli/                           CommitCliInfraService: runs the configured commit command
     config/settings.config.ts              SettingsConfig
     di/
       app.layer.ts                         AppLayer: the layer graph under the commands and views
+      database.layer.ts                    DatabaseLayer: opens ~/.aggregor/aggregor.db, foreign keys on, and
+                                           applies the migrations in assets/migrations
       harnessInfraServices.layer.ts        HarnessInfraServicesLayer: LayerMap.fromRecord from harness id to its
                                            infra service
     logger/traceLog.layer.ts               TraceLogLayer
@@ -171,15 +196,18 @@ apps/extension/src/
 
 ## Domain model
 
-- An entity is a `Schema.Class`, and its `.entity.ts` exports only that class: a rule about one entity is a method on
-  it. A rule across entities lives in a `.domainService.ts` (`getNewSessionName`, `getUnreadSessionIds`), whose every
-  export is an `Effect.fn`, so each rule shows up in a trace. Lint (`no-restricted-syntax`) checks both files' exports.
-- Normalization lives in Schema transforms. Services and repositories share no base class.
+- An entity is a `Schema.Class` of domain types, and its `.entity.ts` exports only that class: a rule about one entity
+  is a method on it. A rule across entities lives in a `.domainService.ts` (`getNewSessionName`, `getUnreadSessionIds`),
+  whose every export is an `Effect.fn`, so each rule shows up in a trace. Lint (`no-restricted-syntax`) checks both
+  files' exports.
+- Every entity extends `BaseEntity` (`id`, `sortId`, `updatedAt`, `deletedAt`), and every repository and entity service
+  builds on the base pieces: `makeBaseRepository` and `base.service.ts`. Rows reach the domain only through
+  `BaseEntity.fromRow`, inside the base repository, so no entity knows how it is stored.
 - Decoding with Schema is the validation, so there are no DTOs: controllers decode command arguments into entities and
   branded ids with `decodeCommandArgument`.
-- `SessionIdValueObject` and `ProjectPathValueObject` are branded with `Schema.brand`; `HarnessIdValueObject` and
-  `StatusValueObject` are `Schema.Literals`. A session id is a UUID, so a file name or URI path that is not one is not
-  ours.
+- `EntityIdValueObject` and `ProjectPathValueObject` are branded with `Schema.brand`; `HarnessIdValueObject` and
+  `StatusValueObject` are `Schema.Literals`. Every entity's id is a UUID v7 from `makeEntityId`, so a file name or env
+  value that is not one is not ours.
 - Each value object exports its schema as `<Name>ValueObjectSchema` and its type as `<Name>ValueObject`, since lint's
   `no-redeclare` rejects a value and a type of the same name. Entities and errors are classes, which are both.
 - A Schema class (entity or error) takes a `{readonly brand: unique symbol}` type argument, so two classes with the same
@@ -189,7 +217,7 @@ apps/extension/src/
   over) goes through the schema's `make`, which checks it the same way.
 - Lint bans casts (`@typescript-eslint/consistent-type-assertions`, `assertionStyle: "never"`); `as const` stays
   allowed.
-- Maps and errors are keyed by brands: `ReadonlyMap<SessionIdValueObject, Terminal>`,
+- Maps and errors are keyed by brands: `ReadonlyMap<EntityIdValueObject, Terminal>`,
   `TerminalNotFoundError({sessionId})`.
 
 ## Errors
@@ -234,11 +262,13 @@ apps/extension/src/
 
 ## Repositories, models and transformers
 
-- Every window shares globalState, so a repository offers a read-modify-write (`modifySessions`) instead of `save`: it
-  re-reads before each write, so no caller can drop another window's save or overwrite unreadable data. The change
-  `modifySessions` takes is an effect, so it can run domain service rules on the sessions it re-read.
-- A model lists its own fields and a `version` instead of embedding the entity, and the repository builds the entity
-  from it. A new entity field then fails to compile in the repository, which is where the model's `version` bump
-  belongs. `globalstorage.md` lists every stored key.
+- Every repository is `makeBaseRepository` on its table, spread into its own object with its own queries. Writes are
+  column-scoped: `update` sets only the columns it is given, so the extension and `aggregor-pty` never overwrite each
+  other's columns. A repository that keeps a copy for the view (`sessions`, `addedProjectPaths`) refreshes it after each
+  of its writes.
+- Each table model is a Drizzle `sqliteTable` that spreads `BASE_COLUMNS`; its unique columns are what `upsert` matches
+  on. A repository passes `makeBaseRepository` a join for the columns it reads from the rows it points at, such as a
+  session's `projectPath`. After changing a model, `pnpm db:generate --name <slug>` writes its migration to
+  `apps/extension/assets/migrations/`; commit it with the change. `storage.md` lists every stored table and key.
 - A transformer turns an outside format (Claude Code's status files) into domain types. It sits beside the infra service
   that reads the format, since only infrastructure knows it.

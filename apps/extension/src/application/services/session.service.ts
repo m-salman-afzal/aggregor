@@ -1,21 +1,34 @@
 import {showErrorInBackground} from "@appUtils/error.utils.ts";
 import {withHarnessInfraService} from "@appUtils/harness.utils.ts";
 import {getNewSessionName, getSessionTitle} from "@domainServices/session.domainService.ts";
-import {SessionEntity} from "@entities/session/session.entity.ts";
+import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
-import {IPromptInfraService} from "@interfaces/prompt.infraService.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
-import {ACTIONS, PROJECT_LABELS, SESSION_LABELS, SESSION_MESSAGES} from "@pkg/constants/src/message.constant.ts";
+import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
+import {
+  ACTIONS,
+  DATABASE_MESSAGES,
+  PROJECT_LABELS,
+  SESSION_LABELS,
+  SESSION_MESSAGES
+} from "@pkg/constants/src/message.constant.ts";
+import {
+  addEntity,
+  findEntities,
+  removeEntity,
+  showRepositoryError,
+  updateEntity,
+  upsertEntity
+} from "@services/base.service.ts";
 import {pickProject} from "@services/project.service.ts";
-import {SessionIdValueObjectSchema} from "@valueObjects/sessionId.valueObject.ts";
+import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {Array, Effect, Match, Result, Schema, Stream, String, SubscriptionRef} from "effect";
-import {SecureRandom} from "effect/crypto";
 
-import type {ProjectEntity} from "@entities/project/project.entity.ts";
-import type {SessionsCorruptError, SessionsSaveFailedError} from "@entities/session/session.repository.interface.ts";
+import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {TerminalLaunchRequest} from "@interfaces/terminal.infraService.interface.ts";
-import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
+import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import type {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
 
 class RemoveCancelledError extends Schema.TaggedError<RemoveCancelledError, {readonly brand: unique symbol}>()(
   "RemoveCancelledError",
@@ -24,7 +37,7 @@ class RemoveCancelledError extends Schema.TaggedError<RemoveCancelledError, {rea
 
 class SessionNotFoundError extends Schema.TaggedError<SessionNotFoundError, {readonly brand: unique symbol}>()(
   "SessionNotFoundError",
-  {sessionId: SessionIdValueObjectSchema}
+  {sessionId: EntityIdValueObjectSchema}
 ) {}
 
 export const listSessions = Effect.fn("SessionService.listSessions")(function* () {
@@ -33,7 +46,7 @@ export const listSessions = Effect.fn("SessionService.listSessions")(function* (
   return yield* SubscriptionRef.get(sessions);
 });
 
-export const findSession = Effect.fn("SessionService.findSession")(function* (sessionId: SessionIdValueObject) {
+export const findSession = Effect.fn("SessionService.findSession")(function* (sessionId: EntityIdValueObject) {
   const allSessions = yield* listSessions();
 
   return yield* Effect.fromResult(
@@ -44,52 +57,15 @@ export const findSession = Effect.fn("SessionService.findSession")(function* (se
   );
 });
 
-// Named against the sessions as saved now, so the name is free in every window.
-const appendNewSession = Effect.fn("SessionService.appendNewSession")(function* (
-  project: ProjectEntity,
-  sessionId: SessionIdValueObject,
-  storedSessions: readonly SessionEntity[]
-) {
-  const addedSession = SessionEntity.make({
+const addSession = Effect.fn("SessionService.addSession")(function* (listedProject: ListedProjectValueObject) {
+  const project = yield* upsertEntity(IProjectRepository, {path: listedProject.path});
+  const storedSessions = yield* findEntities(ISessionRepository, {});
+
+  return yield* addEntity(ISessionRepository, {
     harnessId: "claude-code",
-    id: sessionId,
-    name: yield* getNewSessionName(project.name, storedSessions),
-    projectPath: project.path
+    name: yield* getNewSessionName(listedProject.name, storedSessions),
+    projectId: project.id
   });
-
-  return [addedSession, [...storedSessions, addedSession]] as const;
-});
-
-const addSession = Effect.fn("SessionService.addSession")(function* (project: ProjectEntity) {
-  const {modifySessions} = yield* ISessionRepository;
-  const {uuidV4} = yield* SecureRandom.SecureRandom;
-  const sessionUuid = yield* uuidV4();
-  const sessionId = SessionIdValueObjectSchema.make(sessionUuid);
-
-  return yield* modifySessions((storedSessions) => appendNewSession(project, sessionId, storedSessions));
-});
-
-const deleteSession = Effect.fn("SessionService.deleteSession")(function* (sessionId: SessionIdValueObject) {
-  const {modifySessions} = yield* ISessionRepository;
-  yield* modifySessions((storedSessions) =>
-    Effect.succeed([sessionId, Array.filter(storedSessions, (session) => session.id !== sessionId)] as const)
-  );
-});
-
-// Rewrites one session as saved now; a session removed meanwhile stays removed.
-const updateSession = Effect.fn("SessionService.updateSession")(function* (
-  sessionId: SessionIdValueObject,
-  changeSession: (storedSession: SessionEntity) => SessionEntity
-) {
-  const {modifySessions} = yield* ISessionRepository;
-  yield* modifySessions((storedSessions) =>
-    Effect.succeed([
-      undefined,
-      Array.map(storedSessions, (storedSession) =>
-        storedSession.id === sessionId ? changeSession(storedSession) : storedSession
-      )
-    ] as const)
-  );
 });
 
 const prepareTerminalLaunchRequest = Effect.fn("SessionService.prepareTerminalLaunchRequest")(function* (
@@ -124,18 +100,20 @@ const openNewSessionTerminal = Effect.fn("SessionService.openNewSessionTerminal"
   function* (addedSession: SessionEntity) {
     yield* openSessionTerminal(addedSession);
   },
-  (effect, addedSession) => Effect.tapError(effect, () => deleteSession(addedSession.id))
+  (effect, addedSession) => Effect.tapError(effect, () => removeEntity(ISessionRepository, addedSession.id))
 );
 
-const startSession = Effect.fn("SessionService.startSession")(function* (clickedProject: ProjectEntity | undefined) {
+const startSession = Effect.fn("SessionService.startSession")(function* (
+  chosenProject: ListedProjectValueObject | undefined
+) {
   const sessionProject =
-    clickedProject === undefined ? yield* pickProject(PROJECT_LABELS.PICK_FOR_SESSION) : clickedProject;
+    chosenProject === undefined ? yield* pickProject(PROJECT_LABELS.PICK_FOR_SESSION) : chosenProject;
 
   const addedSession = yield* addSession(sessionProject);
   yield* openNewSessionTerminal(addedSession);
 });
 
-const relaunchSession = Effect.fn("SessionService.relaunchSession")(function* (sessionId: SessionIdValueObject) {
+const relaunchSession = Effect.fn("SessionService.relaunchSession")(function* (sessionId: EntityIdValueObject) {
   const session = yield* findSession(sessionId);
 
   yield* openSessionTerminal(session);
@@ -144,7 +122,7 @@ const relaunchSession = Effect.fn("SessionService.relaunchSession")(function* (s
 const confirmRunningSessionRemoval = Effect.fn("SessionService.confirmRunningSessionRemoval")(function* (
   session: SessionEntity
 ) {
-  const {confirm} = yield* IPromptInfraService;
+  const {confirm} = yield* IUserInputPromptInfraService;
 
   yield* Effect.filterOrFail(
     confirm(SESSION_MESSAGES.CONFIRM_REMOVE_RUNNING(session.displayName), ACTIONS.REMOVE),
@@ -155,7 +133,7 @@ const confirmRunningSessionRemoval = Effect.fn("SessionService.confirmRunningSes
 
 // Closing the tab ends the agent; a tab that closed meanwhile has nothing left to stop.
 const stopSessionAgent = Effect.fn("SessionService.stopSessionAgent")(
-  function* (sessionId: SessionIdValueObject) {
+  function* (sessionId: EntityIdValueObject) {
     yield* ITerminalInfraService.use((terminalInfraService) => terminalInfraService.closeSessionTerminal(sessionId));
   },
   Effect.catchTag("TerminalNotFoundError", () => Effect.void)
@@ -170,7 +148,7 @@ const removeSessionAndStopAgent = Effect.fn("SessionService.removeSessionAndStop
   );
   if (hasOpenTerminal) yield* confirmRunningSessionRemoval(session);
 
-  yield* deleteSession(session.id);
+  yield* removeEntity(ISessionRepository, session.id);
   if (hasOpenTerminal) yield* stopSessionAgent(session.id);
   // ponytail: the dying agent's SessionEnd hook can rewrite the file after this; a few bytes per removed running
   // session. Wait for the process to exit first if the folder ever matters.
@@ -182,16 +160,16 @@ const removeSessionAndStopAgent = Effect.fn("SessionService.removeSessionAndStop
 
 // Starts a session in the given project; without one, the user picks a project.
 export const newSession = Effect.fn("SessionService.newSession")(
-  function* (clickedProject: ProjectEntity | undefined) {
-    yield* startSession(clickedProject);
+  function* (chosenProject: ListedProjectValueObject | undefined) {
+    yield* startSession(chosenProject);
   },
   Effect.catchTag("ProjectPickCancelledError", () => Effect.void),
   Effect.catch((startError) =>
     showErrorInBackground(
       Match.valueTags(startError, {
+        DatabaseReadError: () => DATABASE_MESSAGES.READ_FAILED,
+        DatabaseWriteError: () => DATABASE_MESSAGES.WRITE_FAILED,
         NoProjectError: () => SESSION_MESSAGES.PROJECT_REQUIRED,
-        SessionsCorruptError: () => SESSION_MESSAGES.UNREADABLE,
-        SessionsSaveFailedError: () => SESSION_MESSAGES.SAVE_FAILED,
         TerminalLaunchFailedError: () => SESSION_MESSAGES.LAUNCH_FAILED
       })
     )
@@ -200,7 +178,7 @@ export const newSession = Effect.fn("SessionService.newSession")(
 
 // Focuses the session's tab, or relaunches Claude on the same conversation when the tab is gone.
 export const openSession = Effect.fn("SessionService.openSession")(
-  function* (sessionId: SessionIdValueObject) {
+  function* (sessionId: EntityIdValueObject) {
     yield* ITerminalInfraService.use((terminalInfraService) => terminalInfraService.focusSessionTerminal(sessionId));
   },
   (effect, sessionId) => Effect.catchTag(effect, "TerminalNotFoundError", () => relaunchSession(sessionId)),
@@ -220,31 +198,13 @@ export const removeSession = Effect.fn("SessionService.removeSession")(
     yield* removeSessionAndStopAgent(session);
   },
   Effect.catchTag("RemoveCancelledError", () => Effect.void),
-  Effect.catch((removeError) =>
-    showErrorInBackground(
-      Match.valueTags(removeError, {
-        SessionsCorruptError: () => SESSION_MESSAGES.UNREADABLE,
-        SessionsSaveFailedError: () => SESSION_MESSAGES.SAVE_FAILED
-      })
-    )
-  )
+  Effect.catch(showRepositoryError)
 );
-
-const showSessionRepositoryError = Effect.fn("SessionService.showSessionRepositoryError")(function* (
-  sessionRepositoryError: SessionsCorruptError | SessionsSaveFailedError
-) {
-  yield* showErrorInBackground(
-    Match.valueTags(sessionRepositoryError, {
-      SessionsCorruptError: () => SESSION_MESSAGES.UNREADABLE,
-      SessionsSaveFailedError: () => SESSION_MESSAGES.SAVE_FAILED
-    })
-  );
-});
 
 // The agent's title, as its tab shows it, becomes the session's name, so it outlasts the tab. A session the user named
 // has a tab of that name, which is not the agent's title.
 const saveSessionTitle = Effect.fn("SessionService.saveSessionTitle")(
-  function* (sessionId: SessionIdValueObject, terminalTitle: string) {
+  function* (sessionId: EntityIdValueObject, terminalTitle: string) {
     const session = yield* findSession(sessionId);
     if (session.customName !== undefined) return;
     const {placeholderTitles} = yield* withHarnessInfraService(
@@ -254,10 +214,14 @@ const saveSessionTitle = Effect.fn("SessionService.saveSessionTitle")(
     const sessionTitle = yield* getSessionTitle(terminalTitle, placeholderTitles);
     if (sessionTitle === session.name) return;
 
-    yield* updateSession(sessionId, (storedSession) => storedSession.withName(sessionTitle));
+    yield* updateEntity(ISessionRepository, sessionId, {name: sessionTitle});
   },
-  Effect.catchTags({SessionNotFoundError: () => Effect.void, SessionTitleNotFoundError: () => Effect.void}),
-  Effect.catch(showSessionRepositoryError)
+  Effect.catchTags({
+    EntityNotFoundError: () => Effect.void,
+    SessionNotFoundError: () => Effect.void,
+    SessionTitleNotFoundError: () => Effect.void
+  }),
+  Effect.catch(showRepositoryError)
 );
 
 // For the window's whole life, each session's name follows its agent's latest title.
@@ -273,17 +237,17 @@ export const startSessionTitleSync = Effect.fn("SessionService.startSessionTitle
 // the agent; the open tab keeps the agent's last title until it reopens, since VS Code cannot unname a tab.
 export const renameSession = Effect.fn("SessionService.renameSession")(
   function* (session: SessionEntity) {
-    const enteredName = yield* IPromptInfraService.use((promptInfraService) =>
-      promptInfraService.inputText(SESSION_LABELS.RENAME, session.displayName)
+    const enteredName = yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
+      userInputPromptInfraService.askForText(SESSION_LABELS.RENAME, session.displayName)
     );
     const trimmedName = String.trim(enteredName);
     const customName = trimmedName === "" ? undefined : trimmedName;
 
-    yield* updateSession(session.id, (storedSession) => storedSession.withCustomName(customName));
+    yield* updateEntity(ISessionRepository, session.id, {customName});
     yield* ITerminalInfraService.use((terminalInfraService) =>
       terminalInfraService.renameSessionTerminal(session.id, customName === undefined ? session.name : customName)
     );
   },
-  Effect.catchTag("InputCancelledError", () => Effect.void),
-  Effect.catch(showSessionRepositoryError)
+  Effect.catchTags({EntityNotFoundError: () => Effect.void, InputCancelledError: () => Effect.void}),
+  Effect.catch(showRepositoryError)
 );

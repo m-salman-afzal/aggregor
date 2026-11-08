@@ -77,12 +77,14 @@
         // Unstable Effect APIs we use on purpose; any other unstable API still fails typecheck.
         "allowedUnstableApis": [
           "@effect/platform-node/NodeServices",
+          "@effect/sql-sqlite-node/SqliteClient",
           "effect/ByteSize",
           "effect/crypto/SecureRandom",
           "effect/FileSystem",
           "effect/LayerMap",
           "effect/Path",
-          "effect/process"
+          "effect/process",
+          "effect/sql/SqlClient"
         ],
         // The extension source runs every Effect rule as an error; config files and scripts keep the defaults.
         // include resolves from this file's folder.

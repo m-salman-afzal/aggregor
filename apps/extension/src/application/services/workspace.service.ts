@@ -1,44 +1,41 @@
-import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {IGitInfraService} from "@interfaces/git.infraService.interface.ts";
-import {IPromptInfraService} from "@interfaces/prompt.infraService.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
+import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {ACTIONS, WORKSPACE_MESSAGES} from "@pkg/constants/src/message.constant.ts";
-import {listProjects, showProjectRepositoryError} from "@services/project.service.ts";
+import {showRepositoryError} from "@services/base.service.ts";
+import {addProjectPathsToWindow, listProjects} from "@services/project.service.ts";
 import {findSession} from "@services/session.service.ts";
 import {Array, Effect, Result, Stream, SubscriptionRef} from "effect";
 
+import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import type {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
-import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
 
-// The workspace folders about to make way for the shown project become added projects, so they stay listed.
+// The window's own folders about to make way for the shown project become added projects, so they stay listed. Added
+// projects are left alone: adding one again would move it to the end of the list.
 const keepWorkspaceFoldersListed = Effect.fn("WorkspaceService.keepWorkspaceFoldersListed")(function* (
+  listedProjects: readonly ListedProjectValueObject[],
   shownProjectPath: ProjectPathValueObject
 ) {
-  const {modifyAddedProjectPaths} = yield* IProjectRepository;
-  const workspaceFolderProjects = yield* IWorkspaceInfraService.use(
-    (workspaceInfraService) => workspaceInfraService.listWorkspaceFolderProjects
+  const leavingOwnFolderProjects = Array.filter(
+    listedProjects,
+    (project) => !project.added && project.path !== shownProjectPath
   );
-  const leavingFolderPaths = Array.filter(
-    Array.map(workspaceFolderProjects, (project) => project.path),
-    (folderPath) => folderPath !== shownProjectPath
-  );
-  if (leavingFolderPaths.length === 0) return;
+  if (leavingOwnFolderProjects.length === 0) return;
 
-  yield* modifyAddedProjectPaths((storedAddedProjectPaths) => [
-    ...new Set([...storedAddedProjectPaths, ...leavingFolderPaths])
-  ]);
+  yield* addProjectPathsToWindow(Array.map(leavingOwnFolderProjects, (project) => project.path));
 });
 
 // The session's project becomes the workspace's only project folder. A session whose project is no longer listed
 // changes nothing.
 const showSessionProject = Effect.fn("WorkspaceService.showSessionProject")(
-  function* (sessionId: SessionIdValueObject) {
+  function* (sessionId: EntityIdValueObject) {
     const session = yield* findSession(sessionId);
-    const projects = yield* listProjects();
-    if (!Array.some(projects, (project) => project.path === session.projectPath)) return;
+    const listedProjects = yield* listProjects();
+    if (!Array.some(listedProjects, (project) => project.path === session.projectPath)) return;
 
-    yield* keepWorkspaceFoldersListed(session.projectPath);
+    yield* keepWorkspaceFoldersListed(listedProjects, session.projectPath);
     // Opened before the swap closes the old one, Source Control goes straight from one repository to the other instead
     // of showing that the workspace has none.
     yield* IGitInfraService.use((gitInfraService) => gitInfraService.openInSourceControl(session.projectPath));
@@ -49,10 +46,7 @@ const showSessionProject = Effect.fn("WorkspaceService.showSessionProject")(
   // A tab left running by a removed session has no project to show.
   Effect.catchTag("SessionNotFoundError", () => Effect.void),
   // Folders that could not be kept listed stay in the workspace.
-  Effect.catchTags({
-    ProjectsCorruptError: showProjectRepositoryError,
-    ProjectsSaveFailedError: showProjectRepositoryError
-  })
+  Effect.catchTags({DatabaseReadError: showRepositoryError, DatabaseWriteError: showRepositoryError})
 );
 
 // Like VS Code's Agents window, the workspace follows the session in view: its project is the one project folder, so
@@ -74,8 +68,8 @@ const offerToSaveWorkspace = Effect.fn("WorkspaceService.offerToSaveWorkspace")(
   const workspaceInfraService = yield* IWorkspaceInfraService;
   const isOfferClaimed = yield* workspaceInfraService.claimWorkspaceSaveOffer;
   if (!isOfferClaimed) return;
-  const pickedAction = yield* IPromptInfraService.use((promptInfraService) =>
-    promptInfraService.showInformationMessage(WORKSPACE_MESSAGES.OFFER_SAVE, ACTIONS.SAVE_WORKSPACE)
+  const pickedAction = yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
+    userInputPromptInfraService.showInformationMessage(WORKSPACE_MESSAGES.OFFER_SAVE, ACTIONS.SAVE_WORKSPACE)
   );
 
   if (pickedAction === ACTIONS.SAVE_WORKSPACE) yield* workspaceInfraService.saveWorkspaceAs;
