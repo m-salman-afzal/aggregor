@@ -12,6 +12,7 @@
       "@valueObjects/*": ["./src/domain/valueObjects/*"],
       "@interfaces/*": ["./src/application/interfaces/*"],
       "@services/*": ["./src/application/services/*"],
+      "@dtos/*": ["./src/application/dtos/*"],
       "@appUtils/*": ["./src/application/utils/*"],
       "@config/*": ["./src/infrastructure/config/*"],
       "@models/*": ["./src/infrastructure/database/models/*"],
@@ -20,9 +21,9 @@
       "@repositories/*": ["./src/infrastructure/repositories/*"],
       "@infraServices/*": ["./src/infrastructure/services/*"],
       "@infraUtils/*": ["./src/infrastructure/utils/*"],
-      "@vscodeApi/*": ["./src/infrastructure/vscode/*"],
       "@controllers/*": ["./src/presentation/controllers/*"],
       "@middlewares/*": ["./src/presentation/middlewares/*"],
+      "@presenters/*": ["./src/presentation/presenters/*"],
       "@presentationUtils/*": ["./src/presentation/utils/*"],
       "@views/*": ["./src/presentation/views/*"]
     }

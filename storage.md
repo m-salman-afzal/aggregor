@@ -3,61 +3,62 @@
 What the extension stores, where, and why. Add an entry whenever something new is stored, and keep every entry to what
 is stored now.
 
-Both places are shared by every window and survive reloads, restarts and extension updates.
+Everything lives in the Aggregor folder, `~/.aggregor` (or `$AGGREGOR_HOME`), which only its owner can read. Every
+window and every VS Code profile shares it, and it survives reloads, restarts and extension updates.
 
-## The database
+## `data/aggregor.db`
 
-`~/.aggregor/aggregor.db` (or `aggregor.db` in `$AGGREGOR_DATA_DIR`), a SQLite file in a folder only its owner can read,
-in WAL mode with foreign keys on. Every window opens it through `@effect/sql-sqlite-node`, with Drizzle's query builder.
-`infrastructure/database/models/` defines each table as a Drizzle table, one file per table, and `base.model.ts` the
-shared columns.
+A SQLite file, in WAL mode with foreign keys on, so `aggregor.db-wal` and `aggregor.db-shm` sit beside it. Every window
+opens it through `@effect/sql-sqlite-node`, with Drizzle's query builder. `infrastructure/database/models/` defines each
+table as a Drizzle table, one file per table, and `base.model.ts` the shared columns.
 
 - **Every table** starts with `id` (a UUID v7, which also gives the row's creation time), `sortId` (its place in the
   table's order: a new row, or one upserted again, gets the table's highest plus one, and reads follow it), `updatedAt`
   (set on every write) and `deletedAt` (set by a soft delete; reads skip the row). Timestamps are ISO 8601 text in UTC,
   such as `2026-11-07T22:13:46.836Z`.
-- **Migrations:** `apps/extension/assets/migrations/`, one folder per schema change, written by `pnpm db:generate`. A
-  window applies the ones the database lacks when it starts, and Drizzle records each applied one in
-  `__drizzle_migrations`.
+- **Migrations:** `apps/extension/assets/migrations/`, written by `pnpm db:generate`: before 0.1.0 one, regenerated from
+  zero on each schema change, with the old database deleted. A window applies the ones the database lacks when it
+  starts, and Drizzle records each applied one in `__drizzle_migrations`.
+- **Read:** on demand: no window keeps a copy. A window hears of each write within 250 ms of another connection's
+  (`aggregor-pty`'s or another window's), which it sees by polling `PRAGMA data_version`, and at once after its own; it
+  then reads the rows whose `updatedAt` is at or after the last one it read.
 - **Cleaned up:** never; soft-deleted rows stay. Each row is a few hundred bytes.
 
 ### `projects`
 
-- **Holds:** `path`, unique: a folder sessions run in, and `added`: listed in the Sessions view. One list serves every
+- **Holds:** `path`, unique: a folder sessions run in, and `isAdded`: listed in the Sessions view. One list serves every
   window.
-- **Written by:** `ProjectService` through the base service. Add Project upserts the row with `added` set, which puts it
-  at the end of the list, removed before or not; Remove Project clears `added`. A window's own folder that makes way for
-  the shown project is added the same way; a project already added keeps its place, so switching projects never moves
-  one. A session in a window's own folder gives that folder a row without `added`, so it stays one of the window's own.
-- **Read by:** `ProjectRepository`: the added projects in `sortId` order, at startup and after each write.
+- **Written by:** `ProjectService` through the base service. Add Project upserts the row with `isAdded` set, which puts
+  it at the end of the list, removed before or not; Remove Project clears `isAdded`. A window's own folder that makes
+  way for the shown project is added the same way; a project already added keeps its place, so switching projects never
+  moves one. A session in a window's own folder gives that folder a row without `isAdded`, so it stays one of the
+  window's own.
+- **Read by:** `ProjectService`: the added projects in `sortId` order, for the Sessions view and the project pickers.
 
 ### `sessions`
 
-- **Holds:** `projectId`, `harnessId`, `name` (the agent's latest title, or ours until it gives one) and `customName`
-  (the user's, from the row menu's Rename, or NULL). The `id` is also the agent's session id.
-- **Written by:** `SessionService` through the base service: a row per New Session, `name` when the agent's title
-  changes, `customName` on Rename, and a soft delete on Remove Session. Removing a project keeps its sessions, so adding
-  the project again lists them again.
-- **Read by:** `SessionRepository`, with its project's path, at startup, after each write and when a window regains
-  focus.
+- **Holds:** `projectId`, `harnessId`, `name` (the agent's latest title, or ours until it gives one), `customName` (the
+  user's, from the row menu's Rename, or NULL) and `viewedAt` (when the session last came into or left the user's view).
+  The `id` is also the agent's session id.
+- **Written by:** `SessionService` through the base service: a row per New Session, `name` when the agent's title in the
+  row changes, `customName` on Rename, `viewedAt` as the session comes into and leaves view, and a soft delete on Remove
+  Session. Removing a project keeps its sessions, so adding the project again lists them again.
+- **Read by:** `SessionService`, with the project's path: the Sessions view reads each row as it draws it.
 - **Status columns:** `status` (`unknown` until a report, `exited` once the agent is gone), `statusKind`,
   `statusMessage`, `statusProgress`, `statusChangedAt` (when the state last changed), `hasWorked` (it has reported
   `working`), `reportedTitle` (the title in its latest OSC 7501 report) and `terminalTitle` (its latest window title).
-  Written only by `aggregor-pty` (`apps/pty`), which runs the agent and reads them from its output; nothing in the
-  extension reads them yet.
+  Written only by `aggregor-pty` (`apps/pty`), which runs the agent and reads them from its output. The Sessions view
+  shows the status, kind, message and progress, and shows `done` as finished only while the turn ended after `viewedAt`
+  and the session is out of view; the titles become `name`; `hasWorked` picks resume over a fresh start.
 
-### `aggregor-pty.log`
+## `data/aggregor-pty.log`
 
 - **Holds:** one line per error `aggregor-pty` hits with the database, such as a locked file or a missing session row,
   with the time and session id; at most 10 lines a run.
 - **Written by:** `aggregor-pty`, beside the database, since the agent's terminal is no place for its errors.
 - **Cleaned up:** never; it only grows when something is wrong.
 
-## Files under `globalStorageUri`
-
-A folder the extension owns. On Linux it is `~/.config/Code/User/globalStorage/salmanafzal.aggregor-app/`.
-
-### `anchor/`
+## `anchor/`
 
 - **Holds:**
   - `Aggregor/`, the anchor folder: empty but for `.vscode/settings.json`, with `files.exclude` set to `{"**": true}`
@@ -71,17 +72,7 @@ A folder the extension owns. On Linux it is `~/.config/Code/User/globalStorage/s
 - **Why:** with the anchor folder at folder 0, the shown project swaps at folder 1; changing folder 0 restarts every
   extension. Its terminal cwd makes New Terminal count it and the project as one folder, so it opens in the project
   without asking. Named `Aggregor`, it names the saved workspace and its row in folder pickers. The marker makes the
-  offer once. Aggregor is meant for one window; a second window would share the anchor folder and its settings.
+  offer once. It sits a level below the Aggregor folder, so the window never watches the database. Aggregor is meant for
+  one window; a second window, in any profile, would share the anchor folder and its settings.
 - **Cleaned up:** never; an empty folder, a settings file of a few hundred bytes, an empty marker and maybe a workspace
   file.
-
-### `status/<session id>`
-
-- **Holds:** one word: `running`, `needs-input`, `idle` or `exited`.
-- **Written by:** the Claude Code hooks in [hooks.json](apps/extension/assets/hooks.json). Each session's terminal gets
-  the file's path in the `AGGREGOR_STATUS_FILE` env var.
-- **Read by:** `ClaudeCodeHarnessInfraService`, which watches the folder and feeds the Sessions tree.
-- **Why:** live status. Hooks are shell one-liners, so a plain file is the simplest thing they can write, and every
-  window can watch the same folder.
-- **Cleaned up:** deleted before each launch and when the session is removed. Removing a running session can leave the
-  file behind, because the agent's `SessionEnd` hook may write after the delete. Each leftover is a few bytes.

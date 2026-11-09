@@ -11,7 +11,7 @@
   },
   "scripts": {
     "vscode:prepublish": "vite build --mode production",
-    "build:pty": "pnpm --filter=aggregor-pty build && mkdir -p bin && cp ../pty/target/release/aggregor-pty bin/",
+    "build:pty": "pnpm --filter=aggregor-pty build && mkdir -p bin && cp -f ../pty/target/release/aggregor-pty bin/",
     "compile": "pnpm run typecheck && pnpm --workspace-root run lint:check && pnpm run build:pty && vite build",
     "watch": "npm-run-all --parallel watch:*",
     "watch:vite": "vite build --watch --mode development",
@@ -27,6 +27,7 @@
     "@effect/sql-sqlite-node": "4.1.2",
     "@pkg/constants": "workspace:*",
     "@pkg/typings": "workspace:*",
+    "@pkg/vscode": "workspace:*",
     "drizzle-orm": "1.0.0-rc.5",
     "effect": "4.1.2"
   },

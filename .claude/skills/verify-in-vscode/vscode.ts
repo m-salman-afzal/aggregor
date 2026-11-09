@@ -24,6 +24,10 @@ const VSCODE_EXTENSIONS_DIRECTORY = path.join(STATE_DIRECTORY, "vscode-extension
 const LAUNCH_LOG = path.join(STATE_DIRECTORY, "launch.log");
 const MUTTER_LOG = path.join(STATE_DIRECTORY, "mutter.log");
 const RUNTIME_DIRECTORY = path.join(STATE_DIRECTORY, "runtime");
+// The extension's Aggregor folder (database, aggregor-pty's log, anchor folder), apart from the real ~/.aggregor;
+// $AGGREGOR_HOME moves it.
+const AGGREGOR_FOLDER =
+  process.env.AGGREGOR_HOME === undefined ? path.join(STATE_DIRECTORY, "aggregor") : process.env.AGGREGOR_HOME;
 const WAYLAND_DISPLAY_NAME = `aggregor-verify-${CDP_PORT}`;
 // Every process the launch starts inherits this variable, so stop can find them. VS Code's own processes hide it
 // (Chromium rewrites their process title over the environment), so stop finds those by their --user-data-dir instead.
@@ -133,6 +137,7 @@ const createLaunchEnvironment = () => ({
   ...Object.fromEntries(
     Object.entries(process.env).filter(([variableName]) => !INHERITED_SESSION_VARIABLE_PATTERN.test(variableName))
   ),
+  AGGREGOR_HOME: AGGREGOR_FOLDER,
   [INSTANCE_VARIABLE]: STATE_DIRECTORY,
   WAYLAND_DISPLAY: WAYLAND_DISPLAY_NAME,
   // The private bus starts its own document portal at $XDG_RUNTIME_DIR/doc; sharing the real one unmounts the

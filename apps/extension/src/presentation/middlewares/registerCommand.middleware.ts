@@ -1,39 +1,50 @@
-import {showErrorInBackground} from "@appUtils/error.utils.ts";
-import {acquireDisposable} from "@infraUtils/vscode.utils.ts";
-import {COMMAND_MESSAGES} from "@pkg/constants/src/message.constant.ts";
-import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
-import {Effect, Schema} from "effect";
+import {APP_ERRORS} from "@pkg/constants/src/app.constant.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
+import {acquireDisposable, showErrorInBackground} from "@pkg/vscode/src/vscode.utils.ts";
+import {Effect} from "effect";
 
-import type {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
+import type {InvalidVsCodeArgumentError} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
 
-// What VS Code passed a command is not what its menu entry sends.
-export class InvalidCommandArgumentsError extends Schema.TaggedError<
-  InvalidCommandArgumentsError,
-  {readonly brand: unique symbol}
->()("InvalidCommandArgumentsError", {cause: Schema.Unknown}) {}
-
-// Registered for the surrounding scope's lifetime. Each run is a root span named by the command ID, and a crash is
-// logged. Controllers handle their own errors except arguments that do not decode, which point at a broken menu entry:
-// those are logged and shown.
-export const registerCommand = Effect.fn("RegisterCommandMiddleware.registerCommand")(function* <R>(
+// A failure the use case returned: logged, and shown with the message its presenter gives.
+const showCommandError = Effect.fn("RegisterCommandMiddleware.showCommandError")(function* <CommandError>(
   commandId: string,
-  controller: (...commandArguments: readonly unknown[]) => Effect.Effect<unknown, InvalidCommandArgumentsError, R>
+  commandError: CommandError,
+  presentCommandError: (commandError: CommandError) => Effect.Effect<string>
+) {
+  yield* Effect.logError(`Command ${commandId} failed`, commandError);
+  const errorMessage = yield* presentCommandError(commandError);
+  yield* showErrorInBackground(errorMessage);
+});
+
+// Registered for the surrounding scope's lifetime. Each run is a root span named by the command ID. The presenter must
+// cover every failure the controller returns; arguments that do not decode point at a broken menu entry; a crash is
+// logged.
+export const registerCommand = Effect.fn("RegisterCommandMiddleware.registerCommand")(function* <
+  CommandError extends {readonly _tag: string},
+  R
+>(
+  commandId: string,
+  controller: (
+    ...commandArguments: readonly unknown[]
+  ) => Effect.Effect<unknown, InvalidVsCodeArgumentError | NoInfer<CommandError>, R>,
+  presentCommandError: (commandError: CommandError) => Effect.Effect<string>
 ) {
   const {commands} = yield* VsCodeApi;
-  const commandContext = yield* Effect.context<IUserInputPromptInfraService | R>();
+  const commandContext = yield* Effect.context<R | VsCodeApi>();
   const runPromise = Effect.runPromiseWith(commandContext);
   // eslint-disable-next-line aggregor/span-name -- a command's root span is named by its command ID
   const runCommand = Effect.fn(commandId, {root: true})(
     function* (commandArguments: readonly unknown[]) {
       return yield* controller(...commandArguments);
     },
-    Effect.catchTag("InvalidCommandArgumentsError", (invalidCommandArguments) =>
+    Effect.catchTag("InvalidVsCodeArgumentError", (invalidArgument) =>
       Effect.andThen(
-        Effect.logError(`Command ${commandId} got unexpected arguments`, invalidCommandArguments.cause),
-        showErrorInBackground(COMMAND_MESSAGES.UNEXPECTED_ARGUMENTS(commandId))
+        Effect.logError(`Command ${commandId} got unexpected arguments`, invalidArgument),
+        showErrorInBackground(APP_ERRORS.INVALID_COMMAND_ARGUMENTS(commandId))
       )
     ),
-    Effect.tapCause((cause) => Effect.logError(`Command ${commandId} failed`, cause))
+    Effect.catch((commandError) => showCommandError(commandId, commandError, presentCommandError)),
+    Effect.tapCause((cause) => Effect.logError(`Command ${commandId} crashed`, cause))
   );
 
   yield* acquireDisposable(() =>

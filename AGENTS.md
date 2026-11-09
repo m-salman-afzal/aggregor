@@ -23,13 +23,14 @@ squash. The roadmap lives in `README.md`. Commit and push only when the user ask
 - **Delete aggressively.** Less code means fewer bugs.
 - **Semantic naming.** Name variables, parameters, functions and APIs with verbose, self-explanatory names that optimize
   for comprehension by both humans and LLMs, not brevity: `sessionId`, not `id`; `stagedDiff`, not `diff`. The commit
-  message code in `application/services/scm.service.ts` and `infrastructure/services/commitCli` is the reference. Name a
-  thing by what it is to the user, not by the gesture that reached it (`chosenProject`, not `clickedProject`), and give
-  each word one meaning: a "prompt" is an LLM's, so asking the user is a user-input prompt
+  message code in `application/services/commitMessage.service.ts` and `infrastructure/services/commitCli` is the
+  reference. Name a thing by what it is to the user, not by the gesture that reached it (`chosenProject`, not
+  `clickedProject`), and give each word one meaning: a "prompt" is an LLM's, so asking the user is a user-input prompt
   (`IUserInputPromptInfraService`).
 - **No users before 0.1.0.** Until 0.1.0 ships, the author is the only user. Be brave: rename command IDs, setting keys
   and storage keys, change stored data without hand-written migrations, and leave no compatibility shims or deprecation
-  paths. A schema change still commits the migration `pnpm db:generate` writes.
+  paths. A schema change regenerates the one migration from zero (delete `apps/extension/assets/migrations/`, then
+  `pnpm db:generate --name create_tables`), and the old database is deleted, not migrated.
 
 ## Architecture
 
@@ -96,7 +97,7 @@ pnpm pty:check     # cargo fmt --check and cargo clippy -D warnings on apps/pty,
 pnpm pty:test      # aggregor-pty's tests, the end-to-end one included
 pnpm quality       # lint:check + format:check + typecheck + pty:check, in parallel
 pnpm lint-staged   # Same lint and format checks on staged files only (the husky pre-commit hook)
-pnpm db:generate   # After changing a table model, with --name <slug>: drizzle-kit writes its migration
+pnpm db:generate   # After changing a table model, with --name create_tables: drizzle-kit writes the migration
 pnpm --filter=aggregor-app build:pty  # Builds aggregor-pty for this machine into apps/extension/bin
 pnpm bump          # On an up-to-date dev: pick the next version; pushes chore/bump-v<version> and opens its PR
 ```

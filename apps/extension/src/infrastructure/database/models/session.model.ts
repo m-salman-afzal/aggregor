@@ -2,7 +2,8 @@ import {BASE_COLUMNS} from "@models/base.model.ts";
 import {ProjectTableModel} from "@models/project.model.ts";
 import {integer, sqliteTable, text} from "drizzle-orm/sqlite-core";
 
-// aggregor-pty (apps/pty) alone writes the status and title columns, from the agent's OSC 7501 reports and window title.
+// aggregor-pty (apps/pty) alone writes the status and title columns, from the agent's OSC 7501 reports and window title;
+// the extension writes the rest.
 export const SessionTableModel = sqliteTable("sessions", {
   ...BASE_COLUMNS,
   customName: text(),
@@ -18,5 +19,6 @@ export const SessionTableModel = sqliteTable("sessions", {
   statusKind: text(),
   statusMessage: text(),
   statusProgress: integer(),
-  terminalTitle: text()
+  terminalTitle: text(),
+  viewedAt: text()
 });

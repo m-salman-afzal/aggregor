@@ -42,11 +42,12 @@ From the repo root, as `node .claude/skills/verify-in-vscode/vscode.ts <command>
 `start` again after every code change: a running VS Code never picks up a new build.
 
 The workspace defaults to `$AGGREGOR_VERIFY_WORKSPACE`, else `~/side/jsTester`. It must be a folder Claude already
-trusts, or Claude's trust prompt blocks every session's hooks and statuses never appear. Use a throwaway repo, never one
-whose git state matters: Source Control checks can stage files there.
+trusts, or Claude's trust prompt holds every session before it reports a status. Use a throwaway repo, never one whose
+git state matters: Source Control checks can stage files there.
 
-The VS Code profile lives in `~/.cache/aggregor-verify/vscode-data` and persists between runs, sessions and added
-projects included. Delete that folder to start from a fresh profile.
+The VS Code profile lives in `~/.cache/aggregor-verify/vscode-data` and the extension's Aggregor folder (database,
+`aggregor-pty`'s log, anchor folder) in `~/.cache/aggregor-verify/aggregor` (or `$AGGREGOR_HOME`), never the real
+`~/.aggregor`. Both persist between runs, sessions and added projects included. Delete them to start fresh.
 
 ## Checking a change
 

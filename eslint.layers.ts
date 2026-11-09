@@ -8,7 +8,7 @@ const OPTION_IMPORT_BANS = [
   {message: "Use Result: its error says why a value is missing.", name: "effect/Option"}
 ];
 
-// infrastructure/vscode/vscode.api.ts holds the one runtime import of vscode; everything else yields VsCodeApi.
+// packages/vscode/src/vscode.api.ts holds the one runtime import of vscode; everything else yields VsCodeApi.
 export const IMPORT_BANS = [
   ...OPTION_IMPORT_BANS,
   {allowTypeImports: true, message: "Import only vscode's types; yield VsCodeApi for its values.", name: "vscode"}
@@ -17,9 +17,8 @@ export const IMPORT_BANS = [
 // Each layer's folders, by their tsconfig.json aliases. A layer's code is imported only through these, so each file has
 // one import path.
 const DOMAIN_ALIASES = "domainServices|entities|valueObjects";
-const APPLICATION_ALIASES = "interfaces|services|appUtils";
-const INFRASTRUCTURE_ALIASES = "config|models|di|logger|repositories|infraServices|infraUtils|vscodeApi";
-const PRESENTATION_ALIASES = "controllers|middlewares|presentationUtils|views";
+const APPLICATION_ALIASES = "interfaces|services|dtos|appUtils";
+const INFRASTRUCTURE_ALIASES = "config|models|di|logger|repositories|infraServices|infraUtils";
 
 // The layers' allow-lists.
 const DOMAIN_IMPORTS = {
@@ -28,22 +27,57 @@ const DOMAIN_IMPORTS = {
 };
 
 const APPLICATION_IMPORTS = {
-  message: "The application layer imports only effect, @pkg, and domain or application code, through their aliases.",
-  regex: `^(?!effect(/|$)|@pkg/|@(${DOMAIN_ALIASES}|${APPLICATION_ALIASES})/)`
+  message:
+    "The application layer imports only effect, @pkg/constants, and domain or application code, through their aliases.",
+  regex: `^(?!effect(/|$)|@pkg/constants/|@(${DOMAIN_ALIASES}|${APPLICATION_ALIASES})/)`
 };
 
+// Presentation reaches the backend only through controllers, and a controller only through services (see DDD.md): it
+// decodes what VS Code passes into a request DTO and calls one service. A presenter turns a service's failure into a
+// message, and a view draws what its controllers return. Presentation imports nothing from the domain or
+// infrastructure; what it shares with infrastructure lives in @pkg.
 const PRESENTATION_IMPORTS = {
   message:
-    "The presentation layer imports only effect, vscode types, @pkg, and domain, application or presentation code, " +
-    "through their aliases; from infrastructure, only vscode.api and utils.",
-  regex:
-    `^(?!effect(/|$)|vscode$|@pkg/|@(${DOMAIN_ALIASES}|${APPLICATION_ALIASES}|${PRESENTATION_ALIASES})/|` +
-    "@vscodeApi/vscode\\.api\\.ts$|@infraUtils/)"
+    "Presentation's routes, middlewares and helpers import only effect, vscode types, @pkg, controllers, middlewares, " +
+    "presenters and presentation helpers.",
+  regex: "^(?!effect(/|$)|vscode$|@pkg/|@(controllers|middlewares|presenters|presentationUtils)/)"
+};
+
+const CONTROLLER_IMPORTS = {
+  message:
+    "A controller imports only effect, services, DTOs, presentation helpers and @pkg/vscode's argument decoding: it " +
+    "decodes its input into a request DTO and calls a service.",
+  regex: "^(?!effect(/|$)|@(services|dtos|presentationUtils)/|@pkg/vscode/src/vsCodeArgument\\.utils\\.ts$)"
+};
+
+const PRESENTER_IMPORTS = {
+  message:
+    "A presenter imports only effect, @pkg/constants, and services' types, whose failures it turns into messages.",
+  regex: "^(?!effect(/|$)|@pkg/constants/|@services/)"
+};
+
+const VIEW_IMPORTS = {
+  message:
+    "A view imports only effect, vscode types, @pkg, controllers, its own files, presentation helpers and DTOs' types.",
+  regex: "^(?!effect(/|$)|vscode$|@pkg/|@(controllers|views|presentationUtils|dtos)/)"
+};
+
+// Type-only imports: a presenter names its services' failures, a view the DTOs it draws.
+const SERVICE_TYPE_IMPORTS = {
+  allowTypeImports: true,
+  message: "A presenter imports only services' types.",
+  regex: "^@services/"
+};
+
+const DTO_TYPE_IMPORTS = {
+  allowTypeImports: true,
+  message: "A view imports only DTOs' types; it gets the DTOs from its controllers.",
+  regex: "^@dtos/"
 };
 
 const INFRASTRUCTURE_IMPORTS = {
   message:
-    "The infrastructure layer imports only effect, @effect, drizzle-orm, vscode, node, @pkg, and domain, " +
+    "The infrastructure layer imports only effect, @effect, drizzle-orm, vscode types, node, @pkg, and domain, " +
     "application or infrastructure code, through their aliases.",
   regex: `^(?!effect(/|$)|@effect/|drizzle-orm(/|$)|vscode$|node:|@pkg/|@(${DOMAIN_ALIASES}|${APPLICATION_ALIASES}|${INFRASTRUCTURE_ALIASES})/)`
 };
@@ -128,8 +162,23 @@ const NON_TYPE_BAN = {
     "ExportNamedDeclaration[declaration.type=/^TS(TypeAlias|Interface)Declaration$/])"
 };
 
+// Each folder's import allow-list, by its path under apps/extension/src; a later entry overrides an earlier one.
+const IMPORT_RULES = [
+  ["domain", OPTION_IMPORT_BANS, [DOMAIN_IMPORTS]],
+  ["application", OPTION_IMPORT_BANS, [APPLICATION_IMPORTS]],
+  ["presentation", IMPORT_BANS, [PRESENTATION_IMPORTS]],
+  ["presentation/controllers", IMPORT_BANS, [CONTROLLER_IMPORTS]],
+  ["presentation/presenters", IMPORT_BANS, [PRESENTER_IMPORTS, SERVICE_TYPE_IMPORTS]],
+  ["presentation/views", IMPORT_BANS, [VIEW_IMPORTS, DTO_TYPE_IMPORTS]],
+  ["infrastructure", IMPORT_BANS, [INFRASTRUCTURE_IMPORTS]]
+] as const;
+
 // Each file suffix names a role, and the file's main names carry it.
 const ROLE_NAMES = {
+  "**/*.dto.ts": [
+    {format: ["PascalCase"], selector: ["typeAlias", "interface"], suffix: ["Dto"]},
+    {format: ["PascalCase"], modifiers: ["exported"], selector: "variable", suffix: ["DtoSchema"]}
+  ],
   "**/*.entity.ts": [{format: ["PascalCase"], selector: "class", suffix: ["Entity"]}],
   "**/*.infraService.ts": [
     {format: ["PascalCase"], modifiers: ["exported"], selector: "variable", suffix: ["InfraService"]}
@@ -173,42 +222,13 @@ const ROLE_NAMES = {
 };
 
 export const LAYER_CONFIGS: Config[] = [
-  {
-    files: ["apps/extension/src/domain/**/*.ts"],
-    rules: {
-      "@typescript-eslint/no-restricted-imports": [
-        "error",
-        {
-          paths: OPTION_IMPORT_BANS,
-          patterns: [DOMAIN_IMPORTS]
-        }
-      ]
-    }
-  },
-  {
-    files: ["apps/extension/src/application/**/*.ts"],
-    rules: {
-      "@typescript-eslint/no-restricted-imports": [
-        "error",
-        {paths: OPTION_IMPORT_BANS, patterns: [APPLICATION_IMPORTS]}
-      ]
-    }
-  },
-  {
-    files: ["apps/extension/src/presentation/**/*.ts"],
-    rules: {
-      "@typescript-eslint/no-restricted-imports": ["error", {paths: IMPORT_BANS, patterns: [PRESENTATION_IMPORTS]}]
-    }
-  },
-  {
-    files: ["apps/extension/src/infrastructure/**/*.ts"],
-    rules: {
-      "@typescript-eslint/no-restricted-imports": ["error", {paths: IMPORT_BANS, patterns: [INFRASTRUCTURE_IMPORTS]}]
-    }
-  },
+  ...IMPORT_RULES.map(([sourcePath, paths, patterns]): Config => ({
+    files: [`apps/extension/src/${sourcePath}${sourcePath.endsWith(".ts") ? "" : "/**/*.ts"}`],
+    rules: {"@typescript-eslint/no-restricted-imports": ["error", {paths, patterns}]}
+  })),
   {
     files: ["apps/extension/src/**/*.ts"],
-    ignores: ["**/*.interface.ts", "**/*.type.ts", "**/*.valueObject.ts", "**/vscode.api.ts"],
+    ignores: ["**/*.interface.ts", "**/*.type.ts", "**/*.valueObject.ts", "**/*.dto.ts"],
     rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN, SERVICE_CLASS_BAN, PLAIN_FUNCTION_BAN]}
   },
   {
@@ -242,8 +262,20 @@ export const LAYER_CONFIGS: Config[] = [
     rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, PLAIN_FUNCTION_BAN]}
   },
   {
-    files: ["apps/extension/src/infrastructure/vscode/vscode.api.ts"],
-    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN, PLAIN_FUNCTION_BAN]}
+    files: ["apps/extension/src/**/*.dto.ts"],
+    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, SERVICE_CLASS_BAN, PLAIN_FUNCTION_BAN]}
+  },
+  // @pkg/vscode is shared by presentation and infrastructure, under the same code rules.
+  {
+    files: ["packages/vscode/src/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": ["error", {paths: IMPORT_BANS}],
+      "no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN, PLAIN_FUNCTION_BAN]
+    }
+  },
+  {
+    files: ["packages/vscode/src/vscode.api.ts"],
+    rules: {"@typescript-eslint/no-restricted-imports": ["error", {paths: OPTION_IMPORT_BANS}]}
   },
   {
     files: ["apps/extension/src/**/*.valueObject.ts"],
@@ -285,14 +317,5 @@ export const LAYER_CONFIGS: Config[] = [
   ...Object.entries(ROLE_NAMES).map(([filePattern, namingOptions]): Config => ({
     files: [`apps/extension/src/${filePattern}`],
     rules: {"@typescript-eslint/naming-convention": ["error", ...namingOptions]}
-  })),
-  {
-    files: ["apps/extension/src/infrastructure/vscode/vscode.api.ts"],
-    rules: {
-      "@typescript-eslint/no-restricted-imports": [
-        "error",
-        {paths: OPTION_IMPORT_BANS, patterns: [INFRASTRUCTURE_IMPORTS]}
-      ]
-    }
-  }
+  }))
 ];

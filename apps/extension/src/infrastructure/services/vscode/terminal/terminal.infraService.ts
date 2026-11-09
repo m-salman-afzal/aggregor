@@ -1,20 +1,23 @@
 import {
   findOpenSessionTerminals,
+  findPtyBinaryPath,
   findTerminalSessionId,
   renameSessionTerminal,
-  watchSessionTerminalTitles
+  watchOpenedOrClosedSessionIds
 } from "@infraServices/vscode/terminal/terminal.utils.ts";
-import {fromEvent} from "@infraUtils/vscode.utils.ts";
+import {getDatabaseFilePath} from "@infraUtils/database.utils.ts";
 import {
   ITerminalInfraService,
   NoViewedSessionError,
   TerminalLaunchFailedError,
   TerminalNotFoundError
 } from "@interfaces/terminal.infraService.interface.ts";
-import {SESSION_ID_ENV} from "@pkg/constants/src/extension.constant.ts";
-import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
+import {PTY_BINARY, SESSION_ID_ENV} from "@pkg/constants/src/terminal.constant.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
+import {fromEvent} from "@pkg/vscode/src/vscode.utils.ts";
 import {Effect, Layer, Result, Schema, Stream, SubscriptionRef} from "effect";
 
+import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {
   SessionTerminalsReference,
@@ -22,7 +25,6 @@ import type {
 } from "@infraServices/vscode/terminal/terminal.infraService.type.ts";
 import type {TerminalLaunchRequest} from "@interfaces/terminal.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
 import type {Terminal} from "vscode";
 
 // Why no session is in view, private to this file: the interface only sees NoViewedSessionError.
@@ -59,27 +61,29 @@ const isSessionTerminalOpen = Effect.fn("TerminalInfraService.isSessionTerminalO
   return openTerminals.has(sessionId);
 });
 
-// Runs the harness's launch plan as the terminal's shell, in the session's project.
+// Runs the harness's launch plan under aggregor-pty, as the terminal's shell, in the session's project.
 const launchSessionTerminal = Effect.fn("TerminalInfraService.launchSessionTerminal")(function* (
   terminalDependencies: TerminalDependencies,
   session: SessionEntity,
   terminalLaunchRequest: TerminalLaunchRequest
 ) {
-  const {Uri, ViewColumn, window} = terminalDependencies;
+  const {databaseFilePath, Uri, ViewColumn, window} = terminalDependencies;
   const {iconPath, launchPlan, tabName} = terminalLaunchRequest;
+  const ptyBinaryPath = yield* Effect.fromResult(terminalDependencies.ptyBinaryPath);
+  const ptyArguments = ["--database", databaseFilePath, "--session", session.id, "--"];
 
   return yield* Effect.try({
     catch: (cause) => TerminalLaunchFailedError.make({cause}),
     try: () =>
       window.createTerminal({
         cwd: session.projectPath,
-        env: {...launchPlan.environmentVariables, [SESSION_ID_ENV]: session.id},
+        env: {[SESSION_ID_ENV]: session.id},
         iconPath: Uri.file(iconPath),
         isTransient: true,
         location: {viewColumn: ViewColumn.Active},
         ...(tabName === undefined ? {} : {name: tabName}),
-        shellArgs: [...launchPlan.commandArguments],
-        shellPath: launchPlan.command
+        shellArgs: [...ptyArguments, launchPlan.command, ...launchPlan.commandArguments],
+        shellPath: ptyBinaryPath
       })
   });
 });
@@ -93,7 +97,7 @@ const showTerminal = Effect.fn("TerminalInfraService.showTerminal")(function* (t
 // The user's default shell, named after the project, so the tab says where it runs.
 const openProjectTerminal = Effect.fn("TerminalInfraService.openProjectTerminal")(function* (
   window: TerminalDependencies["window"],
-  project: ListedProjectValueObject
+  project: ProjectListItemDto
 ) {
   const projectTerminal = yield* Effect.try({
     catch: (cause) => TerminalLaunchFailedError.make({cause}),
@@ -248,8 +252,11 @@ const trackViewedSessionId = Effect.fn("TerminalInfraService.trackViewedSessionI
 const makeTerminalDependencies = Effect.fn("TerminalInfraService.makeTerminalDependencies")(function* () {
   const vsCodeApi = yield* VsCodeApi;
   const openSessionTerminals = yield* findOpenSessionTerminals(vsCodeApi.window.terminals);
+  const ptyBinaryPath = vsCodeApi.Uri.joinPath(vsCodeApi.extensionUri, PTY_BINARY).fsPath;
   const terminalDependencies: TerminalDependencies = {
     ...vsCodeApi,
+    databaseFilePath: yield* getDatabaseFilePath(),
+    ptyBinaryPath: yield* Effect.result(findPtyBinaryPath(ptyBinaryPath)),
     sessionTerminals: yield* SubscriptionRef.make(openSessionTerminals)
   };
 
@@ -269,16 +276,12 @@ const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function
     closeSessionTerminal: (sessionId: EntityIdValueObject) => closeSessionTerminal(sessionTerminals, sessionId),
     focusSessionTerminal: (sessionId: EntityIdValueObject) => focusSessionTerminal(sessionTerminals, sessionId),
     isSessionTerminalOpen: (sessionId: EntityIdValueObject) => isSessionTerminalOpen(sessionTerminals, sessionId),
-    openProjectTerminal: (project: ListedProjectValueObject) => openProjectTerminal(window, project),
-    openSessionIds: Stream.map(
-      SubscriptionRef.changes(sessionTerminals),
-      (openTerminals): ReadonlySet<EntityIdValueObject> => new Set(openTerminals.keys())
-    ),
+    openedOrClosedSessionIds: yield* watchOpenedOrClosedSessionIds(sessionTerminals),
+    openProjectTerminal: (project: ProjectListItemDto) => openProjectTerminal(window, project),
     openSessionTerminal: (session: SessionEntity, terminalLaunchRequest: TerminalLaunchRequest) =>
       openSessionTerminal(terminalDependencies, session, terminalLaunchRequest),
     renameSessionTerminal: (sessionId: EntityIdValueObject, tabName: string) =>
       renameSessionTerminal(terminalDependencies, sessionId, tabName),
-    sessionTerminalTitles: yield* watchSessionTerminalTitles(sessionTerminals),
     viewedSessionId: yield* trackViewedSessionId(terminalDependencies)
   };
 });

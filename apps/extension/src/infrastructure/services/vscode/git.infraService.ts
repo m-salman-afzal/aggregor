@@ -7,8 +7,8 @@ import {
   IGitInfraService,
   NothingStagedError
 } from "@interfaces/git.infraService.interface.ts";
-import {EXTENSION_VERSIONS} from "@pkg/constants/src/extension.constant.ts";
-import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
+import {GIT_EXTENSION_API_VERSION} from "@pkg/constants/src/git.constant.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {Effect, Layer, Result, Schema} from "effect";
 
 import type {API, GitExtension, Repository} from "@pkg/typings/src/git.js";
@@ -36,7 +36,7 @@ const getGitApi = Effect.fn("GitInfraService.getGitApi")(function* ({extensions}
   // getAPI throws when git is turned off in the settings.
   return yield* Effect.try({
     catch: () => GitExtensionDisabledError.make(),
-    try: () => gitExports.getAPI(EXTENSION_VERSIONS.git)
+    try: () => gitExports.getAPI(GIT_EXTENSION_API_VERSION)
   });
 });
 

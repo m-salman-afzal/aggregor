@@ -10,7 +10,7 @@ const HARNESS_INFRA_SERVICE_LAYERS = {
   "claude-code": ClaudeCodeHarnessInfraService
 } satisfies Record<HarnessIdValueObject, Layer.Layer<IHarnessInfraService, never, any>>;
 
-// Every harness starts with the window and lives as long as it, since the view reads its statuses all the time.
+// Every harness starts with the window and lives as long as it, since every row reads its icon.
 const makeHarnessInfraServices = Effect.fn("HarnessInfraServices.make")(function* () {
   return yield* LayerMap.fromRecord(HARNESS_INFRA_SERVICE_LAYERS, {idleTimeToLive: "Infinity", preload: true});
 });
