@@ -302,6 +302,17 @@ current entry. Leave a field out rather than guess.
 - **Decision:** Vite builds the extension into one `dist/extension.js`; vsce packages it with `--no-dependencies`.
   Because it ships as one bundle, `presentation/` lives inside `src`.
 
+### Rust for `aggregor-pty`, checked like the TypeScript (2026-11-08)
+
+- **Decision:** edition 2024, the toolchain pinned to 1.99.1 in `apps/pty/rust-toolchain.toml`, `rustfmt.toml` at
+  Prettier's 120 columns. `apps/pty` is a pnpm workspace package, so `pnpm pty:check` (`cargo fmt --check` and
+  `cargo clippy -D warnings`) runs in `pnpm quality`, `pnpm pty:test` runs the tests, and the pre-commit hook runs
+  `rustfmt --check` on staged `.rs` files. `.vscode/settings.json` points rust-analyzer at the crate. The extension's
+  `build:pty` copies the host build to `apps/extension/bin/`, which `compile`, `package` and the `verify-in-vscode`
+  skill run.
+- **Why:** one command checks the whole repo, and the end-to-end test builds its database from the extension's
+  migrations, so a schema change that breaks the binary fails its test.
+
 ### Lint and format on commit (2026-05-08)
 
 - **Decision:** ESLint (typescript-eslint, unicorn, perfectionist, import-x, promise, e18e, markdown, json, package-json
@@ -365,6 +376,19 @@ current entry. Leave a field out rather than guess.
 - **Decision:** Checks runs `vsix` on every branch. Renovate moves `vscode` and `@types/vscode` together with
   `rangeStrategy: bump`, and skips `vscode` patch releases, which add no API and would only lock users out.
 
+### A VSIX per platform, built in CI (2026-11-08)
+
+- **Problem:** the extension ships a native binary, so one VSIX can't serve every platform.
+- **Options:** building each target on its own native runner. Cross-compiling macOS from Linux with Zig, which needs
+  Apple's SDK for anything beyond libc.
+- **Decision:** Release builds `x86_64` and `aarch64` musl binaries with cargo-zigbuild (0.24.1, Zig 0.17.1, in a venv
+  on `PATH` so it finds Zig) on one Linux runner, and both macOS targets with cargo on one Apple silicon runner. The
+  release job packages `linux-x64`, `linux-arm64`, `darwin-x64` and `darwin-arm64` with their binary and a universal
+  VSIX without one, and publishes all five. Artifacts drop the executable bit, so packaging sets it again; a packaged
+  binary keeps it through install. Checks packages the VSIX with the runner's own build.
+- **Why:** static musl binaries run on any Linux, two runners cover four targets, and the Marketplace serves the
+  universal VSIX to every other platform, Windows included, where step 3 tells the user to use WSL.
+
 ## VS Code and agent integration
 
 ### Projects and sessions live in SQLite (2026-11-07)
@@ -379,6 +403,26 @@ current entry. Leave a field out rather than guess.
   entry). Both SQL modules are unstable Effect APIs, allowed by name in `tsconfig.base.json`. A window re-reads sessions
   on focus until the database is watched (phase 2, step 3).
 - **Why:** a file any process can write, real relations, and no native module to ship.
+
+### `aggregor-pty` runs each agent and records its status (2026-11-08)
+
+- **Problem:** status has to come from the agent's own OSC 7501 reports and titles, which only something sitting between
+  the agent and its terminal can read, and VS Code's terminal API can't.
+- **Options:** writing the pty layer ourselves on rustix: fewer and newer crates, but Unix only. One `agentTitle` column
+  with the binary picking the title. Writing the database from the output thread, which a locked database would stall.
+  Printing errors, which would land on the agent's screen.
+- **Decision:** a Rust binary in `apps/pty`, on portable-pty 0.9 (last released February 2025, kept because it also does
+  native Windows), rusqlite with bundled SQLite, base64, rustix for raw mode and window size, and signal-hook. It passes
+  every byte through, answers `OSC 7501 ; ?` with the bare reply, checks reports against the spec's rules and limits,
+  and writes the root record onto the session's row: `status`, `statusKind`, `statusMessage`, `statusProgress`,
+  `statusChangedAt` (only when the state changes), `hasWorked`, `reportedTitle` and, from OSC 0/2, `terminalTitle`. It
+  starts at `unknown`, `clear` and a full reset go back to `unknown`, and the agent's exit writes `exited`; reports with
+  an `id` wait for step 8. A writer thread keeps the latest pending change and writes title changes at most every 500
+  ms. The agent runs whatever happens to the database; errors go to `aggregor-pty.log` beside it, at most 10 lines a
+  run.
+- **Why:** the reports carry what each agent knows, in one format. Two title columns leave step 4's title rule to the
+  domain. Codex's title spinner changes about ten times a second, and from step 3 every write makes the window re-read
+  its sessions.
 
 ### Clicking a closed session resumes it (2026-10-08)
 

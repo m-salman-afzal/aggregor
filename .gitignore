@@ -6,3 +6,8 @@ dist/
 
 .eslintcache
 *.vsix
+
+target/
+
+# aggregor-pty, built for the host by build:pty
+apps/extension/bin/

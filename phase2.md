@@ -51,6 +51,8 @@ Other things the tests showed:
   yet.
 - Codex's `tui.terminal_title` setting can show only the thread title (`-c 'tui.terminal_title=["thread-title"]'`); it
   then shows the thread id, with a spinner, until the title exists.
+- Under `aggregor-pty` on 2026-11-08, Codex 0.167.0 reported `done` after a turn, not `idle`, and `working` for a moment
+  at startup.
 - crush, goose, pi and grok are also installed; crush and goose report OSC 7501 per areweosc7501yet.com. Each would be
   one settings entry.
 
@@ -243,40 +245,68 @@ check the relations, the soft deletes, the timestamps, and that ids sort in crea
 
 **Branch:** `stack/harness-foundation/2/feat/pty-binary`
 
+The binary is built, tested and packaged; the extension starts running agents through it in step 3.
+
 **Changes:**
 
-- `apps/pty`: a Rust crate building `aggregor-pty`, with a pinned toolchain (`rust-toolchain.toml`). Dependencies:
-  portable-pty, rusqlite (bundled), base64.
+- `apps/pty`: a Rust crate (edition 2024, toolchain pinned to 1.99.1 in `rust-toolchain.toml`) building `aggregor-pty`,
+  with portable-pty 0.9, rusqlite 0.41 (bundled SQLite), base64 0.23, rustix (raw mode, window size) and signal-hook
+  (resizes, hangups).
 - Usage: `aggregor-pty --database ‹path› --session ‹sessionId› -- ‹command› ‹args›…`.
 - What it does:
-  - puts its own terminal in raw mode and starts the agent in a pty of the same size;
+  - puts its own terminal in raw mode and starts the agent in a pty of the same size, in the current directory;
   - copies input to the agent and the agent's output out, byte for byte;
-  - scans the output for OSC 7501 and OSC 0/2, across read boundaries, ending in BEL or ST;
+  - scans the output for OSC 7501 and OSC 0/2, across read boundaries, ending in BEL or ST, and drops a sequence over
+    the spec's 4096 bytes;
   - answers `OSC 7501 ; ?` at once;
-  - validates reports per the spec's limits and writes the root record and the latest title onto the session's row;
-  - forwards window resizes;
+  - validates reports per the spec's rules and limits, and writes the root record and the window title onto the
+    session's row;
+  - forwards window resizes, and passes a hangup or termination on to the agent;
   - when the agent exits, writes `exited` and exits with the agent's code.
-- The extension's schema gains the status columns on `sessions`: `status`, `statusKind`, `statusMessage`,
-  `statusProgress`, `agentTitle`, `hasWorked` and `statusChangedAt`. Only the binary writes them, one `UPDATE` of those
-  columns and `updatedAt` by `id`, with timestamps from SQLite's `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`, the
-  extension's format; the extension's row model has them read-only. `drizzle-kit generate` writes their migration.
-- Rust tests: the scanner (split sequences, both terminators, oversize, bad base64, control characters, the check) and
-  one end-to-end run of a `printf` script under the binary against a temporary database.
-- CI: `cargo fmt --check`, `cargo clippy -D warnings` and `cargo test`; a build matrix for `x86_64` and `aarch64` musl
-  on Linux and both macOS targets; `vsce package --target` for each; `release.yaml` publishes every target.
-- The extension's build and the `verify-in-vscode` skill build the binary for the host and put it at
-  `apps/extension/bin/aggregor-pty`.
-- Renovate's `cargo` manager covers the crates.
+- The `sessions` table gains `status` (default `unknown`), `statusKind`, `statusMessage`, `statusProgress`,
+  `statusChangedAt`, `hasWorked` (default false), `reportedTitle` (the root record's 7501 `title`) and `terminalTitle`
+  (the latest OSC 0/2 title), with a generated migration. Only the binary writes them, one `UPDATE` by `id` that skips
+  soft-deleted rows and sets `updatedAt`, with timestamps from SQLite's `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`.
+- What it writes:
+  - at start: `unknown`, with kind, message, progress and the reported title cleared, and `statusChangedAt`;
+  - a root report: state, kind, message, progress and title, replaced together as the spec's records are;
+    `statusChangedAt` only when the state changes; `hasWorked` from the first `working` on;
+  - `clear` with no id, or a full reset (RIS): `unknown`;
+  - reports with an `id`: validated and ignored until step 8;
+  - on exit: `exited`, keeping the titles.
+- A writer thread takes the latest pending change, so a busy database never holds up the agent's output. State changes
+  are written at once, title changes at most every 500 ms.
+- The agent runs whatever happens to the database, and nothing is printed to its terminal. Errors go to
+  `aggregor-pty.log` beside the database, at most 10 lines a run.
+- Rust tests: the scanner (split sequences, both terminators, oversize, abandoned sequences, titles, RIS) and the report
+  parser (states, kinds, progress, ids, base64, control characters, limits), plus one end-to-end run of a `bash` script
+  under the binary against a database built from the extension's own migrations.
+- `apps/pty` is a pnpm workspace package: `pnpm pty:check` (`cargo fmt --check` and `cargo clippy -D warnings`, part of
+  `pnpm quality`) and `pnpm pty:test`; the pre-commit hook runs `rustfmt --check` on staged `.rs` files; `rustfmt.toml`
+  matches Prettier's 120 columns.
+- The extension's `build:pty` builds the binary for the host into `apps/extension/bin/` (ignored by git); `compile`,
+  `package` and the `verify-in-vscode` skill run it.
+- CI: Checks adds `pty:check` and `pty:test`, and packages the VSIX with the runner's binary. Release builds the Linux
+  musl binaries with cargo-zigbuild (0.24.1, Zig 0.17.1, in a venv) on a Linux runner and both macOS targets on one
+  macOS runner, then packages `linux-x64`, `linux-arm64`, `darwin-x64` and `darwin-arm64` VSIXs and a universal one
+  without the binary, and publishes them together.
 
 **Decided:**
 
 1. Linux binaries are built with `cargo-zigbuild` on one Linux runner, for both musl targets.
-2. A universal VSIX without the binary is published too; it only tells the user to reopen in WSL (Windows) or that the
-   platform is unsupported, since Windows users couldn't otherwise install the extension and see that message.
+2. A universal VSIX without the binary is published too. Its message, reopen in WSL (Windows) or unsupported platform,
+   comes in step 3, when the extension first needs the binary.
 3. The reply to the check is the bare `OSC 7501 ; ? ST`.
+4. portable-pty, though its last release is from February 2025, since it also covers native Windows later.
+5. Two title columns instead of one `agentTitle`: which title wins is step 4's rule, which belongs in the domain.
+6. The extension's migrations build the end-to-end test's database, so the binary is tested against the real schema.
 
-**Verify:** the Rust tests; then run Claude, Codex and Antigravity under the built binary inside tmux and compare their
-rows with the reports logged in the tests above.
+**Verified (2026-11-08):** the Rust tests; Claude, Codex and Antigravity under the built binary inside tmux in
+`~/side/jsTester`. Claude: idle, working, done; `blocked question` with its message; Esc to idle; `/exit` to unknown,
+then exited. Codex 0.167.0: working for a moment at startup, then working and done for a turn. Antigravity:
+`blocked auth` for 2 seconds at start, `blocked permission` (`Approve RunCommand: echo hi`), done. Resizes reach the
+agent; a killed tmux session leaves `exited`. Both musl binaries build with cargo-zigbuild, and the linux-x64 VSIX
+installs with the binary still executable.
 
 ## Step 3: status from OSC 7501
 
@@ -291,8 +321,8 @@ row.
 - `SessionEntity` gains the status fields, read through `SessionRepository` like the rest of the session; there is no
   separate status repository. A watch on the database's WAL file, confirmed with `PRAGMA data_version`, refreshes
   sessions and projects.
-- `startSessionTitleSync` reads `agentTitle` instead of `Terminal.name`. `getSessionTitle` also strips trailing status
-  marks and ignores titles that are only an id.
+- `startSessionTitleSync` reads `terminalTitle` and `reportedTitle` instead of `Terminal.name`. `getSessionTitle` also
+  strips trailing status marks and ignores titles that are only an id.
 - Rows: an icon per state, the message in the tooltip, progress in the description, and the unread rule (Agreed 9).
 - Resume uses `hasWorked` instead of looking for Claude's transcript.
 - Deleted: `assets/hooks.json`, `HOOKS_FILE`, `STATUS_ENV`, `INTERRUPTED_TURN_GRACE`, `status.service.ts`, Claude's
@@ -345,6 +375,9 @@ blocked with its message; Esc and Ctrl+C mid-turn go idle; `/exit` goes exited; 
 3. VS Code's merge of an object setting's default with the user's value is checked in this step; if it doesn't merge key
    by key, `readSettings` merges.
 4. A key whose `command` isn't installed fails in its terminal with the shell's error; the picker hides it.
+
+**To check when this step starts:** Codex 0.167.0 reports `working` for a moment at startup (seen under `aggregor-pty`
+on 2026-11-08), which sets `hasWorked` before any turn, so reopening a fresh Codex session would use its resume picker.
 
 **Verify:** start each of the five from the built-in settings, check status and titles, then kill each one and reopen it
 to check resume. Override a built-in and hide one with `null`.
