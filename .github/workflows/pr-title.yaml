@@ -1,0 +1,30 @@
+name: PR Title
+
+# A PR's title goes into its merge commit, so it follows the commit subject format, `<type>(<scope>): <subject>`, with
+# `!` before the colon for a breaking change.
+on:
+  pull_request:
+    types: [opened, edited, reopened]
+    # The dev -> main release PR is titled `v<version>`.
+    branches-ignore: [main]
+
+permissions: {}
+
+jobs:
+  PR-Title:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    env:
+      # Read from the environment, never interpolated into the script, so a title can't run as shell.
+      PR_TITLE: ${{ github.event.pull_request.title }}
+    steps:
+      - name: Check the PR title
+        run: |
+          types='feat|fix|refactor|perf|docs|test|build|ci|chore'
+          # The commit prompt in .vscode/settings.json lists the same scopes, each with what it covers.
+          scopes='sessions|projects|agents|status|alerts|workspace|commit-message|storage|lint|deps|release|repo'
+          pattern="^($types)\(($scopes)\)!?: [^ ]"
+          if [[ ! $PR_TITLE =~ $pattern ]]; then
+            echo "::error::'$PR_TITLE' isn't '<type>(<scope>): <subject>', with type one of ${types//|/, } and scope one of ${scopes//|/, }"
+            exit 1
+          fi

@@ -15,6 +15,12 @@ one below it. The `stack` skill (`.claude/skills/stack`) creates them; on push, 
 the branch below and joins them into a GitHub stack. Land a stack by merging its top PR with a merge commit, never
 squash. The roadmap lives in `README.md`. Commit and push only when the user asks.
 
+A commit subject is `<type>(<scope>): <subject>`, with `!` before the colon for a breaking change, and its scope is a
+feature from the list in `.github/workflows/pr-title.yaml`. Auto PR titles each PR with its first commit's subject, plus
+`[<name> <n>]` on a stack branch, and the PR Title workflow fails any title in another form. When a PR adds a feature
+that no scope covers, add its scope in that PR, to `pr-title.yaml` and with what it covers to the commit prompt in
+`.vscode/settings.json`.
+
 ## Engineering rules
 
 - **YAGNI.** Don't build anything until you need it.

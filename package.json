@@ -19,7 +19,7 @@
       "onFail": "error"
     }
   },
-  "packageManager": "pnpm@12.16.1",
+  "packageManager": "pnpm@12.18.0",
   "scripts": {
     "prepare": "husky & effect-tsgo patch --typescript",
     "watch:vite": "pnpm --filter=aggregor-app watch:vite",
