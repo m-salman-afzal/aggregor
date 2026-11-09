@@ -55,6 +55,11 @@
       matchDepNames: ["vscode"],
       matchUpdateTypes: ["patch"],
       enabled: false
+    },
+    {
+      // Drizzle publishes a build of each branch commit as `<version>-<hash>`, which semver ranks above the release.
+      matchDepNames: ["drizzle-orm", "drizzle-kit"],
+      allowedVersions: "!/-[0-9a-f]{7}$/"
     }
   ]
 }
