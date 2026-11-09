@@ -10,7 +10,7 @@ The building blocks, as Evans (_Domain-Driven Design Reference_), Vernon (_Imple
 and Martin (_The Clean Architecture_) define them, and where each sits here.
 
 - **Entity:** an object "distinguished by its identity, rather than its attributes", whose identity runs through time:
-  `SessionEntity`, `ProjectEntity`. Each entity is its own aggregate root.
+  `SessionEntity`, `ProjectEntity`, `HarnessEntity`. Each entity is its own aggregate root.
 - **Value object:** an object that describes or computes a characteristic of something and has no identity of its own;
   "when you care only about the attributes and logic of an element of the model, classify it as a value object". It is
   immutable and compared by value: a session's status, a project's path, a harness id, an entity's id. Anything that is
@@ -47,7 +47,7 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
 │ services    use cases; assemble DTOs       │◄─┤ implements the ports:        │
 │ dtos        request and response DTOs      │  │ repositories, models,        │
 │ interfaces  ports                          │  │ migrations, infra services,  │
-│ utils                                      │  │ config, layer graph, logger  │
+│                                            │  │ config, layer graph, logger  │
 └─────────┬──────────────────────────────────┘  └───────────────┬──────────────┘
           ▼                                   implements repositories ▼
 ┌─ domain ─────────────────────────────────────────────────────────────────────┐
@@ -83,20 +83,21 @@ Each folder directly under a layer has one import alias in `apps/extension/tscon
 | Layer            | Aliases                                                                                                                             |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `domain`         | `@domainServices` (`services`), `@entities`, `@valueObjects`                                                                        |
-| `application`    | `@interfaces`, `@services`, `@dtos`, `@appUtils`                                                                                    |
+| `application`    | `@interfaces`, `@services`, `@dtos`                                                                                                 |
 | `infrastructure` | `@config`, `@models` (`database/models`), `@di`, `@logger`, `@repositories`, `@infraServices` (`services`), `@infraUtils` (`utils`) |
 | `presentation`   | `@controllers`, `@middlewares`, `@presenters`, `@presentationUtils` (`utils`), `@views`                                             |
 
 Code is imported only through them, so each file has one import path, and by name: lint (`no-restricted-syntax`) bans
 `import * as`, `vscode` included; `extension.ts` imports `./presentation/routes.ts`, the one file at a layer's root.
-`eslint.layers.ts` checks the import columns with a `@typescript-eslint/no-restricted-imports` regex allow-list per
-folder (`IMPORT_RULES`: each layer, then presentation's controllers, presenters and views), which also rejects relative
-imports.
+`packages/eslint/src/layers/importRules.ts` checks the import columns with a `@typescript-eslint/no-restricted-imports`
+regex allow-list per folder (`IMPORT_RULES`: each layer, then presentation's controllers, presenters and views), which
+also rejects relative imports.
 
 ## Naming
 
 Each file's suffix names its role, each role lives in one layer, and the file's main names carry the role.
-`eslint.layers.ts` checks the names with `@typescript-eslint/naming-convention`, one block per file suffix.
+`packages/eslint/src/layers/roleNames.ts` checks the names with `@typescript-eslint/naming-convention`, one block per
+file suffix.
 
 | Role                    | Layer                             | File                                                    | Names                                              |
 | ----------------------- | --------------------------------- | ------------------------------------------------------- | -------------------------------------------------- |
@@ -129,10 +130,12 @@ Each file's suffix names its role, each role lives in one layer, and the file's 
   the interface, with its errors and types, and its implementation.
 - `I` marks only our interfaces: the `Context.Service` classes, which lint keeps in `.interface.ts` files, and
   `IBaseRepository`, the shape every repository interface extends. Data shapes take no prefix.
-- Types and interfaces sit at the top of a file, right after the imports. An interface's own types (its inputs, which
-  end in `Request`, and `Settings`) sit in its `.interface.ts`. Types several implementation files share live in a
-  `.type.ts`, which holds nothing else; a value object's or DTO's type stays with its schema, and an error union with
-  its errors. Lint (`no-restricted-syntax`) checks all of it.
+- A type that stands alone sits at the top of a file, right after the imports. A type built from a value of its own
+  file, directly or through another such type, sits below what it is built from, so the file reads top down: a value
+  object's or DTO's type right after its schema (`HarnessListItemDtoSchema`, then `HarnessListItemDto`), an error union
+  after its errors. An interface's own types (its inputs, which end in `Request`, and `Settings`) sit in its
+  `.interface.ts`. Types several implementation files share live in a `.type.ts`, which holds nothing else.
+  `aggregor/type-placement` (`packages/eslint/src/rules/`) checks where types sit, and `no-restricted-syntax` the rest.
 - A DTO is a `Schema.Struct` (or `TaggedUnion`), so a controller validates its input by decoding into it. A request DTO
   is `<UseCase>RequestDto`, one per use case; a response DTO is named for what it is to the user (`SessionListItemDto`).
 - A controller function is named for its input, or for its caller when the caller is a view: `removeChosenSession`,
@@ -144,9 +147,10 @@ Each file's suffix names its role, each role lives in one layer, and the file's 
   middleware, presenter, repository, service or view file owns its spans, and the owner is its file name:
   `SessionService.openSession`, `RegisterCommandMiddleware.registerCommand`, and a layer's `make<Owner>` is
   `<Owner>.make`. A helper file belongs to the one owner in its folder (`vscode/terminal/terminal.utils.ts` to
-  `TerminalInfraService`); a file with no owner gives the bare const name (`withHarnessInfraService`). A command's root
+  `TerminalInfraService`); a file with no owner gives the bare const name (`acquireScopedDisposable`). A command's root
   span is its command ID.
-- `eslint.plugin.ts` checks the span names, the `.type.ts` placement and the stem folders, and fixes span names.
+- The aggregor plugin (`packages/eslint/src/rules/`, one file per rule) checks the span names, the `.type.ts` placement
+  and the stem folders, and fixes span names.
 - An aggregate of several entities would get an `.aggregate.ts`.
 
 ## Tree
@@ -156,10 +160,15 @@ packages/
   constants/src/                           one file per feature, each with its command ids, labels, notices and
                                            error texts: app, commitMessage, database, git, harness, process, project,
                                            session, sessionsView, terminal, workspace
+  eslint/src/                              the repo's ESLint setup: base/ per file type, layers/ the DDD layering
+                                           checks, rules/ the aggregor plugin (one file per rule), and
+                                           eslint.config.ts composing them
   vscode/src/
-    vscode.api.ts                          VsCodeApi: the only runtime import of vscode
-    vscode.utils.ts                        acquireDisposable, fromEvent, setContext, withProgress,
-                                           showErrorInBackground
+    vscode.api.ts                          VsCodeApi: the only runtime import of vscode, and the extension's id
+    vscode.utils.ts                        acquireScopedDisposable, streamVsCodeEvent, setWhenClauseContextKey,
+                                           runWithProgressIndicator, openAggregorSettingsInSettingsEditor,
+                                           showErrorNotificationWithoutWaiting (with an Open Settings button when
+                                           given a setting)
     vsCodeArgument.utils.ts                decodeVsCodeArgument; InvalidVsCodeArgumentError
 apps/extension/src/
   domain/
@@ -179,22 +188,29 @@ apps/extension/src/
       project/
         project.entity.ts                  ProjectEntity (BaseEntity and path, isAdded)
         project.repository.interface.ts    IProjectRepository: the base calls
+      harness/
+        harness.entity.ts                  HarnessEntity (id, name, command, args, resumeArgs, icon): an agent CLI,
+                                           from the settings, not a BaseEntity
+        harness.repository.interface.ts    IHarnessRepository: findAll, findById; HarnessNotFoundError
     valueObjects/                          EntityIdValueObject (a branded UUID v7), ProjectPathValueObject (branded),
                                            AgentStatusValueObject and StatusKindValueObject (literals: OSC 7501's
                                            states and kinds), SessionStatusValueObject (the status the user sees,
-                                           picked from the agent's), HarnessIdValueObject (literals)
+                                           picked from the agent's), HarnessIdValueObject (branded: the settings
+                                           key), HarnessIconValueObject (a codicon or an image file),
+                                           LaunchPlanValueObject (a command and its arguments)
     services/
-      session.domainService.ts             getDefaultSessionName, getSessionTitle, getSessionTitleToSave,
-                                           getSessionStatus, isSessionTurnRunning
+      session.domainService.ts             prepareLaunchPlan, getDefaultSessionName, getSessionTitle,
+                                           getSessionTitleToSave, getSessionStatus, isSessionTurnRunning
       entityId.domainService.ts            makeEntityId, getEntityIdCreatedAt: the entity id's factory
   application/
     services/
       base.service.ts                      addEntity, findEntityById, findEntities, updateEntity, upsertEntity,
                                            removeEntity, on any repository
-      session.service.ts                   newSession, openSession, removeSession, renameSession; the list:
+      session.service.ts                   newSession (which picks the project, then the harness), openSession,
+                                           removeSession, renameSession; NoHarnessInstalledError; the list:
                                            getSessionListItem, listProjectSessionIds, listWorkingSessionIds,
-                                           watchSessionListChanges, watchActivatedSessionIds; startSessionTitleSync,
-                                           startViewedAtSync
+                                           watchSessionListChanges, watchViewedSessionIds, findViewedSessionId; startSessionTitleSync,
+                                           startSessionTabNameSync, startViewedAtSync
       project.service.ts                   listProjects, getProjectListItem, findProjectListItem, pickProject,
                                            addProject, addProjectPaths, findOrAddProject, removeProject,
                                            newProjectTerminal; NoProjectError, ProjectNotListedError
@@ -205,18 +221,19 @@ apps/extension/src/
     dtos/
       session.dto.ts                       SessionListItemDto, SessionListChangeDto, and a request DTO per session
                                            use case
+      harness.dto.ts                       HarnessListItemDto: a row of the harness picker
       project.dto.ts                       ProjectListItemDto, GetProjectListItemRequestDto, RemoveProjectRequestDto
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
     interfaces/                            each with the errors and types its signatures name
-      harness.infraService.interface.ts    IHarnessInfraService: prepareLaunchPlan, placeholderTitles, iconPath;
-                                           LaunchPlan; IHarnessInfraServices: a LayerMap of them by harness id
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
-                                           openProjectTerminal, renameSessionTerminal, isSessionTerminalOpen,
+                                           openProjectTerminal, nameActiveSessionTab, isSessionTerminalOpen,
                                            openedOrClosedSessionIds, activatedSessionIds, viewedSessionId;
                                            TerminalLaunchRequest, PtyBinaryNotFoundError
       userInputPrompt.infraService.interface.ts
                                            showErrorMessage, showInformationMessage, confirm, askForText, pickProject,
-                                           pickProjectFolderPaths
+                                           pickProjectFolderPaths, pickHarness; HarnessPick
+      shellCommand.infraService.interface.ts
+                                           listInstalledCommands: which commands are on PATH
       progress.infraService.interface.ts   withSourceControlProgress
       workspace.infraService.interface.ts  listWorkspaceFolderProjects, workspaceFolderChanges,
                                            showOnlyProjectFolder, removeProjectFolder, claimWorkspaceSaveOffer,
@@ -224,8 +241,8 @@ apps/extension/src/
       git.infraService.interface.ts        getStagedDiff, setCommitMessageInput, commit, stageAll,
                                            openInSourceControl
       commitCli.infraService.interface.ts  generateCommitMessage; CommitMessageRequest
-      settings.config.interface.ts         readSettings; Settings
-    utils/harness.utils.ts                 withHarnessInfraService
+      settings.config.interface.ts         readSettings, readSessionSettings, saveDefaultHarnessId; Settings,
+                                           SessionSettings
   infrastructure/
     database/models/                       a Drizzle table per file (SessionTableModel...); base.model.ts:
                                            BASE_COLUMNS, the shared columns
@@ -237,9 +254,10 @@ apps/extension/src/
                                            startEntityChangeFeed, which reads the rows written since its last check
       session.repository.ts                SessionRepository: sessions with their project's path
       project.repository.ts                ProjectRepository: projects
+      harness.repository.ts                HarnessRepository: the aggregorApp.harnesses setting, decoded with its
+                                           defaults, read again when it changes
     services/
-      claudeCodeHarness/                   ClaudeCodeHarnessInfraService: the `claude` launch plan, a resume once
-                                           the session has worked, and Claude's placeholder titles
+      os/shellCommand.infraService.ts      ShellCommandInfraService: looks commands up on PATH
       vscode/                              UserInputPromptInfraService, WorkspaceInfraService, GitInfraService,
                                            ProgressInfraService
       vscode/terminal/                     TerminalInfraService: session tabs, which run the launch plan under
@@ -251,8 +269,6 @@ apps/extension/src/
       app.layer.ts                         AppLayer: the layer graph under the commands and views
       database.layer.ts                    DatabaseLayer: opens ~/.aggregor/data/aggregor.db, foreign keys on, and
                                            applies the migration in assets/migrations
-      harnessInfraServices.layer.ts        HarnessInfraServicesLayer: LayerMap.fromRecord from harness id to its
-                                           infra service
     logger/traceLog.layer.ts               TraceLogLayer
     utils/aggregorFolder.utils.ts          getAggregorFolderPath: ~/.aggregor, or $AGGREGOR_HOME
     utils/anchorFolder.utils.ts            getAnchorFolderPath: anchor/Aggregor in it, the hidden folder 0 of the
@@ -260,16 +276,19 @@ apps/extension/src/
     utils/database.utils.ts                getDatabaseFilePath: data/aggregor.db in it; the window opens it, and
                                            aggregor-pty writes to it
   presentation/
-    routes.ts                              RoutesLayer: each command's ID, controller and presenter
+    routes.ts                              RoutesLayer: each command's ID, controller and presenter; Open Settings
+                                           goes straight to @pkg/vscode
     middlewares/registerCommand.middleware.ts
                                            registerCommand: root span per command; shows the presenter's message
                                            for a failure, and logs a crash
     controllers/                           session, project, commitMessage: decode the input into a request DTO and
                                            call one service; the Sessions view's reads
-    presenters/                            session, project, commitMessage: a failed command's message
+    presenters/                            session, project, commitMessage: a failed command's message, and the
+                                           setting that fixes it; app: none, for commands that cannot fail
     utils/sessionsTreeNode.utils.ts        the Sessions tree's node ids, and decoding a row's node id into a
                                            request DTO
-    views/sessions/                        SessionsView: the tree and badge providers, tree items, spinner, redraws
+    views/sessions/                        SessionsView: the tree and badge providers, tree items, spinner, redraws,
+                                           and the session in front kept selected
   extension.ts                             activate
 ```
 
@@ -279,11 +298,12 @@ apps/extension/src/
   is a method on it. A rule across entities, or one that needs facts from outside the entity, lives in a
   `.domainService.ts` (`getDefaultSessionName`, `getSessionStatus`), whose every export is an `Effect.fn`, so each rule
   shows up in a trace. Lint (`no-restricted-syntax`) checks both files' exports.
-- Every entity extends `BaseEntity` (`id`, `sortId`, `updatedAt`, `deletedAt`), and every repository and entity service
-  builds on the base pieces: `makeBaseRepository` and `base.service.ts`. Rows reach the domain only through
-  `BaseEntity.fromRow`, inside the base repository, so no entity knows how it is stored.
-- `EntityIdValueObject` and `ProjectPathValueObject` are branded with `Schema.brand`; `HarnessIdValueObject` and
-  `AgentStatusValueObject` are `Schema.Literals`. Every entity's id is a UUID v7 from `makeEntityId`, so a file name or
+- Every entity stored in the database extends `BaseEntity` (`id`, `sortId`, `updatedAt`, `deletedAt`), and its
+  repository and entity service build on the base pieces: `makeBaseRepository` and `base.service.ts`. Rows reach the
+  domain only through `BaseEntity.fromRow`, inside the base repository, so no entity knows how it is stored.
+  `HarnessEntity` lives in the user's settings instead, so it is a plain `Schema.Class` whose id is its settings key.
+- `EntityIdValueObject`, `ProjectPathValueObject` and `HarnessIdValueObject` are branded with `Schema.brand`;
+  `AgentStatusValueObject` is a `Schema.Literals`. Every entity's id is a UUID v7 from `makeEntityId`, so a file name or
   env value that is not one is not ours.
 - Each value object exports its schema as `<Name>ValueObjectSchema` and its type as `<Name>ValueObject`, since lint's
   `no-redeclare` rejects a value and a type of the same name. Entities and errors are classes, which are both.
@@ -312,7 +332,8 @@ apps/extension/src/
 - A command runs through `routes.ts` and `registerCommand` to its controller, which decodes what VS Code passed into the
   request DTO and calls one service. A failure the service returns goes to the command's presenter, and the middleware
   shows the presenter's message; the presenter's type covers every failure its services return, so a new one fails to
-  compile until it has a message.
+  compile until it has a message. A command that only drives VS Code and reads no data, Open Settings, goes straight to
+  its `@pkg/vscode` helper, with no controller or service.
 - A view registers VS Code's providers and draws what its controllers return. The Sessions tree's nodes are ids,
   `project:<path>` and `session:<id>` (`sessionsTreeNode.utils.ts`): VS Code finds a node to redraw by its id, and every
   draw reads the node's DTO again through the controllers, so the view keeps no copy and decides nothing about a
@@ -325,9 +346,9 @@ apps/extension/src/
 ## Errors
 
 - An error is a `Schema.TaggedError` class whose name ends in `Error`. It sits at the top of a file, after the imports
-  and types, above the file's other classes; there are no `.error.ts` files. Lint (`no-restricted-syntax`) checks the
-  placement, the name and the missing `.error.ts` files, and `perfectionist/sort-modules` keeps errors above other
-  classes.
+  and the types that stand alone, above the file's other classes; there are no `.error.ts` files. Lint
+  (`no-restricted-syntax`) checks the placement, the name and the missing `.error.ts` files, and
+  `perfectionist/sort-modules` keeps errors above other classes.
 - An error lives in the highest layer that raises or handles it. One that an interface's signature names, because a
   layer above catches it, sits in that interface's file: `interfaces/terminal.infraService.interface.ts` holds
   `TerminalNotFoundError`, which `SessionService.openSession` answers by relaunching. Any other sits in the file that
@@ -335,7 +356,8 @@ apps/extension/src/
 - An error is exported only when another file imports it or names it in an exported function's type.
   `RemoveCancelledError` in `session.service.ts` is private, and `TerminalInfraService` keeps private the reasons no
   session is in view, which it reports through the interface as one `NoViewedSessionError`.
-- The message a user sees is presentation's: a presenter maps each tag to a text from `@pkg/constants`.
+- The message a user sees is presentation's: a presenter maps each tag to a text from `@pkg/constants`, and to the
+  setting that fixes it when there is one, which the middleware opens from the error's Open Settings button.
 
 ## Dependency injection
 
@@ -346,18 +368,12 @@ apps/extension/src/
   `deterministicKeys` checks.
 - **Implementation:** a `Layer` exported from `infrastructure`, named after its interface without the `I`, such as
   `SessionRepository` or `TerminalInfraService`. The backend shows in the folder (`services/vscode/`), not the name.
-  Harnesses are the exception, `ClaudeCodeHarnessInfraService`: the harness id is what tells them apart.
 - **Container:** `infrastructure/di/app.layer.ts` merges the layers into `AppLayer`; `extension.ts` puts the commands
   and views on top, with the trace log and `VsCodeApi` underneath. There is no resolver and there are no string tokens:
   a use case's type lists the interfaces it needs, so a missing layer is a compile error.
-- **Several implementations at once:** `IHarnessInfraServices` (in `application/interfaces`) is a service holding a
-  `LayerMap<HarnessIdValueObject, IHarnessInfraService>`; `infrastructure/di/harnessInfraServices.layer.ts` builds it
-  with `LayerMap.fromRecord` over a record that `satisfies Record<HarnessIdValueObject, Layer<IHarnessInfraService>>`,
-  so a harness id without an implementation fails to compile. Every harness starts with the window and never idles out,
-  since every row reads its icon. Use cases run `withHarnessInfraService(session.harnessId, effect)`. A new harness is
-  one `infrastructure/services/<harness>/` folder and one record entry.
-- **Harness and terminal don't know each other:** the harness returns a `LaunchPlan` (command and arguments) and the
-  terminal infra service runs it under `aggregor-pty`.
+- **Harnesses are data, not implementations:** each is an `aggregorApp.harnesses` entry that `IHarnessRepository` reads,
+  so a new agent CLI is a settings entry, not code. The domain's `prepareLaunchPlan` turns a harness and a session into
+  a `LaunchPlanValueObject`, and the terminal infra service runs it under `aggregor-pty`; neither knows the other.
 - **Planned with their roadmap items:** a `Hosts` LayerMap keyed by host id for SSH, a worktree infra service for M3,
   and tmux as a wrapper around the launch plan.
 
@@ -377,5 +393,8 @@ apps/extension/src/
   session's `projectPath`. After changing a model, delete `apps/extension/assets/migrations/` and run
   `pnpm db:generate --name create_tables`, which writes the one migration from zero; before 0.1.0 the old database is
   deleted instead of migrated. `storage.md` lists every stored table and key.
+- `HarnessRepository` reads VS Code's settings, not a table: it decodes `aggregorApp.harnesses` when the window starts
+  and again each time the setting changes, so an invalid entry is warned about once per change, and keeps the result for
+  its reads.
 - A transformer turns an outside format into domain types (none today: `aggregor-pty` writes the domain's own values).
   It sits beside the infra service that reads the format, since only infrastructure knows it.

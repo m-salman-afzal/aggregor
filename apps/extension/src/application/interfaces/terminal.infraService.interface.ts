@@ -3,15 +3,16 @@ import {Context, Schema} from "effect";
 
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
-import type {LaunchPlan} from "@interfaces/harness.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import type {HarnessIconValueObject} from "@valueObjects/harnessIcon.valueObject.ts";
+import type {LaunchPlanValueObject} from "@valueObjects/launchPlan.valueObject.ts";
 import type {Effect, Result, Stream, SubscriptionRef} from "effect";
 
-// A tab with a name keeps it; one without shows the title the agent gives its terminal, as it changes.
+// The tab opens with the session's name, the one its row shows, and keeps it instead of the agent's own titles.
 export interface TerminalLaunchRequest {
-  readonly iconPath: string;
-  readonly launchPlan: LaunchPlan;
-  readonly tabName: string | undefined;
+  readonly icon: HarnessIconValueObject;
+  readonly launchPlan: LaunchPlanValueObject;
+  readonly tabName: string;
 }
 
 // No session's tab is in front of the user; TerminalInfraService's trace says why.
@@ -44,6 +45,9 @@ export class ITerminalInfraService extends Context.Service<
     readonly closeSessionTerminal: (sessionId: EntityIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
     readonly focusSessionTerminal: (sessionId: EntityIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
     readonly isSessionTerminalOpen: (sessionId: EntityIdValueObject) => Effect.Effect<boolean>;
+    // Gives the session's tab the name when it is the active terminal and named otherwise; VS Code can rename only the
+    // active terminal.
+    readonly nameActiveSessionTab: (sessionId: EntityIdValueObject, tabName: string) => Effect.Effect<void>;
     // The session whose tab opened or closed in this window, each time one does.
     readonly openedOrClosedSessionIds: Stream.Stream<EntityIdValueObject>;
     // A plain shell in the project's folder, in the Terminal panel.
@@ -54,8 +58,6 @@ export class ITerminalInfraService extends Context.Service<
       session: SessionEntity,
       terminalLaunchRequest: TerminalLaunchRequest
     ) => Effect.Effect<void, PtyBinaryNotFoundError | TerminalLaunchFailedError>;
-    // Renames the session's tab when it is open; the tab then keeps the name instead of the agent's title.
-    readonly renameSessionTerminal: (sessionId: EntityIdValueObject, tabName: string) => Effect.Effect<void>;
     readonly viewedSessionId: SubscriptionRef.SubscriptionRef<Result.Result<EntityIdValueObject, NoViewedSessionError>>;
   }
 >()("aggregor-app/application/interfaces/terminal.infraService.interface/ITerminalInfraService") {}

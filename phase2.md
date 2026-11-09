@@ -61,8 +61,8 @@ Other things the tests showed:
 ### Agents as settings
 
 1. **Agents are data.** `ClaudeCodeHarnessInfraService`, `IHarnessInfraService(s)`, the `LayerMap` and
-   `harness.utils.ts` go. A harness is a domain value object read from settings, a domain function builds its launch
-   command, and the harness id is its settings key.
+   `harness.utils.ts` go. A harness is a domain entity read from settings (a value object until step 4), a domain
+   function builds its launch command, and the harness id is its settings key.
 2. **`aggregorApp.harnesses`**, keyed by command name: `{name, command, args, resumeArgs, icon}`. `command` defaults to
    the key. The built-ins merge with the user's entries, and `null` hides one. `machine` scope, so only user settings
    can define commands. No `env` field; `${sessionId}` is the only variable. Edited in settings.json.
@@ -71,7 +71,7 @@ Other things the tests showed:
 4. **Resume:** `resumeArgs` once the session has reported `working` at least once; `args` before that. With tmux this
    only matters once the tmux session is gone, such as after a reboot or an agent exit.
 5. **Icons:** a codicon id or an image path, relative paths inside the extension. Official logos in `assets/harnesses/`,
-   renamed from `assets/models/`.
+   renamed from `assets/models/`; Copilot's is the `copilot` codicon.
 6. **Picker:** "New Session" (was "New Claude Session") lists the harnesses whose command is on PATH; with one there is
    no picker. The default comes first, preselected, and each item has a "Set as default" button.
    `aggregorApp.defaultHarness` (default `claude`) and `aggregorApp.skipHarnessPicker` (default false).
@@ -84,7 +84,7 @@ Other things the tests showed:
 8. **Statuses are the spec's:** idle, working, done, blocked (kind permission, question or auth, with a message) and
    error, plus `exited` (the agent or its tmux session is gone) and `unknown` (no report yet, or cleared). They live on
    the session's own row. The message shows in the tooltip and notifications; progress shows as `42%` on the row. The
-   root record is the session's status; records with an `id` are the session's tasks, under step 8. The binary enforces
+   root record is the session's status; records with an `id` are the session's tasks, under step 7. The binary enforces
    the spec's limits.
 9. **Done means not seen yet.** A turn that ends while its session is out of view shows as done until the session comes
    into view. Since step 3's review the database stores it: `viewedAt` against `statusChangedAt`, so it covers agents
@@ -94,7 +94,7 @@ Other things the tests showed:
 
 10. **State changes of a session out of view notify:** inside VS Code in the focused window, whichever workspace it
     shows, and through the OS when no VS Code window is focused. The Sessions view badge counts sessions blocked,
-    errored, or finished and unseen. Which states, and how, under step 7.
+    errored, or finished and unseen. Which states, and how, under step 6.
 
 ### Runtime
 
@@ -104,7 +104,7 @@ Other things the tests showed:
 12. **Packaging:** a VSIX per platform (linux x64 and arm64 as static binaries, darwin x64 and arm64), built in CI, plus
     a universal one without the binary. Windows through WSL now; native Windows through psmux later.
 13. **tmux 3.2 or newer is required**, with its own server (`-L aggregor`) and its own config shipped in the extension.
-14. **tmux check and one-click install** before a session starts or opens; under step 6.
+14. **tmux check and one-click install** before a session starts or opens; under step 5.
 15. **Lifecycle:** a session's terminal runs
     `tmux -L aggregor new-session -A -s ‹sessionId› -c ‹project› -- aggregor-pty … -- ‹agent›`, for new and reopened
     sessions alike. Closing the tab detaches; Remove Session kills the tmux session; an agent exit marks the session
@@ -236,7 +236,7 @@ a base repository and a base service. The added projects become one list for eve
 9. Drizzle on Effect (`drizzle-orm/effect-sqlite-node`, 1.0.0-rc.5, pinned) defines the tables, builds the queries and
    generates the migrations, one per schema change, even before 0.1.0. It replaces the hand-written `CREATE TABLE`s and
    the `PRAGMA user_version` rebuild.
-10. One project list for every window (2026-11-08): Aggregor is meant for one window. Until step 6, a second window
+10. One project list for every window (2026-11-08): Aggregor is meant for one window. Until step 5, a second window
     shows the same sessions, and opening a running one there would start a second agent on its id.
 
 **Verify:** add and remove projects; start, rename and remove sessions; reload; then read the rows with `sqlite3` and
@@ -273,7 +273,7 @@ The binary is built, tested and packaged; the extension starts running agents th
   - a root report: state, kind, message, progress and title, replaced together as the spec's records are;
     `statusChangedAt` only when the state changes; `hasWorked` from the first `working` on;
   - `clear` with no id, or a full reset (RIS): `unknown`;
-  - reports with an `id`: validated and ignored until step 8;
+  - reports with an `id`: validated and ignored until step 7;
   - on exit: `exited`, keeping the titles.
 - A writer thread takes the latest pending change, so a busy database never holds up the agent's output. State changes
   are written at once, title changes at most every 500 ms.
@@ -354,7 +354,7 @@ row.
    trimmed at both ends; ignore an empty title, Claude's placeholders, or one that is only an id. Dropping the agent's
    own name waits for step 4.
 7. With no terminal in this window, a row shows exited, which covers an agent that died without writing `exited`; with
-   one, `unknown` shows as idle. Step 6 replaces the terminal with the tmux session.
+   one, `unknown` shows as idle. Step 5 replaces the terminal with the tmux session.
 8. The unread rule: a session out of view that goes from working or blocked to done or idle shows done until it comes
    into view. `blocked` and `error` always show as themselves.
 
@@ -402,69 +402,93 @@ and Remove Project took it off; Rename passed the session's id and renamed the r
 exited, and Remove Session took the row off; clicking an exited row resumed the conversation; no warnings or errors in
 the trace log. A window reload ends the agents (their tabs are transient), so they show exited after it.
 
-## Step 4: harnesses from settings
+## Step 4: harnesses from settings, and the picker
 
-**Branch:** `stack/harness-foundation/4/feat/harness-settings`
+**Branch:** `stack/harness-foundation/4/feat/harness-settings-and-picker` (step 5, the picker, folded in)
 
 **Changes:**
 
-- `aggregorApp.harnesses` and `aggregorApp.defaultHarness` in `package.json`, `machine` scope, with the built-ins below
-  as the default value.
-- Domain: `HarnessValueObject`; `HarnessIdValueObject` becomes any settings key; a domain function builds the launch
-  plan from a harness, a session and whether it has worked, filling in `${sessionId}` with the session's id.
-- The terminal infra service wraps the plan in `aggregor-pty`, since the binary and database paths are infrastructure.
+- `aggregorApp.harnesses` (`machine` scope, the built-ins below as its default), `aggregorApp.defaultHarness` (default
+  `claude`) and `aggregorApp.skipHarnessPicker` (default false) in `package.json`.
+- Domain: `HarnessEntity` (identified by its settings key, not a `BaseEntity`) behind `IHarnessRepository`;
+  `HarnessIdValueObject` is any settings key; `HarnessIconValueObject` is a codicon or an image file;
+  `prepareLaunchPlan(harness, session)` returns a `LaunchPlanValueObject`, with `${sessionId}` filled in.
+- `HarnessRepository` decodes the setting, every field optional (`command` and `name` default to the key, `args` to
+  none, `resumeArgs` to `args`, `icon` to `terminal`), at start and on each change of it; an invalid entry is left out
+  with a warning naming its key.
+- The terminal infra service wraps the plan in `aggregor-pty` and gives the tab the harness's icon and the session's
+  name, which `startSessionTabNameSync` keeps equal to the row's: the active tab is renamed at once, a background one
+  when it next comes to the front.
+- The Sessions view keeps the row of the session in front selected, a new session's included, whatever else is clicked
+  in the view.
+- A gear, **Open Settings**, in the Sessions title bar opens the Settings editor at Aggregor's settings.
+- "New Claude Session" is "New Session"; "New Session..." asks for the project, then the harness. The picker lists the
+  harnesses on `PATH` (`IShellCommandInfraService`, plus `PATHEXT` on Windows), searched each time it opens: icon, name,
+  the command as the description, the default first, and a **Set as Default** button that writes
+  `aggregorApp.defaultHarness` to user settings and reorders the list.
+- One harness installed, or `skipHarnessPicker` with the default installed, starts it straight away; none installed
+  fails with an error naming the commands searched for, with **Open Settings**. A presenter can name the setting to
+  open, and the middleware adds the button.
+- A session whose harness is gone shows a warning icon; opening it fails with `HarnessNotFoundError`, with **Open
+  Settings**.
 - Deleted: `services/claudeCodeHarness/`, `harness.infraService.interface.ts`, `harnessInfraServices.layer.ts`,
-  `harness.utils.ts`, `MODEL_ICONS`.
-- `assets/models/` becomes `assets/harnesses/`, with official logos for all five.
+  `harness.utils.ts` (and the `@appUtils` alias with it), `MODEL_ICONS`.
+- `assets/models/` is `assets/harnesses/`: Claude Code's logo, OpenCode's from simple-icons 16.30.0, and Codex's and
+  Antigravity's app icons from lobe-icons 1.102.0.
 
 **Built-ins:**
 
-| Key        | Name           | `args`                       | `resumeArgs`                 |
-| ---------- | -------------- | ---------------------------- | ---------------------------- |
-| `claude`   | Claude Code    | `--session-id ${sessionId}`  | `--resume ${sessionId}`      |
-| `codex`    | Codex          | none                         | `resume` (its picker)        |
-| `agy`      | Antigravity    | none                         | `-c` (most recent)           |
-| `opencode` | OpenCode       | `--session ses_${sessionId}` | `--session ses_${sessionId}` |
-| `copilot`  | GitHub Copilot | `--session-id ${sessionId}`  | `--session-id ${sessionId}`  |
+| Key        | Name           | `args`                       | `resumeArgs`                 | Icon              |
+| ---------- | -------------- | ---------------------------- | ---------------------------- | ----------------- |
+| `claude`   | Claude Code    | `--session-id ${sessionId}`  | `--resume ${sessionId}`      | its logo          |
+| `codex`    | Codex          | none                         | `resume` (its picker)        | its app icon      |
+| `agy`      | Antigravity    | none                         | `-c` (most recent)           | its app icon      |
+| `opencode` | OpenCode       | `--session ses_${sessionId}` | `--session ses_${sessionId}` | its logo          |
+| `copilot`  | GitHub Copilot | `--session-id ${sessionId}`  | `--session-id ${sessionId}`  | codicon `copilot` |
 
 **Decided:**
 
-1. Codex resumes through its picker (`resume`, which lists that folder's sessions) and Antigravity through its most
-   recent conversation (`-c`), since neither takes our id at start.
-2. One title rule for every harness: prefer a 7501 `title` once the agent has sent one; otherwise take the OSC title,
-   drop the harness name, command or project folder name when joined by `-`, `|` or `: ` at either end, trim status
-   marks at both ends, and ignore an empty title, the harness name or an id.
-3. VS Code's merge of an object setting's default with the user's value is checked in this step; if it doesn't merge key
-   by key, `readSettings` merges.
-4. A key whose `command` isn't installed fails in its terminal with the shell's error; the picker hides it.
+1. A harness is an entity, `HarnessEntity`, read through `IHarnessRepository` from the settings; it is no `BaseEntity`,
+   so DDD.md's rule is "every entity stored in the database extends `BaseEntity`" (Agreed 1 said value object).
+2. Building the launch command is a domain rule, `prepareLaunchPlan`, and `LaunchPlan` is a value object again.
+3. VS Code merges the user's entries into the default key by key, and `null` hides one (checked: a renamed built-in kept
+   its other fields). Four flat tables, which the Settings editor edits in place, were tried and dropped: they cluttered
+   Aggregor's settings.
+4. An invalid entry is left out with a warning; a session whose harness is gone fails with `HarnessNotFoundError`.
+5. Icons are a codicon id or an image path, relative ones inside the extension. Codex's and Antigravity's come from
+   lobe-icons, since simple-icons carries neither, Codex's without its white tile; Copilot's is the `copilot` codicon.
+6. One title rule for every harness: prefer a 7501 `title`, else the OSC title; trim status marks; drop the harness
+   name, command or project folder where joined by `-`, `|` or `:` at either end; ignore an empty title, one of those
+   names alone, an id, or a start time (OpenCode's `New session - 2026-11-09T09:26:37.754Z`). Claude's `claude · resume`
+   placeholder no longer appears with `--resume ‹id›`.
+7. Codex resumes through its picker (`resume`) and Antigravity through its most recent conversation (`-c`), since
+   neither takes our id at start. Codex 0.167 still reports `working` for a moment at startup, so a fresh Codex session
+   reopens through the picker; Esc there starts a new one, so it is left as is.
+8. The picker offers what is on `PATH`, through a port, rather than `findAll` leaving out uninstalled harnesses.
+9. **Set as Default** ends the pick and the use case saves the default and shows the picker again, rather than the
+   picker saving while open.
+10. A session's tab shows the row's name; VS Code can rename only the active terminal, so a background tab catches up
+    when it comes to the front.
+11. Open Settings goes from `routes.ts` straight to `@pkg/vscode`, with no controller or service.
+12. The session in front stays selected in the Sessions view; arrow keys still move the tree's focus, and a chosen
+    session row is left selected while its session comes to the front.
 
-**To check when this step starts:** Codex 0.167.0 reports `working` for a moment at startup (seen under `aggregor-pty`
-on 2026-11-08), which sets `hasWorked` before any turn, so reopening a fresh Codex session would use its resume picker.
+**Verified (2026-11-09):** in the headless VS Code: the picker listed the five built-ins with the default first; Set as
+Default wrote the setting and reordered; Claude started under its id and resumed with `--resume ‹id›`; a session from
+before the change (`claude-code`) showed the warning icon; a renamed built-in kept its other fields, `null` hid one, an
+added entry showed, and a broken one was left out with one warning per read of the setting; with every built-in hidden
+and only `pi` installed, it started without the picker; `skipHarnessPicker` started the default straight away; with none
+installed the error named the command searched for. Copilot needed `/login` and Antigravity a sign-in, which the
+headless window can't give, and OpenCode was at its free limit, so their status and titles were not checked end to end.
+After review: the gear opened Aggregor's settings; a fake agent setting two titles renamed its tab with its row while in
+front, a background tab kept its old name until it came to the front, and Rename from the row menu renamed the tab at
+once; a second session of the same agent got its row selected as its tab opened; clicking a project row or empty space
+left the session in front selected, and arrow keys plus Enter still opened another session; the picker showed Codex's
+icon without its tile.
 
-**Verify:** start each of the five from the built-in settings, check status and titles, then kill each one and reopen it
-to check resume. Override a built-in and hide one with `null`.
+## Step 5: tmux sessions
 
-## Step 5: harness picker
-
-**Branch:** `stack/harness-foundation/5/feat/harness-picker`
-
-**Changes:**
-
-- "New Claude Session" becomes "New Session"; "New Session..." keeps asking for the project first.
-- A quick pick of the harnesses found on PATH: icon, name, the command as its description, the default first and
-  preselected, and a "Set as default" button that writes `aggregorApp.defaultHarness` to user settings.
-- `aggregorApp.skipHarnessPicker` starts the default straight away.
-- No harness on PATH: an error naming the commands looked for, with **Open Settings**.
-
-**Decided:** commands are found by searching `PATH` in the extension host (plus `PATHEXT` on Windows) each time the
-picker opens, so a newly installed CLI shows up without a reload.
-
-**Verify:** one harness on PATH skips the picker; several show it; Set as default reorders; the skip setting goes
-straight to the default.
-
-## Step 6: tmux sessions
-
-**Branch:** `stack/harness-foundation/6/feat/tmux-sessions`
+**Branch:** `stack/harness-foundation/5/feat/tmux-sessions`
 
 **Changes:**
 
@@ -495,9 +519,9 @@ straight to the default.
 `tmux -L aggregor kill-server` marks every session exited and opening one resumes it; start VS Code with tmux left off
 `PATH` to check the install flow.
 
-## Step 7: session alerts
+## Step 6: session alerts
 
-**Branch:** `stack/harness-foundation/7/feat/session-alerts`
+**Branch:** `stack/harness-foundation/6/feat/session-alerts`
 
 **Changes:**
 
@@ -549,9 +573,9 @@ Homebrew install) or a notification crate inside `aggregor-pty`.
 **Verify:** a permission prompt in a session out of view raises the notification in the window, and **Open** attaches
 the session there; with VS Code unfocused, one OS notification appears; Antigravity's startup auth raises nothing.
 
-## Step 8: session tasks
+## Step 7: session tasks
 
-**Branch:** `stack/harness-foundation/8/feat/session-tasks`
+**Branch:** `stack/harness-foundation/7/feat/session-tasks`
 
 A session row lists what runs inside it: every OSC 7501 record with an `id`, which Claude Code sends for each running
 subagent.
@@ -576,7 +600,7 @@ subagent.
    session's own title) and clears it after each turn. Recommended: hide a task whose title is its session's agent
    title, a rule for every harness rather than a special case for OpenCode.
 2. Whether tasks alert. The spec lets a blocked task sit under a root that still says `working`. Recommended: a blocked
-   or errored task raises the step 7 notification ("‹session› › ‹task› needs approval: ‹msg›"), counts in the badge, and
+   or errored task raises the step 6 notification ("‹session› › ‹task› needs approval: ‹msg›"), counts in the badge, and
    shows its session as blocked; working and done tasks only show as rows.
 3. Expanded or collapsed. Recommended: a session expands while any of its tasks works or is blocked, and collapses again
    when the last one clears.

@@ -23,22 +23,22 @@
     "publish:vsce": "vsce publish --no-dependencies --skip-license"
   },
   "dependencies": {
-    "@effect/platform-node": "4.1.2",
-    "@effect/sql-sqlite-node": "4.1.2",
+    "@effect/platform-node": "catalog:",
+    "@effect/sql-sqlite-node": "catalog:",
     "@pkg/constants": "workspace:*",
     "@pkg/typings": "workspace:*",
     "@pkg/vscode": "workspace:*",
-    "drizzle-orm": "1.0.0-rc.5",
-    "effect": "4.1.2"
+    "drizzle-orm": "catalog:",
+    "effect": "catalog:"
   },
   "devDependencies": {
     "@pkg/tsconfigs": "workspace:*",
-    "@types/node": "26.6.6",
+    "@types/node": "catalog:",
     "@types/vscode": "1.145.0",
-    "@vscode/vsce": "4.1.0",
-    "drizzle-kit": "1.0.0-rc.5",
-    "npm-run-all2": "9.0.4",
-    "vite": "8.3.6"
+    "@vscode/vsce": "catalog:",
+    "drizzle-kit": "catalog:",
+    "npm-run-all2": "catalog:",
+    "vite": "catalog:"
   },
   "publisher": "SalmanAfzal",
   "activationEvents": [
@@ -57,6 +57,110 @@
           "type": "boolean",
           "default": false,
           "description": "Commit the staged changes right after generating the commit message."
+        },
+        "aggregorApp.harnesses": {
+          "type": "object",
+          "scope": "machine",
+          "default": {
+            "claude": {
+              "name": "Claude Code",
+              "args": [
+                "--session-id",
+                "${sessionId}"
+              ],
+              "resumeArgs": [
+                "--resume",
+                "${sessionId}"
+              ],
+              "icon": "assets/harnesses/claude.svg"
+            },
+            "codex": {
+              "name": "Codex",
+              "args": [],
+              "resumeArgs": [
+                "resume"
+              ],
+              "icon": "assets/harnesses/codex.svg"
+            },
+            "agy": {
+              "name": "Antigravity",
+              "args": [],
+              "resumeArgs": [
+                "-c"
+              ],
+              "icon": "assets/harnesses/antigravity.svg"
+            },
+            "opencode": {
+              "name": "OpenCode",
+              "args": [
+                "--session",
+                "ses_${sessionId}"
+              ],
+              "resumeArgs": [
+                "--session",
+                "ses_${sessionId}"
+              ],
+              "icon": "assets/harnesses/opencode.svg"
+            },
+            "copilot": {
+              "name": "GitHub Copilot",
+              "args": [
+                "--session-id",
+                "${sessionId}"
+              ],
+              "resumeArgs": [
+                "--session-id",
+                "${sessionId}"
+              ],
+              "icon": "copilot"
+            }
+          },
+          "additionalProperties": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Shown in the picker. Defaults to the key."
+              },
+              "command": {
+                "type": "string",
+                "description": "The CLI to run. Defaults to the key."
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Arguments for a new session. ${sessionId} is the session's id."
+              },
+              "resumeArgs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Arguments to reopen a session that has worked. Defaults to args."
+              },
+              "icon": {
+                "type": "string",
+                "description": "A codicon id, or the path of an SVG or PNG file."
+              }
+            }
+          },
+          "markdownDescription": "The agent CLIs a session can run, keyed by command name. Your entries merge with the built-ins: change a field of one, add your own, or set one to `null` to hide it. Only user settings can define them."
+        },
+        "aggregorApp.defaultHarness": {
+          "type": "string",
+          "default": "claude",
+          "markdownDescription": "The key in `#aggregorApp.harnesses#` that New Session lists first and selects."
+        },
+        "aggregorApp.skipHarnessPicker": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Start `#aggregorApp.defaultHarness#` straight away instead of asking which agent to use."
         }
       }
     },
@@ -89,6 +193,11 @@
         {
           "command": "aggregorApp.addProject",
           "group": "navigation@2",
+          "when": "view == aggregorApp.sessions"
+        },
+        {
+          "command": "aggregorApp.openSettings",
+          "group": "navigation@3",
           "when": "view == aggregorApp.sessions"
         },
         {
@@ -186,7 +295,7 @@
         }
       },
       {
-        "title": "New Claude Session",
+        "title": "New Session",
         "command": "aggregorApp.newSessionInChosenProject",
         "category": "Aggregor App",
         "icon": "$(add)"
@@ -227,6 +336,12 @@
       {
         "title": "Rename",
         "command": "aggregorApp.renameSession"
+      },
+      {
+        "title": "Open Settings",
+        "command": "aggregorApp.openSettings",
+        "category": "Aggregor App",
+        "icon": "$(gear)"
       }
     ]
   },

@@ -13,4 +13,4 @@ export type TerminalDependencies = {
   readonly databaseFilePath: string;
   readonly ptyBinaryPath: Result.Result<string, PtyBinaryNotFoundError>;
   readonly sessionTerminals: SessionTerminalsReference;
-} & Pick<VsCodeApi["Service"], "commands" | "TabInputTerminal" | "Uri" | "ViewColumn" | "window">;
+} & Pick<VsCodeApi["Service"], "commands" | "TabInputTerminal" | "ThemeIcon" | "Uri" | "ViewColumn" | "window">;

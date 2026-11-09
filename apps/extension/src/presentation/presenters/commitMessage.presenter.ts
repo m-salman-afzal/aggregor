@@ -10,17 +10,17 @@ type CommitMessageCommandError = Effect.Error<ReturnType<typeof generateCommitMe
 export const presentCommitMessageCommandError = Effect.fn("CommitMessagePresenter.presentCommitMessageCommandError")(
   function* (commitMessageCommandError: CommitMessageCommandError) {
     return Match.valueTags(commitMessageCommandError, {
-      CommitCliError: ({exitCode, stderr}) => COMMIT_MESSAGE_ERRORS.COMMIT_CLI_FAILED(exitCode, stderr),
-      CommitCliSpawnFailedError: ({reason}) => COMMIT_MESSAGE_ERRORS.CLAUDE_CLI_FAILED(reason),
-      CommitFailedError: () => COMMIT_MESSAGE_ERRORS.COMMIT_FAILED,
-      EmptyCommitMessageError: () => COMMIT_MESSAGE_ERRORS.EMPTY_COMMIT_MESSAGE,
-      GitDiffError: () => COMMIT_MESSAGE_ERRORS.GIT_DIFF_FAILED,
-      GitExtensionDisabledError: () => COMMIT_MESSAGE_ERRORS.GIT_EXTENSION_DISABLED,
-      GitExtensionUnavailableError: () => COMMIT_MESSAGE_ERRORS.GIT_EXTENSION_UNAVAILABLE,
-      GitRepositoryUnavailableError: () => COMMIT_MESSAGE_ERRORS.GIT_REPOSITORY_UNAVAILABLE,
-      InvalidSettingsError: ({reason}) => COMMIT_MESSAGE_ERRORS.INVALID_SETTINGS(reason),
-      NothingStagedError: () => COMMIT_MESSAGE_ERRORS.NOTHING_STAGED,
-      SourceControlRootNotFoundError: () => COMMIT_MESSAGE_ERRORS.SOURCE_CONTROL_ROOT_NOT_FOUND
+      CommitCliError: ({exitCode, stderr}) => ({message: COMMIT_MESSAGE_ERRORS.COMMIT_CLI_FAILED(exitCode, stderr)}),
+      CommitCliSpawnFailedError: ({reason}) => ({message: COMMIT_MESSAGE_ERRORS.CLAUDE_CLI_FAILED(reason)}),
+      CommitFailedError: () => ({message: COMMIT_MESSAGE_ERRORS.COMMIT_FAILED}),
+      EmptyCommitMessageError: () => ({message: COMMIT_MESSAGE_ERRORS.EMPTY_COMMIT_MESSAGE}),
+      GitDiffError: () => ({message: COMMIT_MESSAGE_ERRORS.GIT_DIFF_FAILED}),
+      GitExtensionDisabledError: () => ({message: COMMIT_MESSAGE_ERRORS.GIT_EXTENSION_DISABLED}),
+      GitExtensionUnavailableError: () => ({message: COMMIT_MESSAGE_ERRORS.GIT_EXTENSION_UNAVAILABLE}),
+      GitRepositoryUnavailableError: () => ({message: COMMIT_MESSAGE_ERRORS.GIT_REPOSITORY_UNAVAILABLE}),
+      InvalidSettingsError: ({reason}) => ({message: COMMIT_MESSAGE_ERRORS.INVALID_SETTINGS(reason)}),
+      NothingStagedError: () => ({message: COMMIT_MESSAGE_ERRORS.NOTHING_STAGED}),
+      SourceControlRootNotFoundError: () => ({message: COMMIT_MESSAGE_ERRORS.SOURCE_CONTROL_ROOT_NOT_FOUND})
     });
   }
 );

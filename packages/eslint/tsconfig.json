@@ -1,0 +1,13 @@
+{
+  "extends": "@pkg/tsconfigs/tsconfig.node.json",
+
+  "compilerOptions": {
+    // base
+    "types": ["node"],
+
+    // building: node loads these config files as they are, so nothing is built and no build info is kept
+    "composite": false,
+    "incremental": false
+  },
+  "include": ["**/*.ts"]
+}

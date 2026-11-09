@@ -1,17 +1,21 @@
-import {withHarnessInfraService} from "@appUtils/harness.utils.ts";
 import {
   getDefaultSessionName,
   getSessionStatus,
   getSessionTitleToSave,
-  isSessionTurnRunning
+  isSessionTurnRunning,
+  prepareLaunchPlan
 } from "@domainServices/session.domainService.ts";
+import {HarnessListItemDtoSchema} from "@dtos/harness.dto.ts";
 import {SessionListChangeDtoSchema, SessionListItemDtoSchema} from "@dtos/session.dto.ts";
+import {HarnessNotFoundError, IHarnessRepository} from "@entities/harness/harness.repository.interface.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
-import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
+import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
+import {IShellCommandInfraService} from "@interfaces/shellCommand.infraService.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
+import {HARNESS_LABELS} from "@pkg/constants/src/harness.constant.ts";
 import {SESSION_LABELS, SESSION_NOTICES} from "@pkg/constants/src/session.constant.ts";
 import {addEntity, findEntities, findEntityById, removeEntity, updateEntity} from "@services/base.service.ts";
 import {findOrAddProject, findProjectListItem, pickProject} from "@services/project.service.ts";
@@ -29,10 +33,18 @@ import type {
   RenameSessionRequestDto,
   SessionListChangeDto
 } from "@dtos/session.dto.ts";
+import type {HarnessEntity} from "@entities/harness/harness.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {TerminalLaunchRequest} from "@interfaces/terminal.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import type {HarnessIdValueObject} from "@valueObjects/harnessId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+
+// None of the harnesses' commands is on PATH.
+export class NoHarnessInstalledError extends Schema.TaggedError<
+  NoHarnessInstalledError,
+  {readonly brand: unique symbol}
+>()("NoHarnessInstalledError", {searchedCommands: Schema.Array(Schema.String)}) {}
 
 class RemoveCancelledError extends Schema.TaggedError<RemoveCancelledError, {readonly brand: unique symbol}>()(
   "RemoveCancelledError",
@@ -57,37 +69,39 @@ export const findSession = Effect.fn("SessionService.findSession")(
     Effect.catchTag(effect, "EntityNotFoundError", () => Effect.fail(SessionNotFoundError.make({sessionId})))
 );
 
-const addSession = Effect.fn("SessionService.addSession")(function* (sessionProject: ProjectListItemDto) {
+const addSession = Effect.fn("SessionService.addSession")(function* (
+  sessionProject: ProjectListItemDto,
+  sessionHarness: HarnessEntity
+) {
   const project = yield* findOrAddProject(sessionProject.path);
   const storedSessions = yield* findEntities(ISessionRepository, {});
 
   return yield* addEntity(ISessionRepository, {
-    harnessId: "claude-code",
+    harnessId: sessionHarness.id,
     name: yield* getDefaultSessionName(sessionProject.name, storedSessions),
     projectId: project.id
   });
 });
 
+// The tab shows the session's name, as its row does.
 const prepareTerminalLaunchRequest = Effect.fn("SessionService.prepareTerminalLaunchRequest")(function* (
-  session: SessionEntity,
-  tabName: string | undefined
+  session: SessionEntity
 ) {
-  const harnessInfraService = yield* IHarnessInfraService;
+  const sessionHarness = yield* IHarnessRepository.use((harnessRepository) =>
+    harnessRepository.findById(session.harnessId)
+  );
+  const launchPlan = yield* prepareLaunchPlan(sessionHarness, session);
   const terminalLaunchRequest: TerminalLaunchRequest = {
-    iconPath: harnessInfraService.iconPath,
-    launchPlan: yield* harnessInfraService.prepareLaunchPlan(session),
-    tabName
+    icon: sessionHarness.icon,
+    launchPlan,
+    tabName: session.displayName
   };
 
   return terminalLaunchRequest;
 });
 
-// Only a session the user named gets a tab name; the others' tabs show the agent's own title.
 const openSessionTerminal = Effect.fn("SessionService.openSessionTerminal")(function* (session: SessionEntity) {
-  const terminalLaunchRequest = yield* withHarnessInfraService(
-    session.harnessId,
-    prepareTerminalLaunchRequest(session, session.customName)
-  );
+  const terminalLaunchRequest = yield* prepareTerminalLaunchRequest(session);
 
   yield* ITerminalInfraService.use((terminalInfraService) =>
     terminalInfraService.openSessionTerminal(session, terminalLaunchRequest)
@@ -102,6 +116,86 @@ const openNewSessionTerminal = Effect.fn("SessionService.openNewSessionTerminal"
   (effect, addedSession) => Effect.tapError(effect, () => removeEntity(ISessionRepository, addedSession.id))
 );
 
+// The harnesses whose command is on PATH; the others can't start.
+const listInstalledHarnesses = Effect.fn("SessionService.listInstalledHarnesses")(function* () {
+  const harnesses = yield* IHarnessRepository.use((harnessRepository) => harnessRepository.findAll);
+  const harnessCommands = Array.map(harnesses, (harness) => harness.command);
+  const installedCommands = yield* IShellCommandInfraService.use((shellCommandInfraService) =>
+    shellCommandInfraService.listInstalledCommands(harnessCommands)
+  );
+  const installedHarnesses = Array.filter(harnesses, (harness) => installedCommands.has(harness.command));
+  if (installedHarnesses.length === 0) return yield* NoHarnessInstalledError.make({searchedCommands: harnessCommands});
+
+  return installedHarnesses;
+});
+
+// The default first, as the picker shows them.
+const toHarnessListItems = Effect.fn("SessionService.toHarnessListItems")(function* (
+  installedHarnesses: readonly HarnessEntity[],
+  defaultHarnessId: HarnessIdValueObject
+) {
+  const harnessListItems = Array.map(installedHarnesses, (installedHarness) =>
+    HarnessListItemDtoSchema.make({
+      command: installedHarness.command,
+      harnessId: installedHarness.id,
+      icon: installedHarness.icon,
+      isDefault: installedHarness.id === defaultHarnessId,
+      name: installedHarness.name
+    })
+  );
+
+  return [
+    ...Array.filter(harnessListItems, (harnessListItem) => harnessListItem.isDefault),
+    ...Array.filter(harnessListItems, (harnessListItem) => !harnessListItem.isDefault)
+  ];
+});
+
+const findInstalledHarness = Effect.fn("SessionService.findInstalledHarness")(function* (
+  installedHarnesses: readonly HarnessEntity[],
+  harnessId: HarnessIdValueObject
+) {
+  return yield* Effect.fromResult(
+    Result.fromOption(
+      Array.findFirst(installedHarnesses, (installedHarness) => installedHarness.id === harnessId),
+      () => HarnessNotFoundError.make({harnessId})
+    )
+  );
+});
+
+// Choosing another default saves it to the user's settings and shows the list again, reordered.
+const pickHarness = Effect.fn("SessionService.pickHarness")(function* (
+  installedHarnesses: readonly HarnessEntity[],
+  savedDefaultHarnessId: HarnessIdValueObject
+) {
+  let defaultHarnessId = savedDefaultHarnessId;
+  for (;;) {
+    const harnessListItems = yield* toHarnessListItems(installedHarnesses, defaultHarnessId);
+    const harnessPick = yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
+      userInputPromptInfraService.pickHarness(harnessListItems, HARNESS_LABELS.PICK)
+    );
+    if (harnessPick._tag === "HarnessPicked")
+      return yield* findInstalledHarness(installedHarnesses, harnessPick.harnessId);
+    yield* ISettingsConfig.use((settingsConfig) => settingsConfig.saveDefaultHarnessId(harnessPick.harnessId));
+    defaultHarnessId = harnessPick.harnessId;
+  }
+});
+
+// The only installed harness starts straight away, and so does the default when the user asked to skip the picker. A
+// default that isn't installed leaves the choice to the picker.
+const chooseHarness = Effect.fn("SessionService.chooseHarness")(function* () {
+  const {defaultHarnessId, skipHarnessPicker} = yield* ISettingsConfig.use(
+    (settingsConfig) => settingsConfig.readSessionSettings
+  );
+  const installedHarnesses = yield* listInstalledHarnesses();
+  const [onlyInstalledHarness] = installedHarnesses;
+  if (installedHarnesses.length === 1 && onlyInstalledHarness !== undefined) return onlyInstalledHarness;
+  const defaultHarnessResult = yield* Effect.result(findInstalledHarness(installedHarnesses, defaultHarnessId));
+  if (skipHarnessPicker && Result.isSuccess(defaultHarnessResult)) return defaultHarnessResult.success;
+
+  return yield* pickHarness(installedHarnesses, defaultHarnessId);
+});
+
+// The project first, then the agent.
 const startSession = Effect.fn("SessionService.startSession")(function* (
   chosenProjectPath: ProjectPathValueObject | undefined
 ) {
@@ -109,8 +203,9 @@ const startSession = Effect.fn("SessionService.startSession")(function* (
     chosenProjectPath === undefined
       ? yield* pickProject(SESSION_LABELS.PICK_PROJECT)
       : yield* findProjectListItem(chosenProjectPath);
+  const sessionHarness = yield* chooseHarness();
 
-  const addedSession = yield* addSession(sessionProject);
+  const addedSession = yield* addSession(sessionProject, sessionHarness);
   yield* openNewSessionTerminal(addedSession);
 });
 
@@ -159,7 +254,11 @@ export const newSession = Effect.fn("SessionService.newSession")(
   function* (request: NewSessionRequestDto) {
     yield* startSession(request.projectPath);
   },
-  Effect.catchTags({ProjectNotListedError: () => Effect.void, ProjectPickCancelledError: () => Effect.void})
+  Effect.catchTags({
+    HarnessPickCancelledError: () => Effect.void,
+    ProjectNotListedError: () => Effect.void,
+    ProjectPickCancelledError: () => Effect.void
+  })
 );
 
 // Focuses the session's tab, or relaunches its agent when the tab is gone, on the same conversation once it has one.
@@ -181,8 +280,8 @@ export const removeSession = Effect.fn("SessionService.removeSession")(
   Effect.catchTags({RemoveCancelledError: () => Effect.void, SessionNotFoundError: () => Effect.void})
 );
 
-// The user's name for the session wins over the agent's title in the row and the tab. An empty name hands both back to
-// the agent; the open tab keeps the agent's last title until it reopens, since VS Code cannot unname a tab.
+// The user's name for the session wins over the agent's title in the row and the tab, which the tab name sync follows. An
+// empty name hands both back to the agent.
 export const renameSession = Effect.fn("SessionService.renameSession")(
   function* (request: RenameSessionRequestDto) {
     const session = yield* findSession(request.sessionId);
@@ -193,9 +292,6 @@ export const renameSession = Effect.fn("SessionService.renameSession")(
     const customName = trimmedName === "" ? undefined : trimmedName;
 
     yield* updateEntity(ISessionRepository, session.id, {customName});
-    yield* ITerminalInfraService.use((terminalInfraService) =>
-      terminalInfraService.renameSessionTerminal(session.id, customName === undefined ? session.name : customName)
-    );
   },
   Effect.catchTags({
     EntityNotFoundError: () => Effect.void,
@@ -204,7 +300,8 @@ export const renameSession = Effect.fn("SessionService.renameSession")(
   })
 );
 
-// The kind of wait and the progress go only with a running turn, and the message only with a running agent.
+// The kind of wait and the progress go only with a running turn, and the message only with a running agent. A session
+// whose harness is gone from the settings has no icon.
 const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function* (session: SessionEntity) {
   const terminalInfraService = yield* ITerminalInfraService;
   const path = yield* Path;
@@ -213,14 +310,13 @@ const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function
   const isInView = Result.getOrUndefined(viewedSessionIdResult) === session.id;
   const status = yield* getSessionStatus(session, {hasOpenTerminal, isInView});
   const isTurnRunning = yield* isSessionTurnRunning(status);
-  const iconPath = yield* withHarnessInfraService(
-    session.harnessId,
-    IHarnessInfraService.useSync((harnessInfraService) => harnessInfraService.iconPath)
+  const harnessResult = yield* Effect.result(
+    IHarnessRepository.use((harnessRepository) => harnessRepository.findById(session.harnessId))
   );
 
   return SessionListItemDtoSchema.make({
     displayName: session.displayName,
-    iconPath,
+    icon: Result.getOrUndefined(Result.map(harnessResult, (sessionHarness) => sessionHarness.icon)),
     name: session.name,
     projectName: path.basename(session.projectPath),
     projectPath: session.projectPath,
@@ -285,22 +381,29 @@ export const watchSessionListChanges = Effect.fn("SessionService.watchSessionLis
   return Stream.mergeAll(sessionListChangeSources, {concurrency: "unbounded"});
 });
 
-// The session whose tab became active, while it is still a session.
-export const watchActivatedSessionIds = Effect.fn("SessionService.watchActivatedSessionIds")(function* () {
-  const {activatedSessionIds} = yield* ITerminalInfraService;
+// The session whose tab is in front of the user, each time another one comes to the front. No session in front (another
+// tab, or the window unfocused) emits nothing.
+export const watchViewedSessionIds = Effect.fn("SessionService.watchViewedSessionIds")(function* () {
+  const {viewedSessionId} = yield* ITerminalInfraService;
 
-  return Stream.filterEffect(activatedSessionIds, (sessionId) =>
-    Effect.map(Effect.result(findSession(sessionId)), Result.isSuccess)
-  );
+  return Stream.filterMap(SubscriptionRef.changes(viewedSessionId), (viewedSessionIdResult) => viewedSessionIdResult);
+});
+
+// The session whose tab is in front of the user, or NoViewedSessionError when none is.
+export const findViewedSessionId = Effect.fn("SessionService.findViewedSessionId")(function* () {
+  const {viewedSessionId} = yield* ITerminalInfraService;
+  const viewedSessionIdResult = yield* SubscriptionRef.get(viewedSessionId);
+
+  return yield* Effect.fromResult(viewedSessionIdResult);
 });
 
 const findSessionTitleToSave = Effect.fn("SessionService.findSessionTitleToSave")(function* (session: SessionEntity) {
-  const {placeholderTitles} = yield* withHarnessInfraService(
-    session.harnessId,
-    IHarnessInfraService.useSync((harnessInfraService) => harnessInfraService)
+  const path = yield* Path;
+  const sessionHarness = yield* IHarnessRepository.use((harnessRepository) =>
+    harnessRepository.findById(session.harnessId)
   );
 
-  return yield* getSessionTitleToSave(session, placeholderTitles);
+  return yield* getSessionTitleToSave(session, sessionHarness, path.basename(session.projectPath));
 });
 
 // Nothing shows the failure: no command started this, so it is logged.
@@ -331,6 +434,41 @@ export const startSessionTitleSync = Effect.fn("SessionService.startSessionTitle
             onSuccess: (sessionTitle) => saveSessionTitle(writtenSession, sessionTitle)
           })
       )
+    )
+  );
+});
+
+// The written session, or the one whose tab came to the front. Nothing shows the failure: no command started this, so it
+// is logged; a removed session has no tab to name.
+const nameSessionTab = Effect.fn("SessionService.nameSessionTab")(
+  function* (writtenOrActivatedSession: EntityIdValueObject | SessionEntity) {
+    const session = Predicate.isString(writtenOrActivatedSession)
+      ? yield* findSession(writtenOrActivatedSession)
+      : writtenOrActivatedSession;
+
+    yield* ITerminalInfraService.use((terminalInfraService) =>
+      terminalInfraService.nameActiveSessionTab(session.id, session.displayName)
+    );
+  },
+  Effect.catchTag("SessionNotFoundError", () => Effect.void),
+  Effect.catch((readError) => Effect.logWarning("Could not name the session's tab", readError))
+);
+
+// For the window's whole life, each session's tab shows the name its row shows. VS Code renames only the active
+// terminal, so the tab follows a new name at once when it is in front, else when it next comes to the front. The check
+// runs on every write to a session, so it is untraced; only a rename shows in the trace.
+export const startSessionTabNameSync = Effect.fn("SessionService.startSessionTabNameSync")(function* () {
+  const {entityChanges} = yield* ISessionRepository;
+  const {activatedSessionIds} = yield* ITerminalInfraService;
+  const writtenSessions = Stream.map(
+    Stream.filter(entityChanges, ({kind}) => kind !== "removed"),
+    ({entity}) => entity
+  );
+  const writtenOrActivatedSessions = Stream.merge(writtenSessions, activatedSessionIds);
+
+  yield* Effect.forkScoped(
+    Stream.runForEach(writtenOrActivatedSessions, (writtenOrActivatedSession) =>
+      Effect.withTracerEnabled(nameSessionTab(writtenOrActivatedSession), false)
     )
   );
 });

@@ -1,6 +1,6 @@
 import {APP_NAME} from "@pkg/constants/src/app.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {acquireDisposable} from "@pkg/vscode/src/vscode.utils.ts";
+import {acquireScopedDisposable} from "@pkg/vscode/src/vscode.utils.ts";
 import {Array, Cause, Effect, Exit, Layer, Logger, Predicate, References, Result, Tracer} from "effect";
 import {format} from "node:util";
 
@@ -82,7 +82,7 @@ const makeOutputChannelLogger = Effect.fn("TraceLog.makeOutputChannelLogger")(fu
 
 const makeTraceLog = Effect.fn("TraceLog.make")(function* () {
   const {window} = yield* VsCodeApi;
-  const outputChannel = yield* acquireDisposable(() => window.createOutputChannel(APP_NAME, {log: true}));
+  const outputChannel = yield* acquireScopedDisposable(() => window.createOutputChannel(APP_NAME, {log: true}));
   const outputChannelLogger = yield* makeOutputChannelLogger(outputChannel);
   const spanLineTracer = yield* makeSpanLineTracer(outputChannel);
 

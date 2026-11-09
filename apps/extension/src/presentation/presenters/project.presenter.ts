@@ -14,9 +14,9 @@ export const presentProjectCommandError = Effect.fn("ProjectPresenter.presentPro
   projectCommandError: ProjectCommandError
 ) {
   return Match.valueTags(projectCommandError, {
-    DatabaseReadError: () => DATABASE_ERRORS.READ_FAILED,
-    DatabaseWriteError: () => DATABASE_ERRORS.WRITE_FAILED,
-    NoProjectError: () => TERMINAL_ERRORS.PROJECT_REQUIRED,
-    TerminalLaunchFailedError: () => TERMINAL_ERRORS.LAUNCH_FAILED
+    DatabaseReadError: () => ({message: DATABASE_ERRORS.READ_FAILED}),
+    DatabaseWriteError: () => ({message: DATABASE_ERRORS.WRITE_FAILED}),
+    NoProjectError: () => ({message: TERMINAL_ERRORS.PROJECT_REQUIRED}),
+    TerminalLaunchFailedError: () => ({message: TERMINAL_ERRORS.LAUNCH_FAILED})
   });
 });

@@ -9,6 +9,7 @@ import {
 import {decodeVsCodeArgument} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
 import {decodeProjectNodeRequest, decodeSessionNodeRequest} from "@presentationUtils/sessionsTreeNode.utils.ts";
 import {
+  findViewedSessionId,
   getSessionListItem,
   listProjectSessionIds,
   listWorkingSessionIds,
@@ -16,8 +17,8 @@ import {
   openSession,
   removeSession,
   renameSession,
-  watchActivatedSessionIds,
-  watchSessionListChanges
+  watchSessionListChanges,
+  watchViewedSessionIds
 } from "@services/session.service.ts";
 import {Effect} from "effect";
 
@@ -86,8 +87,14 @@ export const watchSessionListChangesForSessionsView = Effect.fn(
   return yield* watchSessionListChanges();
 });
 
-export const watchActivatedSessionIdsForSessionsView = Effect.fn(
-  "SessionController.watchActivatedSessionIdsForSessionsView"
-)(function* () {
-  return yield* watchActivatedSessionIds();
-});
+export const watchViewedSessionIdsForSessionsView = Effect.fn("SessionController.watchViewedSessionIdsForSessionsView")(
+  function* () {
+    return yield* watchViewedSessionIds();
+  }
+);
+
+export const findViewedSessionIdForSessionsView = Effect.fn("SessionController.findViewedSessionIdForSessionsView")(
+  function* () {
+    return yield* findViewedSessionId();
+  }
+);

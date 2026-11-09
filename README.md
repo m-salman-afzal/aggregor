@@ -1,13 +1,13 @@
 # aggregor
 
-Run coding agents (Claude Code, later Gemini, OpenCode and Codex) in their own terminal UIs, managed from a VS Code
-sidebar. The idea behind T3 Code, Conductor and Orca, built on what VS Code already has: terminals, tree views, Source
-Control and diffs.
+Run coding agents (Claude Code, Codex, Antigravity, OpenCode, GitHub Copilot, or any CLI you add) in their own terminal
+UIs, managed from a VS Code sidebar. The idea behind T3 Code, Conductor and Orca, built on what VS Code already has:
+terminals, tree views, Source Control and diffs.
 
 ## What works today
 
 - **Sessions sidebar.** The Sessions activity-bar view lists the window's projects, each with its sessions, and starts
-  Claude Code in an editor-tab terminal. Clicking a session focuses its tab; switching tabs selects the session.
+  an agent in an editor-tab terminal. Clicking a session focuses its tab; switching tabs selects the session.
 - **Projects.** The window's workspace folders are always listed; Add Project lists any other folder, and in a window
   showing no project it also shows the first one. Added projects are one list, kept for every window: Aggregor is meant
   to run in one window. A project row's + starts a session in it, the view's + asks which project to use, and an added
@@ -19,6 +19,12 @@ Control and diffs.
   restarts the extensions once; open session tabs keep running, and the folders that leave become added projects. It
   then offers once to save the workspace, which names it Aggregor instead of Untitled and stops the save question when
   the window closes.
+- **Agents.** New Session asks which agent to start, among those whose command is on `PATH`, with your default first;
+  each one's **Set as Default** button changes the default, and `aggregorApp.skipHarnessPicker` starts the default
+  without asking. Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot are built in. `aggregorApp.harnesses` in
+  your user settings adds a CLI, changes a built-in's name, command, arguments or icon, or hides one with `null`; the
+  gear in the Sessions title bar opens Aggregor's settings. A session's tab shows the same name as its row, and the
+  session in front stays selected in the view.
 - **Terminals.** The Terminal panel's + opens in the shown project without asking. Its project button opens a shell in
   any of the window's projects, shown or not.
 - **Persistent sessions.** Sessions survive reloads and restarts, and every window that lists their project shows them.
@@ -39,7 +45,7 @@ Control and diffs.
 
 Each item is one small PR, stacked on the previous one. Releases wait for the end of a milestone.
 
-[phase2.md](phase2.md) plans the next stack step by step: agents from settings, status from OSC 7501, SQLite storage,
+[phase2.md](phase2.md) plans the next stack step by step: SQLite storage, status from OSC 7501, agents from settings,
 tmux and alerts.
 
 ### M1: local Claude sessions
@@ -73,9 +79,8 @@ tmux and alerts.
 
 ### M4: more agents
 
-- [ ] Gemini CLI
-- [ ] OpenCode
-- [ ] Codex
+- [x] Agents from settings: Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot built in, any other CLI one
+      settings entry, and a picker on New Session
 
 ### Later
 

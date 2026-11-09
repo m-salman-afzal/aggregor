@@ -10,6 +10,19 @@ export interface EntityChange<Entity> {
   readonly kind: "added" | "removed" | "updated";
 }
 
+export class DatabaseReadError extends Schema.TaggedError<DatabaseReadError, {readonly brand: unique symbol}>()(
+  "DatabaseReadError",
+  {cause: Schema.Unknown}
+) {}
+export class DatabaseWriteError extends Schema.TaggedError<DatabaseWriteError, {readonly brand: unique symbol}>()(
+  "DatabaseWriteError",
+  {cause: Schema.Unknown}
+) {}
+export class EntityNotFoundError extends Schema.TaggedError<EntityNotFoundError, {readonly brand: unique symbol}>()(
+  "EntityNotFoundError",
+  {entityId: EntityIdValueObjectSchema}
+) {}
+
 export interface IBaseRepository<Entity, AddRequest> {
   readonly add: (addRequest: AddRequest) => Effect.Effect<Entity, DatabaseReadError | DatabaseWriteError>;
   // Each write to the table, from this window at once and from aggregor-pty or another window within a poll.
@@ -23,16 +36,3 @@ export interface IBaseRepository<Entity, AddRequest> {
   ) => Effect.Effect<void, DatabaseWriteError | EntityNotFoundError>;
   readonly upsert: (addRequest: AddRequest) => Effect.Effect<Entity, DatabaseReadError | DatabaseWriteError>;
 }
-
-export class DatabaseReadError extends Schema.TaggedError<DatabaseReadError, {readonly brand: unique symbol}>()(
-  "DatabaseReadError",
-  {cause: Schema.Unknown}
-) {}
-export class DatabaseWriteError extends Schema.TaggedError<DatabaseWriteError, {readonly brand: unique symbol}>()(
-  "DatabaseWriteError",
-  {cause: Schema.Unknown}
-) {}
-export class EntityNotFoundError extends Schema.TaggedError<EntityNotFoundError, {readonly brand: unique symbol}>()(
-  "EntityNotFoundError",
-  {entityId: EntityIdValueObjectSchema}
-) {}
