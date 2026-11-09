@@ -7,7 +7,6 @@ packages:
 
 allowBuilds:
   "@vscode/vsce-sign": true
-  esbuild: true
   unrs-resolver: true
 
 savePrefix: ""
@@ -25,8 +24,8 @@ catalog:
   "@typescript/native": "npm:typescript@7.0.2"
   "@vscode/vsce": 4.1.0
   bumpp: 12.3.0
-  drizzle-kit: 1.0.0-rc.5-ab785fc
-  drizzle-orm: 1.0.0-rc.5-ab785fc
+  drizzle-kit: 1.0.0-rc.5
+  drizzle-orm: 1.0.0-rc.5
   effect: 4.1.2
   eslint: 10.14.0
   eslint-config-prettier: 10.1.8

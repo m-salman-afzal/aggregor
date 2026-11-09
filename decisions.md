@@ -520,6 +520,15 @@ current entry. Leave a field out rather than guess.
   list is gone.
 - **Why:** a compromised release has time to be pulled, and 1 day matches pnpm's own `minimumReleaseAge` default.
 
+### Drizzle updates only to its releases (2026-11-10)
+
+- **Problem:** drizzle publishes a build of each branch commit as `<version>-<hash>`, which semver ranks above the
+  release itself. Renovate (#89) moved drizzle-orm and drizzle-kit from `1.0.0-rc.5` to `1.0.0-rc.5-ab785fc`, a build
+  from 2026-08-11 whose types fail typecheck with `anyUnknownInErrorContext` and which pulled in esbuild.
+- **Decision:** both stay on `1.0.0-rc.5`, and a Renovate rule skips any drizzle version ending in `-<7-char hash>`
+  (`allowedVersions: "!/-[0-9a-f]{7}$/"`). esbuild's `allowBuilds` entry (#91) goes with it, since nothing installs
+  esbuild any more.
+
 ### Actions pinned to exact tags, with a lock file (2026-11-07, on `chore/add-gh-actions-lock`)
 
 - **Options:** commit digests in the workflows, which Renovate pinned through `helpers:pinGitHubActionDigests`.
