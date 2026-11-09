@@ -9,8 +9,8 @@ Control and diffs.
 - **Sessions sidebar.** The Sessions activity-bar view lists the window's projects, each with its sessions, and starts
   Claude Code in an editor-tab terminal. Clicking a session focuses its tab; switching tabs selects the session.
 - **Projects.** The window's workspace folders are always listed; Add Project lists any other folder, and in a window
-  showing no project it also shows the first one. Added projects are kept per window, so other windows don't see them or
-  their sessions. A project row's + starts a session in it, the view's + asks which project to use, and an added
+  showing no project it also shows the first one. Added projects are one list, kept for every window: Aggregor is meant
+  to run in one window. A project row's + starts a session in it, the view's + asks which project to use, and an added
   project's … menu removes it.
 - **One project in view.** Like VS Code's Agents window, the workspace follows the session in front of you: its project
   is the only folder Explorer, search, file watching and Source Control see. Opening a file keeps the project. The first
@@ -36,6 +36,9 @@ Control and diffs.
 ## Roadmap
 
 Each item is one small PR, stacked on the previous one. Releases wait for the end of a milestone.
+
+[phase2.md](phase2.md) plans the next stack step by step: agents from settings, status from OSC 7501, SQLite storage,
+tmux and alerts.
 
 ### M1: local Claude sessions
 

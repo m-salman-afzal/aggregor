@@ -1,21 +1,21 @@
 import {
   FolderPickCancelledError,
   InputCancelledError,
-  IPromptInfraService,
+  IUserInputPromptInfraService,
   ProjectPickCancelledError
-} from "@interfaces/prompt.infraService.interface.ts";
+} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {APP_NAME} from "@pkg/constants/src/extension.constant.ts";
 import {ACTIONS} from "@pkg/constants/src/message.constant.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Array, Effect, Layer, Result} from "effect";
 
-import type {ProjectEntity} from "@entities/project/project.entity.ts";
+import type {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
 import type {window as VsCodeWindow} from "vscode";
 
 type Window = typeof VsCodeWindow;
 
-const showErrorMessage = Effect.fn("PromptInfraService.showErrorMessage")(function* (
+const showErrorMessage = Effect.fn("UserInputPromptInfraService.showErrorMessage")(function* (
   window: Window,
   message: string,
   actions: readonly string[]
@@ -23,7 +23,7 @@ const showErrorMessage = Effect.fn("PromptInfraService.showErrorMessage")(functi
   return yield* Effect.promise(() => window.showErrorMessage(`${APP_NAME}: ${message}`, ...actions));
 });
 
-const showInformationMessage = Effect.fn("PromptInfraService.showInformationMessage")(function* (
+const showInformationMessage = Effect.fn("UserInputPromptInfraService.showInformationMessage")(function* (
   window: Window,
   message: string,
   actions: readonly string[]
@@ -31,7 +31,7 @@ const showInformationMessage = Effect.fn("PromptInfraService.showInformationMess
   return yield* Effect.promise(() => window.showInformationMessage(`${APP_NAME}: ${message}`, ...actions));
 });
 
-const confirm = Effect.fn("PromptInfraService.confirm")(function* (
+const confirm = Effect.fn("UserInputPromptInfraService.confirm")(function* (
   window: Window,
   message: string,
   confirmAction: string
@@ -41,15 +41,19 @@ const confirm = Effect.fn("PromptInfraService.confirm")(function* (
   return pickedAction === confirmAction;
 });
 
-const inputText = Effect.fn("PromptInfraService.inputText")(function* (window: Window, prompt: string, value: string) {
-  const enteredText = yield* Effect.promise(() => window.showInputBox({prompt, value}));
+const askForText = Effect.fn("UserInputPromptInfraService.askForText")(function* (
+  window: Window,
+  question: string,
+  value: string
+) {
+  const enteredText = yield* Effect.promise(() => window.showInputBox({prompt: question, value}));
 
   return yield* Effect.fromResult(Result.fromNullishOr(enteredText, () => InputCancelledError.make()));
 });
 
-const pickProject = Effect.fn("PromptInfraService.pickProject")(function* (
+const pickProject = Effect.fn("UserInputPromptInfraService.pickProject")(function* (
   window: Window,
-  projects: readonly ProjectEntity[],
+  projects: readonly ListedProjectValueObject[],
   placeHolder: string
 ) {
   const pickedItem = yield* Effect.promise(() =>
@@ -65,7 +69,9 @@ const pickProject = Effect.fn("PromptInfraService.pickProject")(function* (
   return pickedProject;
 });
 
-const pickProjectFolderPaths = Effect.fn("PromptInfraService.pickProjectFolderPaths")(function* (window: Window) {
+const pickProjectFolderPaths = Effect.fn("UserInputPromptInfraService.pickProjectFolderPaths")(function* (
+  window: Window
+) {
   const pickedFolderUris = yield* Effect.promise(() =>
     window.showOpenDialog({
       canSelectFiles: false,
@@ -81,13 +87,13 @@ const pickProjectFolderPaths = Effect.fn("PromptInfraService.pickProjectFolderPa
   return Array.map(confirmedFolderUris, (folderUri) => ProjectPathValueObjectSchema.make(folderUri.fsPath));
 });
 
-const makePromptInfraService = Effect.fn("PromptInfraService.make")(function* () {
+const makeUserInputPromptInfraService = Effect.fn("UserInputPromptInfraService.make")(function* () {
   const {window} = yield* VsCodeApi;
 
   return {
+    askForText: (question: string, value: string) => askForText(window, question, value),
     confirm: (message: string, confirmAction: string) => confirm(window, message, confirmAction),
-    inputText: (prompt: string, value: string) => inputText(window, prompt, value),
-    pickProject: (projects: readonly ProjectEntity[], placeHolder: string) =>
+    pickProject: (projects: readonly ListedProjectValueObject[], placeHolder: string) =>
       pickProject(window, projects, placeHolder),
     pickProjectFolderPaths: pickProjectFolderPaths(window),
     showErrorMessage: (message: string, ...actions: string[]) => showErrorMessage(window, message, actions),
@@ -95,4 +101,7 @@ const makePromptInfraService = Effect.fn("PromptInfraService.make")(function* ()
   };
 });
 
-export const PromptInfraService = Layer.effect(IPromptInfraService, makePromptInfraService());
+export const UserInputPromptInfraService = Layer.effect(
+  IUserInputPromptInfraService,
+  makeUserInputPromptInfraService()
+);

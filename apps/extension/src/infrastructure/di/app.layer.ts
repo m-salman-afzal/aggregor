@@ -1,10 +1,11 @@
 import {SettingsConfig} from "@config/settings.config.ts";
+import {DatabaseLayer} from "@di/database.layer.ts";
 import {HarnessInfraServicesLayer} from "@di/harnessInfraServices.layer.ts";
 import {NodeServices} from "@effect/platform-node";
 import {CommitCliInfraService} from "@infraServices/commitCli/commitCli.infraService.ts";
 import {GitInfraService} from "@infraServices/vscode/git.infraService.ts";
-import {PromptInfraService} from "@infraServices/vscode/prompt.infraService.ts";
 import {TerminalInfraService} from "@infraServices/vscode/terminal/terminal.infraService.ts";
+import {UserInputPromptInfraService} from "@infraServices/vscode/userInputPrompt.infraService.ts";
 import {WorkspaceInfraService} from "@infraServices/vscode/workspace.infraService.ts";
 import {ProjectRepository} from "@repositories/project.repository.ts";
 import {SessionRepository} from "@repositories/session.repository.ts";
@@ -17,7 +18,7 @@ import {SecureRandom} from "effect/crypto";
 const IndependentLayers = Layer.mergeAll(
   GitInfraService,
   NodeServices.layer,
-  PromptInfraService,
+  UserInputPromptInfraService,
   SecureRandom.layerWebCrypto,
   SettingsConfig
 );
@@ -36,6 +37,7 @@ export const AppLayer = BackgroundLayer.pipe(
   Layer.provideMerge(HarnessInfraServicesLayer),
   Layer.provideMerge(SessionRepository),
   Layer.provideMerge(ProjectRepository),
+  Layer.provideMerge(DatabaseLayer),
   Layer.provideMerge(CommitCliInfraService),
   Layer.provideMerge(WorkspaceInfraService),
   Layer.provideMerge(IndependentLayers)

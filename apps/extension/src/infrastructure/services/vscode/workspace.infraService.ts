@@ -1,6 +1,6 @@
-import {ProjectEntity} from "@entities/project/project.entity.ts";
-import {findWindowKey, getAnchorFolderPath} from "@infraUtils/anchorFolder.utils.ts";
+import {getAnchorFolderPath} from "@infraUtils/anchorFolder.utils.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
+import {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Array, Effect, Layer, Ref, Schema} from "effect";
@@ -10,7 +10,7 @@ import {Path} from "effect/Path";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Uri} from "vscode";
 
-// What the workspace functions share: VS Code's workspace and Uri, the file system, and this window's anchor folder.
+// What the workspace functions share: VS Code's workspace and Uri, the file system, and the anchor folder.
 type WorkspaceDependencies = {
   readonly anchorFolderPath: string;
   readonly fileSystem: FileSystem;
@@ -76,7 +76,7 @@ const listWorkspaceFolderProjects = Effect.fn("WorkspaceInfraService.listWorkspa
     const projectFolders = Array.filter(workspaceFolders, (folder) => folder.uri.fsPath !== anchorFolderPath);
 
     return Array.map(projectFolders, (projectFolder) =>
-      ProjectEntity.make({
+      ListedProjectValueObject.make({
         added: false,
         name: projectFolder.name,
         path: ProjectPathValueObjectSchema.make(projectFolder.uri.fsPath)
@@ -218,7 +218,7 @@ const isUnsavedAnchoredWorkspace = Effect.fn("WorkspaceInfraService.isUnsavedAnc
   });
 });
 
-// True once per window, the first time it runs on an unsaved anchored workspace; the marker remembers it.
+// True once, the first time it runs on an unsaved anchored workspace; the marker remembers it.
 const claimWorkspaceSaveOffer = Effect.fn("WorkspaceInfraService.claimWorkspaceSaveOffer")(
   function* (workspaceDependencies: WorkspaceDependencies) {
     const {anchorFolderPath, fileSystem, path} = workspaceDependencies;
@@ -242,10 +242,9 @@ const saveWorkspaceAs = Effect.fn("WorkspaceInfraService.saveWorkspaceAs")(funct
 });
 
 const makeWorkspaceInfraService = Effect.fn("WorkspaceInfraService.make")(function* () {
-  const windowKey = yield* findWindowKey();
   const workspaceDependencies: WorkspaceDependencies = {
     ...(yield* VsCodeApi),
-    anchorFolderPath: yield* getAnchorFolderPath(windowKey),
+    anchorFolderPath: yield* getAnchorFolderPath(),
     fileSystem: yield* FileSystem,
     path: yield* Path,
     selectedProjectPath: yield* Ref.make<ProjectPathValueObject | undefined>(undefined)

@@ -1,8 +1,8 @@
 import {showErrorInBackground} from "@appUtils/error.utils.ts";
 import {ICommitCliInfraService} from "@interfaces/commitCli.infraService.interface.ts";
 import {IGitInfraService} from "@interfaces/git.infraService.interface.ts";
-import {IPromptInfraService} from "@interfaces/prompt.infraService.interface.ts";
 import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
+import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {ACTIONS, COMMIT_MESSAGES} from "@pkg/constants/src/message.constant.ts";
 import {Effect} from "effect";
 
@@ -43,8 +43,8 @@ export const writeCommitMessageOrShowError = Effect.fn("ScmService.writeCommitMe
 export const offerToStageAllChanges = Effect.fn("ScmService.offerToStageAllChanges")(function* (
   projectPath: ProjectPathValueObject
 ) {
-  const pickedAction = yield* IPromptInfraService.use((promptInfraService) =>
-    promptInfraService.showErrorMessage(COMMIT_MESSAGES.NOTHING_STAGED, ACTIONS.STAGE_ALL)
+  const pickedAction = yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
+    userInputPromptInfraService.showErrorMessage(COMMIT_MESSAGES.NOTHING_STAGED, ACTIONS.STAGE_ALL)
   );
   if (pickedAction !== ACTIONS.STAGE_ALL) return false;
 

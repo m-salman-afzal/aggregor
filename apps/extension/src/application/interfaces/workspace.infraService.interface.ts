@@ -1,6 +1,6 @@
 import {Context} from "effect";
 
-import type {ProjectEntity} from "@entities/project/project.entity.ts";
+import type {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Effect} from "effect";
 
@@ -9,10 +9,10 @@ import type {Effect} from "effect";
 export class IWorkspaceInfraService extends Context.Service<
   IWorkspaceInfraService,
   {
-    // True once per window, when the first switch has left it an unsaved workspace.
+    // True once, when the first switch has left the window an unsaved workspace.
     readonly claimWorkspaceSaveOffer: Effect.Effect<boolean>;
     // The workspace folders that are projects: all but the anchor folder.
-    readonly listWorkspaceFolderProjects: Effect.Effect<readonly ProjectEntity[]>;
+    readonly listWorkspaceFolderProjects: Effect.Effect<readonly ListedProjectValueObject[]>;
     // Takes the project's folder out of the workspace. Best effort: a failure only logs a warning, and folder 0 stays.
     readonly removeProjectFolder: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;
     // Opens Save Workspace As, whose dialog suggests the anchor folder's name, Aggregor.

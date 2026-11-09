@@ -17,13 +17,16 @@
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "package": "pnpm run typecheck && pnpm --workspace-root run lint:check && vite build --mode production",
     "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
     "vsix": "vsce package --no-dependencies --skip-license",
     "publish:vsce": "vsce publish --no-dependencies --skip-license"
   },
   "dependencies": {
     "@effect/platform-node": "4.1.2",
+    "@effect/sql-sqlite-node": "4.1.2",
     "@pkg/constants": "workspace:*",
     "@pkg/typings": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.5",
     "effect": "4.1.2"
   },
   "devDependencies": {
@@ -31,6 +34,7 @@
     "@types/node": "26.6.6",
     "@types/vscode": "1.145.0",
     "@vscode/vsce": "4.1.0",
+    "drizzle-kit": "1.0.0-rc.5",
     "npm-run-all2": "9.0.4",
     "vite": "8.3.6"
   },
@@ -98,7 +102,7 @@
           "when": "view == aggregorApp.sessions && viewItem == session"
         },
         {
-          "command": "aggregorApp.newSessionInClickedProject",
+          "command": "aggregorApp.newSessionInChosenProject",
           "group": "inline@1",
           "when": "view == aggregorApp.sessions && viewItem =~ /^(project|addedProject)$/"
         },
@@ -123,7 +127,7 @@
       ],
       "commandPalette": [
         {
-          "command": "aggregorApp.newSessionInClickedProject",
+          "command": "aggregorApp.newSessionInChosenProject",
           "when": "false"
         },
         {
@@ -181,7 +185,7 @@
       },
       {
         "title": "New Claude Session",
-        "command": "aggregorApp.newSessionInClickedProject",
+        "command": "aggregorApp.newSessionInChosenProject",
         "category": "Aggregor App",
         "icon": "$(add)"
       },

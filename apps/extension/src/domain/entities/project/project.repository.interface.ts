@@ -1,28 +1,16 @@
-import {Context, Schema} from "effect";
+import {Context} from "effect";
 
+import type {IBaseRepository} from "@entities/base/base.repository.interface.ts";
+import type {ProjectEntity} from "@entities/project/project.entity.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
-import type {Effect, SubscriptionRef} from "effect";
+import type {SubscriptionRef} from "effect";
 
-export class ProjectsCorruptError extends Schema.TaggedError<ProjectsCorruptError, {readonly brand: unique symbol}>()(
-  "ProjectsCorruptError",
-  {cause: Schema.Unknown}
-) {}
-export class ProjectsSaveFailedError extends Schema.TaggedError<
-  ProjectsSaveFailedError,
-  {readonly brand: unique symbol}
->()("ProjectsSaveFailedError", {cause: Schema.Unknown}) {}
+export type AddProjectRequest = Pick<ProjectEntity, "added" | "path">;
 
-// The paths added with Add Project, saved per window. Workspace folders are not saved: VS Code already lists them.
 export class IProjectRepository extends Context.Service<
   IProjectRepository,
   {
+    // The added projects, in `sortId` order, read again after each write.
     readonly addedProjectPaths: SubscriptionRef.SubscriptionRef<readonly ProjectPathValueObject[]>;
-    // Re-reads the saved paths, applies the change and saves the result: unreadable data fails the change instead of
-    // being overwritten.
-    readonly modifyAddedProjectPaths: (
-      changeAddedProjectPaths: (
-        savedAddedProjectPaths: readonly ProjectPathValueObject[]
-      ) => readonly ProjectPathValueObject[]
-    ) => Effect.Effect<void, ProjectsCorruptError | ProjectsSaveFailedError>;
-  }
+  } & IBaseRepository<ProjectEntity, AddProjectRequest>
 >()("aggregor-app/domain/entities/project/project.repository.interface/IProjectRepository") {}

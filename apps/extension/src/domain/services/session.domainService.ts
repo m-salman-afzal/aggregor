@@ -1,14 +1,14 @@
 import {Array, Effect, Schema, String} from "effect";
 
 import type {SessionEntity} from "@entities/session/session.entity.ts";
-import type {SessionIdValueObject} from "@valueObjects/sessionId.valueObject.ts";
+import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {StatusValueObject} from "@valueObjects/status.valueObject.ts";
 
 interface UnreadSessionIdsInputs {
-  readonly currentStatuses: ReadonlyMap<SessionIdValueObject, StatusValueObject>;
-  readonly previousStatuses: ReadonlyMap<SessionIdValueObject, StatusValueObject>;
-  readonly previousUnreadSessionIds: ReadonlySet<SessionIdValueObject>;
-  readonly viewedSessionId: SessionIdValueObject | undefined;
+  readonly currentStatuses: ReadonlyMap<EntityIdValueObject, StatusValueObject>;
+  readonly previousStatuses: ReadonlyMap<EntityIdValueObject, StatusValueObject>;
+  readonly previousUnreadSessionIds: ReadonlySet<EntityIdValueObject>;
+  readonly viewedSessionId: EntityIdValueObject | undefined;
 }
 
 // The terminal title carries no session title: it holds only status marks, or the agent has not named the conversation.
@@ -64,9 +64,9 @@ export const getUnreadSessionIds = Effect.fn("SessionDomainService.getUnreadSess
     ),
     ([sessionId]) => sessionId
   );
-  const isIdleAndOutOfView = (sessionId: SessionIdValueObject) =>
+  const isIdleAndOutOfView = (sessionId: EntityIdValueObject) =>
     currentStatuses.get(sessionId) === "idle" && sessionId !== viewedSessionId;
-  const unreadSessionIds: ReadonlySet<SessionIdValueObject> = new Set(
+  const unreadSessionIds: ReadonlySet<EntityIdValueObject> = new Set(
     Array.filter([...previousUnreadSessionIds, ...endedSessionIds], isIdleAndOutOfView)
   );
 

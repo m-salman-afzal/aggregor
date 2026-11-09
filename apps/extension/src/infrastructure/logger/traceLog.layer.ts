@@ -9,7 +9,7 @@ import type {LogOutputChannel} from "vscode";
 
 // The formatters run while a span ends, so they stay plain functions: a span of their own would end inside the tracer.
 
-// "aggregorApp.openSession > SessionController.openClickedSession > SessionService.openSession": the span's name after
+// "aggregorApp.openSession > SessionController.openChosenSession > SessionService.openSession": the span's name after
 // its ancestors'.
 // eslint-disable-next-line no-restricted-syntax -- runs while a span ends
 const formatSpanPath = (span: Tracer.AnySpan): string => {
