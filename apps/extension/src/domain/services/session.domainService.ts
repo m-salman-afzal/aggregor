@@ -5,12 +5,18 @@ import type {HarnessEntity} from "@entities/harness/harness.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {SessionStatusValueObject} from "@valueObjects/sessionStatus.valueObject.ts";
 
-// What a session's status depends on besides the session: whether this window has its terminal, and whether the user
+// What a session's status depends on besides the session: whether its agent's process still runs, and whether the user
 // is looking at it.
 interface SessionViewingFacts {
-  readonly hasOpenTerminal: boolean;
+  readonly isAgentRunning: boolean;
   readonly isInView: boolean;
 }
+
+// The harness resumes with the agent's own id for the conversation, which the agent never showed.
+export class AgentSessionIdNotFoundError extends Schema.TaggedError<
+  AgentSessionIdNotFoundError,
+  {readonly brand: unique symbol}
+>()("AgentSessionIdNotFoundError", {harnessName: Schema.String}) {}
 
 // The user named the session, so the agent's title doesn't replace that name.
 export class SessionNamedByUserError extends Schema.TaggedError<
@@ -46,11 +52,24 @@ const START_TIME_TITLE = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/u;
 // What a regular expression treats as syntax, so a name can be matched as plain text.
 const REGEX_SYNTAX_CHARACTERS = /[$()*+./?[\\\]^{|}]/gu;
 
-// The one variable a harness's arguments may use.
+// The variables a harness's arguments may use: the session's id, and the id the agent gave the conversation, for an agent
+// that can't start under ours.
 const SESSION_ID_VARIABLE = `\${sessionId}`;
+const AGENT_SESSION_ID_VARIABLE = `\${agentSessionId}`;
 
-// A session that has worked reopens its conversation; one that hasn't starts fresh, under its id where the agent takes
-// one.
+const fillInVariables = Effect.fn("SessionDomainService.fillInVariables")(function* (
+  harnessArgument: string,
+  harness: HarnessEntity,
+  session: SessionEntity
+) {
+  const filledInArgument = String.replaceAll(SESSION_ID_VARIABLE, session.id)(harnessArgument);
+  if (!String.includes(AGENT_SESSION_ID_VARIABLE)(filledInArgument)) return filledInArgument;
+  if (session.agentSessionId === undefined) return yield* AgentSessionIdNotFoundError.make({harnessName: harness.name});
+
+  return String.replaceAll(AGENT_SESSION_ID_VARIABLE, session.agentSessionId)(filledInArgument);
+});
+
+// The arguments that resume the session's conversation once it has worked, else the ones that start a new one.
 export const prepareLaunchPlan = Effect.fn("SessionDomainService.prepareLaunchPlan")(function* (
   harness: HarnessEntity,
   session: SessionEntity
@@ -59,9 +78,10 @@ export const prepareLaunchPlan = Effect.fn("SessionDomainService.prepareLaunchPl
 
   return LaunchPlanValueObjectSchema.make({
     command: harness.command,
-    commandArguments: Array.map(harnessArguments, (harnessArgument) =>
-      String.replaceAll(SESSION_ID_VARIABLE, session.id)(harnessArgument)
-    )
+    commandArguments: yield* Effect.forEach(harnessArguments, (harnessArgument) =>
+      fillInVariables(harnessArgument, harness, session)
+    ),
+    environmentVariables: harness.environmentVariables
   });
 });
 
@@ -146,13 +166,14 @@ const isFinishedTurnUnseen = Effect.fn("SessionDomainService.isFinishedTurnUnsee
   return viewedAt === undefined || DateTime.isGreaterThan(statusChangedAt, viewedAt);
 });
 
-// Without a terminal in this window the agent is gone, even one that could not say so. No report yet, as from an agent
-// that never reports, shows idle, so the row never looks stuck. A finished turn shows done until the user has seen it.
+// Without its process the agent is gone, even one that could not say so, as after a reboot. No report yet, as from an
+// agent that never reports, shows idle, so the row never looks stuck. A finished turn shows done until the user has
+// seen it.
 export const getSessionStatus = Effect.fn("SessionDomainService.getSessionStatus")(function* (
   session: SessionEntity,
-  {hasOpenTerminal, isInView}: SessionViewingFacts
+  {isAgentRunning, isInView}: SessionViewingFacts
 ) {
-  if (!hasOpenTerminal) return "exited" satisfies SessionStatusValueObject;
+  if (!isAgentRunning) return "exited" satisfies SessionStatusValueObject;
   if (session.status === "unknown") return "idle" satisfies SessionStatusValueObject;
   if (session.status === "done" && !(yield* isFinishedTurnUnseen(session, isInView)))
     return "idle" satisfies SessionStatusValueObject;

@@ -95,6 +95,15 @@ impl Pending {
     }
 }
 
+/// Codex shows its thread's id as the title until the thread has a name, and resuming it takes that id.
+fn is_uuid(title: &str) -> bool {
+    title.len() == 36
+        && title.char_indices().all(|(index, character)| match index {
+            8 | 13 | 18 | 23 => character == '-',
+            _ => character.is_ascii_hexdigit(),
+        })
+}
+
 struct Writer {
     connection: Option<Connection>,
     session_id: String,
@@ -197,8 +206,11 @@ impl Writer {
             self.connection.as_ref(),
             &mut self.log,
             "record a title",
-            &format!("UPDATE sessions SET terminalTitle = ?2, updatedAt = {NOW} WHERE id = ?1 AND deletedAt IS NULL"),
-            params![self.session_id, title],
+            &format!(
+                "UPDATE sessions SET terminalTitle = ?2, agentSessionId = CASE WHEN ?3 THEN ?2 ELSE agentSessionId END,
+                updatedAt = {NOW} WHERE id = ?1 AND deletedAt IS NULL"
+            ),
+            params![self.session_id, title, is_uuid(&title)],
         );
         self.written_title = Some(title);
         self.title_written_at = Some(Instant::now());

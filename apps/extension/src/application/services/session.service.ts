@@ -13,6 +13,7 @@ import {ISessionRepository} from "@entities/session/session.repository.interface
 import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
 import {IShellCommandInfraService} from "@interfaces/shellCommand.infraService.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
+import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {HARNESS_LABELS} from "@pkg/constants/src/harness.constant.ts";
@@ -35,7 +36,7 @@ import type {
 } from "@dtos/session.dto.ts";
 import type {HarnessEntity} from "@entities/harness/harness.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
-import type {TerminalLaunchRequest} from "@interfaces/terminal.infraService.interface.ts";
+import type {SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {HarnessIdValueObject} from "@valueObjects/harnessId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
@@ -83,37 +84,41 @@ const addSession = Effect.fn("SessionService.addSession")(function* (
   });
 });
 
-// The tab shows the session's name, as its row does.
-const prepareTerminalLaunchRequest = Effect.fn("SessionService.prepareTerminalLaunchRequest")(function* (
-  session: SessionEntity
-) {
-  const sessionHarness = yield* IHarnessRepository.use((harnessRepository) =>
-    harnessRepository.findById(session.harnessId)
-  );
-  const launchPlan = yield* prepareLaunchPlan(sessionHarness, session);
-  const terminalLaunchRequest: TerminalLaunchRequest = {
-    icon: sessionHarness.icon,
-    launchPlan,
-    tabName: session.displayName
-  };
-
-  return terminalLaunchRequest;
+const findSessionHarness = Effect.fn("SessionService.findSessionHarness")(function* (session: SessionEntity) {
+  return yield* IHarnessRepository.use((harnessRepository) => harnessRepository.findById(session.harnessId));
 });
 
-const openSessionTerminal = Effect.fn("SessionService.openSessionTerminal")(function* (session: SessionEntity) {
-  const terminalLaunchRequest = yield* prepareTerminalLaunchRequest(session);
+// The tab attaches to the agent's tmux session, or starts the agent in one when it isn't running, and shows the
+// session's name, as its row does.
+const openSessionTab = Effect.fn("SessionService.openSessionTab")(function* (session: SessionEntity) {
+  const {prepareSessionTabCommand, waitForSessionAgentStart} = yield* ITmuxInfraService;
+  const sessionHarness = yield* findSessionHarness(session);
+  const launchPlan = yield* prepareLaunchPlan(sessionHarness, session);
+  const tabCommand = yield* prepareSessionTabCommand({
+    launchPlan,
+    projectPath: session.projectPath,
+    sessionId: session.id
+  });
+  const sessionTabRequest: SessionTabRequest = {icon: sessionHarness.icon, tabCommand, tabName: session.displayName};
 
   yield* ITerminalInfraService.use((terminalInfraService) =>
-    terminalInfraService.openSessionTerminal(session, terminalLaunchRequest)
+    terminalInfraService.openSessionTerminal(session, sessionTabRequest)
   );
+  yield* waitForSessionAgentStart(session.id);
 });
 
-// A session whose terminal fails to launch is removed again, so no dead row stays behind.
-const openNewSessionTerminal = Effect.fn("SessionService.openNewSessionTerminal")(
+// A new session whose tab fails to open is removed again, with any agent it started, so no dead row stays behind.
+const launchNewSession = Effect.fn("SessionService.launchNewSession")(
   function* (addedSession: SessionEntity) {
-    yield* openSessionTerminal(addedSession);
+    yield* openSessionTab(addedSession);
   },
-  (effect, addedSession) => Effect.tapError(effect, () => removeEntity(ISessionRepository, addedSession.id))
+  (effect, addedSession) =>
+    Effect.tapError(effect, () =>
+      Effect.andThen(
+        removeEntity(ISessionRepository, addedSession.id),
+        ITmuxInfraService.use((tmuxInfraService) => tmuxInfraService.stopSessionAgent(addedSession.id))
+      )
+    )
 );
 
 // The harnesses whose command is on PATH; the others can't start.
@@ -206,13 +211,15 @@ const startSession = Effect.fn("SessionService.startSession")(function* (
   const sessionHarness = yield* chooseHarness();
 
   const addedSession = yield* addSession(sessionProject, sessionHarness);
-  yield* openNewSessionTerminal(addedSession);
+  yield* launchNewSession(addedSession);
 });
 
-const relaunchSession = Effect.fn("SessionService.relaunchSession")(function* (sessionId: EntityIdValueObject) {
+// A session without a tab in this window gets one, attached to its agent when tmux still runs it, else starting it
+// again.
+const reopenSession = Effect.fn("SessionService.reopenSession")(function* (sessionId: EntityIdValueObject) {
   const session = yield* findSession(sessionId);
 
-  yield* openSessionTerminal(session);
+  yield* openSessionTab(session);
 });
 
 const confirmRunningSessionRemoval = Effect.fn("SessionService.confirmRunningSessionRemoval")(function* (
@@ -227,25 +234,27 @@ const confirmRunningSessionRemoval = Effect.fn("SessionService.confirmRunningSes
   );
 });
 
-// Closing the tab ends the agent; a tab that closed meanwhile has nothing left to stop.
-const stopSessionAgent = Effect.fn("SessionService.stopSessionAgent")(
+// A tab that closed meanwhile has nothing left to close.
+const closeSessionTab = Effect.fn("SessionService.closeSessionTab")(
   function* (sessionId: EntityIdValueObject) {
     yield* ITerminalInfraService.use((terminalInfraService) => terminalInfraService.closeSessionTerminal(sessionId));
   },
   Effect.catchTag("TerminalNotFoundError", () => Effect.void)
 );
 
-// Confirm, then forget the session, then stop the agent, so a failed write never kills it for nothing.
+// Confirm while the agent runs, then forget the session, then end its tmux session and close its tab, so a failed write
+// never kills the agent for nothing.
 const removeSessionAndStopAgent = Effect.fn("SessionService.removeSessionAndStopAgent")(function* (
   session: SessionEntity
 ) {
-  const hasOpenTerminal = yield* ITerminalInfraService.use((terminalInfraService) =>
-    terminalInfraService.isSessionTerminalOpen(session.id)
+  const runningSessionIds = yield* ITmuxInfraService.use(
+    (tmuxInfraService) => tmuxInfraService.refreshRunningSessionIds
   );
-  if (hasOpenTerminal) yield* confirmRunningSessionRemoval(session);
+  if (runningSessionIds.has(session.id)) yield* confirmRunningSessionRemoval(session);
 
   yield* removeEntity(ISessionRepository, session.id);
-  if (hasOpenTerminal) yield* stopSessionAgent(session.id);
+  yield* ITmuxInfraService.use((tmuxInfraService) => tmuxInfraService.stopSessionAgent(session.id));
+  yield* closeSessionTab(session.id);
 });
 
 // Starts a session in the request's project; without one, the user picks a project. A project no longer listed starts
@@ -261,14 +270,14 @@ export const newSession = Effect.fn("SessionService.newSession")(
   })
 );
 
-// Focuses the session's tab, or relaunches its agent when the tab is gone, on the same conversation once it has one.
+// Focuses the session's tab, or opens one when the tab is gone, attached to its agent or to its agent started again.
 export const openSession = Effect.fn("SessionService.openSession")(
   function* (request: OpenSessionRequestDto) {
     yield* ITerminalInfraService.use((terminalInfraService) =>
       terminalInfraService.focusSessionTerminal(request.sessionId)
     );
   },
-  (effect, request) => Effect.catchTag(effect, "TerminalNotFoundError", () => relaunchSession(request.sessionId))
+  (effect, request) => Effect.catchTag(effect, "TerminalNotFoundError", () => reopenSession(request.sessionId))
 );
 
 // The agent's transcript on disk is left alone. A session already removed has nothing left to do.
@@ -303,12 +312,13 @@ export const renameSession = Effect.fn("SessionService.renameSession")(
 // The kind of wait and the progress go only with a running turn, and the message only with a running agent. A session
 // whose harness is gone from the settings has no icon.
 const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function* (session: SessionEntity) {
-  const terminalInfraService = yield* ITerminalInfraService;
+  const {viewedSessionId} = yield* ITerminalInfraService;
+  const tmuxInfraService = yield* ITmuxInfraService;
   const path = yield* Path;
-  const hasOpenTerminal = yield* terminalInfraService.isSessionTerminalOpen(session.id);
-  const viewedSessionIdResult = yield* SubscriptionRef.get(terminalInfraService.viewedSessionId);
+  const runningSessionIds = yield* SubscriptionRef.get(tmuxInfraService.runningSessionIds);
+  const viewedSessionIdResult = yield* SubscriptionRef.get(viewedSessionId);
   const isInView = Result.getOrUndefined(viewedSessionIdResult) === session.id;
-  const status = yield* getSessionStatus(session, {hasOpenTerminal, isInView});
+  const status = yield* getSessionStatus(session, {isAgentRunning: runningSessionIds.has(session.id), isInView});
   const isTurnRunning = yield* isSessionTurnRunning(status);
   const harnessResult = yield* Effect.result(
     IHarnessRepository.use((harnessRepository) => harnessRepository.findById(session.harnessId))
@@ -360,13 +370,13 @@ export const listWorkingSessionIds = Effect.fn("SessionService.listWorkingSessio
   return Array.map(workingSessionListItems, (workingSessionListItem) => workingSessionListItem.sessionId);
 });
 
-// A session added or removed changes its project's sessions; any other write to it, or its tab opening or closing,
+// A session added or removed changes its project's sessions; any other write to it, or its agent starting or stopping,
 // changes the session. A project added or removed, or a workspace folder, changes the project list. Coming into or
 // leaving view writes viewedAt, so it arrives as a write.
 export const watchSessionListChanges = Effect.fn("SessionService.watchSessionListChanges")(function* () {
   const projectRepository = yield* IProjectRepository;
   const sessionRepository = yield* ISessionRepository;
-  const {openedOrClosedSessionIds} = yield* ITerminalInfraService;
+  const {startedOrStoppedSessionIds} = yield* ITmuxInfraService;
   const {workspaceFolderChanges} = yield* IWorkspaceInfraService;
   const sessionListChangeSources: readonly Stream.Stream<SessionListChangeDto>[] = [
     Stream.as(Stream.merge(projectRepository.entityChanges, workspaceFolderChanges), ProjectListChanged.make({})),
@@ -375,7 +385,7 @@ export const watchSessionListChanges = Effect.fn("SessionService.watchSessionLis
         ? SessionChanged.make({sessionId: entity.id})
         : ProjectSessionsChanged.make({projectPath: entity.projectPath})
     ),
-    Stream.map(openedOrClosedSessionIds, (sessionId) => SessionChanged.make({sessionId}))
+    Stream.map(startedOrStoppedSessionIds, (sessionId) => SessionChanged.make({sessionId}))
   ];
 
   return Stream.mergeAll(sessionListChangeSources, {concurrency: "unbounded"});

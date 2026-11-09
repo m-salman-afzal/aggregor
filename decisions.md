@@ -212,21 +212,27 @@ current entry. Leave a field out rather than guess.
 - **Decision:**
   - A harness is `HarnessEntity`, identified by its settings key (`HarnessIdValueObject`, a branded string), and read
     through `IHarnessRepository` (`findAll`, `findById`). It is no `BaseEntity`, since it isn't a row.
-  - `aggregorApp.harnesses` holds one entry per harness key, `{name, command, args, resumeArgs, icon}`, edited in
+  - `aggregorApp.harnesses` holds one entry per harness key, `{name, command, args, resumeArgs, env, icon}`, edited in
     settings.json. Every field is optional: `command` and `name` default to the key, `args` to none, `resumeArgs` to
-    `args`, and `icon` to the `terminal` codicon. `${sessionId}` is the only variable. The setting has `machine` scope,
-    so only user settings define commands, and its default holds the built-ins (`claude`, `codex`, `agy`, `opencode`,
-    `copilot`), which VS Code merges with the user's entries key by key; `null` hides one. An entry that doesn't decode
-    is left out with a warning, read once at start and again on each change of the setting.
-  - The domain's `prepareLaunchPlan(harness, session)` takes `resumeArgs` once the session has worked and `args` before,
-    and returns a `LaunchPlanValueObject`, which the terminal runs under `aggregor-pty`.
+    `args`, `env` to none and `icon` to the `terminal` codicon. `args` and `resumeArgs` take two variables:
+    `${sessionId}`, and `${agentSessionId}` (see "Codex resumes its own conversation by id"). The setting has `machine`
+    scope, so only user settings define commands, and its default holds the built-ins (`claude`, `codex`, `agy`,
+    `opencode`, `copilot`), which VS Code merges with the user's entries field by field, `env` name by name; `null`
+    hides one. An entry that doesn't decode, a variable name that isn't a POSIX name included, is left out with a
+    warning, read once at start and again on each change of the setting.
+  - `env` (added 2026-11-09) holds the variables the agent starts with, passed as tmux `new-session -e NAME=value`.
+    Claude's default is `CLAUDE_CODE_TMUX_TRUECOLOR=1`: Claude drops to 256 colours whenever `TMUX` is set unless it is
+    set, though Aggregor's tmux passes 24-bit colour. An agent added later that dims its colours in tmux gets its own
+    switch the same way. A setting rather than a line in `tmux.conf`, so each agent's switches sit with its harness and
+    the user can add their own; hiding `TMUX` from every agent was rejected, since agents rely on it for clipboard,
+    images and keys.
+  - The domain's `prepareLaunchPlan(harness, session)` takes `resumeArgs` once the session has worked, else `args`,
+    fills in the variables and returns a `LaunchPlanValueObject`, which the session's tab runs under `aggregor-pty`.
   - A session whose harness is gone shows a warning icon, and opening it fails with `HarnessNotFoundError`.
   - Icons are a codicon id or an image path, relative ones inside the extension. `assets/harnesses/` holds Claude Code's
     logo, OpenCode's (simple-icons 16.30.0), and Codex's and Antigravity's app icons (lobe-icons 1.102.0, MIT; Codex's
     without its white tile, which stood out on a dark theme); Copilot uses the `copilot` codicon, which is its logo.
     Codicons for Codex (`code`) and Antigravity (`rocket`) were the first build's, since simple-icons carries neither.
-  - Codex reports `working` for a moment at startup, so a fresh Codex session reopens through `codex resume`'s picker;
-    Esc there starts a new conversation, so it is left as is.
 - **Why:** another CLI is one settings entry, and the rules about launching and titles are the domain's, the same for
   every agent.
 
@@ -571,12 +577,13 @@ current entry. Leave a field out rather than guess.
   native Windows), rusqlite with bundled SQLite, base64, rustix for raw mode and window size, and signal-hook. It passes
   every byte through, answers `OSC 7501 ; ?` with the bare reply, checks reports against the spec's rules and limits,
   and writes the root record onto the session's row: `status`, `statusKind`, `statusMessage`, `statusProgress`,
-  `statusChangedAt` (only when the state changes), `hasWorked`, `reportedTitle` and, from OSC 0/2, `terminalTitle`. It
-  starts at `unknown`, `clear` and a full reset go back to `unknown`, and the agent's exit writes `exited`; reports with
-  an `id` wait for step 7. A writer thread keeps the latest pending change and writes title changes at most every 500
-  ms. The agent runs whatever happens to the database; errors go to `aggregor-pty.log` beside it, at most 10 lines a
-  run. A session's terminal runs `aggregor-pty --database ‹path› --session ‹id› -- ‹agent command›`: the terminal infra
-  service wraps the harness's launch plan, and `getDatabaseFilePath` gives it and the database layer the same path.
+  `statusChangedAt` (only when the state changes), `hasWorked`, `reportedTitle` and, from OSC 0/2, `terminalTitle`, and
+  `agentSessionId` when that title is a bare UUID (see "Codex resumes its own conversation by id"). It starts at
+  `unknown`, `clear` and a full reset go back to `unknown`, and the agent's exit writes `exited`; reports with an `id`
+  wait for step 7. A writer thread keeps the latest pending change and writes title changes at most every 500 ms. The
+  agent runs whatever happens to the database; errors go to `aggregor-pty.log` beside it, at most 10 lines a run. A
+  session's tmux session runs `aggregor-pty --database ‹path› --session ‹id› -- ‹agent command›`: the tmux infra service
+  wraps the harness's launch plan, and `getDatabaseFilePath` gives it and the database layer the same path.
 - **Why:** the reports carry what each agent knows, in one format. Two title columns leave step 4's title rule to the
   domain. Codex's title spinner changes about ten times a second, and from step 3 every write makes the window read the
   rows it changed.
@@ -601,9 +608,14 @@ current entry. Leave a field out rather than guess.
 
 ### Clicking a closed session resumes it (2026-10-08; `hasWorked` since 2026-11-08)
 
-- **Options:** looking for Claude's transcript file (2026-10-08 to 2026-11-08), which only Claude has.
-- **Decision:** once the session has reported `working` (`hasWorked`), its tab runs its harness's `resumeArgs`
-  (`claude --resume ‹id›`); before that its `args`, which start fresh under the session's id where the agent takes one.
+- **Options:** looking for Claude's transcript file (2026-10-08 to 2026-11-08), which only Claude has. `aggregor-pty`
+  reading `hasWorked` as it starts and picking between the two argument lists it was given (2026-11-09), while VS Code
+  restored session tabs after a quit by re-running the command they were opened with, which the extension never saw;
+  since session tabs are transient, every tab is opened by the extension, so the pick went back to it.
+- **Decision:** when tmux no longer runs the session's agent, opening it starts the agent again: the domain's
+  `prepareLaunchPlan` takes the harness's `resumeArgs` (`claude --resume ‹id›`) once the session has reported `working`,
+  else its `args`, which start fresh under the session's id where the agent takes one. While tmux still runs it, opening
+  only attaches.
 - **Why:** an agent has a conversation to resume once it has worked, and the flag is the same for every agent.
 
 ### Rows show the status on the session's row (2026-11-08)
@@ -614,11 +626,12 @@ current entry. Leave a field out rather than guess.
   interrupt settle (2026-11-06 to 2026-11-08, #71): a running session went idle once its terminal title had shown
   Claude's idle mark for 3 seconds, which a renamed tab broke.
 - **Decision:** `aggregor-pty` runs every session's agent and writes its OSC 7501 reports onto the session's row. A row
-  with no terminal in this window shows exited, so an agent that died without writing `exited` never looks alive; with
-  one, `blocked`, `error`, `working` and `exited` show as themselves, `unknown` and `idle` show idle, and `done` shows
-  finished until the user has seen it, then idle. Seen is stored: the extension writes `viewedAt` on a session as it
-  comes into view and as it leaves, and `done` counts as unseen while `statusChangedAt` is after `viewedAt` and the
-  session is out of view (`getSessionStatus`). `error` shows as error.
+  whose agent tmux no longer runs shows exited, so an agent that died without writing `exited`, as at a reboot, never
+  looks alive (a row with no tab in this window counted as exited until 2026-11-09); otherwise `blocked`, `error`,
+  `working` and `exited` show as themselves, `unknown` and `idle` show idle, and `done` shows finished until the user
+  has seen it, then idle. Seen is stored: the extension writes `viewedAt` on a session as it comes into view and as it
+  leaves, and `done` counts as unseen while `statusChangedAt` is after `viewedAt` and the session is out of view
+  (`getSessionStatus`). `error` shows as error.
   - Unread was first an in-memory set per window (step 3's first build), lost on every extension restart, such as the
     first project switch. Writing `idle` over `done` instead would make the extension a second writer of
     `aggregor-pty`'s column, and `aggregor-pty` would have to stop rewriting a state that didn't change.
@@ -669,6 +682,89 @@ current entry. Leave a field out rather than guess.
   keyboard navigation still works, and Enter opens the focused session.
 - **Why:** the highlighted row always says which session the editor shows, like Explorer for the active file.
 
+### Every session's agent runs in tmux (2026-11-09)
+
+- **Problem:** a session's agent ran as its tab's process, so a window reload, quitting VS Code or closing the tab ended
+  it, and the tabs were transient, so a reload closed them.
+- **Options:**
+  - The extension starting each agent from a hidden, transient VS Code terminal running `tmux new-session -d …`, with
+    the tab only attaching (built and tried on 2026-11-09): the agent started with no tmux client attached, and tmux
+    answers an agent's OSC 10/11 colour queries only through an attached client, so agents that ask for the background
+    as they start (Codex, OpenCode, Copilot, Claude) picked palettes that didn't match the theme. Each start also waited
+    about 400 ms for the hidden terminal's exit, polled.
+  - The extension starting tmux as its own child process: the agent would inherit the extension host's environment,
+    without what VS Code gives terminals (the git extension's `GIT_ASKPASS` and `VSCODE_GIT_IPC_HANDLE`, which another
+    extension can't read) and with VS Code's internals (`ELECTRON_RUN_AS_NODE=1`).
+  - One tmux client for every tab, through tmux control mode (`-CC`), with the extension drawing each tab as a
+    Pseudoterminal: one process instead of a small tmux client (about 1.4 MB) per open tab, but all agent output would
+    pass through the extension host, and tabs would no longer survive a reload by themselves.
+  - One-click tmux install through a terminal running the system's package manager: held back for now.
+- **Decision:**
+  - Each session's agent runs under `aggregor-pty` in a tmux session named by the session's id, on Aggregor's own tmux
+    server, whose socket is `tmux.sock` in the Aggregor folder (`-S`), apart from the user's tmux; a test's
+    `AGGREGOR_HOME` gets a server of its own. `assets/tmux.conf` replaces `~/.tmux.conf`: no prefix or status bar, mouse
+    on, `escape-time 0`, `focus-events`, `extended-keys`, a 50,000-line history, `window-size latest`,
+    `aggressive-resize`, 24-bit colour and OSC 52, and `update-environment` for VS Code's terminal variables and the
+    session's `AGGREGOR_SESSION_ID`. A window sources it again when tmux already runs. tmux 3.2 or newer is required.
+  - A session's tab runs tmux itself, with no shell:
+    `tmux -S ‹socket› -f ‹conf› -u new-session -A -s ‹id› -c ‹project› -- aggregor-pty --database ‹db› --session ‹id› -- ‹command› ‹args›`.
+    `-A` attaches when the session's tmux session runs and starts it otherwise, so the tab is attached from the agent's
+    first byte, tmux answers its colour queries, and the agent gets the tab's own environment.
+  - The tab is transient (since 2026-11-09): a reload or a quit closes it, which only detaches, and clicking the session
+    attaches a new one. A tab is matched to its session by `AGGREGOR_SESSION_ID` in its env, which VS Code keeps through
+    an extension restart. Tabs VS Code kept over a reload and restored after a quit by re-running their command
+    (2026-11-09, found by their command line through `ps`) lost their icon: VS Code 1.145 revives a reattached tab's
+    file icon as plain data, fails its `instanceof URI` check and draws none, and has no API to set it again. An icon
+    font (`contributes.icons`) survives a reload but, per microsoft/vscode#329750, not a restart, and closing and
+    reopening every restored tab at start reorders and flickers them.
+  - When `aggregor-pty` can't start the agent (a command it can't run), it prints why and waits for Enter, so the tab
+    doesn't vanish without a word.
+  - tmux learns the tab's colours about 20 ms after the tab attaches and leaves a colour query unanswered until then, so
+    Codex, which asks as it starts, drew its composer without the theme's shade. `aggregor-pty` asks for the background
+    every 20 ms until tmux answers, up to 1 s, and only then starts the agent, which covers every agent that asks early;
+    keys typed in that moment are dropped.
+  - `ITmuxInfraService` builds the tab's command after checking tmux and `aggregor-pty`, lists and stops sessions, and
+    after a tab opens reads tmux's list until it has the session (every 50 ms, up to 5 s); `TerminalInfraService` only
+    opens, focuses, names and closes tabs. A row's exited status comes from tmux's session list, read when the window
+    starts or regains focus, when a terminal closes, after a session's tab opens and after each stop; it isn't written
+    to the database, so the status column keeps one writer.
+  - Remove Session asks first while the agent runs, then kills its tmux session and closes its tab.
+  - tmux missing or too old fails a start with an error and an **Install tmux** button for tmux's install page.
+  - `extensionKind: ["workspace"]`, so in a WSL or remote window the extension, tmux and the agents run there.
+- **Why:** an agent outlives its tab, a reload and VS Code, sees the terminal's real colours and VS Code's terminal
+  environment, and every tab is one the extension opened, so it starts or resumes the right conversation.
+- **Limits:** tmux sets `TERM_PROGRAM=tmux` inside its sessions, so agents see tmux rather than `vscode`. A reload or a
+  restart closes the session tabs, and their order and layout with them; the agents keep running. An agent that exits at
+  once, such as a resume whose conversation is gone, closes its tab without a word; only `aggregor-pty`'s own failures
+  wait for Enter.
+
+### Codex resumes its own conversation by id (2026-11-09)
+
+- **Problem:** Codex can't start a conversation under an id we give it, and plain `codex resume` opens a picker of the
+  project's conversations rather than the session's own. Codex 0.167 also runs turns in a shared background server by
+  default, so ending a session's tmux session left a running turn working with no tab.
+- **Options:**
+  - `codex resume --last`: the project's newest conversation, wrong once a project has two Codex sessions.
+  - Reading Codex's session files (`~/.codex/sessions/…/rollout-‹time›-‹id›.jsonl`), whose layout Codex is migrating.
+  - A `SessionStart` hook passed with `-c`, which hands over the id as documented, but Codex holds it behind a "Hooks
+    need review" prompt whenever the hook is new or changed.
+  - Every agent on its own ids: our id stays the row's, the tmux session's and the status key anyway, so each session
+    would carry two; most agents show theirs nowhere (Claude's title is the conversation's name), and an agent that dies
+    before showing it can't be resumed.
+  - The extension recording the id from the title: more code, and `aggregor-pty` writes what comes from the agent's
+    output.
+- **Decision:** Codex runs with `-c tui.terminal_title=["thread-title"]`, which makes its window title the thread's id
+  until the thread has a name, then the name. `aggregor-pty` writes a window title that is a bare UUID to
+  `agentSessionId`, the latest one, so a new thread started with `/new` replaces it. `${agentSessionId}` fills it in,
+  and Codex's `resumeArgs` are `resume --no-daemon -c tui.terminal_title=… ${agentSessionId}`; a resume that needs it
+  while it is unknown fails with `AgentSessionIdNotFoundError`. Codex runs with `--no-daemon` both ways, so its turns
+  stop with its tmux session. Agents that take our id keep it (Claude, OpenCode, Copilot), and Antigravity keeps `-c`.
+- **Why:** an exact resume, from a title Codex shows by itself, with no prompt and no reading of Codex's files.
+- **Limits:** Codex showing the id as its title isn't documented, and the option replaces any `tui.terminal_title` of
+  the user's. Codex sessions don't show in `codex agents`. Codex reports `working` for a moment at startup, so a session
+  that never got a message counts as worked, and once its agent has stopped, `codex resume ‹id›` finds no saved thread
+  and exits, closing the tab.
+
 ### A session's tab shows its row's name (2026-11-09)
 
 - **Problem:** session tabs opened without a name to show the agent's own title, but VS Code 1.145 shows a terminal's
@@ -678,7 +774,7 @@ current entry. Leave a field out rather than guess.
 - **Options:** `aggregor-pty` writing the session's name as the terminal title, with the window showing terminal titles
   in tabs: background tabs follow too, but every terminal tab in the window, shells included, would change. The
   extension hosting the terminal as a Pseudoterminal, which can rename any tab: all agent output would pass through the
-  extension host, and step 5's tmux attach would change. `titleTemplate`, a proposed API the Marketplace refuses.
+  extension host, and the tmux attach would change. `titleTemplate`, a proposed API the Marketplace refuses.
 - **Decision:** a session's tab opens with the session's `displayName` and `startSessionTabNameSync` keeps it there:
   after any write to a session and whenever a session's tab becomes the active terminal, the active tab is renamed if
   its name differs. VS Code renames only the active terminal, so a tab in the background takes a new name when it next
@@ -760,8 +856,9 @@ current entry. Leave a field out rather than guess.
   back with it. A workspace folder's project gets a row with its first session without being added, so it stays one of
   the window's own folders. One anchor folder, `~/.aggregor/anchor/Aggregor`, with one save-offer marker. The windows
   tables went with a generated migration, which leaves every project unadded.
-- **Why:** less to build and keep. Adding windows back is one table and a migration. Until step 5 runs agents in tmux, a
-  second window shows the same sessions, and opening a running one there would start a second agent on its id.
+- **Why:** less to build and keep. Adding windows back is one table and a migration. Since step 5 a second window shows
+  the same sessions and opening a running one attaches to its tmux session; before, it would start a second agent on its
+  id.
 
 ### Listed projects are `ProjectListItemDto`s (2026-11-07; a DTO since 2026-11-09)
 

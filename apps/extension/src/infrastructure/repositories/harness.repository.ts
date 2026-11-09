@@ -4,6 +4,7 @@ import {SETTINGS_SECTION} from "@pkg/constants/src/app.constant.ts";
 import {DEFAULT_HARNESS_CODICON, HARNESS_SETTINGS} from "@pkg/constants/src/harness.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
+import {EnvironmentVariablesValueObjectSchema} from "@valueObjects/environmentVariables.valueObject.ts";
 import {Array, Effect, Layer, Predicate, Record, Ref, Result, Schema, Stream, String} from "effect";
 import {Path} from "effect/Path";
 
@@ -22,6 +23,7 @@ interface HarnessSettingsSource {
 const HarnessSettingSchema = Schema.Struct({
   args: Schema.optional(Schema.Array(Schema.String)),
   command: Schema.optional(Schema.NonEmptyString),
+  env: Schema.optional(EnvironmentVariablesValueObjectSchema),
   icon: Schema.optional(Schema.NonEmptyString),
   name: Schema.optional(Schema.NonEmptyString),
   resumeArgs: Schema.optional(Schema.Array(Schema.String))
@@ -44,7 +46,7 @@ const toHarnessIcon = Effect.fn("HarnessRepository.toHarnessIcon")(function* (
 
 const toHarness = Effect.fn("HarnessRepository.toHarness")(
   function* (harnessSettingsSource: HarnessSettingsSource, [harnessKey, harnessSetting]: readonly [string, unknown]) {
-    const {args, command, icon, name, resumeArgs} =
+    const {args, command, env, icon, name, resumeArgs} =
       yield* Schema.decodeUnknownEffect(HarnessSettingSchema)(harnessSetting);
     const harnessArguments = args === undefined ? [] : args;
     const harnessIcon = yield* toHarnessIcon(harnessSettingsSource, icon);
@@ -52,6 +54,7 @@ const toHarness = Effect.fn("HarnessRepository.toHarness")(
     return yield* Schema.decodeEffect(HarnessEntity)({
       args: harnessArguments,
       command: command === undefined ? harnessKey : command,
+      environmentVariables: env === undefined ? {} : env,
       icon: harnessIcon,
       id: harnessKey,
       name: name === undefined ? harnessKey : name,

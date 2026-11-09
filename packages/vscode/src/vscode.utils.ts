@@ -55,22 +55,32 @@ export const openAggregorSettingsInSettingsEditor = Effect.fn("openAggregorSetti
 });
 
 // Shows the error notification without waiting for the user to dismiss it, so whatever failed can finish now. With a
-// setting, an Open Settings button opens the Settings editor at it.
+// setting, an Open Settings button opens the Settings editor at it; with a page, a button named for it opens it.
 export const showErrorNotificationWithoutWaiting = Effect.fn("showErrorNotificationWithoutWaiting")(function* (
   errorMessage: string,
-  settingToOpen?: string
+  {
+    pageToOpen,
+    settingToOpen
+  }: {
+    readonly pageToOpen?: {readonly label: string; readonly url: string} | undefined;
+    readonly settingToOpen?: string | undefined;
+  } = {}
 ) {
-  const {commands, window} = yield* VsCodeApi;
-  const notificationButtons = settingToOpen === undefined ? [] : [APP_LABELS.OPEN_SETTINGS];
+  const {commands, env, Uri, window} = yield* VsCodeApi;
+  const settingButtons = settingToOpen === undefined ? [] : [APP_LABELS.OPEN_SETTINGS];
+  const pageButtons = pageToOpen === undefined ? [] : [pageToOpen.label];
   const showErrorMessageAndWaitForButton = Effect.promise(() =>
-    window.showErrorMessage(`${APP_NAME}: ${errorMessage}`, ...notificationButtons)
+    window.showErrorMessage(`${APP_NAME}: ${errorMessage}`, ...settingButtons, ...pageButtons)
   );
 
   yield* Effect.forkDetach(
-    Effect.flatMap(showErrorMessageAndWaitForButton, (chosenButton) =>
-      chosenButton === APP_LABELS.OPEN_SETTINGS && settingToOpen !== undefined
-        ? Effect.promise(() => commands.executeCommand("workbench.action.openSettings", settingToOpen))
-        : Effect.void
-    )
+    Effect.flatMap(showErrorMessageAndWaitForButton, (chosenButton) => {
+      if (chosenButton === APP_LABELS.OPEN_SETTINGS && settingToOpen !== undefined)
+        return Effect.promise(() => commands.executeCommand("workbench.action.openSettings", settingToOpen));
+      if (pageToOpen !== undefined && chosenButton === pageToOpen.label)
+        return Effect.promise(() => env.openExternal(Uri.parse(pageToOpen.url)));
+
+      return Effect.void;
+    })
   );
 });

@@ -463,7 +463,8 @@ the trace log. A window reload ends the agents (their tabs are transient), so th
    placeholder no longer appears with `--resume ‹id›`.
 7. Codex resumes through its picker (`resume`) and Antigravity through its most recent conversation (`-c`), since
    neither takes our id at start. Codex 0.167 still reports `working` for a moment at startup, so a fresh Codex session
-   reopens through the picker; Esc there starts a new one, so it is left as is.
+   reopens through the picker; Esc there starts a new one, so it is left as is. Step 5 resumes Codex's own thread by its
+   id instead.
 8. The picker offers what is on `PATH`, through a port, rather than `findAll` leaving out uninstalled harnesses.
 9. **Set as Default** ends the pick and the use case saves the default and shows the picker again, rather than the
    picker saving while open.
@@ -492,32 +493,74 @@ icon without its tile.
 
 **Changes:**
 
-- `assets/tmux.conf`, loaded with `-f`, so the user's `~/.tmux.conf` is not read: no prefix, `status off`, `mouse on`,
-  `set-titles on`, `window-size latest`, a large `history-limit`, `escape-time 0`, `extended-keys on`, `focus-events on`
-  (Claude asks for it).
-- Session terminals run `tmux -L aggregor -f ‹conf› new-session -A -s ‹sessionId› -c ‹project› -- aggregor-pty …`.
-- Closing the tab detaches; Remove Session runs `kill-session`; on activation, sessions with no tmux session left (after
-  a reboot) become exited.
-- **tmux check:** before a session starts or opens, run `tmux -V`. If tmux is missing or older than 3.2, a notification
-  says "Aggregor runs sessions in tmux, which isn't installed", with **Install tmux**. The button opens a terminal that
-  runs the install command for the system (apt-get, dnf, pacman, zypper or apk, from `/etc/os-release`;
-  `brew install tmux` on macOS), where the user types their sudo password. When it exits successfully, the extension
-  checks again and carries on with the session that was asked for. An unknown package manager opens tmux's install page
-  instead.
-- **WSL:** `extensionKind: ["workspace"]`, so in a WSL window the extension runs on the Linux side; a local Windows
-  window gets **Reopen in WSL**.
+- `assets/tmux.conf`, loaded with `-f`, so the user's `~/.tmux.conf` is not read: no prefix, `status off`, `mouse on`, a
+  50,000-line history, `escape-time 0`, `focus-events on`, `extended-keys on`, `window-size latest`,
+  `aggressive-resize on`, 24-bit colour and OSC 52, and `update-environment` for VS Code's terminal variables. A window
+  sources it again when tmux already runs.
+- Aggregor's tmux server listens on `tmux.sock` in the Aggregor folder (`tmux -S`), so a test's `AGGREGOR_HOME` has its
+  own.
+- A session's tab runs
+  `tmux -S ‹socket› -f ‹conf› -u new-session -A -s ‹sessionId› -c ‹project› -- aggregor-pty … -- ‹agent›`: it attaches
+  when the agent runs and starts it otherwise, so the agent gets the tab's terminal environment (git credentials
+  included) and tmux answers its colour queries. The tab is transient: a reload or a quit closes it, which only
+  detaches, and clicking the session attaches a new one.
+- The domain takes the harness's `resumeArgs` once the session has worked, else its `args`. When `aggregor-pty` can't
+  start the agent it prints why and waits for Enter.
+- Codex resumes its own thread: run with `-c tui.terminal_title=["thread-title"]`, its title is the thread's id until
+  the thread has a name; `aggregor-pty` stores a bare-UUID title as `agentSessionId`, and Codex's `resumeArgs` are
+  `resume --no-daemon -c … ${agentSessionId}`. `--no-daemon` keeps its turns in its own process, so they stop with the
+  session. It starts the agent once tmux answers its background query, so agents that ask as they start get the theme's
+  colours.
+- A harness's `env` setting passes variables to its agent (`new-session -e`); Claude's built-in sets
+  `CLAUDE_CODE_TMUX_TRUECOLOR=1`, so it keeps 24-bit colour in tmux.
+- `ITmuxInfraService` (the tab's command, stop, running sessions) and `ITerminalInfraService` (tabs); a row shows exited
+  when tmux no longer runs its agent, read on start, on window focus, when a terminal closes, after a session's tab
+  opens, and after each stop.
+- Remove Session confirms while the agent runs, kills its tmux session and closes its tab.
+- **tmux check:** `tmux -V` before each start; missing or older than 3.2 fails with "Aggregor runs every session in tmux
+  3.2 or newer, which isn't installed" and an **Install tmux** button for tmux's install page.
+- **WSL:** `extensionKind: ["workspace"]`, so in a WSL window the extension runs on the Linux side.
 
 **Decided:**
 
-1. The session's variables go through `new-session -e`, since the aggregor tmux server keeps the environment of
-   whichever window started it.
+1. The tab starts tmux (`new-session -A`), and the extension picks start or resume. A first build started each agent
+   from a hidden VS Code terminal and had the tab only attach, but tmux answers an agent's background-colour query only
+   through an attached client, so agents picked palettes that didn't match the theme. A process the extension host
+   starts was never an option: it lacks VS Code's terminal variables (the git extension's askpass) and carries its
+   internals (`ELECTRON_RUN_AS_NODE`). Tabs that VS Code kept over a reload and restored after a quit, found by their
+   command line, came back without their icon, which VS Code can't revive for a file icon, and ran the command they were
+   opened with, so `aggregor-pty` had to pick start or resume; transient tabs replaced both.
 2. Mouse on, so the wheel scrolls tmux's history; Shift+drag selects text natively.
 3. No pkexec prompt and no bundled tmux: pkexec is missing in WSL and over SSH, and bundling means shipping and patching
-   tmux, with no static macOS build.
+   tmux, with no static macOS build. The one-click install terminal is held back; the error links to tmux's install page
+   instead.
+4. The socket sits in the Aggregor folder (`-S`) rather than `-L aggregor`, so tests and the user's dev build never
+   share a server.
 
-**Verify:** close a tab while the agent works and reopen it; reload the window; Remove kills the tmux session;
-`tmux -L aggregor kill-server` marks every session exited and opening one resumes it; start VS Code with tmux left off
-`PATH` to check the install flow.
+**Verified (2026-11-09):** in the headless VS Code with a fake agent and Claude: a new session ran in tmux with the
+window's `GIT_ASKPASS` and `VSCODE_GIT_IPC_HANDLE` and no `ELECTRON_RUN_AS_NODE`; closing its tab left the agent running
+and the row idle, and clicking it reattached with tmux's history; a window reload reattached the same tmux client, found
+by its command line; after a graceful quit with VS Code's last window, VS Code restored the tab attached to the same
+agent; `tmux kill-server` closed the tab, turned the row exited, and opening Claude's session ran
+`claude --resume ‹id›`; Claude's status (working, then finished) and title reached the row and tab through tmux; Remove
+Session asked first, killed the tmux session and closed the tab; with tmux off `PATH` the error and its Install tmux
+button showed and no row was left behind. When the skill's stop kills VS Code instead, VS Code restores session tabs as
+plain shells. After the switch to the tab starting tmux: a probe agent's OSC 11 query got the theme's background
+(`rgb:1919/1a1a/1b1b`), which the hidden-terminal start left unanswered; a new session opened in 166 ms; a reload
+reattached the tab, found by its `new-session -A` command line; closing the tab left the agent running and clicking the
+row attached to it; with `hasWorked` set and the tmux session killed, clicking the row ran the harness's `resumeArgs`
+with the session's id filled in and `AGGREGOR_SESSION_ID` set. `cargo test` covers start, resume and a removed session.
+Claude and Codex then still drew different colours than in a plain terminal: Claude drops to 256 colours whenever `TMUX`
+is set, and Codex asked for the background before tmux had learned it from the new tab (about 20 ms) and got no answer.
+With Claude's built-in `env` setting `CLAUDE_CODE_TMUX_TRUECOLOR=1`, its logo drew `215,119,87` as in a plain terminal
+instead of 256-colour `215,135,135`, and a user `env` entry merged with the built-in one; with `aggregor-pty` waiting
+for tmux to answer, three Codex sessions in a row shaded the composer `52,53,54` as in a plain terminal. After the
+switch to transient tabs and Codex's own ids: a new Codex session ran `codex --no-daemon -c tui.terminal_title=…`, its
+row stored the thread's id as `agentSessionId` within a second, and after a turn the row took the thread's name; a
+reload closed the tab, left the agent running with no client, and clicking the row reattached the same process, with its
+icon; with the tmux session killed, clicking the row ran `codex resume --no-daemon … ‹thread id›` and showed that
+thread. A Codex session that never got a message, killed the same way, ran its resume and closed at once: Codex reports
+`working` for a moment at startup, and saves no thread before a message. `cargo test` covers the stored id.
 
 ## Step 6: session alerts
 

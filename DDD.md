@@ -182,14 +182,15 @@ apps/extension/src/
       session/
         session.entity.ts                  SessionEntity (BaseEntity and projectId, projectPath, name, customName,
                                            harnessId, viewedAt, and aggregor-pty's status, statusKind,
-                                           statusMessage, statusProgress, statusChangedAt, hasWorked, reportedTitle
-                                           and terminalTitle; displayName)
+                                           statusMessage, statusProgress, statusChangedAt, hasWorked, reportedTitle,
+                                           terminalTitle and agentSessionId; displayName)
         session.repository.interface.ts    ISessionRepository: the base calls
       project/
         project.entity.ts                  ProjectEntity (BaseEntity and path, isAdded)
         project.repository.interface.ts    IProjectRepository: the base calls
       harness/
-        harness.entity.ts                  HarnessEntity (id, name, command, args, resumeArgs, icon): an agent CLI,
+        harness.entity.ts                  HarnessEntity (id, name, command, args, resumeArgs, environmentVariables,
+                                           icon): an agent CLI,
                                            from the settings, not a BaseEntity
         harness.repository.interface.ts    IHarnessRepository: findAll, findById; HarnessNotFoundError
     valueObjects/                          EntityIdValueObject (a branded UUID v7), ProjectPathValueObject (branded),
@@ -197,7 +198,8 @@ apps/extension/src/
                                            states and kinds), SessionStatusValueObject (the status the user sees,
                                            picked from the agent's), HarnessIdValueObject (branded: the settings
                                            key), HarnessIconValueObject (a codicon or an image file),
-                                           LaunchPlanValueObject (a command and its arguments)
+                                           EnvironmentVariablesValueObject (names to values),
+                                           LaunchPlanValueObject (a command, its arguments and its variables)
     services/
       session.domainService.ts             prepareLaunchPlan, getDefaultSessionName, getSessionTitle,
                                            getSessionTitleToSave, getSessionStatus, isSessionTurnRunning
@@ -226,9 +228,12 @@ apps/extension/src/
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
     interfaces/                            each with the errors and types its signatures name
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
-                                           openProjectTerminal, nameActiveSessionTab, isSessionTerminalOpen,
-                                           openedOrClosedSessionIds, activatedSessionIds, viewedSessionId;
-                                           TerminalLaunchRequest, PtyBinaryNotFoundError
+                                           openProjectTerminal, nameActiveSessionTab, activatedSessionIds,
+                                           viewedSessionId; SessionTabRequest, SessionTabCommand,
+                                           TerminalLaunchFailedError
+      tmux.infraService.interface.ts       prepareSessionTabCommand, waitForSessionAgentStart, stopSessionAgent,
+                                           runningSessionIds, refreshRunningSessionIds, startedOrStoppedSessionIds;
+                                           SessionTabCommandRequest, PtyBinaryNotFoundError, TmuxUnavailableError
       userInputPrompt.infraService.interface.ts
                                            showErrorMessage, showInformationMessage, confirm, askForText, pickProject,
                                            pickProjectFolderPaths, pickHarness; HarnessPick
@@ -258,11 +263,14 @@ apps/extension/src/
                                            defaults, read again when it changes
     services/
       os/shellCommand.infraService.ts      ShellCommandInfraService: looks commands up on PATH
+      tmux/tmux.infraService.ts            TmuxInfraService: the command a session's tab runs, which starts its
+                                           agent under aggregor-pty in a tmux session or attaches to it; stops it;
+                                           reads which sessions tmux runs
       vscode/                              UserInputPromptInfraService, WorkspaceInfraService, GitInfraService,
                                            ProgressInfraService
-      vscode/terminal/                     TerminalInfraService: session tabs, which run the launch plan under
-                                           aggregor-pty, and project shells; terminal.utils reads a terminal's
-                                           session id from its env and finds the binary
+      vscode/terminal/                     TerminalInfraService: session tabs, each a tmux client attached to its
+                                           agent, and project shells; terminal.utils finds a tab's session id in
+                                           its env
       commitCli/                           CommitCliInfraService: runs the configured commit command
     config/settings.config.ts              SettingsConfig
     di/
@@ -275,6 +283,7 @@ apps/extension/src/
                                            window once it shows one project
     utils/database.utils.ts                getDatabaseFilePath: data/aggregor.db in it; the window opens it, and
                                            aggregor-pty writes to it
+    utils/tmuxSocket.utils.ts              getTmuxSocketPath: tmux.sock in it, Aggregor's own tmux server
   presentation/
     routes.ts                              RoutesLayer: each command's ID, controller and presenter; Open Settings
                                            goes straight to @pkg/vscode
@@ -373,9 +382,12 @@ apps/extension/src/
   a use case's type lists the interfaces it needs, so a missing layer is a compile error.
 - **Harnesses are data, not implementations:** each is an `aggregorApp.harnesses` entry that `IHarnessRepository` reads,
   so a new agent CLI is a settings entry, not code. The domain's `prepareLaunchPlan` turns a harness and a session into
-  a `LaunchPlanValueObject`, and the terminal infra service runs it under `aggregor-pty`; neither knows the other.
-- **Planned with their roadmap items:** a `Hosts` LayerMap keyed by host id for SSH, a worktree infra service for M3,
-  and tmux as a wrapper around the launch plan.
+  a `LaunchPlanValueObject`, and the tmux infra service runs it under `aggregor-pty` in the session's tmux session;
+  neither knows the other.
+- **The agent and its tab are apart:** `ITmuxInfraService` starts and stops agents and says which run;
+  `ITerminalInfraService` only opens, focuses, names and closes the tabs attached to them.
+- **Planned with their roadmap items:** a `Hosts` LayerMap keyed by host id for SSH, and a worktree infra service for
+  M3.
 
 ## Repositories, models and transformers
 
