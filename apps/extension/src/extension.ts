@@ -1,55 +1,28 @@
-import {ErrorService} from "@/services/error.service.ts";
-import {RepoStore} from "@/services/repo/repo.service.ts";
-import {addRepo, removeRepo} from "@/services/repo/repo.utils.ts";
-import {generateCommitMessage, GitReposLayer} from "@/services/scm/scm.utils.ts";
-import {StatusService} from "@/services/session/status.service.ts";
-import {SessionStore} from "@/services/session/store.service.ts";
-import {TerminalService} from "@/services/session/terminal.service.ts";
-import {newSession, openSession, removeSession} from "@/services/session/terminal.utils.ts";
-import {TranscriptService} from "@/services/session/transcript.service.ts";
-import {SettingsService} from "@/services/settings.service.ts";
-import {TraceLogLayer} from "@/services/trace.utils.ts";
-import {VsCodeService} from "@/services/vscode.service.ts";
-import {registerCommand} from "@/services/vscode.utils.ts";
-import {SessionsView} from "@/views/sessions.view.ts";
-import {NodeServices} from "@effect/platform-node";
-import {COMMANDS} from "@pkg/constants/src/extension.constant.ts";
+import {AppLayer} from "@di/app.layer.ts";
+import {TraceLogLayer} from "@logger/traceLog.layer.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
+import {SessionAlertsView} from "@views/sessionAlerts/sessionAlerts.view.ts";
+import {SessionsView} from "@views/sessions/sessions.view.ts";
 import {Effect, Layer, ManagedRuntime} from "effect";
+
+import {RoutesLayer} from "./presentation/routes.ts";
 
 import type {ExtensionContext} from "vscode";
 
-const CommandsLayer = Layer.effectDiscard(
-  Effect.all([
-    registerCommand(COMMANDS.REPO_ROW.NEW_SESSION, newSession),
-    registerCommand(COMMANDS.REPO_ROW.REMOVE, removeRepo),
-    registerCommand(COMMANDS.SCM_TITLE.GENERATE_COMMIT_MESSAGE, generateCommitMessage),
-    registerCommand(COMMANDS.SESSION_ROW.OPEN, openSession),
-    registerCommand(COMMANDS.SESSION_ROW.REMOVE, removeSession),
-    registerCommand(COMMANDS.VIEW_TITLE.ADD_REPO, addRepo),
-    // VS Code passes title-bar buttons the focused row, so drop the arguments and always ask for the repo.
-    registerCommand(COMMANDS.VIEW_TITLE.NEW_SESSION, () => newSession())
-  ])
-);
-
-const IndependentLayers = Layer.mergeAll(ErrorService.layer, SettingsService.layer, NodeServices.layer);
-
-const AppLayer = Layer.mergeAll(CommandsLayer, GitReposLayer, SessionsView).pipe(
-  Layer.provideMerge(TerminalService.layer),
-  Layer.provideMerge(StatusService.layer),
-  Layer.provideMerge(TranscriptService.layer),
-  Layer.provideMerge(SessionStore.layer),
-  Layer.provideMerge(RepoStore.layer),
-  Layer.provideMerge(IndependentLayers)
-);
-
-const activate = async (extensionContext: ExtensionContext) => {
+// eslint-disable-next-line no-restricted-syntax -- VS Code's entry point, which runs the runtime itself
+const activate = (extensionContext: ExtensionContext) => {
   // TraceLogLayer goes under everything, so every layer's startup work is traced and logged too.
   const runtime = ManagedRuntime.make(
-    AppLayer.pipe(Layer.provide(TraceLogLayer), Layer.provideMerge(VsCodeService.layer(extensionContext)))
+    Layer.mergeAll(RoutesLayer, SessionsView, SessionAlertsView).pipe(
+      Layer.provideMerge(AppLayer),
+      Layer.provide(TraceLogLayer),
+      Layer.provideMerge(VsCodeApi.layer(extensionContext))
+    )
   );
-  extensionContext.subscriptions.push({dispose: async () => runtime.dispose()});
+  extensionContext.subscriptions.push({dispose: () => runtime.dispose()});
+
   // The runtime builds lazily; build it now so commands and views exist before activation finishes.
-  await runtime.context();
+  return runtime.runPromise(Effect.void);
 };
 
 export {activate};

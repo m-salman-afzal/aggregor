@@ -1,39 +1,48 @@
 {
   "name": "aggregor-app",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "private": true,
   "description": "Combines multiple coding agents.",
   "repository": "github:m-salman-afzal/aggregor",
   "type": "module",
   "main": "./dist/extension.js",
   "engines": {
-    "vscode": "^1.144.0"
+    "vscode": "^1.145.0"
   },
   "scripts": {
     "vscode:prepublish": "vite build --mode production",
-    "compile": "pnpm run typecheck && pnpm --workspace-root run lint:check && vite build",
+    "build:pty": "pnpm --filter=aggregor-pty build && mkdir -p bin && cp -f ../pty/target/release/aggregor-pty bin/",
+    "compile": "pnpm run typecheck && pnpm --workspace-root run lint:check && pnpm run build:pty && vite build",
     "watch": "npm-run-all --parallel watch:*",
     "watch:vite": "vite build --watch --mode development",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "pnpm run typecheck && pnpm --workspace-root run lint:check && vite build --mode production",
+    "package": "pnpm run typecheck && pnpm --workspace-root run lint:check && pnpm run build:pty && vite build --mode production",
     "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
     "vsix": "vsce package --no-dependencies --skip-license",
     "publish:vsce": "vsce publish --no-dependencies --skip-license"
   },
   "dependencies": {
-    "@effect/platform-node": "4.1.0",
+    "@effect/platform-node": "catalog:",
+    "@effect/sql-sqlite-node": "catalog:",
     "@pkg/constants": "workspace:*",
     "@pkg/typings": "workspace:*",
-    "effect": "4.1.0"
+    "@pkg/vscode": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "effect": "catalog:"
   },
   "devDependencies": {
     "@pkg/tsconfigs": "workspace:*",
-    "@types/node": "26.6.6",
-    "@types/vscode": "1.144.0",
-    "@vscode/vsce": "4.1.0",
-    "npm-run-all2": "9.0.4",
-    "vite": "8.3.5"
+    "@types/node": "catalog:",
+    "@types/vscode": "1.145.0",
+    "@vscode/vsce": "catalog:",
+    "drizzle-kit": "catalog:",
+    "npm-run-all2": "catalog:",
+    "vite": "catalog:"
   },
+  "extensionKind": [
+    "workspace"
+  ],
   "publisher": "SalmanAfzal",
   "activationEvents": [
     "onStartupFinished"
@@ -44,13 +53,172 @@
       "properties": {
         "aggregorApp.commitCommand": {
           "type": "string",
-          "default": "claude -p \"Write the commit message for this staged diff.\" --system-prompt \"You write git commit messages from a staged diff. Reply with the commit message only: no preamble, no code fences, no quotes. Start with a subject line <type>(<scope>): <subject>. type is one of feat, fix, refactor, perf, docs, test, build, ci or chore, whichever matches the main intent of the change. scope is the package or area most of the diff touches, such as extension or constants; leave out (<scope>) when the change spans several areas. subject is in the imperative mood ('add', not 'added'), lowercase, with no trailing period, at most 72 characters, and names the user-visible effect, not the files. Add a body after a blank line only when the subject cannot carry the change: say what changed and why, not how, break its lines so none is longer than 72 characters, and use '- ' bullets for separate changes. Leave the body out for small changes. Only when the diff breaks a public interface or stored data, add ! after the type and a 'BREAKING CHANGE: <what breaks>' footer. Describe only what the diff shows; do not guess at reasons it does not show. No issue numbers, trailers or sign-offs.\" --tools \"\" --no-session-persistence --model claude-haiku-5-5 --effort low",
+          "default": "claude -p \"Write the commit message for this staged diff.\" --system-prompt \"You write git commit messages from a staged diff. Reply with the commit message only: no preamble, no code fences, no quotes. Start with a subject line <type>(<scope>): <subject>. type is one of feat, fix, refactor, perf, docs, test, build, ci or chore, whichever matches the main intent of the change. scope is the package or area most of the diff touches; leave out (<scope>) when the change spans several areas. subject is in the imperative mood ('add', not 'added'), lowercase, with no trailing period, at most 72 characters, and names the user-visible effect, not the files. Add a body after a blank line only when the subject cannot carry the change: say what changed and why, not how, break its lines so none is longer than 72 characters, and use '- ' bullets for separate changes. Leave the body out for small changes. Only when the diff breaks a public interface or stored data, add ! right before the colon and a 'BREAKING CHANGE: <what breaks>' footer. Describe only what the diff shows; do not guess at reasons it does not show. No issue numbers, trailers or sign-offs.\" --tools \"\" --no-session-persistence --model claude-haiku-5-5 --effort low",
           "markdownDescription": "Shell command that generates the commit message. It runs in the repository root, receives the staged diff on stdin and must print the message to stdout."
         },
         "aggregorApp.autoCommit": {
           "type": "boolean",
           "default": false,
           "description": "Commit the staged changes right after generating the commit message."
+        },
+        "aggregorApp.agents": {
+          "type": "object",
+          "scope": "machine",
+          "default": {
+            "claude": {
+              "name": "Claude Code",
+              "args": [
+                "--session-id",
+                "${sessionId}"
+              ],
+              "resumeArgs": [
+                "--resume",
+                "${sessionId}"
+              ],
+              "env": {
+                "CLAUDE_CODE_TMUX_TRUECOLOR": "1"
+              },
+              "icon": "assets/agents/claude.svg"
+            },
+            "codex": {
+              "name": "Codex",
+              "args": [
+                "--no-daemon",
+                "-c",
+                "tui.terminal_title=[\"thread-title\"]"
+              ],
+              "resumeArgs": [
+                "resume",
+                "--no-daemon",
+                "-c",
+                "tui.terminal_title=[\"thread-title\"]",
+                "${agentSessionId}"
+              ],
+              "icon": "assets/agents/codex.svg"
+            },
+            "agy": {
+              "name": "Antigravity",
+              "args": [],
+              "resumeArgs": [
+                "-c"
+              ],
+              "icon": "assets/agents/antigravity.svg"
+            },
+            "opencode": {
+              "name": "OpenCode",
+              "args": [
+                "--session",
+                "ses_${sessionId}"
+              ],
+              "resumeArgs": [
+                "--session",
+                "ses_${sessionId}"
+              ],
+              "icon": "assets/agents/opencode.svg"
+            },
+            "copilot": {
+              "name": "GitHub Copilot",
+              "args": [
+                "--session-id",
+                "${sessionId}"
+              ],
+              "resumeArgs": [
+                "--session-id",
+                "${sessionId}"
+              ],
+              "icon": "assets/agents/copilot.svg"
+            }
+          },
+          "additionalProperties": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Shown in the picker. Defaults to the key."
+              },
+              "command": {
+                "type": "string",
+                "description": "The CLI to run. Defaults to the key."
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Arguments for a new session. ${sessionId} is the session's id."
+              },
+              "resumeArgs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Arguments to reopen a session that has worked. Defaults to args. ${agentSessionId} is the id the agent last showed as its whole terminal title, for an agent that can't start under the session's id."
+              },
+              "env": {
+                "type": "object",
+                "propertyNames": {
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                },
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Environment variables the agent starts with, merged with the built-in's."
+              },
+              "icon": {
+                "type": "string",
+                "pattern": "\\.(?:[pP][nN][gG]|[sS][vV][gG])$",
+                "description": "The path of an SVG or PNG file, absolute or inside the extension. Defaults to Aggregor's logo."
+              }
+            }
+          },
+          "markdownDescription": "The agent CLIs a session can run, keyed by command name. Your entries merge with the built-ins: change a field of one, add your own, or set one to `null` to hide it. Only user settings can define them."
+        },
+        "aggregorApp.defaultAgent": {
+          "type": "string",
+          "default": "claude",
+          "markdownDescription": "The key in `#aggregorApp.agents#` that New Session lists first and selects."
+        },
+        "aggregorApp.skipAgentPicker": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Start `#aggregorApp.defaultAgent#` straight away instead of asking which agent to use."
+        },
+        "aggregorApp.notifyOn": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "blocked",
+              "done",
+              "error",
+              "exited",
+              "idle",
+              "unknown",
+              "working"
+            ],
+            "enumDescriptions": [
+              "The agent waits for you: a permission, a question or a sign-in.",
+              "The agent finished its turn, or went back to idle after working.",
+              "The agent reported an error.",
+              "The agent exited.",
+              "The agent is idle.",
+              "The agent stopped reporting its status.",
+              "The agent is working."
+            ]
+          },
+          "uniqueItems": true,
+          "default": [
+            "blocked",
+            "done",
+            "error",
+            "exited",
+            "idle"
+          ],
+          "markdownDescription": "The states a session out of view notifies about, once it has held one for 3 seconds: inside VS Code when its window is focused, else as a system notification."
         }
       }
     },
@@ -61,7 +229,7 @@
         "icon": "$(ellipsis)"
       },
       {
-        "id": "aggregorApp.repoActions",
+        "id": "aggregorApp.projectActions",
         "label": "More Actions...",
         "icon": "$(ellipsis)"
       }
@@ -76,14 +244,24 @@
       ],
       "view/title": [
         {
-          "command": "aggregorApp.newSessionAskingForRepo",
+          "command": "aggregorApp.newSessionAskingForProject",
           "group": "navigation@1",
           "when": "view == aggregorApp.sessions"
         },
         {
-          "command": "aggregorApp.addRepo",
+          "command": "aggregorApp.addProject",
           "group": "navigation@2",
           "when": "view == aggregorApp.sessions"
+        },
+        {
+          "command": "aggregorApp.openSettings",
+          "group": "navigation@3",
+          "when": "view == aggregorApp.sessions"
+        },
+        {
+          "command": "aggregorApp.newProjectTerminal",
+          "group": "navigation",
+          "when": "view == terminal"
         }
       ],
       "view/item/context": [
@@ -93,29 +271,32 @@
           "when": "view == aggregorApp.sessions && viewItem == session"
         },
         {
-          "command": "aggregorApp.newSessionInClickedRepo",
+          "command": "aggregorApp.newSessionInChosenProject",
           "group": "inline@1",
-          "when": "view == aggregorApp.sessions && viewItem =~ /^(repo|addedRepo)$/"
+          "when": "view == aggregorApp.sessions && viewItem =~ /^(project|addedProject)$/"
         },
         {
-          "submenu": "aggregorApp.repoActions",
+          "submenu": "aggregorApp.projectActions",
           "group": "inline@2",
-          "when": "view == aggregorApp.sessions && viewItem == addedRepo"
+          "when": "view == aggregorApp.sessions && viewItem == addedProject"
         }
       ],
       "aggregorApp.sessionActions": [
         {
+          "command": "aggregorApp.renameSession"
+        },
+        {
           "command": "aggregorApp.removeSession"
         }
       ],
-      "aggregorApp.repoActions": [
+      "aggregorApp.projectActions": [
         {
-          "command": "aggregorApp.removeRepo"
+          "command": "aggregorApp.removeProject"
         }
       ],
       "commandPalette": [
         {
-          "command": "aggregorApp.newSessionInClickedRepo",
+          "command": "aggregorApp.newSessionInChosenProject",
           "when": "false"
         },
         {
@@ -127,7 +308,11 @@
           "when": "false"
         },
         {
-          "command": "aggregorApp.removeRepo",
+          "command": "aggregorApp.removeProject",
+          "when": "false"
+        },
+        {
+          "command": "aggregorApp.renameSession",
           "when": "false"
         }
       ]
@@ -136,7 +321,7 @@
       "activitybar": [
         {
           "id": "aggregorApp",
-          "title": "Aggregor App",
+          "title": "Sessions",
           "icon": "./assets/aggregorLightIcon.svg"
         }
       ]
@@ -153,7 +338,7 @@
     "viewsWelcome": [
       {
         "view": "aggregorApp.sessions",
-        "contents": "No repos yet.\n[Add Repo](command:aggregorApp.addRepo)\n[Open Folder](command:workbench.action.files.openFolder)"
+        "contents": "No projects yet.\n[Add Project](command:aggregorApp.addProject)"
       }
     ],
     "commands": [
@@ -168,14 +353,14 @@
         }
       },
       {
-        "title": "New Claude Session",
-        "command": "aggregorApp.newSessionInClickedRepo",
+        "title": "New Session",
+        "command": "aggregorApp.newSessionInChosenProject",
         "category": "Aggregor App",
         "icon": "$(add)"
       },
       {
         "title": "New Session...",
-        "command": "aggregorApp.newSessionAskingForRepo",
+        "command": "aggregorApp.newSessionAskingForProject",
         "category": "Aggregor App",
         "icon": "$(add)"
       },
@@ -185,20 +370,36 @@
         "category": "Aggregor App"
       },
       {
-        "title": "Remove Session",
+        "title": "Remove",
         "command": "aggregorApp.removeSession",
         "category": "Aggregor App"
       },
       {
-        "title": "Add Repo",
-        "command": "aggregorApp.addRepo",
+        "title": "Add Project",
+        "command": "aggregorApp.addProject",
         "category": "Aggregor App",
         "icon": "$(new-folder)"
       },
       {
-        "title": "Remove Repo",
-        "command": "aggregorApp.removeRepo",
+        "title": "Remove Project",
+        "command": "aggregorApp.removeProject",
         "category": "Aggregor App"
+      },
+      {
+        "title": "New Terminal in Project...",
+        "command": "aggregorApp.newProjectTerminal",
+        "category": "Aggregor App",
+        "icon": "$(root-folder)"
+      },
+      {
+        "title": "Rename",
+        "command": "aggregorApp.renameSession"
+      },
+      {
+        "title": "Open Settings",
+        "command": "aggregorApp.openSettings",
+        "category": "Aggregor App",
+        "icon": "$(gear)"
       }
     ]
   },

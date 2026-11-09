@@ -1,7 +1,7 @@
 name: Release
 
 # Merging the release PR (dev -> main, opened by release-pr.yaml) tags the merge commit with v<version>,
-# builds the .vsix, publishes it to the Marketplace and creates the GitHub release with it attached.
+# builds the .vsix files, publishes them to the Marketplace and creates the GitHub release with them attached.
 on:
   pull_request:
     types: [closed]
@@ -12,22 +12,81 @@ permissions:
   id-token: write
 
 jobs:
+  # aggregor-pty for each platform with its own VSIX: both Linux targets as static musl binaries through cargo-zigbuild,
+  # both macOS targets natively on one Apple silicon runner.
+  Binaries:
+    if: github.event.pull_request.merged && github.head_ref == 'dev'
+    name: Binaries (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            build: zigbuild
+            targets: x86_64-unknown-linux-musl aarch64-unknown-linux-musl
+          - runner: macos-latest
+            build: build
+            targets: x86_64-apple-darwin aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+      # In a venv on PATH, so cargo-zigbuild's `python3 -m ziglang` finds Zig.
+      - name: Install cargo-zigbuild
+        if: matrix.build == 'zigbuild'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/zig"
+          "$RUNNER_TEMP/zig/bin/pip" install cargo-zigbuild==0.24.1 ziglang==0.17.1
+          echo "$RUNNER_TEMP/zig/bin" >> "$GITHUB_PATH"
+      - name: Build
+        working-directory: apps/pty
+        run: |
+          rustup toolchain install
+          for target in ${{ matrix.targets }}; do
+            rustup target add "$target"
+            cargo ${{ matrix.build }} --release --target "$target"
+          done
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: binaries-${{ matrix.runner }}
+          path: apps/pty/target/*/release/aggregor-pty
+          if-no-files-found: error
+
   Release:
     if: github.event.pull_request.merged && github.head_ref == 'dev'
+    needs: Binaries
     runs-on: ubuntu-latest
     environment: marketplace
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
-      - uses: pnpm/setup@v3
+      - uses: pnpm/setup@v3.1.2
         with:
           cache: true
           require-lockfile: true
-      # vsce runs vscode:prepublish, which only builds. Lint and typecheck already ran in checks.yaml on every branch.
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: binaries-*
+          merge-multiple: true
+          path: binaries
+      # A VSIX per platform with its binary, and a universal one without, which the Marketplace serves to every other
+      # platform. vsce runs vscode:prepublish, which only builds; lint and typecheck already ran in checks.yaml.
+      # Artifacts drop the executable bit, so install sets it again.
       - name: Package extension
-        run: pnpm vsix
+        working-directory: apps/extension
+        run: |
+          for platform in linux-x64:x86_64-unknown-linux-musl linux-arm64:aarch64-unknown-linux-musl \
+            darwin-x64:x86_64-apple-darwin darwin-arm64:aarch64-apple-darwin; do
+            install -D -m 755 "../../binaries/${platform#*:}/release/aggregor-pty" bin/aggregor-pty
+            pnpm exec vsce package --no-dependencies --skip-license --target "${platform%%:*}"
+          done
+          rm -r bin
+          pnpm exec vsce package --no-dependencies --skip-license
       # Before the release, so a failed run can be re-run: --skip-duplicate skips an already published version.
       - name: Publish to Marketplace
         working-directory: apps/extension

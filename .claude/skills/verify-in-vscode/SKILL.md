@@ -33,7 +33,7 @@ From the repo root, as `node .claude/skills/verify-in-vscode/vscode.ts <command>
 
 | Command                 | What it does                                                                                                 |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `start [workspace]`     | Stops any earlier run, builds the extension (development mode), launches it and prints the trace log's path. |
+| `start [workspace]`     | Stops any earlier run, builds the extension and `aggregor-pty`, launches it and prints the trace log's path. |
 | `log`                   | Prints the trace log's path again.                                                                           |
 | `eval '<expression>'`   | Runs JavaScript in the VS Code window and prints the result as JSON. Return plain data, not DOM nodes.       |
 | `screenshot <png path>` | Saves a screenshot. Pass an absolute path in your scratchpad, never inside the repo; then read the image.    |
@@ -42,11 +42,12 @@ From the repo root, as `node .claude/skills/verify-in-vscode/vscode.ts <command>
 `start` again after every code change: a running VS Code never picks up a new build.
 
 The workspace defaults to `$AGGREGOR_VERIFY_WORKSPACE`, else `~/side/jsTester`. It must be a folder Claude already
-trusts, or Claude's trust prompt blocks every session's hooks and statuses never appear. Use a throwaway repo, never one
-whose git state matters: Source Control checks can stage files there.
+trusts, or Claude's trust prompt holds every session before it reports a status. Use a throwaway repo, never one whose
+git state matters: Source Control checks can stage files there.
 
-The VS Code profile lives in `~/.cache/aggregor-verify/vscode-data` and persists between runs, sessions and added repos
-included. Delete that folder to start from a fresh profile.
+The VS Code profile lives in `~/.cache/aggregor-verify/vscode-data` and the extension's Aggregor folder (database,
+`aggregor-pty`'s log, anchor folder) in `~/.cache/aggregor-verify/aggregor` (or `$AGGREGOR_HOME`), never the real
+`~/.aggregor`. Both persist between runs, sessions and added projects included. Delete them to start fresh.
 
 ## Checking a change
 
@@ -55,10 +56,10 @@ included. Delete that folder to start from a fresh profile.
    checks.
 2. **Drive the window over CDP** for anything the user would see or click. Useful expressions:
    - Open the Sessions view. Clicking its activity-bar item toggles it, so click only when it is not already open:
-     `(() => { const item = [...document.querySelectorAll(".activitybar .action-label")].find((element) => String(element.getAttribute("aria-label")).startsWith("Aggregor App")); if (!item.closest(".action-item").classList.contains("checked")) item.click(); return "open"; })()`
+     `(() => { const item = [...document.querySelectorAll(".activitybar .action-label")].find((element) => element.getAttribute("aria-label") === "Sessions"); if (!item.closest(".action-item").classList.contains("checked")) item.click(); return "open"; })()`
    - List the rows with their status:
      `[...document.querySelectorAll(".monaco-list-row")].map((row) => row.getAttribute("aria-label")).filter(Boolean)`
-   - Click a title or inline button by its label, such as `New Session...` or `New Claude Session`:
+   - Click a title or inline button by its label, such as `New Session...` or `New Session`:
      `[...document.querySelectorAll(".action-label")].find((element) => element.getAttribute("aria-label") === "New Session...").click()`
    - Read the notifications:
      `[...document.querySelectorAll(".notification-list-item")].map((element) => element.textContent)`

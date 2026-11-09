@@ -8,6 +8,14 @@ import path from "node:path";
 import {CDP_PORT, evaluate, findWorkbenchPage, listCdpTargets, screenshot} from "./cdp.ts";
 import {findClaudeProcessId, findProcessTree, isClaudeProcess, readProcessFile, sendSignal} from "./processes.ts";
 
+// What start leaves for the other commands and for the hooks: whose launch it is and where its trace log went.
+interface VerifyState {
+  readonly ownerProcessId: null | number;
+  readonly startedAt: number;
+  readonly traceLogPath?: string;
+  readonly workspacePath: string;
+}
+
 const MAX_LIFETIME_SECONDS = 20 * 60;
 const STATE_DIRECTORY = path.join(operatingSystem.homedir(), ".cache", "aggregor-verify");
 const STATE_FILE = path.join(STATE_DIRECTORY, "state.json");
@@ -15,6 +23,11 @@ const VSCODE_DATA_DIRECTORY = path.join(STATE_DIRECTORY, "vscode-data");
 const VSCODE_EXTENSIONS_DIRECTORY = path.join(STATE_DIRECTORY, "vscode-extensions");
 const LAUNCH_LOG = path.join(STATE_DIRECTORY, "launch.log");
 const MUTTER_LOG = path.join(STATE_DIRECTORY, "mutter.log");
+const RUNTIME_DIRECTORY = path.join(STATE_DIRECTORY, "runtime");
+// The extension's Aggregor folder (database, aggregor-pty's log, anchor folder), apart from the real ~/.aggregor;
+// $AGGREGOR_HOME moves it.
+const AGGREGOR_FOLDER =
+  process.env.AGGREGOR_HOME === undefined ? path.join(STATE_DIRECTORY, "aggregor") : process.env.AGGREGOR_HOME;
 const WAYLAND_DISPLAY_NAME = `aggregor-verify-${CDP_PORT}`;
 // Every process the launch starts inherits this variable, so stop can find them. VS Code's own processes hide it
 // (Chromium rewrites their process title over the environment), so stop finds those by their --user-data-dir instead.
@@ -24,8 +37,8 @@ const USER_DATA_DIRECTORY_ARGUMENTS = [
   `--user-data-dir=${VSCODE_DATA_DIRECTORY} `,
   `--user-data-dir ${VSCODE_DATA_DIRECTORY} `
 ];
-const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
-const EXTENSION_DIRECTORY = path.join(REPO_ROOT, "apps", "extension");
+const REPOSITORY_ROOT = path.resolve(import.meta.dirname, "../../..");
+const EXTENSION_DIRECTORY = path.join(REPOSITORY_ROOT, "apps", "extension");
 const CONFIGURED_WORKSPACE = process.env.AGGREGOR_VERIFY_WORKSPACE;
 const DEFAULT_WORKSPACE =
   CONFIGURED_WORKSPACE === undefined ? path.join(operatingSystem.homedir(), "side", "jsTester") : CONFIGURED_WORKSPACE;
@@ -45,14 +58,6 @@ code --ozone-platform=wayland --password-store=basic --user-data-dir "$2" --exte
 while [ "$SECONDS" -lt "$7" ] && { [ -z "$8" ] || kill -0 "$8" 2>/dev/null; }; do sleep 5; done
 exec "\${10}" "$9" stop --watchdog
 `;
-
-// What start leaves for the other commands and for the hooks: whose launch it is and where its trace log went.
-interface VerifyState {
-  readonly ownerProcessId: null | number;
-  readonly startedAt: number;
-  readonly traceLogPath?: string;
-  readonly workspacePath: string;
-}
 
 const sleep = async (milliseconds: number) =>
   new Promise((resolve) => {
@@ -132,8 +137,12 @@ const createLaunchEnvironment = () => ({
   ...Object.fromEntries(
     Object.entries(process.env).filter(([variableName]) => !INHERITED_SESSION_VARIABLE_PATTERN.test(variableName))
   ),
+  AGGREGOR_HOME: AGGREGOR_FOLDER,
   [INSTANCE_VARIABLE]: STATE_DIRECTORY,
   WAYLAND_DISPLAY: WAYLAND_DISPLAY_NAME,
+  // The private bus starts its own document portal at $XDG_RUNTIME_DIR/doc; sharing the real one unmounts the
+  // desktop's, and every Flatpak launch then fails.
+  XDG_RUNTIME_DIR: RUNTIME_DIRECTORY,
   XDG_SESSION_TYPE: "wayland"
 });
 
@@ -188,12 +197,13 @@ const start = async (workspaceArgument: string | undefined) => {
   // A running instance never loads a new build: its extension host only restarts with the whole app.
   await stopInstance();
   if ((await listCdpTargets()).length > 0) throw new Error(`Port ${CDP_PORT} is held by something else.`);
+  execFileSync("pnpm", ["run", "build:pty"], {cwd: EXTENSION_DIRECTORY, stdio: ["ignore", "ignore", "inherit"]});
   execFileSync("pnpm", ["exec", "vite", "build", "--mode", "development"], {
     cwd: EXTENSION_DIRECTORY,
     stdio: ["ignore", "ignore", "inherit"]
   });
 
-  fileSystem.mkdirSync(STATE_DIRECTORY, {recursive: true});
+  fileSystem.mkdirSync(RUNTIME_DIRECTORY, {mode: 0o700, recursive: true});
   const startedAt = Date.now();
   writeState({ownerProcessId: claudeProcessId, startedAt, workspacePath});
   launchVsCode(workspacePath, claudeProcessId);

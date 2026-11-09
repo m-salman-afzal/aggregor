@@ -1,0 +1,2 @@
+# Matches Prettier's printWidth for the rest of the repo.
+max_width = 120

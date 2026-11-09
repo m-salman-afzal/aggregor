@@ -1,0 +1,16 @@
+{
+  "name": "@pkg/vscode",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./*"
+  },
+  "dependencies": {
+    "@pkg/constants": "workspace:*",
+    "@pkg/tsconfigs": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@types/vscode": "1.145.0"
+  }
+}

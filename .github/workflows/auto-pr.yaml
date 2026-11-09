@@ -1,8 +1,9 @@
 name: Auto PR
 
-# Any branch push opens a PR into dev.
+# Any branch push opens a PR into dev, titled with its first commit's subject.
 # Stack branches (stack/<name>/<n>/<type>/<slug>, see .claude/skills/stack) from n = 1 open into the stack's branch below
-# instead, and join its GitHub stack. Renovate and `pnpm bump` open their own PRs.
+# instead, and join its GitHub stack; once the branches below have landed, the lowest one left opens into dev. A stack
+# PR's title ends in its stack and step, `[<name> <n>]`. Renovate and `pnpm bump` open their own PRs.
 on:
   push:
     branches-ignore: [main, dev, "renovate/**", "chore/bump-v*"]
@@ -26,25 +27,35 @@ jobs:
       # Whoever pushed the branch owns its PR.
       ASSIGNEE: ${{ github.actor }}
     steps:
-      # --fill reads the commits between base and head, so it needs both branches' history locally.
-      - uses: actions/checkout@v7
+      # The title reads the commits between base and head, so it needs both branches' history locally.
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
       - name: Open or update PR
         run: |
           base=dev
 
-          # A stack branch above 0 targets the stack's one branch at n - 1.
+          # A stack branch above 0 targets the stack's one branch at n - 1. With no branch below on GitHub and none lower
+          # either, the steps below have landed, so this branch is the stack's bottom and targets dev.
+          # shortcut: a stack pushed top-first, with nothing below on GitHub, also targets dev; check for a merged PR
+          # below if that happens.
           parent=
           if [[ $HEAD =~ ^stack/([^/]+)/([1-9][0-9]*)/ ]]; then
+            stack_name=${BASH_REMATCH[1]}
             n=${BASH_REMATCH[2]}
-            below="stack/${BASH_REMATCH[1]}/$((n - 1))/"
+            below="stack/$stack_name/$((n - 1))/"
             parent=$(gh api "repos/$GH_REPO/git/matching-refs/heads/$below" -q '.[].ref | ltrimstr("refs/heads/")')
-            if [ "$(wc -w <<< "$parent")" -ne 1 ]; then
-              echo "::error::$HEAD needs exactly one ${below}* branch, found: ${parent:-none}"
+            lower=$(gh api --paginate "repos/$GH_REPO/git/matching-refs/heads/stack/$stack_name/" \
+              -q '.[].ref | ltrimstr("refs/heads/")' | awk -F/ -v n="$n" '$3 + 0 < n - 1')
+            if [ -z "$parent" ] && [ -n "$lower" ]; then
+              echo "::error::$HEAD needs its ${below}* branch on GitHub; push the stack bottom-up"
               exit 1
             fi
-            base=$parent
+            if [ "$(wc -w <<< "$parent")" -gt 1 ]; then
+              echo "::error::$HEAD needs exactly one ${below}* branch, found: $parent"
+              exit 1
+            fi
+            base=${parent:-dev}
           fi
 
           # A fresh branch with no commits of its own can't have a PR yet.
@@ -53,7 +64,11 @@ jobs:
 
           # No --base: a stacked PR retargeted onto its parent branch must still be found, not reopened into dev.
           pr=$(gh pr list --head "$HEAD" --state open --json number -q '.[0].number')
-          if [ -z "$pr" ]; then gh pr create --base "$base" --head "$HEAD" --fill --assignee "$ASSIGNEE"; fi
+          if [ -z "$pr" ]; then
+            title=$(git log --reverse --format=%s "origin/$base..HEAD" | head -n 1)
+            if [[ $HEAD =~ ^stack/([^/]+)/([0-9]+)/ ]]; then title="$title [${BASH_REMATCH[1]} ${BASH_REMATCH[2]}]"; fi
+            gh pr create --base "$base" --head "$HEAD" --fill-first --title "$title" --assignee "$ASSIGNEE"
+          fi
 
           # The PR also joins its parent's GitHub stack. Every push retries, so a link skipped because the branch below
           # had no PR yet is made on a later push.
@@ -65,7 +80,8 @@ jobs:
           stack=$(gh api "repos/$GH_REPO/stacks?pull_request=$parent_pr" -q '.[0].number')
           if [ -n "$stack" ]; then
             gh api --method POST "repos/$GH_REPO/stacks/$stack/add" -F "pull_requests[]=$pr"
-          elif [ "$n" -eq 1 ]; then
+          elif [ "$(gh pr view "$parent_pr" --json baseRefName -q .baseRefName)" = dev ]; then
+            # The parent is the stack's bottom, so these two PRs start the stack.
             gh api --method POST "repos/$GH_REPO/stacks" -F "pull_requests[]=$parent_pr" -F "pull_requests[]=$pr"
           else
             echo "$parent isn't in a stack yet; push it again, then $HEAD"

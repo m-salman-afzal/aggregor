@@ -1,0 +1,11 @@
+{
+  "name": "aggregor-pty",
+  "private": true,
+  "description": "Runs a coding agent in a pty and records its OSC 7501 status in Aggregor's database.",
+  "type": "module",
+  "scripts": {
+    "build": "cargo build --release",
+    "check": "cargo fmt --check && cargo clippy --all-targets -- -D warnings",
+    "test": "cargo test"
+  }
+}

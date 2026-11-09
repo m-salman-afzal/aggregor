@@ -1,0 +1,35 @@
+{
+  "name": "@pkg/eslint",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@e18e/eslint-plugin": "catalog:",
+    "@eslint/js": "catalog:",
+    "@eslint/json": "catalog:",
+    "@eslint/markdown": "catalog:",
+    "@pkg/tsconfigs": "workspace:*",
+    "eslint": "catalog:",
+    "eslint-config-prettier": "catalog:",
+    "eslint-package-json": "catalog:",
+    "eslint-plugin-import-x": "catalog:",
+    "eslint-plugin-perfectionist": "catalog:",
+    "eslint-plugin-pnpm": "catalog:",
+    "eslint-plugin-prettier": "catalog:",
+    "eslint-plugin-promise": "catalog:",
+    "eslint-plugin-unicorn": "catalog:",
+    "globals": "catalog:",
+    "prettier": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:"
+  },
+  "devDependencies": {
+    "@types/eslint-plugin-promise": "catalog:",
+    "@types/node": "catalog:"
+  }
+}

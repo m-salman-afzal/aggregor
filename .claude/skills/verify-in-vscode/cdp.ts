@@ -2,13 +2,13 @@
 import fileSystem from "node:fs";
 import path from "node:path";
 
-export const CDP_PORT = 9447;
-
 interface CdpTarget {
   readonly title: string;
   readonly type: string;
   readonly webSocketDebuggerUrl: string;
 }
+
+export const CDP_PORT = 9447;
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null;
