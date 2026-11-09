@@ -1,9 +1,9 @@
 name: Auto PR
 
-# Any branch push opens a PR into dev.
+# Any branch push opens a PR into dev, titled with its first commit's subject.
 # Stack branches (stack/<name>/<n>/<type>/<slug>, see .claude/skills/stack) from n = 1 open into the stack's branch below
-# instead, and join its GitHub stack; once the branches below have landed, the lowest one left opens into dev. Renovate
-# and `pnpm bump` open their own PRs.
+# instead, and join its GitHub stack; once the branches below have landed, the lowest one left opens into dev. A stack
+# PR's title ends in its stack and step, `[<name> <n>]`. Renovate and `pnpm bump` open their own PRs.
 on:
   push:
     branches-ignore: [main, dev, "renovate/**", "chore/bump-v*"]
@@ -27,7 +27,7 @@ jobs:
       # Whoever pushed the branch owns its PR.
       ASSIGNEE: ${{ github.actor }}
     steps:
-      # --fill reads the commits between base and head, so it needs both branches' history locally.
+      # The title reads the commits between base and head, so it needs both branches' history locally.
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
@@ -64,7 +64,11 @@ jobs:
 
           # No --base: a stacked PR retargeted onto its parent branch must still be found, not reopened into dev.
           pr=$(gh pr list --head "$HEAD" --state open --json number -q '.[0].number')
-          if [ -z "$pr" ]; then gh pr create --base "$base" --head "$HEAD" --fill --assignee "$ASSIGNEE"; fi
+          if [ -z "$pr" ]; then
+            title=$(git log --reverse --format=%s "origin/$base..HEAD" | head -n 1)
+            if [[ $HEAD =~ ^stack/([^/]+)/([0-9]+)/ ]]; then title="$title [${BASH_REMATCH[1]} ${BASH_REMATCH[2]}]"; fi
+            gh pr create --base "$base" --head "$HEAD" --fill-first --title "$title" --assignee "$ASSIGNEE"
+          fi
 
           # The PR also joins its parent's GitHub stack. Every push retries, so a link skipped because the branch below
           # had no PR yet is made on a later push.

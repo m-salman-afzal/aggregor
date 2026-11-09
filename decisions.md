@@ -56,6 +56,28 @@ current entry. Leave a field out rather than guess.
   opens each into the branch below and joins them into a GitHub stack; the top PR lands with a merge commit, never a
   squash. Once the branches below have landed, the lowest open branch opens into dev (2026-11-05, #63).
 
+### PR titles are commit subjects with a feature scope, plus the stack's step (2026-11-10, on `chore/bump-deps`)
+
+- **Problem:** `gh pr create --fill` takes the commit's subject as the title only when the PR opens with one commit;
+  with more it falls back to the branch name (#77 was `stack/harness foundation/1/feat/sqlite storage`). Scopes varied
+  (`feat(extension)!:` next to `feat!:`), a stack PR's title didn't say its stack or step, and nothing checked the
+  format, though each PR title goes into its merge commit.
+- **Options:** titles built from the branch name (`feat(harness-foundation): sqlite storage`), consistent but with terse
+  slugs; no stack in the title, since the branch name and GitHub's stack view show it. For scopes: none at all (briefly
+  the choice), which drops what a title can say; one per package (`extension`, `pty`, `eslint`, ...), which needs no
+  list but says `extension` on most commits; one per DDD layer, which most features cut across.
+- **Decision:** Auto PR titles each PR with its first commit's subject (`--fill-first`), and a stack PR adds
+  `[<name> <n>]`: `feat(storage): keep sessions in SQLite [harness-foundation 1]`. A title is
+  `<type>(<scope>): <subject>`, with `!` before the colon for a breaking change, and the scope is required: a feature
+  (`sessions`, `projects`, `agents`, `status`, `alerts`, `workspace`, `commit-message`, `storage`), or `lint`, `deps`,
+  `release`, or `repo` for anything no feature covers. The PR Title workflow fails any other title on a PR into anything
+  but `main`, whose release PR is titled `v<version>`. The default commit prompt stays generic, with an optional scope
+  for any repository; `.vscode/settings.json` overrides `aggregorApp.commitCommand` with the same prompt and aggregor's
+  scopes, each with what it covers. Renovate writes `build(deps):` and `ci(deps):`, `bumpp` `chore(release):`. A PR that
+  adds a feature no scope covers adds its scope to both lists.
+- **Why:** one title format from every source; a feature scope says what a change is about, and each stack PR's place
+  shows in the PR list.
+
 ### Conventions are enforced by lint, not prose (2026-11-03)
 
 - **Problem:** rules written only in AGENTS.md or DDD.md get skipped.
@@ -488,7 +510,8 @@ current entry. Leave a field out rather than guess.
   makes pnpm refuse to install.
 - **Decision:** Renovate (`.github/renovate.json5`), which installs the Node that `devEngines` names. Weekly, minor and
   patch bumps in one PR, OSV vulnerability alerts, GitHub Actions in their own `ci` PR, and `vscode` with
-  `@types/vscode` together.
+  `@types/vscode` together. husky and portable-pty are left out of the abandoned-package warning (2026-11-10): both are
+  kept on purpose despite no recent release.
 
 ### Updates wait 1 day after a release (2026-11-06, #75)
 

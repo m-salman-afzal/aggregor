@@ -74,9 +74,9 @@ tmux and alerts.
 
 - [ ] Worktree mode: start a session in the project root or in a new git worktree
 - [ ] Changed files under each session, opening git's diff with per-hunk staging
-- [ ] Archive sessions: remove the worktree, keep unmerged branches
+- [ ] Archive/Done sessions: remove the worktree, keep unmerged branches
 - [ ] Bookmarks
-- [ ] Create a pull request from a session
+- [ ] Create/Link a pull request from a session
 
 ### M4: SSH
 
@@ -117,6 +117,8 @@ tmux and alerts.
     of that opens the session if it claimed the alert; otherwise it shows "‹session› finished · Open", whose click opens
     the claiming window's link, which brings that window forward with the session. Costs a schema change; the focus
     timing can misfire as it does now.
+
+- [ ] sub agents view in the sidebar (need to research on how is that possible for each kind of agent)
 
 ### Later
 

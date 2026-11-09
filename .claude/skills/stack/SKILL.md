@@ -52,6 +52,8 @@ or on origin.
 - Once the branches below have landed and none is left on GitHub, the lowest branch left opens its PR into `dev` and
   becomes the bottom.
 - A branch with no commits of its own gets no PR until a push that has some.
+- The PR is titled once, when it opens, with the branch's first commit subject plus `[<name> <n>]`, as in
+  `feat(storage): keep sessions in SQLite [harness-foundation 1]`, so make that commit the one that names the step.
 - Push bottom-up. A branch whose parent isn't on GitHub yet fails the workflow, while a lower branch is still there.
 - Land a stack's branches only through their PRs. A branch pushed straight to `dev` leaves its stack without a bottom PR
   until the branch above it is pushed again.
