@@ -1,6 +1,6 @@
 import {Context, Schema} from "effect";
 
-import type {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
+import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Effect} from "effect";
 
@@ -17,7 +17,7 @@ export class ProjectPickCancelledError extends Schema.TaggedError<
   {readonly brand: unique symbol}
 >()("ProjectPickCancelledError", {}) {}
 
-// What the extension asks the user, and the errors it shows them.
+// What the extension asks the user mid-task: a name, a project, folders, a confirmation, or an offer to act.
 export class IUserInputPromptInfraService extends Context.Service<
   IUserInputPromptInfraService,
   {
@@ -26,9 +26,9 @@ export class IUserInputPromptInfraService extends Context.Service<
     // A modal warning; true when the user picks `confirmAction`.
     readonly confirm: (message: string, confirmAction: string) => Effect.Effect<boolean>;
     readonly pickProject: (
-      projects: readonly ListedProjectValueObject[],
+      projects: readonly ProjectListItemDto[],
       placeHolder: string
-    ) => Effect.Effect<ListedProjectValueObject, ProjectPickCancelledError>;
+    ) => Effect.Effect<ProjectListItemDto, ProjectPickCancelledError>;
     readonly pickProjectFolderPaths: Effect.Effect<readonly ProjectPathValueObject[], FolderPickCancelledError>;
     // Resolves with the action the user picked, or undefined when they dismiss the message.
     readonly showErrorMessage: (message: string, ...actions: string[]) => Effect.Effect<string | undefined>;

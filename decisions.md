@@ -99,8 +99,8 @@ current entry. Leave a field out rather than guess.
 
 - **Problem:** services called VS Code and Claude Code directly, so the use cases depended on both.
 - **Decision:** four layers with dependencies pointing inward; application declares the interfaces that infrastructure
-  implements, and `vscode` is imported at runtime in one file, `vscode.api.ts`. DDD.md has the details;
-  `eslint.layers.ts` checks imports and names.
+  implements, and `vscode` is imported at runtime in one file, `vscode.api.ts` (in `@pkg/vscode` since 2026-11-09).
+  DDD.md has the details; `eslint.layers.ts` checks imports and names.
 - **Why:** a use case never depends on VS Code or on one agent.
 
 ### A base entity, a base repository and a base service (2026-11-07)
@@ -115,7 +115,7 @@ current entry. Leave a field out rather than guess.
   `IBaseRepository` and `makeBaseRepository` give `add`, `findById`, `findMany`, `update`, `upsert` and `softDelete`.
   Reads skip soft-deleted rows and follow `sortId`; `upsert` brings a soft-deleted row back; `update` writes only the
   columns it is given, so the extension and `aggregor-pty` never overwrite each other's. `base.service.ts` has the same
-  six calls for any repository, which the entity services use instead of their repositories, and `showRepositoryError`.
+  six calls for any repository, which the entity services use instead of their repositories.
 - **Why:** each new table is a Drizzle table, its generated migration, an entity and a few lines of repository.
 
 ### Rows are read through the entity's factory; entities don't know how they're stored (2026-11-07)
@@ -180,9 +180,10 @@ current entry. Leave a field out rather than guess.
   which runs on the same `@effect/sql-sqlite-node` client; `drizzle-kit` 1.0.0-rc.5 for development.
   - Each `infrastructure/database/models/<table>.model.ts` is a `sqliteTable` (`ProjectTableModel`...) spreading
     `BASE_COLUMNS` from `base.model.ts`.
-  - `pnpm db:generate --name <slug>` (`drizzle-kit generate`, configured in `apps/extension/drizzle.config.ts`) writes a
-    migration per schema change into `apps/extension/assets/migrations/`, committed and shipped in the VSIX without
-    drizzle-kit's snapshots. That holds before 0.1.0 too, since generated migrations cost nothing.
+  - `pnpm db:generate` (`drizzle-kit generate`, configured in `apps/extension/drizzle.config.ts`) writes the migrations
+    into `apps/extension/assets/migrations/`, committed and shipped in the VSIX without drizzle-kit's snapshots. Before
+    0.1.0 there is one: a schema change deletes the folder, runs `pnpm db:generate --name create_tables` and deletes the
+    old database (2026-11-08; until then, a migration per change). From 0.1.0, a migration per change.
   - `DatabaseLayer` runs Drizzle's `migrate` when a window starts, in one `BEGIN IMMEDIATE` transaction so a second
     window starting at once sees the first one's migrations, with foreign keys off around it so a migration can rebuild
     a table.
@@ -269,7 +270,8 @@ current entry. Leave a field out rather than guess.
 ### Small functions (2026-11-02, #50)
 
 - **Decision:** lint caps a function at 30 lines. Helpers sit at module level and take their shared state as parameters;
-  a layer's `make` only creates state, starts watchers and wires the service.
+  a layer's `make` only creates state, starts watchers and wires the service. Files have no length limit since
+  2026-11-09 (ESLint's `max-lines` was 300), so an entity's use cases stay in one service.
 - **Why:** each function does one job and shows up as its own span.
 
 ### Controllers decode VS Code arguments with a schema (2026-10-29, #32; 2026-11-03, #58)
@@ -277,7 +279,87 @@ current entry. Leave a field out rather than guess.
 - **Problem:** a tree view's title-bar action receives whichever row is focused. New Session from the title bar with a
   session row focused saved a session with no path, and every later read failed as corrupt.
 - **Decision:** the title-bar New Session... asks for the project; every controller decodes its arguments with a schema,
-  so a mismatch is logged and shown instead of reaching the service.
+  so a mismatch is logged and shown instead of reaching the service. Since 2026-11-09 the schema is the use case's
+  request DTO, and a Sessions row passes its node id (`project:<path>`, `session:<id>`), which the controller decodes
+  into that DTO.
+
+### The backend drives the Sessions view (2026-11-08; DTOs and presenters since 2026-11-09)
+
+- **Problem:** after step 3 the view still held the unread state, decided each row's status, merged five change sources
+  itself, read the repositories and the terminal and harness services directly, and listed the statuses again
+  (`RowStatus`, inline `done || idle || unknown` checks). Every change redrew the whole tree, and every window kept a
+  copy of the sessions and projects.
+- **Options:** a snapshot of every project and session, rebuilt and pushed on each change, which still redraws every
+  row. Per-row queries with the view still merging the change sources and diffing badges. The first build of this
+  (2026-11-08): the list's rows and changes as value objects (`ListedSessionValueObject`,
+  `SessionListChangeValueObject`) built by a domain service, and a `sessionList.controller.ts` that worked out what kind
+  of row it was given; but those have identity, so they are no value objects, and a controller only calls a service.
+- **Decision:**
+  - The backend sends what changed, not the data: `SessionListChangeDto` is `ProjectListChanged`,
+    `ProjectSessionsChanged` (a session added or removed) or `SessionChanged` (any other write, or its tab opening or
+    closing), and the view redraws only that: the whole tree, one project, or one row and its badge.
+  - The tree's nodes are ids, `project:<path>` and `session:<id>`, since VS Code finds a node to redraw by its id. Each
+    draw reads the node through the controllers: a `ProjectListItemDto`, or a `SessionListItemDto` with the status the
+    user sees (`SessionStatusValueObject`, picked from the stored `AgentStatusValueObject` by `getSessionStatus`), its
+    kind and progress only while the turn runs, its message unless the agent is gone, its icon path and its project's
+    name. `SessionService` assembles it.
+  - No window keeps a copy: every read is a query, and each repository's `entityChanges` reads only the rows written
+    since its last check (see the `data_version` entry). The spinner reads the working sessions each frame while the
+    view is visible.
+- **Why:** one place decides what a row is, a status write redraws one row, and the data lives once, in the database.
+  Text, symbols and colours stay the view's.
+
+### Presentation talks to use cases in DTOs (2026-11-09)
+
+- **Problem:** DDD.md said "there are no DTOs", so services took and returned entities and value objects, and the list's
+  read models sat among the domain's value objects. Controllers did UI work (Source Control progress, a context key,
+  re-running their own command), and presentation imported the domain, repositories and infrastructure.
+- **Options:** keep passing domain objects across, as Fowler advises inside one process unless the presentation model
+  and the domain model differ; they differ here (rows against entities). One request DTO per shape (`{sessionId}`)
+  instead of one per use case.
+- **Decision:**
+  - Request and response DTOs live in `application/dtos/<x>.dto.ts` as schemas: `<UseCase>RequestDto`, one per use case,
+    and response DTOs named for what they are (`SessionListItemDto`, `ProjectListItemDto`).
+  - A controller decodes its input into the request DTO with `decodeVsCodeArgument` and calls one service; it imports
+    only services, DTOs, presentation helpers and that decoder. Presenters import services' types; views import
+    controllers and DTOs' types. Presentation imports nothing from the domain or infrastructure.
+  - A value object is only a value: `LaunchPlan` went to the harness interface, the list's rows and changes to DTOs.
+  - Source Control progress, its context key and the retry after Stage All moved into `CommitMessageService`, through a
+    new `IProgressInfraService`; `scm.*` became `commitMessage.*`.
+  - Every use case's file holds all of an entity's use cases, commands and queries; `sessionList.service.ts` went back
+    into `session.service.ts`.
+- **Why:** Evans and Martin keep the domain isolated and pass simple structures across boundaries; Vernon has the
+  application service assemble DTOs. A use case's contract is then one schema, which the controller validates against.
+
+### A command's failure is shown by its presenter (2026-11-09)
+
+- **Problem:** services built and showed error messages, so the backend decided what the user reads.
+- **Options:** a controller mapping its errors (a controller only calls a service); one message per error tag for every
+  command, which can't tell a session's terminal from a project's. For work no command starts (title sync, viewedAt, the
+  project switch): handing failures to presentation through a stream.
+- **Decision:** a use case returns every failure the user should hear about as a typed error, and ends quietly on a
+  cancelled pick or a row removed meanwhile. Each feature has a presenter (`presentation/presenters/<x>.presenter.ts`)
+  whose type is every failure its services return, so a new failure fails to compile until it has a message; `routes.ts`
+  registers each command with its presenter, and `registerCommand` logs the failure and shows the message. Work no
+  command started logs its failures in the trace log.
+- **Why:** the backend says what went wrong; presentation decides how to say it.
+
+### `@pkg/vscode` holds what presentation and infrastructure share (2026-11-09)
+
+- **Problem:** `VsCodeApi` and the vscode helpers sat in infrastructure, but views and the middleware need them too.
+- **Decision:** a workspace package, `packages/vscode`: `VsCodeApi` (the one runtime `vscode` import),
+  `acquireDisposable`, `fromEvent`, `setContext`, `withProgress`, `showErrorInBackground`, and `decodeVsCodeArgument`
+  (formerly `decodeCommandArgument`). Lint applies the extension's code rules to it.
+- **Why:** presentation imports nothing from infrastructure, and the shared code has one home.
+
+### Constants are split by feature (2026-11-09)
+
+- **Problem:** every constant went into `extension.constant.ts` or `message.constant.ts`.
+- **Options:** by kind (ids, UI, runtime, messages).
+- **Decision:** one `@pkg/constants/src/<feature>.constant.ts` per feature (app, commitMessage, database, git, harness,
+  project, session, sessionsView, terminal, workspace), each with `<FEATURE>_COMMANDS`, `_LABELS` (titles, buttons,
+  placeholders), `_NOTICES` (confirmations and offers) and `_ERRORS` (failure texts) as it needs them.
+- **Why:** a feature's ids and words sit together, and a constant's file says who uses it.
 
 ## Dependencies and tooling
 
@@ -422,20 +504,26 @@ current entry. Leave a field out rather than guess.
   run. A session's terminal runs `aggregor-pty --database ‹path› --session ‹id› -- ‹agent command›`: the terminal infra
   service wraps the harness's launch plan, and `getDatabaseFilePath` gives it and the database layer the same path.
 - **Why:** the reports carry what each agent knows, in one format. Two title columns leave step 4's title rule to the
-  domain. Codex's title spinner changes about ten times a second, and from step 3 every write makes the window re-read
-  its sessions.
+  domain. Codex's title spinner changes about ten times a second, and from step 3 every write makes the window read the
+  rows it changed.
 
-### Windows see outside writes by polling `data_version` (2026-11-08)
+### Windows see outside writes by polling `data_version`, and read only the rows written (2026-11-08)
 
-- **Problem:** `aggregor-pty` and other windows write the database, and a window has to notice within a moment.
+- **Problem:** `aggregor-pty` and other windows write the database, and a window has to notice within a moment and know
+  which rows changed, without keeping a copy to compare against.
 - **Options:** re-reading when the window regains focus (2026-11-07 to 2026-11-08), which misses every status change
   while you look at the window. Watching the WAL file, which a checkpoint recreates and which doesn't exist before the
-  first write. A socket from the binary, planned for later (phase 2, Agreed 17).
-- **Decision:** `refreshOnDatabaseChanges` reads `PRAGMA data_version` every 250 ms, untraced, and each repository
-  re-reads its copy when the number changes. It changes only with another connection's commit, and a repository already
-  re-reads after its own writes. A project list that came back the same is not set again, so a status write redraws the
-  tree once.
-- **Why:** one small query, no file-watch edge cases, and a status shows within a quarter second.
+  first write. A socket from the binary, planned for later (phase 2, Agreed 17). Re-reading every row into a copy per
+  window on each change (step 3's first build), which the view then diffed. A change counter column kept by a trigger:
+  exact and immune to the clock, but a column and triggers on every table.
+- **Decision:** each repository's change feed (`entityChange.utils.ts`) looks again when `PRAGMA data_version` moves,
+  read every 250 ms, untraced, which only another connection's commit does, and right after each of the window's own
+  writes. A look reads the rows whose `updatedAt` is at or after the latest one it read, soft-deleted ones too, skips
+  those it already read unchanged at that same millisecond, and calls a row added when its `sortId` is above every one
+  it saw, removed when it has `deletedAt`, else updated. It publishes each as an `EntityChange`; a failed look leaves
+  the cursor where it was.
+- **Why:** one small query per write, no copy of the data, and a status shows within a quarter second. A clock that
+  steps back could hide a write until the row's next one; the counter column is the fix if that ever shows.
 
 ### Clicking a closed session resumes it (2026-10-08; `hasWorked` since 2026-11-08)
 
@@ -453,11 +541,17 @@ current entry. Leave a field out rather than guess.
   Claude's idle mark for 3 seconds, which a renamed tab broke.
 - **Decision:** `aggregor-pty` runs every session's agent and writes its OSC 7501 reports onto the session's row. A row
   with no terminal in this window shows exited, so an agent that died without writing `exited` never looks alive; with
-  one, `blocked`, `error`, `working` and `exited` show as themselves, and `done`, `idle` and `unknown` show done while
-  unread, else idle. Unread is the old rule on the new states: a session out of view that goes from working or blocked
-  to done or idle stays done until it comes into view or starts another turn. `error` shows as error, not as unread.
+  one, `blocked`, `error`, `working` and `exited` show as themselves, `unknown` and `idle` show idle, and `done` shows
+  finished until the user has seen it, then idle. Seen is stored: the extension writes `viewedAt` on a session as it
+  comes into view and as it leaves, and `done` counts as unseen while `statusChangedAt` is after `viewedAt` and the
+  session is out of view (`getSessionStatus`). `error` shows as error.
+  - Unread was first an in-memory set per window (step 3's first build), lost on every extension restart, such as the
+    first project switch. Writing `idle` over `done` instead would make the extension a second writer of
+    `aggregor-pty`'s column, and `aggregor-pty` would have to stop rewriting a state that didn't change.
+  - An agent that ends a turn with `idle` instead of `done` (OpenCode 2.2.5) shows no finished mark.
 - **Why:** every agent that speaks OSC 7501 reports the same states, an interrupt included, and an agent that never
-  reports (Copilot) sits at idle instead of looking stuck.
+  reports (Copilot) sits at idle instead of looking stuck. Stored, a finished turn survives an extension restart and
+  shows the same in every window, and each column keeps one writer.
 
 ### Each status has a row badge (2026-11-08)
 
@@ -482,7 +576,7 @@ current entry. Leave a field out rather than guess.
   a title: status marks (symbols, spaces and control characters) trimmed at both ends, and not empty, one of the
   harness's placeholder titles, or only an id (a UUID, maybe with a prefix such as `ses_`). The title becomes the
   session's `name`, so the row keeps it while the agent is gone or resuming; only that save is traced, since the check
-  runs on every database change. Rename stores a `customName`, which wins in the row and the tab.
+  runs on every write to a session. Rename stores a `customName`, which wins in the row and the tab.
 - **Why:** one rule covers every agent's title, and a harness adds only data. Dropping the agent's own name or the
   project folder from a title waits for step 4, which brings each harness's name.
 
@@ -508,20 +602,21 @@ current entry. Leave a field out rather than guess.
   `windowProjects` row per added project, plus an anchor folder per key; the key survived the switch to an untitled
   workspace, whose `workspaceState` starts empty. Before that, `workspaceState` (#27), which loses the list at that
   switch, and `globalState` under the window's key.
-- **Decision:** the `projects` table is the list: `added` marks a listed project, Add Project upserts it with `added`
-  (to the end of the list), and Remove Project clears it; its sessions stay and come back with it. A workspace folder's
-  project gets a row with its first session without being added, so it stays one of the window's own folders. One anchor
-  folder, `globalStorage/anchor/Aggregor`, with one save-offer marker. The windows tables went with a generated
-  migration, which leaves every project unadded.
+- **Decision:** the `projects` table is the list: `isAdded` (named `added` until 2026-11-09) marks a listed project, Add
+  Project upserts it with `isAdded` (to the end of the list), and Remove Project clears it; its sessions stay and come
+  back with it. A workspace folder's project gets a row with its first session without being added, so it stays one of
+  the window's own folders. One anchor folder, `globalStorage/anchor/Aggregor`, with one save-offer marker. The windows
+  tables went with a generated migration, which leaves every project unadded.
 - **Why:** less to build and keep. Adding windows back is one table and a migration. Until step 6 runs agents in tmux, a
   second window shows the same sessions, and opening a running one there would start a second agent on its id.
 
-### The Sessions tree lists `ListedProjectValueObject`s (2026-11-07)
+### Listed projects are `ProjectListItemDto`s (2026-11-07; a DTO since 2026-11-09)
 
-- **Problem:** a workspace folder is listed before its project has a row, so the tree's project rows can't be the stored
+- **Problem:** a workspace folder is listed before its project has a row, so a listed project can't be the stored
   `ProjectEntity`.
-- **Decision:** the tree's project rows are `ListedProjectValueObject`s (path, name, added); a project's row is made the
-  first time it is added or given a session.
+- **Decision:** `ProjectService.listProjects` returns `ProjectListItemDto`s (path, name, isAdded), built from the
+  workspace folders and the added projects; a project's row is made the first time it is added or given a session. Until
+  2026-11-09 these were `ListedProjectValueObject`s, but a project identified by its path is no value object.
 
 ### Offer once to save the workspace as Aggregor (2026-11-06, #68)
 

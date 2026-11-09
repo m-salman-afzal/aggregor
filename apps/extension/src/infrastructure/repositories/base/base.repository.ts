@@ -1,16 +1,18 @@
 import {makeEntityId} from "@domainServices/entityId.domainService.ts";
 import {BaseEntity} from "@entities/base/base.entity.ts";
 import {DatabaseReadError, DatabaseWriteError, EntityNotFoundError} from "@entities/base/base.repository.interface.ts";
+import {startEntityChangeFeed} from "@repositories/base/entityChange.utils.ts";
 import {
+  encodeStoredColumns,
   findUniqueColumns,
-  formatNow,
+  formatCurrentTimestamp,
   makeFilterClauses,
-  replaceUndefinedWithNull
+  selectRows
 } from "@repositories/base/repository.utils.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
-import {and, eq, getColumns, isNull, sql} from "drizzle-orm";
+import {and, eq, isNull, sql} from "drizzle-orm";
 import {makeWithDefaults} from "drizzle-orm/effect-sqlite-node";
-import {Array, Context, Effect, Record, Schema} from "effect";
+import {Array, Context, Effect, Queue, Record, Schema} from "effect";
 import {SecureRandom} from "effect/crypto";
 
 import type {IBaseRepository} from "@entities/base/base.repository.interface.ts";
@@ -19,17 +21,14 @@ import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {SQLiteColumn} from "drizzle-orm/sqlite-core";
 
 const findRows = Effect.fn("BaseRepository.findRows")(
-  function* <Entity>({database, entitySchema, join, tableModel}: RepositoryTable<Entity>, filter: StoredColumns) {
+  function* <Entity>(repositoryTable: RepositoryTable<Entity>, filter: StoredColumns) {
+    const {entitySchema, tableModel} = repositoryTable;
     const filterClauses = yield* makeFilterClauses(tableModel, filter);
-    const joinedColumns = join === undefined ? {} : join.joinedColumns;
-    const selectedRows = database
-      .select({...getColumns(tableModel), ...joinedColumns})
-      .from(tableModel)
-      .$dynamic();
-    const joinedRows = join === undefined ? selectedRows : selectedRows.innerJoin(join.joinedTable, join.joinCondition);
-    const storedRows = yield* joinedRows
-      .where(and(isNull(tableModel.deletedAt), ...filterClauses))
-      .orderBy(tableModel.sortId);
+    const storedRows = yield* selectRows(
+      repositoryTable,
+      and(isNull(tableModel.deletedAt), ...filterClauses),
+      tableModel.sortId
+    );
 
     return yield* Effect.forEach(storedRows, (storedRow) => BaseEntity.fromRow(entitySchema, storedRow));
   },
@@ -53,9 +52,9 @@ const writeRowAtEnd = Effect.fn("BaseRepository.writeRowAtEnd")(function* <Entit
   conflictColumns: readonly SQLiteColumn[]
 ) {
   const nextSortId = sql`(SELECT COALESCE(MAX(${tableModel.sortId}), 0) + 1 FROM ${tableModel})`;
-  const updatedAt = yield* formatNow();
+  const updatedAt = yield* formatCurrentTimestamp();
   const storedColumns = {
-    ...(yield* replaceUndefinedWithNull(addRequest)),
+    ...(yield* encodeStoredColumns(addRequest)),
     id: yield* makeEntityId(),
     sortId: nextSortId,
     updatedAt
@@ -114,7 +113,7 @@ const updateRow = Effect.fn("BaseRepository.updateRow")(function* <Entity>(
   entityId: EntityIdValueObject,
   changes: StoredColumns
 ) {
-  const changedColumns = {...(yield* replaceUndefinedWithNull(changes)), updatedAt: yield* formatNow()};
+  const changedColumns = {...(yield* encodeStoredColumns(changes)), updatedAt: yield* formatCurrentTimestamp()};
   const updatedRows = Effect.mapError(
     database
       .update(tableModel)
@@ -132,7 +131,7 @@ const updateRow = Effect.fn("BaseRepository.updateRow")(function* <Entity>(
 
 const softDeleteRow = Effect.fn("BaseRepository.softDeleteRow")(
   function* <Entity>({database, tableModel}: RepositoryTable<Entity>, entityId: EntityIdValueObject) {
-    const deletedAt = yield* formatNow();
+    const deletedAt = yield* formatCurrentTimestamp();
     yield* database
       .update(tableModel)
       .set({deletedAt, updatedAt: deletedAt})
@@ -141,19 +140,25 @@ const softDeleteRow = Effect.fn("BaseRepository.softDeleteRow")(
   Effect.mapError((cause) => DatabaseWriteError.make({cause}))
 );
 
-export const makeBaseRepository = Effect.fn("BaseRepository.make")(function* <Entity, AddRequest extends StoredColumns>(
-  entityTable: EntityTable<Entity>
-) {
+// Every write notifies the change feed, so this window's own writes show at once.
+export const makeBaseRepository = Effect.fn("BaseRepository.make")(function* <
+  Entity extends BaseEntity,
+  AddRequest extends StoredColumns
+>(entityTable: EntityTable<Entity>) {
   const repositoryTable: RepositoryTable<Entity> = {...entityTable, database: yield* makeWithDefaults()};
   const secureRandom = yield* SecureRandom.SecureRandom;
   const randomContext = Context.make(SecureRandom.SecureRandom, secureRandom);
+  const {entityChanges, ownWriteNotifications} = yield* startEntityChangeFeed(repositoryTable);
+  const notifyChangeFeedAfter = <Success, Failure>(write: Effect.Effect<Success, Failure>) =>
+    Effect.tap(write, () => Queue.offer(ownWriteNotifications, undefined));
   const baseRepository: IBaseRepository<Entity, AddRequest> = {
-    add: (addRequest) => Effect.provide(addRow(repositoryTable, addRequest), randomContext),
+    add: (addRequest) => notifyChangeFeedAfter(Effect.provide(addRow(repositoryTable, addRequest), randomContext)),
+    entityChanges,
     findById: (entityId) => findRowById(repositoryTable, entityId),
     findMany: (filter) => findRows(repositoryTable, filter),
-    softDelete: (entityId) => softDeleteRow(repositoryTable, entityId),
-    update: (entityId, changes) => updateRow(repositoryTable, entityId, changes),
-    upsert: (addRequest) => Effect.provide(upsertRow(repositoryTable, addRequest), randomContext)
+    softDelete: (entityId) => notifyChangeFeedAfter(softDeleteRow(repositoryTable, entityId)),
+    update: (entityId, changes) => notifyChangeFeedAfter(updateRow(repositoryTable, entityId, changes)),
+    upsert: (addRequest) => notifyChangeFeedAfter(Effect.provide(upsertRow(repositoryTable, addRequest), randomContext))
   };
 
   return baseRepository;

@@ -1,38 +1,93 @@
-import {SessionEntity} from "@entities/session/session.entity.ts";
-import {decodeCommandArgument} from "@presentationUtils/commandArguments.utils.ts";
-import {newSession, openSession, removeSession, renameSession} from "@services/session.service.ts";
-import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
-import {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
+import {
+  GetSessionListItemRequestDtoSchema,
+  ListProjectSessionIdsRequestDtoSchema,
+  NewSessionRequestDtoSchema,
+  OpenSessionRequestDtoSchema,
+  RemoveSessionRequestDtoSchema,
+  RenameSessionRequestDtoSchema
+} from "@dtos/session.dto.ts";
+import {decodeVsCodeArgument} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
+import {decodeProjectNodeRequest, decodeSessionNodeRequest} from "@presentationUtils/sessionsTreeNode.utils.ts";
+import {
+  getSessionListItem,
+  listProjectSessionIds,
+  listWorkingSessionIds,
+  newSession,
+  openSession,
+  removeSession,
+  renameSession,
+  watchActivatedSessionIds,
+  watchSessionListChanges
+} from "@services/session.service.ts";
 import {Effect} from "effect";
 
-// The project row's button passes its Project.
+// The project row's button passes the row's node id.
 export const newSessionInChosenProject = Effect.fn("SessionController.newSessionInChosenProject")(function* (
-  projectRow: unknown
+  projectNodeId: unknown
 ) {
-  const chosenProject = yield* decodeCommandArgument(ListedProjectValueObject, projectRow);
-  yield* newSession(chosenProject);
+  const request = yield* decodeProjectNodeRequest(NewSessionRequestDtoSchema, projectNodeId);
+  yield* newSession(request);
 });
 
 // VS Code passes title-bar buttons the focused row, which can be any row, so its arguments are dropped and the user
 // picks the project.
 export const newSessionAskingForProject = Effect.fn("SessionController.newSessionAskingForProject")(function* () {
-  yield* newSession(undefined);
+  const request = yield* decodeVsCodeArgument(NewSessionRequestDtoSchema, {});
+  yield* newSession(request);
 });
 
-// The session row's own command passes its session id.
-export const openChosenSession = Effect.fn("SessionController.openChosenSession")(function* (chosenSessionId: unknown) {
-  const sessionId = yield* decodeCommandArgument(EntityIdValueObjectSchema, chosenSessionId);
-  yield* openSession(sessionId);
+// The session row's click passes the row's node id.
+export const openChosenSession = Effect.fn("SessionController.openChosenSession")(function* (sessionNodeId: unknown) {
+  const request = yield* decodeSessionNodeRequest(OpenSessionRequestDtoSchema, sessionNodeId);
+  yield* openSession(request);
 });
 
-// The session row's … menu passes the Session itself.
-export const removeChosenSession = Effect.fn("SessionController.removeChosenSession")(function* (sessionRow: unknown) {
-  const chosenSession = yield* decodeCommandArgument(SessionEntity, sessionRow);
-  yield* removeSession(chosenSession);
+// The session row's … menu passes the row's node id.
+export const removeChosenSession = Effect.fn("SessionController.removeChosenSession")(function* (
+  sessionNodeId: unknown
+) {
+  const request = yield* decodeSessionNodeRequest(RemoveSessionRequestDtoSchema, sessionNodeId);
+  yield* removeSession(request);
 });
 
-// The session row's … menu passes the Session itself.
-export const renameChosenSession = Effect.fn("SessionController.renameChosenSession")(function* (sessionRow: unknown) {
-  const chosenSession = yield* decodeCommandArgument(SessionEntity, sessionRow);
-  yield* renameSession(chosenSession);
+// The session row's … menu passes the row's node id.
+export const renameChosenSession = Effect.fn("SessionController.renameChosenSession")(function* (
+  sessionNodeId: unknown
+) {
+  const request = yield* decodeSessionNodeRequest(RenameSessionRequestDtoSchema, sessionNodeId);
+  yield* renameSession(request);
+});
+
+export const getSessionListItemForSessionsView = Effect.fn("SessionController.getSessionListItemForSessionsView")(
+  function* (sessionId: string) {
+    const request = yield* decodeVsCodeArgument(GetSessionListItemRequestDtoSchema, {sessionId});
+
+    return yield* getSessionListItem(request);
+  }
+);
+
+export const listProjectSessionIdsForSessionsView = Effect.fn("SessionController.listProjectSessionIdsForSessionsView")(
+  function* (projectPath: string) {
+    const request = yield* decodeVsCodeArgument(ListProjectSessionIdsRequestDtoSchema, {projectPath});
+
+    return yield* listProjectSessionIds(request);
+  }
+);
+
+export const listWorkingSessionIdsForSessionsView = Effect.fn("SessionController.listWorkingSessionIdsForSessionsView")(
+  function* () {
+    return yield* listWorkingSessionIds();
+  }
+);
+
+export const watchSessionListChangesForSessionsView = Effect.fn(
+  "SessionController.watchSessionListChangesForSessionsView"
+)(function* () {
+  return yield* watchSessionListChanges();
+});
+
+export const watchActivatedSessionIdsForSessionsView = Effect.fn(
+  "SessionController.watchActivatedSessionIdsForSessionsView"
+)(function* () {
+  return yield* watchActivatedSessionIds();
 });

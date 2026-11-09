@@ -1,16 +1,16 @@
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {Context, Schema} from "effect";
 
+import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
+import type {LaunchPlan} from "@interfaces/harness.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {LaunchPlanValueObject} from "@valueObjects/launchPlan.valueObject.ts";
-import type {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
 import type {Effect, Result, Stream, SubscriptionRef} from "effect";
 
 // A tab with a name keeps it; one without shows the title the agent gives its terminal, as it changes.
 export interface TerminalLaunchRequest {
   readonly iconPath: string;
-  readonly launchPlan: LaunchPlanValueObject;
+  readonly launchPlan: LaunchPlan;
   readonly tabName: string | undefined;
 }
 
@@ -44,10 +44,10 @@ export class ITerminalInfraService extends Context.Service<
     readonly closeSessionTerminal: (sessionId: EntityIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
     readonly focusSessionTerminal: (sessionId: EntityIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
     readonly isSessionTerminalOpen: (sessionId: EntityIdValueObject) => Effect.Effect<boolean>;
+    // The session whose tab opened or closed in this window, each time one does.
+    readonly openedOrClosedSessionIds: Stream.Stream<EntityIdValueObject>;
     // A plain shell in the project's folder, in the Terminal panel.
-    readonly openProjectTerminal: (project: ListedProjectValueObject) => Effect.Effect<void, TerminalLaunchFailedError>;
-    // The sessions with a tab in this window, now and after every change.
-    readonly openSessionIds: Stream.Stream<ReadonlySet<EntityIdValueObject>>;
+    readonly openProjectTerminal: (project: ProjectListItemDto) => Effect.Effect<void, TerminalLaunchFailedError>;
     // Reuses the session's tab when this window already has one; else runs the launch plan under aggregor-pty, which
     // records the agent's status on the session's row.
     readonly openSessionTerminal: (

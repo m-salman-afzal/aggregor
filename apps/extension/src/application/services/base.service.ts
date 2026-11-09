@@ -1,8 +1,6 @@
-import {showErrorInBackground} from "@appUtils/error.utils.ts";
-import {DATABASE_MESSAGES} from "@pkg/constants/src/message.constant.ts";
-import {Effect, Match} from "effect";
+import {Effect} from "effect";
 
-import type {DatabaseReadError, DatabaseWriteError, IBaseRepository} from "@entities/base/base.repository.interface.ts";
+import type {IBaseRepository} from "@entities/base/base.repository.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {Context} from "effect";
 
@@ -59,15 +57,4 @@ export const removeEntity = Effect.fn("BaseService.removeEntity")(function* <Ide
 ) {
   const repository = yield* repositoryKey;
   yield* repository.softDelete(entityId);
-});
-
-export const showRepositoryError = Effect.fn("BaseService.showRepositoryError")(function* (
-  repositoryError: DatabaseReadError | DatabaseWriteError
-) {
-  const errorMessage = Match.valueTags(repositoryError, {
-    DatabaseReadError: () => DATABASE_MESSAGES.READ_FAILED,
-    DatabaseWriteError: () => DATABASE_MESSAGES.WRITE_FAILED
-  });
-  yield* Effect.logError(errorMessage, repositoryError.cause);
-  yield* showErrorInBackground(errorMessage);
 });

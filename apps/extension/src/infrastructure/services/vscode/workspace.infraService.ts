@@ -1,12 +1,13 @@
 import {getAnchorFolderPath} from "@infraUtils/anchorFolder.utils.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
+import {fromEvent} from "@pkg/vscode/src/vscode.utils.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
-import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
-import {Array, Effect, Layer, Ref, Schema} from "effect";
+import {Array, Effect, Layer, Ref, Schema, Stream} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 
+import type {WorkspaceFolderProject} from "@interfaces/workspace.infraService.interface.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Uri} from "vscode";
 
@@ -75,13 +76,10 @@ const listWorkspaceFolderProjects = Effect.fn("WorkspaceInfraService.listWorkspa
     const workspaceFolders = workspace.workspaceFolders === undefined ? [] : workspace.workspaceFolders;
     const projectFolders = Array.filter(workspaceFolders, (folder) => folder.uri.fsPath !== anchorFolderPath);
 
-    return Array.map(projectFolders, (projectFolder) =>
-      ListedProjectValueObject.make({
-        added: false,
-        name: projectFolder.name,
-        path: ProjectPathValueObjectSchema.make(projectFolder.uri.fsPath)
-      })
-    );
+    return Array.map(projectFolders, (projectFolder): WorkspaceFolderProject => ({
+      name: projectFolder.name,
+      path: ProjectPathValueObjectSchema.make(projectFolder.uri.fsPath)
+    }));
   });
 });
 
@@ -241,6 +239,14 @@ const saveWorkspaceAs = Effect.fn("WorkspaceInfraService.saveWorkspaceAs")(funct
   yield* Effect.promise(() => commands.executeCommand("workbench.action.saveWorkspaceAs"));
 });
 
+const watchWorkspaceFolderChanges = Effect.fn("WorkspaceInfraService.watchWorkspaceFolderChanges")(function* ({
+  workspace
+}: WorkspaceDependencies) {
+  const workspaceFolderEvents = yield* fromEvent(workspace.onDidChangeWorkspaceFolders);
+
+  return Stream.as(workspaceFolderEvents, undefined);
+});
+
 const makeWorkspaceInfraService = Effect.fn("WorkspaceInfraService.make")(function* () {
   const workspaceDependencies: WorkspaceDependencies = {
     ...(yield* VsCodeApi),
@@ -257,7 +263,8 @@ const makeWorkspaceInfraService = Effect.fn("WorkspaceInfraService.make")(functi
       removeProjectFolder(workspaceDependencies, projectPath),
     saveWorkspaceAs: saveWorkspaceAs(workspaceDependencies),
     showOnlyProjectFolder: (projectPath: ProjectPathValueObject) =>
-      showOnlyProjectFolder(workspaceDependencies, projectPath)
+      showOnlyProjectFolder(workspaceDependencies, projectPath),
+    workspaceFolderChanges: yield* watchWorkspaceFolderChanges(workspaceDependencies)
   };
 });
 

@@ -4,13 +4,13 @@ import {
   IUserInputPromptInfraService,
   ProjectPickCancelledError
 } from "@interfaces/userInputPrompt.infraService.interface.ts";
-import {APP_NAME} from "@pkg/constants/src/extension.constant.ts";
-import {ACTIONS} from "@pkg/constants/src/message.constant.ts";
+import {APP_NAME} from "@pkg/constants/src/app.constant.ts";
+import {PROJECT_LABELS} from "@pkg/constants/src/project.constant.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
-import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Array, Effect, Layer, Result} from "effect";
 
-import type {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
+import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {window as VsCodeWindow} from "vscode";
 
 type Window = typeof VsCodeWindow;
@@ -53,7 +53,7 @@ const askForText = Effect.fn("UserInputPromptInfraService.askForText")(function*
 
 const pickProject = Effect.fn("UserInputPromptInfraService.pickProject")(function* (
   window: Window,
-  projects: readonly ListedProjectValueObject[],
+  projects: readonly ProjectListItemDto[],
   placeHolder: string
 ) {
   const pickedItem = yield* Effect.promise(() =>
@@ -77,7 +77,7 @@ const pickProjectFolderPaths = Effect.fn("UserInputPromptInfraService.pickProjec
       canSelectFiles: false,
       canSelectFolders: true,
       canSelectMany: true,
-      openLabel: ACTIONS.ADD_PROJECT
+      openLabel: PROJECT_LABELS.ADD_FOLDERS
     })
   );
   const confirmedFolderUris = yield* Effect.fromResult(
@@ -93,7 +93,7 @@ const makeUserInputPromptInfraService = Effect.fn("UserInputPromptInfraService.m
   return {
     askForText: (question: string, value: string) => askForText(window, question, value),
     confirm: (message: string, confirmAction: string) => confirm(window, message, confirmAction),
-    pickProject: (projects: readonly ListedProjectValueObject[], placeHolder: string) =>
+    pickProject: (projects: readonly ProjectListItemDto[], placeHolder: string) =>
       pickProject(window, projects, placeHolder),
     pickProjectFolderPaths: pickProjectFolderPaths(window),
     showErrorMessage: (message: string, ...actions: string[]) => showErrorMessage(window, message, actions),

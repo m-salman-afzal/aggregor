@@ -1,4 +1,4 @@
-import {DATA_DIRECTORY_ENV} from "@pkg/constants/src/extension.constant.ts";
+import {DATA_DIRECTORY_ENV} from "@pkg/constants/src/database.constant.ts";
 import {Config, Effect} from "effect";
 import {Path} from "effect/Path";
 import {homedir} from "node:os";

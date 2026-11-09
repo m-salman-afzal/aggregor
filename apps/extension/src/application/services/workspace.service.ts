@@ -2,29 +2,30 @@ import {IGitInfraService} from "@interfaces/git.infraService.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import {ACTIONS, WORKSPACE_MESSAGES} from "@pkg/constants/src/message.constant.ts";
-import {showRepositoryError} from "@services/base.service.ts";
+import {WORKSPACE_LABELS, WORKSPACE_NOTICES} from "@pkg/constants/src/workspace.constant.ts";
 import {addProjectPaths, listProjects} from "@services/project.service.ts";
 import {findSession} from "@services/session.service.ts";
 import {Array, Effect, Result, Stream, SubscriptionRef} from "effect";
 
+import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
 // The window's own folders about to make way for the shown project become added projects, so they stay listed. Added
 // projects are left alone: adding one again would move it to the end of the list.
 const keepWorkspaceFoldersListed = Effect.fn("WorkspaceService.keepWorkspaceFoldersListed")(function* (
-  listedProjects: readonly ListedProjectValueObject[],
+  projectListItems: readonly ProjectListItemDto[],
   shownProjectPath: ProjectPathValueObject
 ) {
   const leavingOwnFolderProjects = Array.filter(
-    listedProjects,
-    (project) => !project.added && project.path !== shownProjectPath
+    projectListItems,
+    (projectListItem) => !projectListItem.isAdded && projectListItem.path !== shownProjectPath
   );
   if (leavingOwnFolderProjects.length === 0) return;
 
-  yield* addProjectPaths(Array.map(leavingOwnFolderProjects, (project) => project.path));
+  yield* addProjectPaths(
+    Array.map(leavingOwnFolderProjects, (leavingOwnFolderProject) => leavingOwnFolderProject.path)
+  );
 });
 
 // The session's project becomes the workspace's only project folder. A session whose project is no longer listed
@@ -32,10 +33,10 @@ const keepWorkspaceFoldersListed = Effect.fn("WorkspaceService.keepWorkspaceFold
 const showSessionProject = Effect.fn("WorkspaceService.showSessionProject")(
   function* (sessionId: EntityIdValueObject) {
     const session = yield* findSession(sessionId);
-    const listedProjects = yield* listProjects();
-    if (!Array.some(listedProjects, (project) => project.path === session.projectPath)) return;
+    const projectListItems = yield* listProjects();
+    if (!Array.some(projectListItems, (projectListItem) => projectListItem.path === session.projectPath)) return;
 
-    yield* keepWorkspaceFoldersListed(listedProjects, session.projectPath);
+    yield* keepWorkspaceFoldersListed(projectListItems, session.projectPath);
     // Opened before the swap closes the old one, Source Control goes straight from one repository to the other instead
     // of showing that the workspace has none.
     yield* IGitInfraService.use((gitInfraService) => gitInfraService.openInSourceControl(session.projectPath));
@@ -45,8 +46,8 @@ const showSessionProject = Effect.fn("WorkspaceService.showSessionProject")(
   },
   // A tab left running by a removed session has no project to show.
   Effect.catchTag("SessionNotFoundError", () => Effect.void),
-  // Folders that could not be kept listed stay in the workspace.
-  Effect.catchTags({DatabaseReadError: showRepositoryError, DatabaseWriteError: showRepositoryError})
+  // Folders that could not be kept listed stay in the workspace; no command started this, so it is logged.
+  Effect.catch((databaseError) => Effect.logWarning("Could not keep the workspace's folders listed", databaseError))
 );
 
 // Like VS Code's Agents window, the workspace follows the session in view: its project is the one project folder, so
@@ -69,10 +70,10 @@ const offerToSaveWorkspace = Effect.fn("WorkspaceService.offerToSaveWorkspace")(
   const isOfferClaimed = yield* workspaceInfraService.claimWorkspaceSaveOffer;
   if (!isOfferClaimed) return;
   const pickedAction = yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
-    userInputPromptInfraService.showInformationMessage(WORKSPACE_MESSAGES.OFFER_SAVE, ACTIONS.SAVE_WORKSPACE)
+    userInputPromptInfraService.showInformationMessage(WORKSPACE_NOTICES.OFFER_SAVE, WORKSPACE_LABELS.SAVE_WORKSPACE)
   );
 
-  if (pickedAction === ACTIONS.SAVE_WORKSPACE) yield* workspaceInfraService.saveWorkspaceAs;
+  if (pickedAction === WORKSPACE_LABELS.SAVE_WORKSPACE) yield* workspaceInfraService.saveWorkspaceAs;
 });
 
 // In the background, so the window starts without waiting for an answer.

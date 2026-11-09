@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "93762685-3ef1-4049-8c2b-b4ac3bd55e76",
+  "id": "dd9a1132-8325-47b9-93c7-5c0cdf8cd864",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -12,14 +12,6 @@
     },
     {
       "name": "sessions",
-      "entityType": "tables"
-    },
-    {
-      "name": "windows",
-      "entityType": "tables"
-    },
-    {
-      "name": "windowProjects",
       "entityType": "tables"
     },
     {
@@ -59,6 +51,16 @@
       "notNull": true,
       "autoincrement": false,
       "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "projects",
+      "name": "isAdded",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
       "generated": null,
       "entityType": "columns"
     },
@@ -134,6 +136,16 @@
     },
     {
       "table": "sessions",
+      "name": "hasWorked",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sessions",
       "name": "name",
       "type": "text",
       "notNull": true,
@@ -153,8 +165,8 @@
       "entityType": "columns"
     },
     {
-      "table": "windows",
-      "name": "deletedAt",
+      "table": "sessions",
+      "name": "reportedTitle",
       "type": "text",
       "notNull": false,
       "autoincrement": false,
@@ -163,8 +175,18 @@
       "entityType": "columns"
     },
     {
-      "table": "windows",
-      "name": "id",
+      "table": "sessions",
+      "name": "status",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'unknown'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sessions",
+      "name": "statusChangedAt",
       "type": "text",
       "notNull": false,
       "autoincrement": false,
@@ -173,38 +195,38 @@
       "entityType": "columns"
     },
     {
-      "table": "windows",
-      "name": "sortId",
+      "table": "sessions",
+      "name": "statusKind",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sessions",
+      "name": "statusMessage",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sessions",
+      "name": "statusProgress",
       "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": "0",
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "windows",
-      "name": "updatedAt",
-      "type": "text",
-      "notNull": true,
+      "notNull": false,
       "autoincrement": false,
       "default": null,
       "generated": null,
       "entityType": "columns"
     },
     {
-      "table": "windows",
-      "name": "key",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "windowProjects",
-      "name": "deletedAt",
+      "table": "sessions",
+      "name": "terminalTitle",
       "type": "text",
       "notNull": false,
       "autoincrement": false,
@@ -213,50 +235,10 @@
       "entityType": "columns"
     },
     {
-      "table": "windowProjects",
-      "name": "id",
+      "table": "sessions",
+      "name": "viewedAt",
       "type": "text",
       "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "windowProjects",
-      "name": "sortId",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": "0",
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "windowProjects",
-      "name": "updatedAt",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "windowProjects",
-      "name": "projectId",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "windowProjects",
-      "name": "windowId",
-      "type": "text",
-      "notNull": true,
       "autoincrement": false,
       "default": null,
       "generated": null,
@@ -269,36 +251,6 @@
         "projectId"
       ],
       "tableTo": "projects",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "nameExplicit": false,
-      "entityType": "fks"
-    },
-    {
-      "table": "windowProjects",
-      "name": "fk_windowProjects_projectId_projects_id_fk",
-      "columns": [
-        "projectId"
-      ],
-      "tableTo": "projects",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "nameExplicit": false,
-      "entityType": "fks"
-    },
-    {
-      "table": "windowProjects",
-      "name": "fk_windowProjects_windowId_windows_id_fk",
-      "columns": [
-        "windowId"
-      ],
-      "tableTo": "windows",
       "columnsTo": [
         "id"
       ],
@@ -326,47 +278,10 @@
       "entityType": "pks"
     },
     {
-      "table": "windows",
-      "name": "windows_pk",
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "windowProjects",
-      "name": "windowProjects_pk",
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "windowProjects",
-      "name": "windowProjects_windowId_projectId_unique",
-      "columns": [
-        "windowId",
-        "projectId"
-      ],
-      "nameExplicit": false,
-      "entityType": "uniques"
-    },
-    {
       "table": "projects",
       "name": "projects_path_unique",
       "columns": [
         "path"
-      ],
-      "nameExplicit": false,
-      "entityType": "uniques"
-    },
-    {
-      "table": "windows",
-      "name": "windows_key_unique",
-      "columns": [
-        "key"
       ],
       "nameExplicit": false,
       "entityType": "uniques"

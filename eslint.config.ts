@@ -122,6 +122,8 @@ const config: Config[] = defineConfig([
       "func-names": ["error", "always", {generators: "never"}],
       "id-length": ["error", {min: 3, properties: "never"}],
       "import-x/consistent-type-specifier-style": ["error", "prefer-top-level"],
+      // Files grow as long as their use cases need; functions stay small.
+      "max-lines": "off",
       "max-lines-per-function": [
         "error",
         {

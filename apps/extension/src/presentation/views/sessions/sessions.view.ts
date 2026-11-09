@@ -1,55 +1,51 @@
-import {getUnreadSessionIds} from "@domainServices/session.domainService.ts";
-import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
-import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
-import {acquireDisposable, fromEvent} from "@infraUtils/vscode.utils.ts";
-import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
-import {SESSION_URI_SCHEME, SPINNER_INTERVAL_MS, VIEWS} from "@pkg/constants/src/extension.constant.ts";
-import {findSession, listSessions} from "@services/session.service.ts";
-import {decodeEntityId} from "@valueObjects/entityId.valueObject.ts";
-import {ListedProjectValueObject} from "@valueObjects/listedProject.valueObject.ts";
+import {getProjectListItemForSessionsView, listProjectsForSessionsView} from "@controllers/project.controller.ts";
+import {
+  getSessionListItemForSessionsView,
+  listProjectSessionIdsForSessionsView,
+  listWorkingSessionIdsForSessionsView,
+  watchActivatedSessionIdsForSessionsView,
+  watchSessionListChangesForSessionsView
+} from "@controllers/session.controller.ts";
+import {
+  SESSION_BADGE_URI_SCHEME,
+  SESSIONS_VIEW_ID,
+  SPINNER_FRAME_INTERVAL_MS
+} from "@pkg/constants/src/sessionsView.constant.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
+import {acquireDisposable} from "@pkg/vscode/src/vscode.utils.ts";
+import {
+  makeProjectNodeId,
+  makeSessionNodeId,
+  readSessionsTreeNodeId
+} from "@presentationUtils/sessionsTreeNode.utils.ts";
 import {
   createProjectTreeItem,
   createSessionTreeItem,
   createStatusBadge,
-  getChildRows,
-  getParentRow,
-  getRowStatus,
-  getSessionRowUri
+  getSessionBadgeUri
 } from "@views/sessions/sessions.utils.ts";
-import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
-import {Array, Effect, Layer, Ref, Result, Schedule, Schema, Stream, String, SubscriptionRef} from "effect";
+import {Effect, Layer, Match, Schedule, Schema, Stream, String} from "effect";
 
-import type {IHarnessInfraServices} from "@interfaces/harness.infraService.interface.ts";
-import type {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {StatusValueObject} from "@valueObjects/status.valueObject.ts";
-import type {Row, RowStatus} from "@views/sessions/sessions.view.type.ts";
-import type {Path} from "effect/Path";
+import type {SessionListChangeDto} from "@dtos/session.dto.ts";
 import type {EventEmitter, TreeView, Uri} from "vscode";
 
-// The status each row was last drawn with, by session id.
-type DrawnRowStatus = (sessionId: EntityIdValueObject) => RowStatus | undefined;
+// VS Code calls the tree and badge callbacks for every row on every redraw and spinner frame, so they run untraced.
+type RunPromiseUntraced = <A, E>(effect: Effect.Effect<A, E, SessionsViewServices>) => Promise<A>;
 
-// VS Code calls the tree and badge callbacks for every row on every refresh and spinner frame, so they run untraced.
-type RunSyncUntraced = <A, E>(effect: Effect.Effect<A, E, SessionsViewServices>) => A;
-
-// What the view's functions share: the tree and its change events, and the statuses its rows were drawn from.
-interface SessionsViewParts {
+// The tree's nodes are ids (see sessionsTreeNode.utils.ts): VS Code finds the node to redraw by its id, and every draw
+// reads the node's project or session again through the controllers, so the view keeps no copy of them.
+interface SessionsViewHandles {
   readonly badgesChangedEmitter: EventEmitter<Uri[]>;
-  readonly drawnRowStatuses: Ref.Ref<ReadonlyMap<EntityIdValueObject, RowStatus | undefined>>;
-  readonly previousSessionStatuses: Ref.Ref<ReadonlyMap<EntityIdValueObject, StatusValueObject>>;
-  readonly sessionsTreeView: TreeView<Row>;
-  readonly treeChangedEmitter: EventEmitter<void>;
-  readonly unreadSessionIds: Ref.Ref<ReadonlySet<EntityIdValueObject>>;
+  readonly sessionsTreeView: TreeView<string>;
+  readonly treeChangedEmitter: EventEmitter<string | undefined>;
 }
 
 type SessionsViewServices =
-  | IHarnessInfraServices
-  | IProjectRepository
-  | ISessionRepository
-  | ITerminalInfraService
-  | IWorkspaceInfraService
-  | Path
+  | Effect.Services<
+      ReturnType<
+        typeof createNodeTreeItem | typeof createSessionBadge | typeof findParentNodeId | typeof listChildNodeIds
+      >
+    >
   | VsCodeApi;
 
 class RevealFailedError extends Schema.TaggedError<RevealFailedError, {readonly brand: unique symbol}>()(
@@ -59,13 +55,13 @@ class RevealFailedError extends Schema.TaggedError<RevealFailedError, {readonly 
 
 // Selects the session whose tab became active. Skipped while the view is hidden, since reveal would open it.
 const revealSession = Effect.fn("SessionsView.revealSession")(
-  function* (sessionsTreeView: TreeView<Row>, sessionId: EntityIdValueObject) {
-    const session = yield* findSession(sessionId);
+  function* (sessionsTreeView: TreeView<string>, sessionId: string) {
     if (!sessionsTreeView.visible) return;
+    const sessionNodeId = yield* makeSessionNodeId(sessionId);
 
     yield* Effect.tryPromise({
       catch: (cause) => RevealFailedError.make({cause}),
-      try: () => sessionsTreeView.reveal(session, {focus: false, select: true})
+      try: () => sessionsTreeView.reveal(sessionNodeId, {focus: false, select: true})
     });
   },
   Effect.ignore({log: "Warn", message: "Could not select the active session in the Sessions view"})
@@ -73,16 +69,83 @@ const revealSession = Effect.fn("SessionsView.revealSession")(
 
 const makeUntracedRunner = Effect.fn("SessionsView.makeUntracedRunner")(function* () {
   const sessionsViewContext = yield* Effect.context<SessionsViewServices>();
-  const runSync = Effect.runSyncWith(sessionsViewContext);
-  const runSyncUntraced: RunSyncUntraced = (effect) => runSync(Effect.withTracerEnabled(effect, false));
+  const runPromise = Effect.runPromiseWith(sessionsViewContext);
+  const runPromiseUntraced: RunPromiseUntraced = (effect) => runPromise(Effect.withTracerEnabled(effect, false));
 
-  return runSyncUntraced;
+  return runPromiseUntraced;
 });
+
+// The projects at the top, each project's sessions under it. A failed read is logged and leaves the level empty.
+const listChildNodeIds = Effect.fn("SessionsView.listChildNodeIds")(
+  function* (parentNodeId: string | undefined) {
+    if (parentNodeId === undefined) {
+      const projectListItems = yield* listProjectsForSessionsView();
+
+      return yield* Effect.forEach(projectListItems, (projectListItem) => makeProjectNodeId(projectListItem.path));
+    }
+    const parentNode = yield* readSessionsTreeNodeId(parentNodeId);
+    if (parentNode._tag === "SessionNode") return [];
+    const sessionIds = yield* listProjectSessionIdsForSessionsView(parentNode.projectPath);
+
+    return yield* Effect.forEach(sessionIds, (sessionId) => makeSessionNodeId(sessionId));
+  },
+  Effect.catch((readError) => Effect.as(Effect.logWarning("Could not read the Sessions view's rows", readError), []))
+);
+
+const createEmptyTreeItem = Effect.fn("SessionsView.createEmptyTreeItem")(function* () {
+  const {TreeItem} = yield* VsCodeApi;
+
+  return new TreeItem("");
+});
+
+// A row removed meanwhile draws empty until the change that removed it redraws its project; another failed read is
+// logged too.
+const createNodeTreeItem = Effect.fn("SessionsView.createNodeTreeItem")(
+  function* (nodeId: string) {
+    const node = yield* readSessionsTreeNodeId(nodeId);
+    if (node._tag === "ProjectNode") {
+      const projectListItem = yield* getProjectListItemForSessionsView(node.projectPath);
+
+      return yield* createProjectTreeItem(projectListItem);
+    }
+    const sessionListItem = yield* getSessionListItemForSessionsView(node.sessionId);
+
+    return yield* createSessionTreeItem(sessionListItem);
+  },
+  Effect.catchTags({
+    ProjectNotListedError: () => createEmptyTreeItem(),
+    SessionNotFoundError: () => createEmptyTreeItem()
+  }),
+  Effect.catch((readError) =>
+    Effect.andThen(Effect.logWarning("Could not read a Sessions view row", readError), createEmptyTreeItem())
+  )
+);
+
+// A session's parent is its project, which VS Code needs to reveal it.
+const findParentNodeId = Effect.fn("SessionsView.findParentNodeId")(
+  function* (nodeId: string) {
+    const node = yield* readSessionsTreeNodeId(nodeId);
+    if (node._tag === "ProjectNode") return undefined;
+    const sessionListItem = yield* getSessionListItemForSessionsView(node.sessionId);
+
+    return yield* makeProjectNodeId(sessionListItem.projectPath);
+  },
+  Effect.catch((readError) => Effect.as(Effect.logWarning("Could not read a session's project", readError), undefined))
+);
+
+const createSessionBadge = Effect.fn("SessionsView.createSessionBadge")(
+  function* (sessionId: string) {
+    const sessionListItem = yield* getSessionListItemForSessionsView(sessionId);
+
+    return yield* createStatusBadge(sessionListItem.status);
+  },
+  Effect.catchTag("SessionNotFoundError", () => Effect.undefined),
+  Effect.catch((readError) => Effect.as(Effect.logWarning("Could not read a session's status", readError), undefined))
+);
 
 // Each session row's status badge is a file decoration on its URI.
 const registerStatusBadges = Effect.fn("SessionsView.registerStatusBadges")(function* (
-  getDrawnRowStatus: DrawnRowStatus,
-  runSyncUntraced: RunSyncUntraced
+  runPromiseUntraced: RunPromiseUntraced
 ) {
   const {EventEmitter, window} = yield* VsCodeApi;
   const badgesChangedEmitter = yield* acquireDisposable(() => new EventEmitter<Uri[]>());
@@ -91,11 +154,8 @@ const registerStatusBadges = Effect.fn("SessionsView.registerStatusBadges")(func
       onDidChangeFileDecorations: badgesChangedEmitter.event,
       // VS Code asks about every file it shows, so anything not ours returns before running an effect.
       provideFileDecoration: (uri) =>
-        uri.scheme === SESSION_URI_SCHEME
-          ? Result.match(decodeEntityId(String.slice(1)(uri.path)), {
-              onFailure: () => undefined,
-              onSuccess: (sessionId) => runSyncUntraced(createStatusBadge(getDrawnRowStatus(sessionId)))
-            })
+        uri.scheme === SESSION_BADGE_URI_SCHEME
+          ? runPromiseUntraced(createSessionBadge(String.slice(1)(uri.path)))
           : undefined
     })
   );
@@ -103,21 +163,16 @@ const registerStatusBadges = Effect.fn("SessionsView.registerStatusBadges")(func
   return badgesChangedEmitter;
 });
 
-const registerTreeView = Effect.fn("SessionsView.registerTreeView")(function* (
-  getDrawnRowStatus: DrawnRowStatus,
-  runSyncUntraced: RunSyncUntraced
-) {
+const registerTreeView = Effect.fn("SessionsView.registerTreeView")(function* (runPromiseUntraced: RunPromiseUntraced) {
   const {EventEmitter, window} = yield* VsCodeApi;
-  const treeChangedEmitter = yield* acquireDisposable(() => new EventEmitter<void>());
+  const treeChangedEmitter = yield* acquireDisposable(() => new EventEmitter<string | undefined>());
   const sessionsTreeView = yield* acquireDisposable(() =>
-    window.createTreeView<Row>(VIEWS.SESSIONS, {
+    window.createTreeView<string>(SESSIONS_VIEW_ID, {
       treeDataProvider: {
-        getChildren: (parentRow) => [...runSyncUntraced(getChildRows(parentRow))],
-        getParent: (row) => runSyncUntraced(getParentRow(row)),
-        getTreeItem: (row) =>
-          Schema.is(ListedProjectValueObject)(row)
-            ? runSyncUntraced(createProjectTreeItem(row))
-            : runSyncUntraced(createSessionTreeItem(row, getDrawnRowStatus(row.id))),
+        getChildren: (parentNodeId) =>
+          runPromiseUntraced(Effect.map(listChildNodeIds(parentNodeId), (childNodeIds) => [...childNodeIds])),
+        getParent: (nodeId) => runPromiseUntraced(findParentNodeId(nodeId)),
+        getTreeItem: (nodeId) => runPromiseUntraced(createNodeTreeItem(nodeId)),
         onDidChangeTreeData: treeChangedEmitter.event
       }
     })
@@ -126,122 +181,66 @@ const registerTreeView = Effect.fn("SessionsView.registerTreeView")(function* (
   return {sessionsTreeView, treeChangedEmitter};
 });
 
-const getAllSessionStatuses = Effect.fn("SessionsView.getAllSessionStatuses")(function* () {
-  const allSessions = yield* listSessions();
-  const allSessionStatuses: ReadonlyMap<EntityIdValueObject, StatusValueObject> = new Map(
-    Array.map(allSessions, (session) => [session.id, session.status] as const)
-  );
-
-  return allSessionStatuses;
-});
-
-// Compares the statuses with the previous look; the rule itself is SessionDomainService's.
-const updateUnreadSessionIds = Effect.fn("SessionsView.updateUnreadSessionIds")(function* (
-  viewParts: SessionsViewParts
+// Redraws only what changed: the whole tree for the project list, one project for its sessions, or one session's row
+// and badge.
+const redrawChangedNodes = Effect.fn("SessionsView.redrawChangedNodes")(function* (
+  sessionsViewHandles: SessionsViewHandles,
+  sessionListChange: SessionListChangeDto
 ) {
-  const {viewedSessionId} = yield* ITerminalInfraService;
-  const currentStatuses = yield* getAllSessionStatuses();
-  const previousStatuses = yield* Ref.getAndSet(viewParts.previousSessionStatuses, currentStatuses);
-  const viewedSessionIdResult = yield* SubscriptionRef.get(viewedSessionId);
-  const currentViewedSessionId = Result.getOrUndefined(viewedSessionIdResult);
-
-  const previousUnreadSessionIds = yield* Ref.get(viewParts.unreadSessionIds);
-  const currentUnreadSessionIds = yield* getUnreadSessionIds({
-    currentStatuses,
-    previousStatuses,
-    previousUnreadSessionIds,
-    viewedSessionId: currentViewedSessionId
+  const changedNodeId = yield* Match.valueTags(sessionListChange, {
+    ProjectListChanged: () => Effect.undefined,
+    ProjectSessionsChanged: ({projectPath}) => makeProjectNodeId(projectPath),
+    SessionChanged: ({sessionId}) => makeSessionNodeId(sessionId)
   });
-  yield* Ref.set(viewParts.unreadSessionIds, currentUnreadSessionIds);
-
-  return currentUnreadSessionIds;
-});
-
-const getChangedBadgeUris = Effect.fn("SessionsView.getChangedBadgeUris")(function* (
-  viewParts: SessionsViewParts,
-  currentUnreadSessionIds: ReadonlySet<EntityIdValueObject>
-) {
-  const allSessions = yield* listSessions();
-  const currentRowStatusEntries = yield* Effect.forEach(allSessions, (session) =>
-    Effect.map(getRowStatus(session, currentUnreadSessionIds), (rowStatus) => [session.id, rowStatus] as const)
-  );
-  const currentRowStatuses = new Map(currentRowStatusEntries);
-  const previousRowStatuses = yield* Ref.getAndSet(viewParts.drawnRowStatuses, currentRowStatuses);
-  const changedRowStatuses = Array.filter(
-    [...currentRowStatuses],
-    ([sessionId, rowStatus]) => !previousRowStatuses.has(sessionId) || previousRowStatuses.get(sessionId) !== rowStatus
-  );
-
-  return yield* Effect.forEach(changedRowStatuses, ([sessionId]) => getSessionRowUri(sessionId));
-});
-
-const refreshSessionsTree = Effect.fn("SessionsView.refreshSessionsTree")(function* (viewParts: SessionsViewParts) {
-  const currentUnreadSessionIds = yield* updateUnreadSessionIds(viewParts);
-  const changedBadgeUris = yield* getChangedBadgeUris(viewParts, currentUnreadSessionIds);
+  const changedBadgeUris =
+    sessionListChange._tag === "SessionChanged" ? [yield* getSessionBadgeUri(sessionListChange.sessionId)] : [];
 
   yield* Effect.sync(() => {
-    viewParts.treeChangedEmitter.fire();
-    if (changedBadgeUris.length > 0) viewParts.badgesChangedEmitter.fire(changedBadgeUris);
+    sessionsViewHandles.treeChangedEmitter.fire(changedNodeId);
+    if (changedBadgeUris.length > 0) sessionsViewHandles.badgesChangedEmitter.fire(changedBadgeUris);
   });
 });
 
-// ponytail: ticks for the view's whole life and returns at once when it is hidden or nothing works. Start and stop it
-// on status changes if the idle wake-ups ever show up in a profile.
-const advanceSpinnerFrames = Effect.fn("SessionsView.advanceSpinnerFrames")(function* (viewParts: SessionsViewParts) {
-  const drawnRowStatuses = yield* Ref.get(viewParts.drawnRowStatuses);
-  const workingRows = Array.filter([...drawnRowStatuses], ([, rowStatus]) => rowStatus === "working");
-  if (!viewParts.sessionsTreeView.visible || workingRows.length === 0) return;
+// shortcut: ticks for the view's whole life and reads the working sessions each frame while it is visible. Start and stop
+// it on status changes if those reads ever show up in a profile. A failed read skips the frame.
+const advanceSpinnerFrames = Effect.fn("SessionsView.advanceSpinnerFrames")(
+  function* (sessionsViewHandles: SessionsViewHandles) {
+    if (!sessionsViewHandles.sessionsTreeView.visible) return;
+    const workingSessionIds = yield* listWorkingSessionIdsForSessionsView();
+    if (workingSessionIds.length === 0) return;
 
-  const workingBadgeUris = yield* Effect.forEach(workingRows, ([sessionId]) => getSessionRowUri(sessionId));
-  yield* Effect.sync(() => {
-    viewParts.badgesChangedEmitter.fire(workingBadgeUris);
-  });
-});
-
-// Rows change when a project or workspace folder is added or removed, when a session is added, removed or renamed or its
-// status changes, when its tab opens or closes, and when it comes into view, which marks it read.
-const watchRowChanges = Effect.fn("SessionsView.watchRowChanges")(function* () {
-  const {workspace} = yield* VsCodeApi;
-  const rowChangeSources: readonly Stream.Stream<unknown>[] = [
-    SubscriptionRef.changes((yield* IProjectRepository).addedProjectPaths),
-    yield* fromEvent(workspace.onDidChangeWorkspaceFolders),
-    SubscriptionRef.changes((yield* ISessionRepository).sessions),
-    (yield* ITerminalInfraService).openSessionIds,
-    SubscriptionRef.changes((yield* ITerminalInfraService).viewedSessionId)
-  ];
-
-  return Stream.mergeAll(rowChangeSources, {concurrency: "unbounded"});
-});
-
-const makeSessionsViewParts = Effect.fn("SessionsView.makeSessionsViewParts")(function* () {
-  const runSyncUntraced = yield* makeUntracedRunner();
-  const drawnRowStatuses = yield* Ref.make<ReadonlyMap<EntityIdValueObject, RowStatus | undefined>>(new Map());
-  const getDrawnRowStatus: DrawnRowStatus = (sessionId) => runSyncUntraced(Ref.get(drawnRowStatuses)).get(sessionId);
-  const viewParts: SessionsViewParts = {
-    badgesChangedEmitter: yield* registerStatusBadges(getDrawnRowStatus, runSyncUntraced),
-    drawnRowStatuses,
-    previousSessionStatuses: yield* Ref.make<ReadonlyMap<EntityIdValueObject, StatusValueObject>>(new Map()),
-    unreadSessionIds: yield* Ref.make<ReadonlySet<EntityIdValueObject>>(new Set()),
-    ...(yield* registerTreeView(getDrawnRowStatus, runSyncUntraced))
-  };
-
-  return viewParts;
-});
+    const workingBadgeUris = yield* Effect.forEach(workingSessionIds, (sessionId) => getSessionBadgeUri(sessionId));
+    yield* Effect.sync(() => {
+      sessionsViewHandles.badgesChangedEmitter.fire(workingBadgeUris);
+    });
+  },
+  (effect) => Effect.ignore(effect)
+);
 
 // Registers the Sessions tree for the lifetime of the runtime; disposing the runtime unregisters it.
 const makeSessionsView = Effect.fn("SessionsView.make")(function* () {
-  const {activatedSessionIds} = yield* ITerminalInfraService;
-  const viewParts = yield* makeSessionsViewParts();
-  const rowChanges = yield* watchRowChanges();
-  yield* Effect.forkScoped(Stream.runForEach(rowChanges, () => refreshSessionsTree(viewParts)));
+  const runPromiseUntraced = yield* makeUntracedRunner();
+  const sessionsViewHandles: SessionsViewHandles = {
+    badgesChangedEmitter: yield* registerStatusBadges(runPromiseUntraced),
+    ...(yield* registerTreeView(runPromiseUntraced))
+  };
+  const sessionListChanges = yield* watchSessionListChangesForSessionsView();
+  const activatedSessionIds = yield* watchActivatedSessionIdsForSessionsView();
+  yield* Effect.forkScoped(
+    Stream.runForEach(sessionListChanges, (sessionListChange) =>
+      redrawChangedNodes(sessionsViewHandles, sessionListChange)
+    )
+  );
   yield* Effect.forkScoped(
     Effect.withTracerEnabled(
-      Effect.repeat(advanceSpinnerFrames(viewParts), Schedule.spaced(SPINNER_INTERVAL_MS)),
+      Effect.repeat(advanceSpinnerFrames(sessionsViewHandles), Schedule.spaced(SPINNER_FRAME_INTERVAL_MS)),
       false
     )
   );
   yield* Effect.forkScoped(
-    Stream.runForEach(activatedSessionIds, (sessionId) => revealSession(viewParts.sessionsTreeView, sessionId))
+    Stream.runForEach(activatedSessionIds, (sessionId) =>
+      revealSession(sessionsViewHandles.sessionsTreeView, sessionId)
+    )
   );
 });
 

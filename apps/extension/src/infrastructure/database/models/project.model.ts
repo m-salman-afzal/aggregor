@@ -3,6 +3,6 @@ import {integer, sqliteTable, text} from "drizzle-orm/sqlite-core";
 
 export const ProjectTableModel = sqliteTable("projects", {
   ...BASE_COLUMNS,
-  added: integer({mode: "boolean"}).notNull().default(false),
+  isAdded: integer({mode: "boolean"}).notNull().default(false),
   path: text().notNull().unique()
 });

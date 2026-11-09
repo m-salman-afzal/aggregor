@@ -42,7 +42,7 @@ export class VsCodeApi extends Context.Service<
     readonly window: typeof window;
     readonly workspace: typeof workspace;
   }
->()("aggregor-app/infrastructure/vscode/vscode.api/VsCodeApi") {
+>()("@pkg/vscode/vscode.api/VsCodeApi") {
   public static readonly layer = (extensionContext: ExtensionContext) =>
     Layer.succeed(VsCodeApi, {
       commands,

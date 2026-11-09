@@ -86,9 +86,9 @@ Other things the tests showed:
    the session's own row. The message shows in the tooltip and notifications; progress shows as `42%` on the row. The
    root record is the session's status; records with an `id` are the session's tasks, under step 8. The binary enforces
    the spec's limits.
-9. **Done means not seen yet.** The existing unread rule carries over: a turn that ends while its session is out of view
-   shows as done until the session comes into view. It covers agents that report `done` and those that go straight back
-   to `idle` (Codex, OpenCode).
+9. **Done means not seen yet.** A turn that ends while its session is out of view shows as done until the session comes
+   into view. Since step 3's review the database stores it: `viewedAt` against `statusChangedAt`, so it covers agents
+   that report `done` (Claude, Antigravity, Codex 0.167) and not those that go straight back to `idle` (OpenCode 2.2.5).
 
 ### Alerts
 
@@ -364,6 +364,40 @@ turn, went idle; a renamed session kept updating; `/exit` showed exited and clos
 with `claude --resume ‹id›`; a project another connection added showed within a second; with the binary missing, New
 Session showed the unsupported-platform message and left no row. Not seen: a done row turning idle once viewed, since
 the headless window loses native focus when Claude starts; that path is the unread code from before.
+
+**After review (2026-11-08 and 2026-11-09), on the same branch: the backend drives the Sessions view.**
+
+- Presentation talks to the use cases in DTOs (`application/dtos/`): a controller decodes its input into the use case's
+  request DTO and calls one service; services return response DTOs (`SessionListItemDto`, `ProjectListItemDto`) and the
+  change notifications (`SessionListChangeDto`: `ProjectListChanged`, `ProjectSessionsChanged`, `SessionChanged`), and
+  the view redraws only what changed. Presentation imports nothing from the domain or infrastructure, and lint checks
+  each part.
+- The tree's nodes are ids, `project:<path>` and `session:<id>`; row menus pass them, and controllers decode them.
+- A command's failures come back as typed errors; a presenter per feature turns them into messages, and
+  `registerCommand` shows them. Background work logs its failures.
+- No copies: the repositories' `sessions` and `addedProjectPaths` are gone, every read is a query, and each repository's
+  `entityChanges` reads the rows written since its last check, on a `data_version` change or right after its own write
+  (`refreshOnDatabaseChanges` is gone).
+- Unread is stored: `viewedAt`, stamped as a session comes into and leaves view, replaces the in-memory set and
+  `getUnreadSessionIds`. `StatusValueObject` is `AgentStatusValueObject`; the status the user sees is
+  `SessionStatusValueObject`, picked from it; `RowStatus` is gone.
+- `VsCodeApi`, the vscode helpers and argument decoding moved to `@pkg/vscode`; the constants split into one file per
+  feature; Source Control progress moved into `CommitMessageService` behind `IProgressInfraService`; `projects.added` is
+  `isAdded`; files have no length limit.
+- The migrations became one, regenerated from zero; the old database has to be deleted.
+- `build:pty` copies the binary with `cp -f`, so it replaces one that running sessions hold open.
+
+Decided 3 and 8 above change with it: windows read only the changed rows, and done shows until the turn's
+`statusChangedAt` is before `viewedAt` or the session is in view.
+
+**Verified after review (2026-11-08):** in the headless VS Code with Claude in `~/side/jsTester` and a fresh
+`AGGREGOR_DATA_DIR`: New Session from the project row and the title bar; idle, then working with the spinner stepping,
+then finished out of view while the name followed Claude's title; a `viewedAt` written by another connection turned the
+row idle within a second; a finished turn stayed finished across Developer: Restart Extension Host with the session out
+of view, and turned idle when its tab came back into view; a project another connection added showed within a second,
+and Remove Project took it off; Rename passed the session's id and renamed the row and tab; closing the tab showed
+exited, and Remove Session took the row off; clicking an exited row resumed the conversation; no warnings or errors in
+the trace log. A window reload ends the agents (their tabs are transient), so they show exited after it.
 
 ## Step 4: harnesses from settings
 

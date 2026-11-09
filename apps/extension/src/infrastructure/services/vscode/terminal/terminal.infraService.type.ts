@@ -1,6 +1,6 @@
 import type {PtyBinaryNotFoundError} from "@interfaces/terminal.infraService.interface.ts";
+import type {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import type {Result, SubscriptionRef} from "effect";
 import type {Terminal} from "vscode";
 

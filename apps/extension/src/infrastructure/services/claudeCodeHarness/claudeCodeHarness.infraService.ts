@@ -1,17 +1,19 @@
 import {IHarnessInfraService} from "@interfaces/harness.infraService.interface.ts";
-import {MODEL_ICONS} from "@pkg/constants/src/extension.constant.ts";
-import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
+import {HARNESS_ICONS} from "@pkg/constants/src/harness.constant.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {Effect, Layer} from "effect";
 
 import type {SessionEntity} from "@entities/session/session.entity.ts";
-import type {LaunchPlanValueObject} from "@valueObjects/launchPlan.valueObject.ts";
+import type {LaunchPlan} from "@interfaces/harness.infraService.interface.ts";
 
 // Claude's terminal reads "Claude Code" until the conversation has a title, and "claude · resume" in its resume picker.
 const PLACEHOLDER_TITLES: ReadonlySet<string> = new Set(["claude · resume", "Claude Code"]);
 
 // Claude keeps a transcript once a turn has started, so a session that has worked resumes it.
-const prepareLaunch = Effect.fn("ClaudeCodeHarnessInfraService.prepareLaunch")(function* (session: SessionEntity) {
-  const launchPlan: LaunchPlanValueObject = {
+const prepareLaunchPlan = Effect.fn("ClaudeCodeHarnessInfraService.prepareLaunchPlan")(function* (
+  session: SessionEntity
+) {
+  const launchPlan: LaunchPlan = {
     command: "claude",
     commandArguments: session.hasWorked ? ["--resume", session.id] : ["--session-id", session.id]
   };
@@ -23,9 +25,9 @@ const makeClaudeCodeHarnessInfraService = Effect.fn("ClaudeCodeHarnessInfraServi
   const {extensionUri, Uri} = yield* VsCodeApi;
 
   return {
-    iconPath: Uri.joinPath(extensionUri, MODEL_ICONS.CLAUDE).fsPath,
+    iconPath: Uri.joinPath(extensionUri, HARNESS_ICONS.CLAUDE_CODE).fsPath,
     placeholderTitles: PLACEHOLDER_TITLES,
-    prepareLaunch
+    prepareLaunchPlan
   };
 });
 

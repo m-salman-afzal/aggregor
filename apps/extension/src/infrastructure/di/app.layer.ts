@@ -4,12 +4,13 @@ import {HarnessInfraServicesLayer} from "@di/harnessInfraServices.layer.ts";
 import {NodeServices} from "@effect/platform-node";
 import {CommitCliInfraService} from "@infraServices/commitCli/commitCli.infraService.ts";
 import {GitInfraService} from "@infraServices/vscode/git.infraService.ts";
+import {ProgressInfraService} from "@infraServices/vscode/progress.infraService.ts";
 import {TerminalInfraService} from "@infraServices/vscode/terminal/terminal.infraService.ts";
 import {UserInputPromptInfraService} from "@infraServices/vscode/userInputPrompt.infraService.ts";
 import {WorkspaceInfraService} from "@infraServices/vscode/workspace.infraService.ts";
 import {ProjectRepository} from "@repositories/project.repository.ts";
 import {SessionRepository} from "@repositories/session.repository.ts";
-import {startSessionTitleSync} from "@services/session.service.ts";
+import {startSessionTitleSync, startViewedAtSync} from "@services/session.service.ts";
 import {startShownProjectSync, startWorkspaceSaveOffer} from "@services/workspace.service.ts";
 import {Layer} from "effect";
 import {SecureRandom} from "effect/crypto";
@@ -17,6 +18,7 @@ import {SecureRandom} from "effect/crypto";
 const IndependentLayers = Layer.mergeAll(
   GitInfraService,
   NodeServices.layer,
+  ProgressInfraService,
   UserInputPromptInfraService,
   SecureRandom.layerWebCrypto,
   SettingsConfig
@@ -25,6 +27,7 @@ const IndependentLayers = Layer.mergeAll(
 // What runs in the background for the window's whole life.
 const BackgroundLayer = Layer.mergeAll(
   Layer.effectDiscard(startSessionTitleSync()),
+  Layer.effectDiscard(startViewedAtSync()),
   Layer.effectDiscard(startShownProjectSync()),
   Layer.effectDiscard(startWorkspaceSaveOffer())
 );

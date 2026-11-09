@@ -1,7 +1,7 @@
 import {AppLayer} from "@di/app.layer.ts";
 import {TraceLogLayer} from "@logger/traceLog.layer.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {SessionsView} from "@views/sessions/sessions.view.ts";
-import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
 import {Effect, Layer, ManagedRuntime} from "effect";
 
 import {RoutesLayer} from "./presentation/routes.ts";

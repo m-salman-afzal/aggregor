@@ -16,36 +16,40 @@ shared columns.
   table's order: a new row, or one upserted again, gets the table's highest plus one, and reads follow it), `updatedAt`
   (set on every write) and `deletedAt` (set by a soft delete; reads skip the row). Timestamps are ISO 8601 text in UTC,
   such as `2026-11-07T22:13:46.836Z`.
-- **Migrations:** `apps/extension/assets/migrations/`, one folder per schema change, written by `pnpm db:generate`. A
-  window applies the ones the database lacks when it starts, and Drizzle records each applied one in
-  `__drizzle_migrations`.
+- **Migrations:** `apps/extension/assets/migrations/`, written by `pnpm db:generate`: before 0.1.0 one, regenerated from
+  zero on each schema change, with the old database deleted. A window applies the ones the database lacks when it
+  starts, and Drizzle records each applied one in `__drizzle_migrations`.
+- **Read:** on demand: no window keeps a copy. A window hears of each write within 250 ms of another connection's
+  (`aggregor-pty`'s or another window's), which it sees by polling `PRAGMA data_version`, and at once after its own; it
+  then reads the rows whose `updatedAt` is at or after the last one it read.
 - **Cleaned up:** never; soft-deleted rows stay. Each row is a few hundred bytes.
 
 ### `projects`
 
-- **Holds:** `path`, unique: a folder sessions run in, and `added`: listed in the Sessions view. One list serves every
+- **Holds:** `path`, unique: a folder sessions run in, and `isAdded`: listed in the Sessions view. One list serves every
   window.
-- **Written by:** `ProjectService` through the base service. Add Project upserts the row with `added` set, which puts it
-  at the end of the list, removed before or not; Remove Project clears `added`. A window's own folder that makes way for
-  the shown project is added the same way; a project already added keeps its place, so switching projects never moves
-  one. A session in a window's own folder gives that folder a row without `added`, so it stays one of the window's own.
-- **Read by:** `ProjectRepository`: the added projects in `sortId` order, at startup, after each write and after another
-  window's.
+- **Written by:** `ProjectService` through the base service. Add Project upserts the row with `isAdded` set, which puts
+  it at the end of the list, removed before or not; Remove Project clears `isAdded`. A window's own folder that makes
+  way for the shown project is added the same way; a project already added keeps its place, so switching projects never
+  moves one. A session in a window's own folder gives that folder a row without `isAdded`, so it stays one of the
+  window's own.
+- **Read by:** `ProjectService`: the added projects in `sortId` order, for the Sessions view and the project pickers.
 
 ### `sessions`
 
-- **Holds:** `projectId`, `harnessId`, `name` (the agent's latest title, or ours until it gives one) and `customName`
-  (the user's, from the row menu's Rename, or NULL). The `id` is also the agent's session id.
+- **Holds:** `projectId`, `harnessId`, `name` (the agent's latest title, or ours until it gives one), `customName` (the
+  user's, from the row menu's Rename, or NULL) and `viewedAt` (when the session last came into or left the user's view).
+  The `id` is also the agent's session id.
 - **Written by:** `SessionService` through the base service: a row per New Session, `name` when the agent's title in the
-  row changes, `customName` on Rename, and a soft delete on Remove Session. Removing a project keeps its sessions, so
-  adding the project again lists them again.
-- **Read by:** `SessionRepository`, with its project's path, at startup, after each write, and within 250 ms of another
-  connection's write (`aggregor-pty`'s or another window's), which the window sees by polling `PRAGMA data_version`.
+  row changes, `customName` on Rename, `viewedAt` as the session comes into and leaves view, and a soft delete on Remove
+  Session. Removing a project keeps its sessions, so adding the project again lists them again.
+- **Read by:** `SessionService`, with the project's path: the Sessions view reads each row as it draws it.
 - **Status columns:** `status` (`unknown` until a report, `exited` once the agent is gone), `statusKind`,
   `statusMessage`, `statusProgress`, `statusChangedAt` (when the state last changed), `hasWorked` (it has reported
   `working`), `reportedTitle` (the title in its latest OSC 7501 report) and `terminalTitle` (its latest window title).
   Written only by `aggregor-pty` (`apps/pty`), which runs the agent and reads them from its output. The Sessions view
-  shows the status, kind, message and progress; the titles become `name`; `hasWorked` picks resume over a fresh start.
+  shows the status, kind, message and progress, and shows `done` as finished only while the turn ended after `viewedAt`
+  and the session is out of view; the titles become `name`; `hasWorked` picks resume over a fresh start.
 
 ### `aggregor-pty.log`
 

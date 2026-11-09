@@ -1,4 +1,4 @@
-import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {Effect} from "effect";
 import {Path} from "effect/Path";
 

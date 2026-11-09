@@ -1,11 +1,14 @@
 import {PtyBinaryNotFoundError} from "@interfaces/terminal.infraService.interface.ts";
-import {SESSION_ID_ENV} from "@pkg/constants/src/extension.constant.ts";
+import {SESSION_ID_ENV} from "@pkg/constants/src/terminal.constant.ts";
 import {decodeEntityId} from "@valueObjects/entityId.valueObject.ts";
-import {Array, Effect, Schema, SubscriptionRef} from "effect";
+import {Array, Effect, Schema, Stream, SubscriptionRef} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {platform} from "node:os";
 
-import type {TerminalDependencies} from "@infraServices/vscode/terminal/terminal.infraService.type.ts";
+import type {
+  SessionTerminalsReference,
+  TerminalDependencies
+} from "@infraServices/vscode/terminal/terminal.infraService.type.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {Terminal} from "vscode";
 
@@ -67,4 +70,23 @@ export const renameSessionTerminal = Effect.fn("TerminalInfraService.renameSessi
     sessionTerminal.show();
   });
   yield* Effect.promise(() => commands.executeCommand("workbench.action.terminal.renameWithArg", {name: tabName}));
+});
+
+// Compares each set of open tabs with the one before; the first set counts every tab as opened.
+export const watchOpenedOrClosedSessionIds = Effect.fn("TerminalInfraService.watchOpenedOrClosedSessionIds")(function* (
+  sessionTerminals: SessionTerminalsReference
+) {
+  return Stream.mapAccum(
+    SubscriptionRef.changes(sessionTerminals),
+    (): ReadonlySet<EntityIdValueObject> => new Set(),
+    (previousSessionIds, openTerminals) => {
+      const openSessionIds: ReadonlySet<EntityIdValueObject> = new Set(openTerminals.keys());
+      const changedSessionIds = [
+        ...Array.filter([...openSessionIds], (sessionId) => !previousSessionIds.has(sessionId)),
+        ...Array.filter([...previousSessionIds], (sessionId) => !openSessionIds.has(sessionId))
+      ];
+
+      return [openSessionIds, changedSessionIds] as const;
+    }
+  );
 });

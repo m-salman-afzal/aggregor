@@ -1,24 +1,28 @@
-import {DATABASE_POLL_INTERVAL} from "@pkg/constants/src/extension.constant.ts";
+import {DATABASE_POLL_INTERVAL} from "@pkg/constants/src/database.constant.ts";
 import {eq, getColumns, isNull} from "drizzle-orm";
 import {getTableConfig} from "drizzle-orm/sqlite-core";
 import {Array, DateTime, Effect, Record, Schedule, Schema, Stream} from "effect";
 import {SqlClient} from "effect/sql/SqlClient";
 
-import type {BaseTableModel, StoredColumns} from "@repositories/base/base.repository.type.ts";
+import type {BaseTableModel, RepositoryTable, StoredColumns} from "@repositories/base/base.repository.type.ts";
+import type {SQL} from "drizzle-orm";
 import type {SQLiteColumn} from "drizzle-orm/sqlite-core";
 
 const DataVersionRowsSchema = Schema.Tuple([Schema.Struct({dataVersion: Schema.Int})]);
 
-export const formatNow = Effect.fn("BaseRepository.formatNow")(function* () {
+export const formatCurrentTimestamp = Effect.fn("BaseRepository.formatCurrentTimestamp")(function* () {
   const now = yield* DateTime.now;
 
   return DateTime.formatIso(now);
 });
 
-export const replaceUndefinedWithNull = Effect.fn("BaseRepository.replaceUndefinedWithNull")(function* (
-  columns: StoredColumns
-) {
-  return Record.map(columns, (columnValue) => (columnValue === undefined ? null : columnValue));
+// A missing value is stored as NULL, and a DateTime as ISO 8601 text, as aggregor-pty writes its timestamps.
+export const encodeStoredColumns = Effect.fn("BaseRepository.encodeStoredColumns")(function* (columns: StoredColumns) {
+  return Record.map(columns, (columnValue) => {
+    if (columnValue === undefined) return null;
+
+    return DateTime.isDateTime(columnValue) ? DateTime.formatIso(columnValue) : columnValue;
+  });
 });
 
 export const findUniqueColumns = Effect.fn("BaseRepository.findUniqueColumns")(function* (tableModel: BaseTableModel) {
@@ -55,15 +59,27 @@ const readDataVersion = Effect.fn("BaseRepository.readDataVersion")(function* ()
 });
 
 // data_version changes with each commit from another connection (aggregor-pty, another window), never with this one's
-// own, which every repository re-reads after anyway. The poll runs untraced, like the spinner; only a change refreshes.
-export const refreshOnDatabaseChanges = Effect.fn("BaseRepository.refreshOnDatabaseChanges")(
-  function* (refresh: Effect.Effect<void>) {
-    const dataVersions = Stream.fromEffectSchedule(
-      Effect.withTracerEnabled(readDataVersion(), false),
-      Schedule.spaced(DATABASE_POLL_INTERVAL)
-    );
+// own. The poll runs untraced, like the spinner.
+export const watchDataVersionChanges = Effect.fn("BaseRepository.watchDataVersionChanges")(function* () {
+  const dataVersions = Stream.fromEffectSchedule(
+    Effect.withTracerEnabled(readDataVersion(), false),
+    Schedule.spaced(DATABASE_POLL_INTERVAL)
+  );
 
-    yield* Stream.runForEach(Stream.drop(Stream.changes(dataVersions), 1), () => refresh);
-  },
-  Effect.ignore({log: "Warn", message: "Could not watch the database for other windows' and agents' changes"})
-);
+  return Stream.drop(Stream.changes(dataVersions), 1);
+});
+
+export const selectRows = Effect.fn("BaseRepository.selectRows")(function* <Entity>(
+  {database, join, tableModel}: RepositoryTable<Entity>,
+  rowCondition: SQL | undefined,
+  orderColumn: SQLiteColumn
+) {
+  const joinedColumns = join === undefined ? {} : join.joinedColumns;
+  const selectedRows = database
+    .select({...getColumns(tableModel), ...joinedColumns})
+    .from(tableModel)
+    .$dynamic();
+  const joinedRows = join === undefined ? selectedRows : selectedRows.innerJoin(join.joinedTable, join.joinCondition);
+
+  return yield* joinedRows.where(rowCondition).orderBy(orderColumn);
+});

@@ -18,6 +18,7 @@ const OWNER_ROLE_SUFFIXES = new Map([
   ["infraService", "InfraService"],
   ["layer", ""],
   ["middleware", "Middleware"],
+  ["presenter", "Presenter"],
   ["repository", "Repository"],
   ["service", "Service"],
   ["view", "View"]

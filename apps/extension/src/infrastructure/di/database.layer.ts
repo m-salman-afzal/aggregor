@@ -1,7 +1,7 @@
 import {SqliteClient} from "@effect/sql-sqlite-node";
 import {getDatabaseFilePath} from "@infraUtils/database.utils.ts";
-import {MIGRATIONS_FOLDER} from "@pkg/constants/src/extension.constant.ts";
-import {VsCodeApi} from "@vscodeApi/vscode.api.ts";
+import {MIGRATIONS_FOLDER} from "@pkg/constants/src/database.constant.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {makeWithDefaults} from "drizzle-orm/effect-sqlite-node";
 import {migrate} from "drizzle-orm/effect-sqlite-node/migrator";
 import {Effect, Layer} from "effect";

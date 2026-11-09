@@ -250,6 +250,9 @@ importers:
       '@pkg/typings':
         specifier: workspace:*
         version: link:../../packages/typings
+      '@pkg/vscode':
+        specifier: workspace:*
+        version: link:../../packages/vscode
       drizzle-orm:
         specifier: 1.0.0-rc.5
         version: 1.0.0-rc.5(@effect/sql-sqlite-node@4.1.2(effect@4.1.2))(effect@4.1.2)
@@ -279,6 +282,8 @@ importers:
         specifier: 8.3.6
         version: 8.3.6(@types/node@26.6.6)(jiti@2.7.0)(yaml@2.9.1)
 
+  apps/pty: {}
+
   packages/constants:
     dependencies:
       '@pkg/tsconfigs':
@@ -292,6 +297,22 @@ importers:
       '@pkg/tsconfigs':
         specifier: workspace:*
         version: link:../tsconfigs
+
+  packages/vscode:
+    dependencies:
+      '@pkg/constants':
+        specifier: workspace:*
+        version: link:../constants
+      '@pkg/tsconfigs':
+        specifier: workspace:*
+        version: link:../tsconfigs
+      effect:
+        specifier: 4.1.2
+        version: 4.1.2
+    devDependencies:
+      '@types/vscode':
+        specifier: 1.145.0
+        version: 1.145.0
 
 packages:
 
