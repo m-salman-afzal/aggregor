@@ -3,8 +3,8 @@ import {Context, Schema} from "effect";
 
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
+import type {AgentIconValueObject} from "@valueObjects/agentIcon.valueObject.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {HarnessIconValueObject} from "@valueObjects/harnessIcon.valueObject.ts";
 import type {Effect, Result, Stream, SubscriptionRef} from "effect";
 
 // A program and its arguments, run as the tab's process with no shell around it.
@@ -13,10 +13,10 @@ export interface SessionTabCommand {
   readonly commandArguments: readonly string[];
 }
 
-// The tab opens with its harness's icon and the session's name, the one its row shows, and keeps that name instead of
+// The tab opens with its agent's icon and the session's name, the one its row shows, and keeps that name instead of
 // the agent's own titles. It runs tabCommand, which attaches to the session's agent in tmux or starts it.
 export interface SessionTabRequest {
-  readonly icon: HarnessIconValueObject;
+  readonly icon: AgentIconValueObject;
   readonly tabCommand: SessionTabCommand;
   readonly tabName: string;
 }

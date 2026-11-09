@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "6b3036f9-7e4f-4afe-b3bc-71a272bf2b46",
+  "id": "521794e7-2ac1-4c07-97b6-0cd27f1e6af5",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -136,7 +136,7 @@
     },
     {
       "table": "sessions",
-      "name": "harnessId",
+      "name": "agentId",
       "type": "text",
       "notNull": true,
       "autoincrement": false,

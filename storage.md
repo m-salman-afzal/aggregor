@@ -37,9 +37,9 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 
 ### `sessions`
 
-- **Holds:** `projectId`, `harnessId` (its `aggregorApp.harnesses` key), `name` (the agent's latest title, or ours until
-  it gives one), `customName` (the user's, from the row menu's Rename, or NULL) and `viewedAt` (when the session last
-  came into or left the user's view). The `id` is also the agent's session id.
+- **Holds:** `projectId`, `agentId` (its `aggregorApp.agents` key), `name` (the agent's latest title, or ours until it
+  gives one), `customName` (the user's, from the row menu's Rename, or NULL) and `viewedAt` (when the session last came
+  into or left the user's view). The `id` is also the agent's session id.
 - **Written by:** `SessionService` through the base service: a row per New Session, `name` when the agent's title in the
   row changes, `customName` on Rename, `viewedAt` as the session comes into and leaves view, and a soft delete on Remove
   Session. Removing a project keeps its sessions, so adding the project again lists them again.
@@ -92,8 +92,8 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 
 ## User settings
 
-- **Holds:** `aggregorApp.defaultHarness`, the harness New Session offers first.
-- **Written by:** `SettingsConfig.saveDefaultHarnessId`, when the user clicks a harness's **Set as Default** in the
-  picker, into the user's `settings.json`.
+- **Holds:** `aggregorApp.defaultAgent`, the agent New Session offers first.
+- **Written by:** `SettingsConfig.saveDefaultAgentId`, when the user clicks an agent's **Set as Default** in the picker,
+  into the user's `settings.json`.
 - **Read by:** `SessionService`, through `ISettingsConfig.readSessionSettings`, each time New Session runs.
 - **Cleaned up:** by the user, like any setting.

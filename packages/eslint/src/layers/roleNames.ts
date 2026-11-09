@@ -21,10 +21,11 @@ export const ROLE_NAMES = {
       suffix: ["Model"]
     }
   ],
+  // An enum value object's values go out as an UPPER_CASE constant beside its schema (AGENT_STATUSES).
   "**/*.valueObject.ts": [
     {format: ["PascalCase"], selector: ["typeAlias", "interface"], suffix: ["ValueObject"]},
     {
-      filter: {match: true, regex: "^[A-Z]"},
+      filter: {match: true, regex: "^(?![A-Z0-9_]+$)[A-Z]"},
       format: ["PascalCase"],
       modifiers: ["exported"],
       selector: "variable",

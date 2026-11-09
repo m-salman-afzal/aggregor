@@ -1,5 +1,5 @@
+import {AgentIconValueObjectSchema} from "@valueObjects/agentIcon.valueObject.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
-import {HarnessIconValueObjectSchema} from "@valueObjects/harnessIcon.valueObject.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {SessionStatusValueObjectSchema} from "@valueObjects/sessionStatus.valueObject.ts";
 import {StatusKindValueObjectSchema} from "@valueObjects/statusKind.valueObject.ts";
@@ -8,10 +8,10 @@ import {Schema} from "effect";
 // What crosses between presentation and the session use cases.
 
 // A session as the list shows it. The kind of wait and the progress are present only while the agent is at its turn,
-// and the message only while the agent runs. No icon means its harness is gone from the settings.
+// and the message only while the agent runs. No icon means its agent is gone from the settings.
 export const SessionListItemDtoSchema = Schema.Struct({
   displayName: Schema.String,
-  icon: Schema.optional(HarnessIconValueObjectSchema),
+  icon: Schema.optional(AgentIconValueObjectSchema),
   name: Schema.String,
   projectName: Schema.String,
   projectPath: ProjectPathValueObjectSchema,

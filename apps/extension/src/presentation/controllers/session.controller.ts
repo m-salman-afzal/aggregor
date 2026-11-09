@@ -12,6 +12,7 @@ import {
   findViewedSessionId,
   getSessionListItem,
   listProjectSessionIds,
+  listSessionsWaitingOnUser,
   listWorkingSessionIds,
   newSession,
   openSession,
@@ -80,6 +81,12 @@ export const listWorkingSessionIdsForSessionsView = Effect.fn("SessionController
     return yield* listWorkingSessionIds();
   }
 );
+
+export const listSessionsWaitingOnUserForSessionsView = Effect.fn(
+  "SessionController.listSessionsWaitingOnUserForSessionsView"
+)(function* () {
+  return yield* listSessionsWaitingOnUser();
+});
 
 export const watchSessionListChangesForSessionsView = Effect.fn(
   "SessionController.watchSessionListChangesForSessionsView"

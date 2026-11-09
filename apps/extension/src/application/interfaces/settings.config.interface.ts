@@ -1,12 +1,18 @@
 import {Context, Schema} from "effect";
 
-import type {HarnessIdValueObject} from "@valueObjects/harnessId.valueObject.ts";
+import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
+import type {AgentStatusValueObject} from "@valueObjects/agentStatus.valueObject.ts";
 import type {Effect} from "effect";
+
+// The states a session out of view notifies about.
+export interface AlertSettings {
+  readonly notifyOnStatuses: readonly AgentStatusValueObject[];
+}
 
 // How New Session picks its agent.
 export interface SessionSettings {
-  readonly defaultHarnessId: HarnessIdValueObject;
-  readonly skipHarnessPicker: boolean;
+  readonly defaultAgentId: AgentIdValueObject;
+  readonly skipAgentPicker: boolean;
 }
 
 export interface Settings {
@@ -23,9 +29,10 @@ export class InvalidSettingsError extends Schema.TaggedError<InvalidSettingsErro
 export class ISettingsConfig extends Context.Service<
   ISettingsConfig,
   {
+    readonly readAlertSettings: Effect.Effect<AlertSettings, InvalidSettingsError>;
     readonly readSessionSettings: Effect.Effect<SessionSettings, InvalidSettingsError>;
     readonly readSettings: Effect.Effect<Settings, InvalidSettingsError>;
-    // Writes aggregorApp.defaultHarness to the user's settings.
-    readonly saveDefaultHarnessId: (harnessId: HarnessIdValueObject) => Effect.Effect<void>;
+    // Writes aggregorApp.defaultAgent to the user's settings.
+    readonly saveDefaultAgentId: (agentId: AgentIdValueObject) => Effect.Effect<void>;
   }
 >()("aggregor-app/application/interfaces/settings.config.interface/ISettingsConfig") {}

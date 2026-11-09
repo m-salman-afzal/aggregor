@@ -14,7 +14,7 @@ CREATE TABLE `sessions` (
 	`updatedAt` text NOT NULL,
 	`agentSessionId` text,
 	`customName` text,
-	`harnessId` text NOT NULL,
+	`agentId` text NOT NULL,
 	`hasWorked` integer DEFAULT false NOT NULL,
 	`name` text NOT NULL,
 	`projectId` text NOT NULL,

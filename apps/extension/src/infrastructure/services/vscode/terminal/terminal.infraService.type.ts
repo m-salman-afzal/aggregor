@@ -9,4 +9,4 @@ export type SessionTerminalsReference = SubscriptionRef.SubscriptionRef<Readonly
 // What the terminal functions share: the window's session terminals and VS Code's window.
 export type TerminalDependencies = {
   readonly sessionTerminals: SessionTerminalsReference;
-} & Pick<VsCodeApi["Service"], "commands" | "TabInputTerminal" | "ThemeIcon" | "Uri" | "ViewColumn" | "window">;
+} & Pick<VsCodeApi["Service"], "commands" | "TabInputTerminal" | "Uri" | "ViewColumn" | "window">;

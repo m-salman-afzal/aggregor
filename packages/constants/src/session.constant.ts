@@ -18,8 +18,8 @@ export const SESSION_NOTICES = {
 } as const;
 
 export const SESSION_ERRORS = {
-  AGENT_SESSION_ID_NOT_FOUND: (harnessName: string) =>
-    `${harnessName} never showed its conversation's id, so this session can't be resumed.`,
+  AGENT_SESSION_ID_NOT_FOUND: (agentName: string) =>
+    `${agentName} never showed its conversation's id, so this session can't be resumed.`,
   INVALID_SETTINGS: (reason: string) => `The agent settings are invalid: ${reason}`,
   LAUNCH_FAILED: "Could not open a terminal for the session.",
   NOT_FOUND: "This session no longer exists.",

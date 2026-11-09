@@ -3,11 +3,12 @@ import {
   getSessionStatus,
   getSessionTitleToSave,
   isSessionTurnRunning,
+  isSessionWaitingOnUser,
   prepareLaunchPlan
 } from "@domainServices/session.domainService.ts";
-import {HarnessListItemDtoSchema} from "@dtos/harness.dto.ts";
+import {AgentListItemDtoSchema} from "@dtos/agent.dto.ts";
 import {SessionListChangeDtoSchema, SessionListItemDtoSchema} from "@dtos/session.dto.ts";
-import {HarnessNotFoundError, IHarnessRepository} from "@entities/harness/harness.repository.interface.ts";
+import {AgentNotFoundError, IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
@@ -16,11 +17,13 @@ import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import {HARNESS_LABELS} from "@pkg/constants/src/harness.constant.ts";
+import {AGENT_LABELS} from "@pkg/constants/src/agent.constant.ts";
 import {SESSION_LABELS, SESSION_NOTICES} from "@pkg/constants/src/session.constant.ts";
 import {addEntity, findEntities, findEntityById, removeEntity, updateEntity} from "@services/base.service.ts";
 import {findOrAddProject, findProjectListItem, pickProject} from "@services/project.service.ts";
+import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
+import {SESSION_STATUSES} from "@valueObjects/sessionStatus.valueObject.ts";
 import {Array, DateTime, Effect, Predicate, Result, Schema, Stream, String, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
@@ -34,18 +37,18 @@ import type {
   RenameSessionRequestDto,
   SessionListChangeDto
 } from "@dtos/session.dto.ts";
-import type {HarnessEntity} from "@entities/harness/harness.entity.ts";
+import type {AgentEntity} from "@entities/agent/agent.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
+import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {HarnessIdValueObject} from "@valueObjects/harnessId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
-// None of the harnesses' commands is on PATH.
-export class NoHarnessInstalledError extends Schema.TaggedError<
-  NoHarnessInstalledError,
-  {readonly brand: unique symbol}
->()("NoHarnessInstalledError", {searchedCommands: Schema.Array(Schema.String)}) {}
+// None of the agents' commands is on PATH.
+export class NoAgentInstalledError extends Schema.TaggedError<NoAgentInstalledError, {readonly brand: unique symbol}>()(
+  "NoAgentInstalledError",
+  {searchedCommands: Schema.Array(Schema.String)}
+) {}
 
 class RemoveCancelledError extends Schema.TaggedError<RemoveCancelledError, {readonly brand: unique symbol}>()(
   "RemoveCancelledError",
@@ -72,34 +75,34 @@ export const findSession = Effect.fn("SessionService.findSession")(
 
 const addSession = Effect.fn("SessionService.addSession")(function* (
   sessionProject: ProjectListItemDto,
-  sessionHarness: HarnessEntity
+  sessionAgent: AgentEntity
 ) {
   const project = yield* findOrAddProject(sessionProject.path);
   const storedSessions = yield* findEntities(ISessionRepository, {});
 
   return yield* addEntity(ISessionRepository, {
-    harnessId: sessionHarness.id,
+    agentId: sessionAgent.id,
     name: yield* getDefaultSessionName(sessionProject.name, storedSessions),
     projectId: project.id
   });
 });
 
-const findSessionHarness = Effect.fn("SessionService.findSessionHarness")(function* (session: SessionEntity) {
-  return yield* IHarnessRepository.use((harnessRepository) => harnessRepository.findById(session.harnessId));
+const findSessionAgent = Effect.fn("SessionService.findSessionAgent")(function* (session: SessionEntity) {
+  return yield* IAgentRepository.use((agentRepository) => agentRepository.findById(session.agentId));
 });
 
 // The tab attaches to the agent's tmux session, or starts the agent in one when it isn't running, and shows the
 // session's name, as its row does.
 const openSessionTab = Effect.fn("SessionService.openSessionTab")(function* (session: SessionEntity) {
   const {prepareSessionTabCommand, waitForSessionAgentStart} = yield* ITmuxInfraService;
-  const sessionHarness = yield* findSessionHarness(session);
-  const launchPlan = yield* prepareLaunchPlan(sessionHarness, session);
+  const sessionAgent = yield* findSessionAgent(session);
+  const launchPlan = yield* prepareLaunchPlan(sessionAgent, session);
   const tabCommand = yield* prepareSessionTabCommand({
     launchPlan,
     projectPath: session.projectPath,
     sessionId: session.id
   });
-  const sessionTabRequest: SessionTabRequest = {icon: sessionHarness.icon, tabCommand, tabName: session.displayName};
+  const sessionTabRequest: SessionTabRequest = {icon: sessionAgent.icon, tabCommand, tabName: session.displayName};
 
   yield* ITerminalInfraService.use((terminalInfraService) =>
     terminalInfraService.openSessionTerminal(session, sessionTabRequest)
@@ -121,83 +124,82 @@ const launchNewSession = Effect.fn("SessionService.launchNewSession")(
     )
 );
 
-// The harnesses whose command is on PATH; the others can't start.
-const listInstalledHarnesses = Effect.fn("SessionService.listInstalledHarnesses")(function* () {
-  const harnesses = yield* IHarnessRepository.use((harnessRepository) => harnessRepository.findAll);
-  const harnessCommands = Array.map(harnesses, (harness) => harness.command);
+// The agents whose command is on PATH; the others can't start.
+const listInstalledAgents = Effect.fn("SessionService.listInstalledAgents")(function* () {
+  const agents = yield* IAgentRepository.use((agentRepository) => agentRepository.findAll);
+  const agentCommands = Array.map(agents, (agent) => agent.command);
   const installedCommands = yield* IShellCommandInfraService.use((shellCommandInfraService) =>
-    shellCommandInfraService.listInstalledCommands(harnessCommands)
+    shellCommandInfraService.listInstalledCommands(agentCommands)
   );
-  const installedHarnesses = Array.filter(harnesses, (harness) => installedCommands.has(harness.command));
-  if (installedHarnesses.length === 0) return yield* NoHarnessInstalledError.make({searchedCommands: harnessCommands});
+  const installedAgents = Array.filter(agents, (agent) => installedCommands.has(agent.command));
+  if (installedAgents.length === 0) return yield* NoAgentInstalledError.make({searchedCommands: agentCommands});
 
-  return installedHarnesses;
+  return installedAgents;
 });
 
 // The default first, as the picker shows them.
-const toHarnessListItems = Effect.fn("SessionService.toHarnessListItems")(function* (
-  installedHarnesses: readonly HarnessEntity[],
-  defaultHarnessId: HarnessIdValueObject
+const toAgentListItems = Effect.fn("SessionService.toAgentListItems")(function* (
+  installedAgents: readonly AgentEntity[],
+  defaultAgentId: AgentIdValueObject
 ) {
-  const harnessListItems = Array.map(installedHarnesses, (installedHarness) =>
-    HarnessListItemDtoSchema.make({
-      command: installedHarness.command,
-      harnessId: installedHarness.id,
-      icon: installedHarness.icon,
-      isDefault: installedHarness.id === defaultHarnessId,
-      name: installedHarness.name
+  const agentListItems = Array.map(installedAgents, (installedAgent) =>
+    AgentListItemDtoSchema.make({
+      agentId: installedAgent.id,
+      command: installedAgent.command,
+      icon: installedAgent.icon,
+      isDefault: installedAgent.id === defaultAgentId,
+      name: installedAgent.name
     })
   );
 
   return [
-    ...Array.filter(harnessListItems, (harnessListItem) => harnessListItem.isDefault),
-    ...Array.filter(harnessListItems, (harnessListItem) => !harnessListItem.isDefault)
+    ...Array.filter(agentListItems, (agentListItem) => agentListItem.isDefault),
+    ...Array.filter(agentListItems, (agentListItem) => !agentListItem.isDefault)
   ];
 });
 
-const findInstalledHarness = Effect.fn("SessionService.findInstalledHarness")(function* (
-  installedHarnesses: readonly HarnessEntity[],
-  harnessId: HarnessIdValueObject
+const findInstalledAgent = Effect.fn("SessionService.findInstalledAgent")(function* (
+  installedAgents: readonly AgentEntity[],
+  agentId: AgentIdValueObject
 ) {
   return yield* Effect.fromResult(
     Result.fromOption(
-      Array.findFirst(installedHarnesses, (installedHarness) => installedHarness.id === harnessId),
-      () => HarnessNotFoundError.make({harnessId})
+      Array.findFirst(installedAgents, (installedAgent) => installedAgent.id === agentId),
+      () => AgentNotFoundError.make({agentId})
     )
   );
 });
 
 // Choosing another default saves it to the user's settings and shows the list again, reordered.
-const pickHarness = Effect.fn("SessionService.pickHarness")(function* (
-  installedHarnesses: readonly HarnessEntity[],
-  savedDefaultHarnessId: HarnessIdValueObject
+const pickAgent = Effect.fn("SessionService.pickAgent")(function* (
+  installedAgents: readonly AgentEntity[],
+  savedDefaultAgentId: AgentIdValueObject
 ) {
-  let defaultHarnessId = savedDefaultHarnessId;
+  let defaultAgentId = savedDefaultAgentId;
   for (;;) {
-    const harnessListItems = yield* toHarnessListItems(installedHarnesses, defaultHarnessId);
-    const harnessPick = yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
-      userInputPromptInfraService.pickHarness(harnessListItems, HARNESS_LABELS.PICK)
+    const agentListItems = yield* toAgentListItems(installedAgents, defaultAgentId);
+    const agentPick = yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
+      userInputPromptInfraService.pickAgent(agentListItems, AGENT_LABELS.PICK)
     );
-    if (harnessPick._tag === "HarnessPicked")
-      return yield* findInstalledHarness(installedHarnesses, harnessPick.harnessId);
-    yield* ISettingsConfig.use((settingsConfig) => settingsConfig.saveDefaultHarnessId(harnessPick.harnessId));
-    defaultHarnessId = harnessPick.harnessId;
+    if (agentPick._tag === "AgentPicked") return yield* findInstalledAgent(installedAgents, agentPick.agentId);
+    yield* ISettingsConfig.use((settingsConfig) => settingsConfig.saveDefaultAgentId(agentPick.agentId));
+    defaultAgentId = agentPick.agentId;
   }
 });
 
-// The only installed harness starts straight away, and so does the default when the user asked to skip the picker. A
+// The only installed agent starts straight away, and so does the default when the user asked to skip the picker. A
 // default that isn't installed leaves the choice to the picker.
-const chooseHarness = Effect.fn("SessionService.chooseHarness")(function* () {
-  const {defaultHarnessId, skipHarnessPicker} = yield* ISettingsConfig.use(
+const chooseAgent = Effect.fn("SessionService.chooseAgent")(function* () {
+  const {defaultAgentId, skipAgentPicker} = yield* ISettingsConfig.use(
     (settingsConfig) => settingsConfig.readSessionSettings
   );
-  const installedHarnesses = yield* listInstalledHarnesses();
-  const [onlyInstalledHarness] = installedHarnesses;
-  if (installedHarnesses.length === 1 && onlyInstalledHarness !== undefined) return onlyInstalledHarness;
-  const defaultHarnessResult = yield* Effect.result(findInstalledHarness(installedHarnesses, defaultHarnessId));
-  if (skipHarnessPicker && Result.isSuccess(defaultHarnessResult)) return defaultHarnessResult.success;
+  const installedAgents = yield* listInstalledAgents();
+  const [onlyInstalledAgent] = installedAgents;
+  if (installedAgents.length === 1 && onlyInstalledAgent !== undefined) return onlyInstalledAgent;
+  const defaultAgentResult = yield* Effect.result(findInstalledAgent(installedAgents, defaultAgentId));
+  if (skipAgentPicker && Result.isSuccess(defaultAgentResult)) return defaultAgentResult.success;
 
-  return yield* pickHarness(installedHarnesses, defaultHarnessId);
+  return yield* pickAgent(installedAgents, defaultAgentId);
 });
 
 // The project first, then the agent.
@@ -208,9 +210,9 @@ const startSession = Effect.fn("SessionService.startSession")(function* (
     chosenProjectPath === undefined
       ? yield* pickProject(SESSION_LABELS.PICK_PROJECT)
       : yield* findProjectListItem(chosenProjectPath);
-  const sessionHarness = yield* chooseHarness();
+  const sessionAgent = yield* chooseAgent();
 
-  const addedSession = yield* addSession(sessionProject, sessionHarness);
+  const addedSession = yield* addSession(sessionProject, sessionAgent);
   yield* launchNewSession(addedSession);
 });
 
@@ -264,7 +266,7 @@ export const newSession = Effect.fn("SessionService.newSession")(
     yield* startSession(request.projectPath);
   },
   Effect.catchTags({
-    HarnessPickCancelledError: () => Effect.void,
+    AgentPickCancelledError: () => Effect.void,
     ProjectNotListedError: () => Effect.void,
     ProjectPickCancelledError: () => Effect.void
   })
@@ -310,7 +312,7 @@ export const renameSession = Effect.fn("SessionService.renameSession")(
 );
 
 // The kind of wait and the progress go only with a running turn, and the message only with a running agent. A session
-// whose harness is gone from the settings has no icon.
+// whose agent is gone from the settings has no icon.
 const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function* (session: SessionEntity) {
   const {viewedSessionId} = yield* ITerminalInfraService;
   const tmuxInfraService = yield* ITmuxInfraService;
@@ -320,20 +322,20 @@ const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function
   const isInView = Result.getOrUndefined(viewedSessionIdResult) === session.id;
   const status = yield* getSessionStatus(session, {isAgentRunning: runningSessionIds.has(session.id), isInView});
   const isTurnRunning = yield* isSessionTurnRunning(status);
-  const harnessResult = yield* Effect.result(
-    IHarnessRepository.use((harnessRepository) => harnessRepository.findById(session.harnessId))
+  const agentResult = yield* Effect.result(
+    IAgentRepository.use((agentRepository) => agentRepository.findById(session.agentId))
   );
 
   return SessionListItemDtoSchema.make({
     displayName: session.displayName,
-    icon: Result.getOrUndefined(Result.map(harnessResult, (sessionHarness) => sessionHarness.icon)),
+    icon: Result.getOrUndefined(Result.map(agentResult, (sessionAgent) => sessionAgent.icon)),
     name: session.name,
     projectName: path.basename(session.projectPath),
     projectPath: session.projectPath,
     sessionId: session.id,
     status,
-    statusKind: status === "blocked" ? session.statusKind : undefined,
-    statusMessage: status === "exited" ? undefined : session.statusMessage,
+    statusKind: status === SESSION_STATUSES.BLOCKED ? session.statusKind : undefined,
+    statusMessage: status === SESSION_STATUSES.EXITED ? undefined : session.statusMessage,
     statusProgress: isTurnRunning ? session.statusProgress : undefined
   });
 });
@@ -360,14 +362,25 @@ export const listProjectSessionIds = Effect.fn("SessionService.listProjectSessio
 // The sessions the list shows as working, for the spinner.
 export const listWorkingSessionIds = Effect.fn("SessionService.listWorkingSessionIds")(function* () {
   const storedSessions = yield* findEntities(ISessionRepository, {});
-  const reportedWorkingSessions = Array.filter(storedSessions, (storedSession) => storedSession.status === "working");
+  const reportedWorkingSessions = Array.filter(
+    storedSessions,
+    (storedSession) => storedSession.status === AGENT_STATUSES.WORKING
+  );
   const sessionListItems = yield* Effect.forEach(reportedWorkingSessions, toSessionListItem);
   const workingSessionListItems = Array.filter(
     sessionListItems,
-    (sessionListItem) => sessionListItem.status === "working"
+    (sessionListItem) => sessionListItem.status === SESSION_STATUSES.WORKING
   );
 
   return Array.map(workingSessionListItems, (workingSessionListItem) => workingSessionListItem.sessionId);
+});
+
+// The sessions waiting on the user, for the view's badge: asking something, failed, or with a finished turn unseen.
+export const listSessionsWaitingOnUser = Effect.fn("SessionService.listSessionsWaitingOnUser")(function* () {
+  const storedSessions = yield* findEntities(ISessionRepository, {});
+  const sessionListItems = yield* Effect.forEach(storedSessions, toSessionListItem);
+
+  return yield* Effect.filter(sessionListItems, (sessionListItem) => isSessionWaitingOnUser(sessionListItem.status));
 });
 
 // A session added or removed changes its project's sessions; any other write to it, or its agent starting or stopping,
@@ -409,11 +422,9 @@ export const findViewedSessionId = Effect.fn("SessionService.findViewedSessionId
 
 const findSessionTitleToSave = Effect.fn("SessionService.findSessionTitleToSave")(function* (session: SessionEntity) {
   const path = yield* Path;
-  const sessionHarness = yield* IHarnessRepository.use((harnessRepository) =>
-    harnessRepository.findById(session.harnessId)
-  );
+  const sessionAgent = yield* IAgentRepository.use((agentRepository) => agentRepository.findById(session.agentId));
 
-  return yield* getSessionTitleToSave(session, sessionHarness, path.basename(session.projectPath));
+  return yield* getSessionTitleToSave(session, sessionAgent, path.basename(session.projectPath));
 });
 
 // Nothing shows the failure: no command started this, so it is logged.
