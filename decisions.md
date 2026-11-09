@@ -581,7 +581,7 @@ current entry. Leave a field out rather than guess.
   `statusChangedAt` (only when the state changes), `hasWorked`, `reportedTitle` and, from OSC 0/2, `terminalTitle`, and
   `agentSessionId` when that title is a bare UUID (see "Codex resumes its own conversation by id"). It starts at
   `unknown`, `clear` and a full reset go back to `unknown`, and the agent's exit writes `exited`; reports with an `id`
-  wait for step 7. A writer thread keeps the latest pending change and writes title changes at most every 500 ms. The
+  wait for step 8. A writer thread keeps the latest pending change and writes title changes at most every 500 ms. The
   agent runs whatever happens to the database; errors go to `aggregor-pty.log` beside it, at most 10 lines a run. A
   session's tmux session runs `aggregor-pty --database ‹path› --session ‹id› -- ‹agent command›`: the tmux infra service
   wraps the agent's launch plan, and `getDatabaseFilePath` gives it and the database layer the same path.
@@ -904,10 +904,11 @@ current entry. Leave a field out rather than guess.
   `~/.aggregor`, beside the database files. `~/.aggregor` itself as the anchor folder, which would make VS Code watch
   the database.
 - **Decision:** `~/.aggregor` (or `$AGGREGOR_HOME`, which replaced `$AGGREGOR_DATA_DIR`) holds `data/` (`aggregor.db`,
-  its WAL files and `aggregor-pty.log`) and `anchor/` (`Aggregor/`, the anchor folder, and the `saveOffered` marker).
-  `getAggregorFolderPath` reads it, and `getDatabaseFilePath` and `getAnchorFolderPath` build on it. `VsCodeApi` no
-  longer carries `globalStorageUri`. Nothing moves the old files: the first switch after the change finds folder 0 is
-  not the new anchor folder and anchors the window again, restarting the extensions once and offering to save once.
+  its WAL files and `aggregor-pty.log`) and `anchor/` (`Aggregor/`, the anchor folder, and since 2026-11-10
+  `Aggregor.code-workspace` and `sessionToReopen.json`; the `saveOffered` marker until then). `getAggregorFolderPath`
+  reads it, and `getDatabaseFilePath` and `getAnchorFolderPath` build on it. `VsCodeApi` no longer carries
+  `globalStorageUri`. Nothing moves the old files: the first switch after the change finds folder 0 is not the new
+  anchor folder and anchors the window again.
 - **Why:** one place to find everything Aggregor stores, and every profile opens the same Aggregor workspace. A second
   window, in any profile, now shares the anchor folder's settings, as a second window in one profile already did.
 
@@ -919,11 +920,12 @@ current entry. Leave a field out rather than guess.
 - **Options:** swap folder 0 on each switch, restarting every extension each time; an extension-owned anchor at
   folder 0.
 - **Decision:** the first switch puts a hidden anchor folder (`~/.aggregor/anchor/Aggregor`) at folder 0 and the viewed
-  session's project at folder 1; later switches swap only folder 1. That first switch restarts the extensions once.
-  Session terminals carry `AGGREGOR_SESSION_ID` in their env, so they are found again after the restart, and the
-  anchor's `terminal.integrated.cwd` makes New Terminal open in the shown project.
-- **Why:** one restart instead of one per switch. TypeScript, ESLint, Prettier, rust-analyzer and Lua all follow the
-  shown project; mise needs `mise.selectWorkspaceFolder` after each switch.
+  session's project at folder 1, by opening Aggregor's workspace file (see "Aggregor's workspace is a file Aggregor
+  writes"); later switches swap only folder 1. Session terminals carry `AGGREGOR_SESSION_ID` in their env, so they are
+  found again after an extension restart, and the anchor's `terminal.integrated.cwd` makes New Terminal open in the
+  shown project.
+- **Why:** one reload instead of an extension restart per switch. TypeScript, ESLint, Prettier, rust-analyzer and Lua
+  all follow the shown project; mise needs `mise.selectWorkspaceFolder` after each switch.
 
 ### One project list for every window (2026-11-08)
 
@@ -936,8 +938,8 @@ current entry. Leave a field out rather than guess.
 - **Decision:** the `projects` table is the list: `isAdded` (named `added` until 2026-11-09) marks a listed project, Add
   Project upserts it with `isAdded` (to the end of the list), and Remove Project clears it; its sessions stay and come
   back with it. A workspace folder's project gets a row with its first session without being added, so it stays one of
-  the window's own folders. One anchor folder, `~/.aggregor/anchor/Aggregor`, with one save-offer marker. The windows
-  tables went with a generated migration, which leaves every project unadded.
+  the window's own folders. One anchor folder, `~/.aggregor/anchor/Aggregor`. The windows tables went with a generated
+  migration, which leaves every project unadded.
 - **Why:** less to build and keep. Adding windows back is one table and a migration. Since step 5 a second window shows
   the same sessions and opening a running one attaches to its tmux session; before, it would start a second agent on its
   id.
@@ -950,12 +952,24 @@ current entry. Leave a field out rather than guess.
   workspace folders and the added projects; a project's row is made the first time it is added or given a session. Until
   2026-11-09 these were `ListedProjectValueObject`s, but a project identified by its path is no value object.
 
-### Offer once to save the workspace as Aggregor (2026-11-06, #68)
+### Aggregor's workspace is a file Aggregor writes (2026-11-10; an offer to save it from 2026-11-06, #68)
 
-- **Problem:** an unsaved multi-root workspace is named Untitled and asks to be saved when the window closes, and no API
-  saves one silently.
-- **Decision:** after the first switch, offer once to save it. The anchor folder is named `Aggregor`, so the dialog
-  suggests `Aggregor.code-workspace` and the window takes that name.
+- **Problem:** the first switch turned the window into an unsaved multi-root workspace, named Untitled, which asks to be
+  saved when the window closes; no API saves one silently, so the window offered once to open Save Workspace As
+  (2026-11-06 to 2026-11-10), a dialog on a fresh start.
+- **Options:** VS Code's `window.confirmSaveUntitledWorkspace`, a user setting that would stop the question for every
+  untitled workspace and discard them on close.
+- **Decision:** the first switch, in a window that isn't a saved workspace with the anchor folder at folder 0, writes
+  `~/.aggregor/anchor/Aggregor.code-workspace` (the anchor folder, then the project) and opens it in the window with
+  `vscode.openFolder` (`forceReuseWindow`). Opening it reloads the window, which closes the session tabs, whose agents
+  keep running, so `sessionToReopen.json` beside it keeps the session being switched to and the reloaded window opens it
+  (`WorkspaceService.startSessionReopenAfterReload`); one older than a minute is ignored. Later switches swap folder 1,
+  which VS Code writes into the file. A workspace saved earlier with the anchor at folder 0 is kept. Add Project in an
+  empty window opens the file the same way, with no session to reopen.
+- **Why:** no question, ever; the window is named Aggregor and shows in Open Recent.
+- **Limits:** the first switch reloads the window instead of only restarting the extensions, so editors and terminals
+  come back as after any reload. When another window already has the file open, VS Code shows that window and this one
+  stays as it was; the session to reopen then expires unused.
 
 ### Wait for the git extension before reading its API (2026-11-01, #47)
 

@@ -1,13 +1,15 @@
 import {getAnchorFolderPath} from "@infraUtils/anchorFolder.utils.ts";
-import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
+import {IWorkspaceInfraService, NoSessionToReopenError} from "@interfaces/workspace.infraService.interface.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
+import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
-import {Array, Effect, Layer, Ref, Schema, Stream} from "effect";
+import {Array, Clock, Effect, Layer, Ref, Schema, Stream} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 
 import type {WorkspaceFolderProject} from "@interfaces/workspace.infraService.interface.ts";
+import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Uri} from "vscode";
 
@@ -50,12 +52,28 @@ const AnchorFolderSettingsJson = Schema.fromJsonString(
   })
 );
 
+// Aggregor's own workspace file: its folders, the anchor folder then the shown project. VS Code names the window after
+// the file, Aggregor, and never asks to save it.
+const AggregorWorkspaceJson = Schema.fromJsonString(
+  Schema.Struct({folders: Schema.Array(Schema.Struct({path: Schema.String}))})
+);
+
+// The session the window was showing when it reloaded to open Aggregor's workspace, and when that was.
+const SessionToReopenJson = Schema.fromJsonString(
+  Schema.Struct({sessionId: EntityIdValueObjectSchema, writtenAt: Schema.Finite})
+);
+
+// Beside the anchor folder.
+const AGGREGOR_WORKSPACE_FILE_NAME = "Aggregor.code-workspace";
+const SESSION_TO_REOPEN_FILE_NAME = "sessionToReopen.json";
+
+// A reload takes seconds; an older session to reopen is left from a window that didn't reload, as when VS Code showed
+// another window that already had Aggregor's workspace open.
+const SESSION_TO_REOPEN_LIFETIME_MS = 60_000;
+
 // Extensions that work in one workspace folder and take folder 0, the anchor folder, until told otherwise, with the
 // command that tells them.
 const FOLDER_SELECT_COMMANDS = [{command: "mise.selectWorkspaceFolder", extensionId: "hverlin.mise-vscode"}] as const;
-
-// Beside the anchor folder; once it exists, the window was offered to save its workspace.
-const SAVE_OFFERED_MARKER = "saveOffered";
 
 // Every workspace folder's path, the anchor folder's included.
 const readWorkspaceFolderPaths = Effect.fn("WorkspaceInfraService.readWorkspaceFolderPaths")(function* ({
@@ -119,37 +137,75 @@ const writeAnchorFolderSettings = Effect.fn("WorkspaceInfraService.writeAnchorFo
   yield* fileSystem.writeFileString(path.join(settingsDirectoryPath, "settings.json"), settingsJson);
 });
 
-// Replaces every folder with the anchor folder and the project, which restarts every extension.
-const anchorWorkspace = Effect.fn("WorkspaceInfraService.anchorWorkspace")(function* (
-  workspaceDependencies: WorkspaceDependencies,
-  workspaceFolderCount: number,
-  projectFolder: WorkspaceFolderToAdd
-) {
-  const {anchorFolderPath, Uri} = workspaceDependencies;
-  const anchorFolder: WorkspaceFolderToAdd = {uri: Uri.file(anchorFolderPath)};
+// A saved workspace whose folder 0 is the anchor folder: Aggregor's own, or one the user saved.
+const isSavedAnchoredWorkspace = Effect.fn("WorkspaceInfraService.isSavedAnchoredWorkspace")(function* ({
+  anchorFolderPath,
+  workspace
+}: WorkspaceDependencies) {
+  return yield* Effect.sync(() => {
+    const {workspaceFile, workspaceFolders} = workspace;
+    const [firstWorkspaceFolder] = workspaceFolders === undefined ? [] : workspaceFolders;
 
-  yield* updateWorkspaceFolders(workspaceDependencies, {
-    deleteCount: workspaceFolderCount,
-    foldersToAdd: [anchorFolder, projectFolder],
-    start: 0
+    return (
+      workspaceFile !== undefined &&
+      workspaceFile.scheme === "file" &&
+      firstWorkspaceFolder !== undefined &&
+      firstWorkspaceFolder.uri.fsPath === anchorFolderPath
+    );
   });
 });
 
-// Writes the anchor folder's settings for the project, then swaps it in at folder 1, or anchors the workspace first.
+// Kept beside the anchor folder for the reloaded window, which opens the session again.
+const writeSessionToReopen = Effect.fn("WorkspaceInfraService.writeSessionToReopen")(function* (
+  {anchorFolderPath, fileSystem, path}: WorkspaceDependencies,
+  sessionToReopen: EntityIdValueObject
+) {
+  const writtenAt = yield* Clock.currentTimeMillis;
+  const sessionToReopenText = yield* Schema.encodeEffect(SessionToReopenJson)({sessionId: sessionToReopen, writtenAt});
+
+  yield* fileSystem.writeFileString(
+    path.join(path.dirname(anchorFolderPath), SESSION_TO_REOPEN_FILE_NAME),
+    sessionToReopenText
+  );
+});
+
+// Writes Aggregor's workspace file with the project, then opens it in this window, which reloads it. VS Code shows
+// another window instead when that one already has the file open.
+const openAggregorWorkspace = Effect.fn("WorkspaceInfraService.openAggregorWorkspace")(function* (
+  workspaceDependencies: WorkspaceDependencies,
+  projectPath: ProjectPathValueObject,
+  sessionToReopen: EntityIdValueObject | undefined
+) {
+  const {anchorFolderPath, commands, fileSystem, path, Uri} = workspaceDependencies;
+  const workspaceFilePath = path.join(path.dirname(anchorFolderPath), AGGREGOR_WORKSPACE_FILE_NAME);
+  const folders = [{path: anchorFolderPath}, {path: projectPath}];
+  const workspaceFileText = yield* Schema.encodeEffect(AggregorWorkspaceJson)({folders});
+  yield* fileSystem.writeFileString(workspaceFilePath, workspaceFileText);
+  if (sessionToReopen !== undefined) yield* writeSessionToReopen(workspaceDependencies, sessionToReopen);
+
+  yield* Effect.promise(() =>
+    commands.executeCommand("vscode.openFolder", Uri.file(workspaceFilePath), {forceReuseWindow: true})
+  );
+});
+
+// Writes the anchor folder's settings for the project, then swaps it in at folder 1 of a saved anchored workspace, or
+// opens Aggregor's workspace with it.
 const moveProjectFolderIn = Effect.fn("WorkspaceInfraService.moveProjectFolderIn")(function* (
   workspaceDependencies: WorkspaceDependencies,
-  workspaceFolderPaths: readonly ProjectPathValueObject[],
-  projectPath: ProjectPathValueObject
+  projectPath: ProjectPathValueObject,
+  sessionToReopen: EntityIdValueObject | undefined
 ) {
   yield* writeAnchorFolderSettings(workspaceDependencies, projectPath);
+  if (!(yield* isSavedAnchoredWorkspace(workspaceDependencies)))
+    return yield* openAggregorWorkspace(workspaceDependencies, projectPath, sessionToReopen);
+  const workspaceFolderPaths = yield* readWorkspaceFolderPaths(workspaceDependencies);
   const projectFolder: WorkspaceFolderToAdd = {uri: workspaceDependencies.Uri.file(projectPath)};
-  if (workspaceFolderPaths[0] === workspaceDependencies.anchorFolderPath)
-    yield* updateWorkspaceFolders(workspaceDependencies, {
-      deleteCount: workspaceFolderPaths.length - 1,
-      foldersToAdd: [projectFolder],
-      start: 1
-    });
-  else yield* anchorWorkspace(workspaceDependencies, workspaceFolderPaths.length, projectFolder);
+
+  return yield* updateWorkspaceFolders(workspaceDependencies, {
+    deleteCount: workspaceFolderPaths.length - 1,
+    foldersToAdd: [projectFolder],
+    start: 1
+  });
 });
 
 // Once per project and extension host: a restarted host's extensions start from folder 0 again.
@@ -172,14 +228,18 @@ const selectProjectFolderInExtensions = Effect.fn("WorkspaceInfraService.selectP
 });
 
 const showOnlyProjectFolder = Effect.fn("WorkspaceInfraService.showOnlyProjectFolder")(
-  function* (workspaceDependencies: WorkspaceDependencies, projectPath: ProjectPathValueObject) {
+  function* (
+    workspaceDependencies: WorkspaceDependencies,
+    projectPath: ProjectPathValueObject,
+    sessionToReopen: EntityIdValueObject | undefined
+  ) {
     const workspaceFolderPaths = yield* readWorkspaceFolderPaths(workspaceDependencies);
     const projectFolderPaths = Array.filter(
       workspaceFolderPaths,
       (folderPath) => folderPath !== workspaceDependencies.anchorFolderPath
     );
     const isProjectShownAlone = projectFolderPaths.length === 1 && projectFolderPaths[0] === projectPath;
-    if (!isProjectShownAlone) yield* moveProjectFolderIn(workspaceDependencies, workspaceFolderPaths, projectPath);
+    if (!isProjectShownAlone) yield* moveProjectFolderIn(workspaceDependencies, projectPath, sessionToReopen);
 
     yield* selectProjectFolderInExtensions(workspaceDependencies, projectPath);
   },
@@ -198,46 +258,20 @@ const removeProjectFolder = Effect.fn("WorkspaceInfraService.removeProjectFolder
   Effect.ignore({log: "Warn", message: "Could not take the project out of the workspace"})
 );
 
-// The window's workspace is unsaved, as the first switch leaves it, and its folder 0 is our anchor folder.
-const isUnsavedAnchoredWorkspace = Effect.fn("WorkspaceInfraService.isUnsavedAnchoredWorkspace")(function* ({
-  anchorFolderPath,
-  workspace
-}: WorkspaceDependencies) {
-  return yield* Effect.sync(() => {
-    const {workspaceFile, workspaceFolders} = workspace;
-    const [firstWorkspaceFolder] = workspaceFolders === undefined ? [] : workspaceFolders;
+// Read and deleted, so the session opens once; any failure means there is none.
+const takeSessionToReopen = Effect.fn("WorkspaceInfraService.takeSessionToReopen")(
+  function* ({anchorFolderPath, fileSystem, path}: WorkspaceDependencies) {
+    const sessionToReopenPath = path.join(path.dirname(anchorFolderPath), SESSION_TO_REOPEN_FILE_NAME);
+    const sessionToReopenText = yield* fileSystem.readFileString(sessionToReopenPath);
+    yield* fileSystem.remove(sessionToReopenPath);
+    const {sessionId, writtenAt} = yield* Schema.decodeEffect(SessionToReopenJson)(sessionToReopenText);
+    const now = yield* Clock.currentTimeMillis;
+    if (now - writtenAt > SESSION_TO_REOPEN_LIFETIME_MS) return yield* NoSessionToReopenError.make();
 
-    return (
-      workspaceFile !== undefined &&
-      workspaceFile.scheme === "untitled" &&
-      firstWorkspaceFolder !== undefined &&
-      firstWorkspaceFolder.uri.fsPath === anchorFolderPath
-    );
-  });
-});
-
-// True once, the first time it runs on an unsaved anchored workspace; the marker remembers it.
-const claimWorkspaceSaveOffer = Effect.fn("WorkspaceInfraService.claimWorkspaceSaveOffer")(
-  function* (workspaceDependencies: WorkspaceDependencies) {
-    const {anchorFolderPath, fileSystem, path} = workspaceDependencies;
-    if (!(yield* isUnsavedAnchoredWorkspace(workspaceDependencies))) return false;
-    const markerPath = path.join(path.dirname(anchorFolderPath), SAVE_OFFERED_MARKER);
-    if (yield* fileSystem.exists(markerPath)) return false;
-    yield* fileSystem.writeFileString(markerPath, "");
-
-    return true;
+    return sessionId;
   },
-  Effect.catch((markerError) =>
-    Effect.as(Effect.logWarning("Could not check whether the workspace was offered to be saved", markerError), false)
-  )
+  Effect.mapError(() => NoSessionToReopenError.make())
 );
-
-// VS Code's Save Workspace As, which asks where; there is no other way to save a workspace.
-const saveWorkspaceAs = Effect.fn("WorkspaceInfraService.saveWorkspaceAs")(function* ({
-  commands
-}: WorkspaceDependencies) {
-  yield* Effect.promise(() => commands.executeCommand("workbench.action.saveWorkspaceAs"));
-});
 
 const watchWorkspaceFolderChanges = Effect.fn("WorkspaceInfraService.watchWorkspaceFolderChanges")(function* ({
   workspace
@@ -257,13 +291,12 @@ const makeWorkspaceInfraService = Effect.fn("WorkspaceInfraService.make")(functi
   };
 
   return {
-    claimWorkspaceSaveOffer: claimWorkspaceSaveOffer(workspaceDependencies),
     listWorkspaceFolderProjects: listWorkspaceFolderProjects(workspaceDependencies),
     removeProjectFolder: (projectPath: ProjectPathValueObject) =>
       removeProjectFolder(workspaceDependencies, projectPath),
-    saveWorkspaceAs: saveWorkspaceAs(workspaceDependencies),
-    showOnlyProjectFolder: (projectPath: ProjectPathValueObject) =>
-      showOnlyProjectFolder(workspaceDependencies, projectPath),
+    showOnlyProjectFolder: (projectPath: ProjectPathValueObject, sessionToReopen: EntityIdValueObject | undefined) =>
+      showOnlyProjectFolder(workspaceDependencies, projectPath, sessionToReopen),
+    takeSessionToReopen: takeSessionToReopen(workspaceDependencies),
     workspaceFolderChanges: yield* watchWorkspaceFolderChanges(workspaceDependencies)
   };
 });

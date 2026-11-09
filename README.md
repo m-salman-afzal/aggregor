@@ -14,11 +14,11 @@ terminals, tree views, Source Control and diffs.
   project's … menu removes it.
 - **One project in view.** Like VS Code's Agents window, the workspace follows the session in front of you: its project
   is the only folder Explorer, search, file watching and Source Control see. Opening a file keeps the project. The first
-  switch replaces folder 0 with a hidden, empty anchor folder the extension owns, so later switches never touch folder
-  0, which would restart every extension. That first switch turns the window into an untitled multi-root workspace and
-  restarts the extensions once; open session tabs keep running, and the folders that leave become added projects. It
-  then offers once to save the workspace, which names it Aggregor instead of Untitled and stops the save question when
-  the window closes.
+  switch opens Aggregor's own workspace, `~/.aggregor/anchor/Aggregor.code-workspace`, in the window: a hidden, empty
+  anchor folder the extension owns at folder 0 and the project at folder 1, so later switches never touch folder 0,
+  which would restart every extension. That first switch reloads the window once, without asking anything: its agents
+  keep running, it reopens the session you switched to, and the folders that leave become added projects. The window is
+  then named Aggregor and never asks to be saved.
 - **Agents.** New Session asks which agent to start, among those whose command is on `PATH`, with your default first;
   each one's **Set as Default** button changes the default, and `aggregorApp.skipAgentPicker` starts the default without
   asking. Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot are built in. `aggregorApp.agents` in your user

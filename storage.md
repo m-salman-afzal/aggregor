@@ -75,20 +75,21 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 
 - **Holds:**
   - `Aggregor/`, the anchor folder: empty but for `.vscode/settings.json`, with `files.exclude` set to `{"**": true}`
-    and `terminal.integrated.cwd` set to the shown project. Save Workspace As suggests saving
-    `Aggregor/Aggregor.code-workspace`, so a saved workspace usually lives here too.
-  - `saveOffered`, an empty file: the window was offered to save its workspace.
-- **Written by:** `WorkspaceInfraService`: the settings before every project switch, the marker when it offers; VS Code,
-  the workspace file when the user saves it there.
-- **Read by:** VS Code, as the window's folder 0, which its own settings hide from Explorer; `WorkspaceInfraService`
-  checks the marker.
+    and `terminal.integrated.cwd` set to the shown project.
+  - `Aggregor.code-workspace`, Aggregor's workspace: the anchor folder, then the shown project.
+  - `sessionToReopen.json`: the session the window was switching to when it reloaded to open the workspace, with when.
+- **Written by:** `WorkspaceInfraService`: the settings before every project switch, the workspace file and the session
+  to reopen on the first switch; VS Code, the workspace file's folders on later switches.
+- **Read by:** VS Code, the workspace file as the window's workspace and the anchor folder as its folder 0, which its
+  own settings hide from Explorer; `WorkspaceInfraService`, the session to reopen when the window starts.
 - **Why:** with the anchor folder at folder 0, the shown project swaps at folder 1; changing folder 0 restarts every
   extension. Its terminal cwd makes New Terminal count it and the project as one folder, so it opens in the project
-  without asking. Named `Aggregor`, it names the saved workspace and its row in folder pickers. The marker makes the
-  offer once. It sits a level below the Aggregor folder, so the window never watches the database. Aggregor is meant for
-  one window; a second window, in any profile, would share the anchor folder and its settings.
-- **Cleaned up:** never; an empty folder, a settings file of a few hundred bytes, an empty marker and maybe a workspace
-  file.
+  without asking. The workspace file names the window Aggregor and is never offered to be saved. It sits a level below
+  the Aggregor folder, so the window never watches the database. Aggregor is meant for one window; a second window, in
+  any profile, would share the anchor folder and its settings.
+- **Cleaned up:** the session to reopen when the reloaded window reads it, or when one older than a minute is found; the
+  rest never: an empty folder, a settings file of a few hundred bytes and a workspace file. A `saveOffered` marker left
+  from before 2026-11-10 is no longer read.
 
 ## User settings
 

@@ -223,7 +223,7 @@ apps/extension/src/
       commitMessage.service.ts             generateCommitMessage: writes the message with Source Control's progress,
                                            and offers to stage everything when nothing is staged
       workspace.service.ts                 startShownProjectSync: the viewed session's project as the only
-                                           project folder; startWorkspaceSaveOffer
+                                           project folder; startSessionReopenAfterReload
     dtos/
       session.dto.ts                       SessionListItemDto, SessionListChangeDto, and a request DTO per session
                                            use case
@@ -249,8 +249,8 @@ apps/extension/src/
                                            DesktopNotificationRequest
       progress.infraService.interface.ts   withSourceControlProgress
       workspace.infraService.interface.ts  listWorkspaceFolderProjects, workspaceFolderChanges,
-                                           showOnlyProjectFolder, removeProjectFolder, claimWorkspaceSaveOffer,
-                                           saveWorkspaceAs; WorkspaceFolderProject
+                                           showOnlyProjectFolder, removeProjectFolder, takeSessionToReopen;
+                                           WorkspaceFolderProject, NoSessionToReopenError
       git.infraService.interface.ts        getStagedDiff, setCommitMessageInput, commit, stageAll,
                                            openInSourceControl
       commitCli.infraService.interface.ts  generateCommitMessage; CommitMessageRequest
