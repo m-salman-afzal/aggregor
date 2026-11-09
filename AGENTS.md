@@ -37,8 +37,8 @@ squash. The roadmap lives in `README.md`. Commit and push only when the user ask
 `DDD.md` holds the layering (domain, application, infrastructure, presentation): where each kind of code goes, its
 names, and the lint that checks them. Read it before deciding where code goes, and update it in the same commit as a
 change that moves where code goes. Each file's suffix names its role (`.entity.ts`, `.interface.ts`, `.infraService.ts`
-and so on), and `eslint.layers.ts` checks each layer's imports, the names each role requires, and where types and
-interfaces live. Code imports through one alias per folder under a layer (`@entities/`, `@interfaces/`,
+and so on), and `@pkg/eslint` (`packages/eslint`) checks each layer's imports, the names each role requires, and where
+types and interfaces live. Code imports through one alias per folder under a layer (`@entities/`, `@interfaces/`,
 `@infraServices/` and so on, listed in `apps/extension/tsconfig.json`), never through a relative path, and by name,
 never with `import * as`. Enforce a new convention with a lint there, not only with prose here.
 
@@ -75,13 +75,22 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
 Every command runs as a root span named by its command ID, and each `Effect.fn` it calls is a child span. A span is
 named `<owner>.<const>`: the owner comes from the file name (`session.service.ts` is `SessionService`'s), a helper file
 belongs to the one owner in its folder, a layer's `make<Owner>` is `<Owner>.make`, and a file with no owner gives the
-bare const name. `eslint.plugin.ts` checks every name, and `pnpm lint:fix` corrects it. Finished spans and Effect logs
-go to the **Aggregor App** output channel, one trace-level line per span:
+bare const name. `aggregor/span-name` (`packages/eslint/src/rules/`) checks every name, and `pnpm lint:fix` corrects it.
+Finished spans and Effect logs go to the **Aggregor App** output channel, one trace-level line per span:
 `aggregorApp.openSession > SessionController.openChosenSession > SessionService.openSession > TerminalInfraService.focusSessionTerminal 0.8ms failed: TerminalNotFoundError`.
 Work a layer starts in the background, such as a watcher, nests under that layer's `make` span. F5 starts the extension
 at trace level; elsewhere, pick it with **Developer: Set Log Level...**. VS Code also writes the channel to
 `<logs>/window<n>/exthost/SalmanAfzal.aggregor-app/Aggregor App.log`, so a test run's trace can be read from disk.
 Callbacks VS Code makes per row or per spinner frame (tree items, badges, the spinner) run untraced.
+
+## Dependencies
+
+Every dependency version lives once, in `pnpm-workspace.yaml`'s `catalog:`; each `package.json` names it as `"catalog:"`
+(workspace packages stay `workspace:*`). Change versions only there or with `pnpm add` / `pnpm remove`:
+`catalogMode: strict` makes `pnpm add` write the catalog entry, and `cleanupUnusedCatalogs` drops entries nothing uses.
+ESLint (`pnpm/json-enforce-catalog`) fails any other version, and `pnpm lint:fix` moves a plain one into the catalog.
+`@types/vscode` is the exception: vsce reads its version to check `engines.vscode` and fails on `catalog:`, so it stays
+a version in `apps/extension` and `packages/vscode`.
 
 ## Commands
 

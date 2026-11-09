@@ -1,18 +1,21 @@
 import {getProjectListItemForSessionsView, listProjectsForSessionsView} from "@controllers/project.controller.ts";
 import {
+  findViewedSessionIdForSessionsView,
   getSessionListItemForSessionsView,
   listProjectSessionIdsForSessionsView,
   listWorkingSessionIdsForSessionsView,
-  watchActivatedSessionIdsForSessionsView,
-  watchSessionListChangesForSessionsView
+  watchSessionListChangesForSessionsView,
+  watchViewedSessionIdsForSessionsView
 } from "@controllers/session.controller.ts";
 import {
+  SELECT_ROW_RETRIES,
+  SELECT_ROW_RETRY_INTERVAL_MS,
   SESSION_BADGE_URI_SCHEME,
   SESSIONS_VIEW_ID,
   SPINNER_FRAME_INTERVAL_MS
 } from "@pkg/constants/src/sessionsView.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {acquireDisposable} from "@pkg/vscode/src/vscode.utils.ts";
+import {acquireScopedDisposable, streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
 import {
   makeProjectNodeId,
   makeSessionNodeId,
@@ -29,9 +32,6 @@ import {Effect, Layer, Match, Schedule, Schema, Stream, String} from "effect";
 import type {SessionListChangeDto} from "@dtos/session.dto.ts";
 import type {EventEmitter, TreeView, Uri} from "vscode";
 
-// VS Code calls the tree and badge callbacks for every row on every redraw and spinner frame, so they run untraced.
-type RunPromiseUntraced = <A, E>(effect: Effect.Effect<A, E, SessionsViewServices>) => Promise<A>;
-
 // The tree's nodes are ids (see sessionsTreeNode.utils.ts): VS Code finds the node to redraw by its id, and every draw
 // reads the node's project or session again through the controllers, so the view keeps no copy of them.
 interface SessionsViewHandles {
@@ -40,39 +40,73 @@ interface SessionsViewHandles {
   readonly treeChangedEmitter: EventEmitter<string | undefined>;
 }
 
-type SessionsViewServices =
-  | Effect.Services<
-      ReturnType<
-        typeof createNodeTreeItem | typeof createSessionBadge | typeof findParentNodeId | typeof listChildNodeIds
-      >
-    >
-  | VsCodeApi;
-
 class RevealFailedError extends Schema.TaggedError<RevealFailedError, {readonly brand: unique symbol}>()(
   "RevealFailedError",
   {cause: Schema.Unknown}
 ) {}
 
-// Selects the session whose tab became active. Skipped while the view is hidden, since reveal would open it.
-const revealSession = Effect.fn("SessionsView.revealSession")(
-  function* (sessionsTreeView: TreeView<string>, sessionId: string) {
-    if (!sessionsTreeView.visible) return;
-    const sessionNodeId = yield* makeSessionNodeId(sessionId);
+const revealRow = Effect.fn("SessionsView.revealRow")(function* (sessionsTreeView: TreeView<string>, nodeId: string) {
+  yield* Effect.tryPromise({
+    catch: (cause) => RevealFailedError.make({cause}),
+    try: () => sessionsTreeView.reveal(nodeId, {focus: false, select: true})
+  });
+});
 
-    yield* Effect.tryPromise({
-      catch: (cause) => RevealFailedError.make({cause}),
-      try: () => sessionsTreeView.reveal(sessionNodeId, {focus: false, select: true})
+// The row of the session whose tab is in front stays selected, whatever else the user clicks in the view. A new session's
+// row is drawn a moment after its tab opens, so the reveal is retried. Skipped while the view is hidden, since reveal
+// would open it, and while no session's tab is in front.
+const selectViewedSession = Effect.fn("SessionsView.selectViewedSession")(
+  function* (sessionsTreeView: TreeView<string>) {
+    if (!sessionsTreeView.visible) return;
+    const viewedSessionId = yield* findViewedSessionIdForSessionsView();
+    const sessionNodeId = yield* makeSessionNodeId(viewedSessionId);
+    const {selection} = sessionsTreeView;
+    if (selection.length === 1 && selection[0] === sessionNodeId) return;
+
+    yield* Effect.retry(revealRow(sessionsTreeView, sessionNodeId), {
+      schedule: Schedule.spaced(SELECT_ROW_RETRY_INTERVAL_MS),
+      times: SELECT_ROW_RETRIES
     });
   },
-  Effect.ignore({log: "Warn", message: "Could not select the active session in the Sessions view"})
+  Effect.catchTag("NoViewedSessionError", () => Effect.void),
+  Effect.catch((revealError) =>
+    Effect.logWarning("Could not select the session in front in the Sessions view", revealError)
+  )
 );
 
-const makeUntracedRunner = Effect.fn("SessionsView.makeUntracedRunner")(function* () {
-  const sessionsViewContext = yield* Effect.context<SessionsViewServices>();
-  const runPromise = Effect.runPromiseWith(sessionsViewContext);
-  const runPromiseUntraced: RunPromiseUntraced = (effect) => runPromise(Effect.withTracerEnabled(effect, false));
+// Choosing a session row opens that session, which brings it to the front a moment later; putting the selection back in
+// between would flick it to the old row and back. A broken node id counts as no session row.
+const isSessionRowSelected = Effect.fn("SessionsView.isSessionRowSelected")(
+  function* (selectedNodeIds: readonly string[]) {
+    const [selectedNodeId] = selectedNodeIds;
+    if (selectedNodeId === undefined) return false;
+    const selectedNode = yield* readSessionsTreeNodeId(selectedNodeId);
 
-  return runPromiseUntraced;
+    return selectedNode._tag === "SessionNode";
+  },
+  Effect.catchTag("InvalidVsCodeArgumentError", () => Effect.succeed(false))
+);
+
+// The viewed session changes, the user selects a project row or nothing, or the view comes into sight: each time, the
+// session in front gets its row selected again, one at a time.
+const keepViewedSessionSelected = Effect.fn("SessionsView.keepViewedSessionSelected")(function* (
+  sessionsTreeView: TreeView<string>
+) {
+  const viewedSessionIds = yield* watchViewedSessionIdsForSessionsView();
+  const selectionChanges = yield* streamVsCodeEvent(sessionsTreeView.onDidChangeSelection);
+  const visibilityChanges = yield* streamVsCodeEvent(sessionsTreeView.onDidChangeVisibility);
+  const otherRowSelections = Stream.filterEffect(selectionChanges, ({selection}) =>
+    Effect.map(isSessionRowSelected(selection), (isSessionRow) => !isSessionRow)
+  );
+  const reselectTriggers = [
+    Stream.as(viewedSessionIds, undefined),
+    Stream.as(otherRowSelections, undefined),
+    Stream.as(visibilityChanges, undefined)
+  ];
+
+  yield* Stream.runForEach(Stream.mergeAll(reselectTriggers, {concurrency: "unbounded"}), () =>
+    selectViewedSession(sessionsTreeView)
+  );
 });
 
 // The projects at the top, each project's sessions under it. A failed read is logged and leaves the level empty.
@@ -143,13 +177,33 @@ const createSessionBadge = Effect.fn("SessionsView.createSessionBadge")(
   Effect.catch((readError) => Effect.as(Effect.logWarning("Could not read a session's status", readError), undefined))
 );
 
+// What the tree and badge callbacks need to run.
+type SessionsViewServices =
+  | Effect.Services<
+      ReturnType<
+        typeof createNodeTreeItem | typeof createSessionBadge | typeof findParentNodeId | typeof listChildNodeIds
+      >
+    >
+  | VsCodeApi;
+
+// VS Code calls the tree and badge callbacks for every row on every redraw and spinner frame, so they run untraced.
+type RunPromiseUntraced = <A, E>(effect: Effect.Effect<A, E, SessionsViewServices>) => Promise<A>;
+
+const makeUntracedRunner = Effect.fn("SessionsView.makeUntracedRunner")(function* () {
+  const sessionsViewContext = yield* Effect.context<SessionsViewServices>();
+  const runPromise = Effect.runPromiseWith(sessionsViewContext);
+  const runPromiseUntraced: RunPromiseUntraced = (effect) => runPromise(Effect.withTracerEnabled(effect, false));
+
+  return runPromiseUntraced;
+});
+
 // Each session row's status badge is a file decoration on its URI.
 const registerStatusBadges = Effect.fn("SessionsView.registerStatusBadges")(function* (
   runPromiseUntraced: RunPromiseUntraced
 ) {
   const {EventEmitter, window} = yield* VsCodeApi;
-  const badgesChangedEmitter = yield* acquireDisposable(() => new EventEmitter<Uri[]>());
-  yield* acquireDisposable(() =>
+  const badgesChangedEmitter = yield* acquireScopedDisposable(() => new EventEmitter<Uri[]>());
+  yield* acquireScopedDisposable(() =>
     window.registerFileDecorationProvider({
       onDidChangeFileDecorations: badgesChangedEmitter.event,
       // VS Code asks about every file it shows, so anything not ours returns before running an effect.
@@ -165,8 +219,8 @@ const registerStatusBadges = Effect.fn("SessionsView.registerStatusBadges")(func
 
 const registerTreeView = Effect.fn("SessionsView.registerTreeView")(function* (runPromiseUntraced: RunPromiseUntraced) {
   const {EventEmitter, window} = yield* VsCodeApi;
-  const treeChangedEmitter = yield* acquireDisposable(() => new EventEmitter<string | undefined>());
-  const sessionsTreeView = yield* acquireDisposable(() =>
+  const treeChangedEmitter = yield* acquireScopedDisposable(() => new EventEmitter<string | undefined>());
+  const sessionsTreeView = yield* acquireScopedDisposable(() =>
     window.createTreeView<string>(SESSIONS_VIEW_ID, {
       treeDataProvider: {
         getChildren: (parentNodeId) =>
@@ -225,7 +279,6 @@ const makeSessionsView = Effect.fn("SessionsView.make")(function* () {
     ...(yield* registerTreeView(runPromiseUntraced))
   };
   const sessionListChanges = yield* watchSessionListChangesForSessionsView();
-  const activatedSessionIds = yield* watchActivatedSessionIdsForSessionsView();
   yield* Effect.forkScoped(
     Stream.runForEach(sessionListChanges, (sessionListChange) =>
       redrawChangedNodes(sessionsViewHandles, sessionListChange)
@@ -237,11 +290,7 @@ const makeSessionsView = Effect.fn("SessionsView.make")(function* () {
       false
     )
   );
-  yield* Effect.forkScoped(
-    Stream.runForEach(activatedSessionIds, (sessionId) =>
-      revealSession(sessionsViewHandles.sessionsTreeView, sessionId)
-    )
-  );
+  yield* Effect.forkScoped(keepViewedSessionSelected(sessionsViewHandles.sessionsTreeView));
 });
 
 export const SessionsView = Layer.effectDiscard(makeSessionsView());

@@ -1,5 +1,7 @@
+import {LaunchPlanValueObjectSchema} from "@valueObjects/launchPlan.valueObject.ts";
 import {Array, DateTime, Effect, Predicate, Result, Schema, String} from "effect";
 
+import type {HarnessEntity} from "@entities/harness/harness.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {SessionStatusValueObject} from "@valueObjects/sessionStatus.valueObject.ts";
 
@@ -28,7 +30,7 @@ export class SessionTitleUnchangedError extends Schema.TaggedError<
   {readonly brand: unique symbol}
 >()("SessionTitleUnchangedError", {}) {}
 
-// The rules about sessions: their names and titles, and the status the user sees.
+// The rules about sessions: how their agent starts, their names and titles, and the status the user sees.
 
 // Agents put status marks (Claude's ✳, Codex's ⠋, emoji) around the title, as symbols, so the title runs from the first
 // character that is not a symbol, space or control character to the last. Matching Unicode classes keeps every language.
@@ -36,6 +38,46 @@ const STATUS_MARKS_AT_ENDS = /^[\p{C}\p{S}\p{Z}]+|[\p{C}\p{S}\p{Z}]+$/gu;
 
 // Some agents show their session's id until it has a title: a UUID, maybe with a prefix such as OpenCode's ses_.
 const ID_ONLY_TITLE = /^(?:[a-z]+_)?(?=[\da-f-]*\d)[\da-f-]{16,}$/iu;
+
+// Some agents name a conversation by when it started until it has a title: OpenCode's
+// "New session - 2026-11-09T09:26:37.754Z".
+const START_TIME_TITLE = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/u;
+
+// What a regular expression treats as syntax, so a name can be matched as plain text.
+const REGEX_SYNTAX_CHARACTERS = /[$()*+./?[\\\]^{|}]/gu;
+
+// The one variable a harness's arguments may use.
+const SESSION_ID_VARIABLE = `\${sessionId}`;
+
+// A session that has worked reopens its conversation; one that hasn't starts fresh, under its id where the agent takes
+// one.
+export const prepareLaunchPlan = Effect.fn("SessionDomainService.prepareLaunchPlan")(function* (
+  harness: HarnessEntity,
+  session: SessionEntity
+) {
+  const harnessArguments = session.hasWorked ? harness.resumeArgs : harness.args;
+
+  return LaunchPlanValueObjectSchema.make({
+    command: harness.command,
+    commandArguments: Array.map(harnessArguments, (harnessArgument) =>
+      String.replaceAll(SESSION_ID_VARIABLE, session.id)(harnessArgument)
+    )
+  });
+});
+
+// Agents join their own name, their command or the project folder to the title: "<title> - GitHub Copilot",
+// "<title> | <folder>".
+const dropNamesAtEnds = Effect.fn("SessionDomainService.dropNamesAtEnds")(function* (
+  title: string,
+  names: readonly string[]
+) {
+  return Array.reduce(names, title, (remainingTitle, name) => {
+    const nameAsText = String.replaceAll(REGEX_SYNTAX_CHARACTERS, "\\$&")(name);
+    const nameAtEnds = new RegExp(`^${nameAsText}\\s*[-|:]\\s*|\\s*[-|:]\\s*${nameAsText}$`, "giu");
+
+    return String.replace(nameAtEnds, "")(remainingTitle);
+  });
+});
 
 // The lowest free "<project> #n", so removing #1 frees the name for the next session.
 export const getDefaultSessionName = Effect.fn("SessionDomainService.getDefaultSessionName")(function* (
@@ -50,15 +92,29 @@ export const getDefaultSessionName = Effect.fn("SessionDomainService.getDefaultS
 });
 
 // The session's title from what its agent reports: the title in its OSC 7501 report first, else its window title, without
-// status marks. A placeholder, an id or nothing at all is no title.
+// status marks or the harness's name, command or project folder at either end. An empty title, one of those names alone,
+// an id or a start time is no title.
 export const getSessionTitle = Effect.fn("SessionDomainService.getSessionTitle")(function* (
   session: SessionEntity,
-  placeholderTitles: ReadonlySet<string>
+  harness: HarnessEntity,
+  projectName: string
 ) {
+  const names = [harness.name, harness.command, projectName];
+  const lowercaseNames = new Set(Array.map(names, String.toLowerCase));
   const agentTitles = Array.filter([session.reportedTitle, session.terminalTitle], Predicate.isNotUndefined);
+  const cleanedTitles = yield* Effect.forEach(agentTitles, (agentTitle) =>
+    Effect.map(
+      dropNamesAtEnds(String.replace(STATUS_MARKS_AT_ENDS, "")(agentTitle), names),
+      String.replace(STATUS_MARKS_AT_ENDS, "")
+    )
+  );
   const sessionTitle = Array.findFirst(
-    Array.map(agentTitles, String.replace(STATUS_MARKS_AT_ENDS, "")),
-    (title) => title !== "" && !placeholderTitles.has(title) && !ID_ONLY_TITLE.test(title)
+    cleanedTitles,
+    (title) =>
+      title !== "" &&
+      !lowercaseNames.has(String.toLowerCase(title)) &&
+      !ID_ONLY_TITLE.test(title) &&
+      !START_TIME_TITLE.test(title)
   );
 
   return yield* Effect.fromResult(Result.fromOption(sessionTitle, () => SessionTitleNotFoundError.make()));
@@ -68,10 +124,11 @@ export const getSessionTitle = Effect.fn("SessionDomainService.getSessionTitle")
 // gave wins.
 export const getSessionTitleToSave = Effect.fn("SessionDomainService.getSessionTitleToSave")(function* (
   session: SessionEntity,
-  placeholderTitles: ReadonlySet<string>
+  harness: HarnessEntity,
+  projectName: string
 ) {
   if (session.customName !== undefined) return yield* SessionNamedByUserError.make();
-  const sessionTitle = yield* getSessionTitle(session, placeholderTitles);
+  const sessionTitle = yield* getSessionTitle(session, harness, projectName);
   if (sessionTitle === session.name) return yield* SessionTitleUnchangedError.make();
 
   return sessionTitle;

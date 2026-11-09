@@ -5,7 +5,7 @@
     //base
     "types": ["node"],
 
-    // One alias per folder under a layer; eslint.layers.ts lists which layer may import each.
+    // One alias per folder under a layer; packages/eslint/src/layers/importRules.ts lists which layer may import each.
     "paths": {
       "@domainServices/*": ["./src/domain/services/*"],
       "@entities/*": ["./src/domain/entities/*"],
@@ -13,7 +13,6 @@
       "@interfaces/*": ["./src/application/interfaces/*"],
       "@services/*": ["./src/application/services/*"],
       "@dtos/*": ["./src/application/dtos/*"],
-      "@appUtils/*": ["./src/application/utils/*"],
       "@config/*": ["./src/infrastructure/config/*"],
       "@models/*": ["./src/infrastructure/database/models/*"],
       "@di/*": ["./src/infrastructure/di/*"],

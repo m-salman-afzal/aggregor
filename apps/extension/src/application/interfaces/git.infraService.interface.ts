@@ -3,10 +3,6 @@ import {Context, Schema} from "effect";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Effect} from "effect";
 
-// Why the git repository at a path cannot be reached.
-export type GitUnavailableError =
-  GitExtensionDisabledError | GitExtensionUnavailableError | GitRepositoryUnavailableError;
-
 export class CommitFailedError extends Schema.TaggedError<CommitFailedError, {readonly brand: unique symbol}>()(
   "CommitFailedError",
   {cause: Schema.Unknown}
@@ -27,6 +23,10 @@ export class GitRepositoryUnavailableError extends Schema.TaggedError<
   GitRepositoryUnavailableError,
   {readonly brand: unique symbol}
 >()("GitRepositoryUnavailableError", {}) {}
+
+// Why the git repository at a path cannot be reached.
+export type GitUnavailableError =
+  GitExtensionDisabledError | GitExtensionUnavailableError | GitRepositoryUnavailableError;
 export class NothingStagedError extends Schema.TaggedError<NothingStagedError, {readonly brand: unique symbol}>()(
   "NothingStagedError",
   {}

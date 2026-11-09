@@ -1,6 +1,6 @@
 import {IProgressInfraService} from "@interfaces/progress.infraService.interface.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {setContext, withProgress} from "@pkg/vscode/src/vscode.utils.ts";
+import {runWithProgressIndicator, setWhenClauseContextKey} from "@pkg/vscode/src/vscode.utils.ts";
 import {Effect, Layer} from "effect";
 
 // What Source Control's progress shows, and the context key that stays true while it does.
@@ -12,11 +12,11 @@ interface SourceControlProgress {
 const withSourceControlProgress = Effect.fn("ProgressInfraService.withSourceControlProgress")(
   function* <A, E, R>({busyContextKey, progressTitle}: SourceControlProgress, effect: Effect.Effect<A, E, R>) {
     const {ProgressLocation} = yield* VsCodeApi;
-    yield* setContext(busyContextKey, true);
+    yield* setWhenClauseContextKey(busyContextKey, true);
 
-    return yield* withProgress({location: ProgressLocation.SourceControl, title: progressTitle}, effect);
+    return yield* runWithProgressIndicator({location: ProgressLocation.SourceControl, title: progressTitle}, effect);
   },
-  (effect, {busyContextKey}) => Effect.ensuring(effect, setContext(busyContextKey, false))
+  (effect, {busyContextKey}) => Effect.ensuring(effect, setWhenClauseContextKey(busyContextKey, false))
 );
 
 const makeProgressInfraService = Effect.fn("ProgressInfraService.make")(function* () {

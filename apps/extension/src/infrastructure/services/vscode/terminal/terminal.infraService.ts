@@ -2,7 +2,7 @@ import {
   findOpenSessionTerminals,
   findPtyBinaryPath,
   findTerminalSessionId,
-  renameSessionTerminal,
+  nameActiveSessionTab,
   watchOpenedOrClosedSessionIds
 } from "@infraServices/vscode/terminal/terminal.utils.ts";
 import {getDatabaseFilePath} from "@infraUtils/database.utils.ts";
@@ -14,8 +14,8 @@ import {
 } from "@interfaces/terminal.infraService.interface.ts";
 import {PTY_BINARY, SESSION_ID_ENV} from "@pkg/constants/src/terminal.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {fromEvent} from "@pkg/vscode/src/vscode.utils.ts";
-import {Effect, Layer, Result, Schema, Stream, SubscriptionRef} from "effect";
+import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
+import {Effect, Layer, Match, Result, Schema, Stream, SubscriptionRef} from "effect";
 
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
@@ -25,6 +25,7 @@ import type {
 } from "@infraServices/vscode/terminal/terminal.infraService.type.ts";
 import type {TerminalLaunchRequest} from "@interfaces/terminal.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import type {HarnessIconValueObject} from "@valueObjects/harnessIcon.valueObject.ts";
 import type {Terminal} from "vscode";
 
 // Why no session is in view, private to this file: the interface only sees NoViewedSessionError.
@@ -61,14 +62,25 @@ const isSessionTerminalOpen = Effect.fn("TerminalInfraService.isSessionTerminalO
   return openTerminals.has(sessionId);
 });
 
+const toTerminalIcon = Effect.fn("TerminalInfraService.toTerminalIcon")(function* (
+  {ThemeIcon, Uri}: TerminalDependencies,
+  harnessIcon: HarnessIconValueObject
+) {
+  return Match.valueTags(harnessIcon, {
+    CodiconIcon: ({codiconId}) => new ThemeIcon(codiconId),
+    FileIcon: ({filePath}) => Uri.file(filePath)
+  });
+});
+
 // Runs the harness's launch plan under aggregor-pty, as the terminal's shell, in the session's project.
 const launchSessionTerminal = Effect.fn("TerminalInfraService.launchSessionTerminal")(function* (
   terminalDependencies: TerminalDependencies,
   session: SessionEntity,
   terminalLaunchRequest: TerminalLaunchRequest
 ) {
-  const {databaseFilePath, Uri, ViewColumn, window} = terminalDependencies;
-  const {iconPath, launchPlan, tabName} = terminalLaunchRequest;
+  const {databaseFilePath, ViewColumn, window} = terminalDependencies;
+  const {icon, launchPlan, tabName} = terminalLaunchRequest;
+  const terminalIcon = yield* toTerminalIcon(terminalDependencies, icon);
   const ptyBinaryPath = yield* Effect.fromResult(terminalDependencies.ptyBinaryPath);
   const ptyArguments = ["--database", databaseFilePath, "--session", session.id, "--"];
 
@@ -78,10 +90,10 @@ const launchSessionTerminal = Effect.fn("TerminalInfraService.launchSessionTermi
       window.createTerminal({
         cwd: session.projectPath,
         env: {[SESSION_ID_ENV]: session.id},
-        iconPath: Uri.file(iconPath),
+        iconPath: terminalIcon,
         isTransient: true,
         location: {viewColumn: ViewColumn.Active},
-        ...(tabName === undefined ? {} : {name: tabName}),
+        name: tabName,
         shellArgs: [...ptyArguments, launchPlan.command, ...launchPlan.commandArguments],
         shellPath: ptyBinaryPath
       })
@@ -162,7 +174,7 @@ const findActiveTerminalSessionId = Effect.fn("TerminalInfraService.findActiveTe
 const watchActivatedSessionIds = Effect.fn("TerminalInfraService.watchActivatedSessionIds")(function* ({
   window
 }: TerminalDependencies) {
-  const activeTerminalChanges = yield* fromEvent(window.onDidChangeActiveTerminal);
+  const activeTerminalChanges = yield* streamVsCodeEvent(window.onDidChangeActiveTerminal);
 
   return Stream.filterMapEffect(activeTerminalChanges, (activeTerminal) =>
     Effect.result(findActiveTerminalSessionId(activeTerminal))
@@ -226,10 +238,10 @@ const watchFocusChanges = Effect.fn("TerminalInfraService.watchFocusChanges")(fu
   window
 }: TerminalDependencies) {
   const focusChangeSources: readonly Stream.Stream<unknown>[] = [
-    yield* fromEvent(window.onDidChangeActiveTerminal),
-    yield* fromEvent(window.onDidChangeWindowState),
-    yield* fromEvent(window.tabGroups.onDidChangeTabs),
-    yield* fromEvent(window.tabGroups.onDidChangeTabGroups),
+    yield* streamVsCodeEvent(window.onDidChangeActiveTerminal),
+    yield* streamVsCodeEvent(window.onDidChangeWindowState),
+    yield* streamVsCodeEvent(window.tabGroups.onDidChangeTabs),
+    yield* streamVsCodeEvent(window.tabGroups.onDidChangeTabGroups),
     SubscriptionRef.changes(sessionTerminals)
   ];
 
@@ -266,7 +278,7 @@ const makeTerminalDependencies = Effect.fn("TerminalInfraService.makeTerminalDep
 const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function* () {
   const terminalDependencies = yield* makeTerminalDependencies();
   const {sessionTerminals, window} = terminalDependencies;
-  const closedTerminals = yield* fromEvent(window.onDidCloseTerminal);
+  const closedTerminals = yield* streamVsCodeEvent(window.onDidCloseTerminal);
   yield* Effect.forkScoped(
     Stream.runForEach(closedTerminals, (closedTerminal) => forgetClosedTerminal(sessionTerminals, closedTerminal))
   );
@@ -276,12 +288,12 @@ const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function
     closeSessionTerminal: (sessionId: EntityIdValueObject) => closeSessionTerminal(sessionTerminals, sessionId),
     focusSessionTerminal: (sessionId: EntityIdValueObject) => focusSessionTerminal(sessionTerminals, sessionId),
     isSessionTerminalOpen: (sessionId: EntityIdValueObject) => isSessionTerminalOpen(sessionTerminals, sessionId),
+    nameActiveSessionTab: (sessionId: EntityIdValueObject, tabName: string) =>
+      nameActiveSessionTab(terminalDependencies, sessionId, tabName),
     openedOrClosedSessionIds: yield* watchOpenedOrClosedSessionIds(sessionTerminals),
     openProjectTerminal: (project: ProjectListItemDto) => openProjectTerminal(window, project),
     openSessionTerminal: (session: SessionEntity, terminalLaunchRequest: TerminalLaunchRequest) =>
       openSessionTerminal(terminalDependencies, session, terminalLaunchRequest),
-    renameSessionTerminal: (sessionId: EntityIdValueObject, tabName: string) =>
-      renameSessionTerminal(terminalDependencies, sessionId, tabName),
     viewedSessionId: yield* trackViewedSessionId(terminalDependencies)
   };
 });

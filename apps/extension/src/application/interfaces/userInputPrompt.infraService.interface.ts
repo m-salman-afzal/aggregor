@@ -1,13 +1,24 @@
 import {Context, Schema} from "effect";
 
+import type {HarnessListItemDto} from "@dtos/harness.dto.ts";
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
+import type {HarnessIdValueObject} from "@valueObjects/harnessId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Effect} from "effect";
+
+// What the user did in the harness picker: picked a harness to start, or asked for one to become the default.
+export type HarnessPick =
+  | {readonly _tag: "DefaultHarnessChosen"; readonly harnessId: HarnessIdValueObject}
+  | {readonly _tag: "HarnessPicked"; readonly harnessId: HarnessIdValueObject};
 
 export class FolderPickCancelledError extends Schema.TaggedError<
   FolderPickCancelledError,
   {readonly brand: unique symbol}
 >()("FolderPickCancelledError", {}) {}
+export class HarnessPickCancelledError extends Schema.TaggedError<
+  HarnessPickCancelledError,
+  {readonly brand: unique symbol}
+>()("HarnessPickCancelledError", {}) {}
 export class InputCancelledError extends Schema.TaggedError<InputCancelledError, {readonly brand: unique symbol}>()(
   "InputCancelledError",
   {}
@@ -25,6 +36,11 @@ export class IUserInputPromptInfraService extends Context.Service<
     readonly askForText: (question: string, value: string) => Effect.Effect<string, InputCancelledError>;
     // A modal warning; true when the user picks `confirmAction`.
     readonly confirm: (message: string, confirmAction: string) => Effect.Effect<boolean>;
+    // Lists the harnesses with the default first and selected; each other one offers to become the default.
+    readonly pickHarness: (
+      harnessListItems: readonly HarnessListItemDto[],
+      placeHolder: string
+    ) => Effect.Effect<HarnessPick, HarnessPickCancelledError>;
     readonly pickProject: (
       projects: readonly ProjectListItemDto[],
       placeHolder: string

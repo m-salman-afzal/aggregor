@@ -57,19 +57,26 @@ export const findPtyBinaryPath = Effect.fn("TerminalInfraService.findPtyBinaryPa
 
 // VS Code renames only the active terminal, so the tab comes to the front first. A closed tab has nothing to rename; the
 // session's next tab opens under the name.
-export const renameSessionTerminal = Effect.fn("TerminalInfraService.renameSessionTerminal")(function* (
-  {commands, sessionTerminals}: TerminalDependencies,
+const renameActiveTerminal = Effect.fn("TerminalInfraService.renameActiveTerminal")(function* (
+  commands: TerminalDependencies["commands"],
+  tabName: string
+) {
+  yield* Effect.promise(() => commands.executeCommand("workbench.action.terminal.renameWithArg", {name: tabName}));
+});
+
+// VS Code renames only the active terminal, so a tab in the background keeps its name until it comes to the front. A
+// rename shows in the trace; the check before it runs on every write to a session, untraced.
+export const nameActiveSessionTab = Effect.fn("TerminalInfraService.nameActiveSessionTab")(function* (
+  {commands, sessionTerminals, window}: TerminalDependencies,
   sessionId: EntityIdValueObject,
   tabName: string
 ) {
   const openTerminals = yield* SubscriptionRef.get(sessionTerminals);
   const sessionTerminal = openTerminals.get(sessionId);
-  if (sessionTerminal === undefined) return;
+  if (sessionTerminal === undefined || window.activeTerminal !== sessionTerminal || sessionTerminal.name === tabName)
+    return;
 
-  yield* Effect.sync(() => {
-    sessionTerminal.show();
-  });
-  yield* Effect.promise(() => commands.executeCommand("workbench.action.terminal.renameWithArg", {name: tabName}));
+  yield* Effect.withTracerEnabled(renameActiveTerminal(commands, tabName), true);
 });
 
 // Compares each set of open tabs with the one before; the first set counts every tab as opened.

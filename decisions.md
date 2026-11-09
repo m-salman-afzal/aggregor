@@ -61,7 +61,7 @@ current entry. Leave a field out rather than guess.
 - **Problem:** rules written only in AGENTS.md or DDD.md get skipped.
 - **Decision:** each agreed convention gets an ESLint rule in the same PR: `no-restricted-syntax` selectors,
   `@typescript-eslint/naming-convention` per file glob, `no-restricted-imports` regexes, and the local rules in
-  `eslint.plugin.ts`. When no installed rule can check it, write a selector rather than add a plugin.
+  `packages/eslint/src/rules/`. When no installed rule can check it, write a selector rather than add a plugin.
 - **Why:** lint constrains Claude better than docs do.
 
 ### Comments are rare and say only what the code does now (2026-11-02; rare since 2026-11-07)
@@ -100,7 +100,7 @@ current entry. Leave a field out rather than guess.
 - **Problem:** services called VS Code and Claude Code directly, so the use cases depended on both.
 - **Decision:** four layers with dependencies pointing inward; application declares the interfaces that infrastructure
   implements, and `vscode` is imported at runtime in one file, `vscode.api.ts` (in `@pkg/vscode` since 2026-11-09).
-  DDD.md has the details; `eslint.layers.ts` checks imports and names.
+  DDD.md has the details; `packages/eslint/src/layers/` checks imports and names.
 - **Why:** a use case never depends on VS Code or on one agent.
 
 ### A base entity, a base repository and a base service (2026-11-07)
@@ -111,11 +111,12 @@ current entry. Leave a field out rather than guess.
   a join (a session's project path); its update writes the whole row outside a transaction; its soft delete writes
   `CURRENT_TIMESTAMP`, which isn't ISO text. No base service: the services are use cases, and a base one only forwards
   to the repository; the user picked it as the foundation.
-- **Decision:** `BaseEntity` holds `id`, `sortId`, `updatedAt` and `deletedAt`, and every entity extends it.
-  `IBaseRepository` and `makeBaseRepository` give `add`, `findById`, `findMany`, `update`, `upsert` and `softDelete`.
-  Reads skip soft-deleted rows and follow `sortId`; `upsert` brings a soft-deleted row back; `update` writes only the
-  columns it is given, so the extension and `aggregor-pty` never overwrite each other's. `base.service.ts` has the same
-  six calls for any repository, which the entity services use instead of their repositories.
+- **Decision:** `BaseEntity` holds `id`, `sortId`, `updatedAt` and `deletedAt`, and every entity stored in the database
+  extends it (`HarnessEntity`, which lives in the settings, does not). `IBaseRepository` and `makeBaseRepository` give
+  `add`, `findById`, `findMany`, `update`, `upsert` and `softDelete`. Reads skip soft-deleted rows and follow `sortId`;
+  `upsert` brings a soft-deleted row back; `update` writes only the columns it is given, so the extension and
+  `aggregor-pty` never overwrite each other's. `base.service.ts` has the same six calls for any repository, which the
+  entity services use instead of their repositories.
 - **Why:** each new table is a Drizzle table, its generated migration, an entity and a few lines of repository.
 
 ### Rows are read through the entity's factory; entities don't know how they're stored (2026-11-07)
@@ -197,12 +198,37 @@ current entry. Leave a field out rather than guess.
   of bundle. drizzle-kit writes no `NOT NULL` on a text primary key, which SQLite then lets be NULL; every id comes from
   `makeEntityId`.
 
-### Agents sit behind a harness interface (2026-11-03, #57)
+### Agents are settings entries (2026-11-03, #57; settings since 2026-11-09)
 
-- **Decision:** Claude Code's launch, status and title code lives in `ClaudeCodeHarnessInfraService`, behind
-  `IHarnessInfraService`. Use cases reach a session's harness by its `harnessId`, and the terminal runs the launch plan
-  the harness returns.
-- **Why:** Gemini CLI, OpenCode and Codex (M4) become more harnesses, not changes to the use cases.
+- **Problem:** each agent was code: Claude Code's launch plan, placeholder titles and icon sat in
+  `ClaudeCodeHarnessInfraService`, behind `IHarnessInfraService` and a `LayerMap` keyed by harness id, so supporting
+  another CLI meant a new infra service.
+- **Options:** the harness interface (2026-11-03 to 2026-11-09). A harness as a value object, kept in a map keyed by
+  harness id inside `ISettingsConfig`: smaller, but the identity lives outside the object. Merging the built-ins with
+  the user's entries ourselves, which VS Code turned out to do already. Four flat settings,
+  `aggregorApp.harnesses.commands`, `.resumeCommands`, `.names` and `.icons`, from harness key to a command line or text
+  (tried on 2026-11-09): the Settings editor edits those in place, where it sends the nested setting to settings.json,
+  but four tables for one thing cluttered Aggregor's settings.
+- **Decision:**
+  - A harness is `HarnessEntity`, identified by its settings key (`HarnessIdValueObject`, a branded string), and read
+    through `IHarnessRepository` (`findAll`, `findById`). It is no `BaseEntity`, since it isn't a row.
+  - `aggregorApp.harnesses` holds one entry per harness key, `{name, command, args, resumeArgs, icon}`, edited in
+    settings.json. Every field is optional: `command` and `name` default to the key, `args` to none, `resumeArgs` to
+    `args`, and `icon` to the `terminal` codicon. `${sessionId}` is the only variable. The setting has `machine` scope,
+    so only user settings define commands, and its default holds the built-ins (`claude`, `codex`, `agy`, `opencode`,
+    `copilot`), which VS Code merges with the user's entries key by key; `null` hides one. An entry that doesn't decode
+    is left out with a warning, read once at start and again on each change of the setting.
+  - The domain's `prepareLaunchPlan(harness, session)` takes `resumeArgs` once the session has worked and `args` before,
+    and returns a `LaunchPlanValueObject`, which the terminal runs under `aggregor-pty`.
+  - A session whose harness is gone shows a warning icon, and opening it fails with `HarnessNotFoundError`.
+  - Icons are a codicon id or an image path, relative ones inside the extension. `assets/harnesses/` holds Claude Code's
+    logo, OpenCode's (simple-icons 16.30.0), and Codex's and Antigravity's app icons (lobe-icons 1.102.0, MIT; Codex's
+    without its white tile, which stood out on a dark theme); Copilot uses the `copilot` codicon, which is its logo.
+    Codicons for Codex (`code`) and Antigravity (`rocket`) were the first build's, since simple-icons carries neither.
+  - Codex reports `working` for a moment at startup, so a fresh Codex session reopens through `codex resume`'s picker;
+    Esc there starts a new conversation, so it is left as is.
+- **Why:** another CLI is one settings entry, and the rules about launching and titles are the domain's, the same for
+  every agent.
 
 ### "Project", not "repo" (2026-11-03, #60)
 
@@ -256,6 +282,20 @@ current entry. Leave a field out rather than guess.
 - **Decision:** an interface's errors live in its `.interface.ts`, and every other error in the file that raises it.
   Lint bans `.error.ts` files, keeps errors above a file's code and checks the `Error` suffix.
 
+### A type sits below what it is built from (2026-11-09)
+
+- **Problem:** lint kept every type at the top of its file, so
+  `HarnessListItemDto = typeof HarnessListItemDtoSchema.Type` sat above the schema it comes from, and an error union
+  above its errors.
+- **Options:** dropping the rule, which lets standalone types scatter; an esquery selector, which can't tell what a type
+  refers to.
+- **Decision:** `aggregor/type-placement` in `packages/eslint/src/rules/`, for every TypeScript file: a type built from
+  a value of its own file (a schema, an error class, a function), directly or through another such type, sits below the
+  last of them; a type that stands alone stays at the top, after the imports. It replaced the `no-restricted-syntax`
+  selector for types, and `perfectionist/sort-modules` now splits its sorting at blank lines, so such a type can follow
+  the classes it names.
+- **Why:** a file reads top down, each name defined before what is built from it.
+
 ### Every Effect diagnostic is an error (2026-11-05, #65)
 
 - **Decision:** `@effect/tsgo` reports each Effect rule as an error in `pnpm typecheck` and the editor;
@@ -301,8 +341,8 @@ current entry. Leave a field out rather than guess.
   - The tree's nodes are ids, `project:<path>` and `session:<id>`, since VS Code finds a node to redraw by its id. Each
     draw reads the node through the controllers: a `ProjectListItemDto`, or a `SessionListItemDto` with the status the
     user sees (`SessionStatusValueObject`, picked from the stored `AgentStatusValueObject` by `getSessionStatus`), its
-    kind and progress only while the turn runs, its message unless the agent is gone, its icon path and its project's
-    name. `SessionService` assembles it.
+    kind and progress only while the turn runs, its message unless the agent is gone, its harness's icon and its
+    project's name. `SessionService` assembles it.
   - No window keeps a copy: every read is a query, and each repository's `entityChanges` reads only the rows written
     since its last check (see the `data_version` entry). The spinner reads the working sessions each frame while the
     view is visible.
@@ -323,7 +363,7 @@ current entry. Leave a field out rather than guess.
   - A controller decodes its input into the request DTO with `decodeVsCodeArgument` and calls one service; it imports
     only services, DTOs, presentation helpers and that decoder. Presenters import services' types; views import
     controllers and DTOs' types. Presentation imports nothing from the domain or infrastructure.
-  - A value object is only a value: `LaunchPlan` went to the harness interface, the list's rows and changes to DTOs.
+  - A value object is only a value: the list's rows and changes became DTOs.
   - Source Control progress, its context key and the retry after Stage All moved into `CommitMessageService`, through a
     new `IProgressInfraService`; `scm.*` became `commitMessage.*`.
   - Every use case's file holds all of an entity's use cases, commands and queries; `sessionList.service.ts` went back
@@ -340,16 +380,20 @@ current entry. Leave a field out rather than guess.
 - **Decision:** a use case returns every failure the user should hear about as a typed error, and ends quietly on a
   cancelled pick or a row removed meanwhile. Each feature has a presenter (`presentation/presenters/<x>.presenter.ts`)
   whose type is every failure its services return, so a new failure fails to compile until it has a message; `routes.ts`
-  registers each command with its presenter, and `registerCommand` logs the failure and shows the message. Work no
-  command started logs its failures in the trace log.
+  registers each command with its presenter, and `registerCommand` logs the failure and shows the message. A presenter
+  may also name the setting that fixes the failure (`aggregorApp.harnesses` for a missing harness), and the message then
+  has an **Open Settings** button. Work no command started logs its failures in the trace log.
 - **Why:** the backend says what went wrong; presentation decides how to say it.
 
 ### `@pkg/vscode` holds what presentation and infrastructure share (2026-11-09)
 
 - **Problem:** `VsCodeApi` and the vscode helpers sat in infrastructure, but views and the middleware need them too.
 - **Decision:** a workspace package, `packages/vscode`: `VsCodeApi` (the one runtime `vscode` import),
-  `acquireDisposable`, `fromEvent`, `setContext`, `withProgress`, `showErrorInBackground`, and `decodeVsCodeArgument`
-  (formerly `decodeCommandArgument`). Lint applies the extension's code rules to it.
+  `acquireScopedDisposable`, `streamVsCodeEvent`, `setWhenClauseContextKey`, `runWithProgressIndicator`,
+  `openAggregorSettingsInSettingsEditor`, `showErrorNotificationWithoutWaiting`, and `decodeVsCodeArgument` (formerly
+  `decodeCommandArgument`). Lint applies the extension's code rules to it. The helpers were `acquireDisposable`,
+  `fromEvent`, `setContext`, `withProgress`, `openSetting` and `showErrorInBackground` until 2026-11-09, which named the
+  gesture rather than what each one does.
 - **Why:** presentation imports nothing from infrastructure, and the shared code has one home.
 
 ### Constants are split by feature (2026-11-09)
@@ -379,6 +423,22 @@ current entry. Leave a field out rather than guess.
 - **Decision:** a pnpm monorepo (`apps/extension`, `packages/*`); `devEngines` pins Node 26 and pnpm 12 with
   `onFail: error`, and CI's `pnpm/setup` installs the versions it names.
 
+### Every dependency version lives once, in the pnpm catalog (2026-11-09)
+
+- **Problem:** each `package.json` pinned its own versions, so `effect`, `@types/node` and the like were pinned in two
+  places that could drift apart.
+- **Options:** named catalogs, which would let one workspace keep its own version of a package.
+- **Decision:** as in chatly-web: every version sits once in `pnpm-workspace.yaml`'s `catalog:`, and each `package.json`
+  names it as `"catalog:"` (workspace packages stay `workspace:*`). `catalogMode: strict` makes `pnpm add` write the
+  catalog entry and refuse a different version; `cleanupUnusedCatalogs` drops entries nothing uses. ESLint
+  (`eslint-plugin-pnpm` 1.9.1) fails a plain version (`pnpm/json-enforce-catalog`, which `lint:fix` moves into the
+  catalog), one that conflicts with the catalog, a `catalog:` with no entry, and an unused or duplicate entry.
+  `@types/vscode` is the one exception and stays a version in `apps/extension` and `packages/vscode`: vsce reads it to
+  check `engines.vscode` and fails on `catalog:`. Declaring it only in `@pkg/vscode`, with the extension taking its
+  types through that package, was tried and dropped, since vsce then skips the check. Renovate updates the catalog
+  itself.
+- **Why:** one source of truth for every version, which lint keeps that way.
+
 ### Vite bundles, vsce packages (2026-09-08)
 
 - **Decision:** Vite builds the extension into one `dist/extension.js`; vsce packages it with `--no-dependencies`.
@@ -395,10 +455,23 @@ current entry. Leave a field out rather than guess.
 - **Why:** one command checks the whole repo, and the end-to-end test builds its database from the extension's
   migrations, so a schema change that breaks the binary fails its test.
 
+### The ESLint setup lives in `@pkg/eslint` (2026-11-09)
+
+- **Problem:** `eslint.config.ts`, `eslint.layers.ts` and `eslint.plugin.ts` at the root had grown to about 900 lines.
+- **Options:** moving only the layering and the plugin, and keeping the base setup at the root; one file per category
+  (base, layers, rules) instead of one per concern.
+- **Decision:** a workspace package, `packages/eslint`: `src/base/` the setup per file type (TypeScript, JSON, Markdown,
+  `package.json` with the pnpm catalog, ignores), `src/layers/` the DDD layering (import allow-lists, syntax bans, role
+  names, and the per-folder configs that combine them), `src/rules/` the aggregor plugin, one file per rule, and
+  `src/eslint.config.ts`, which composes them. The root `eslint.config.ts`, where ESLint looks, only re-exports it. The
+  lint plugins are the package's dependencies; the root keeps `eslint` for its scripts. `tsconfigRootDir` is set to the
+  repo root, since typescript-eslint would otherwise look for tsconfigs no higher than the package's `src`.
+- **Why:** each concern has its own small file, and the root holds only what tools require there.
+
 ### Lint and format on commit (2026-05-08)
 
 - **Decision:** ESLint (typescript-eslint, unicorn, perfectionist, import-x, promise, e18e, markdown, json, package-json
-  and the local `eslint.plugin.ts`) and Prettier, run on staged files by husky and lint-staged.
+  and the local aggregor plugin) and Prettier, run on staged files by husky and lint-staged.
 - **Gotcha:** lint-staged checks the index, so files moved with `git mv` and then edited must be re-staged before a
   commit.
 
@@ -500,7 +573,7 @@ current entry. Leave a field out rather than guess.
   and writes the root record onto the session's row: `status`, `statusKind`, `statusMessage`, `statusProgress`,
   `statusChangedAt` (only when the state changes), `hasWorked`, `reportedTitle` and, from OSC 0/2, `terminalTitle`. It
   starts at `unknown`, `clear` and a full reset go back to `unknown`, and the agent's exit writes `exited`; reports with
-  an `id` wait for step 8. A writer thread keeps the latest pending change and writes title changes at most every 500
+  an `id` wait for step 7. A writer thread keeps the latest pending change and writes title changes at most every 500
   ms. The agent runs whatever happens to the database; errors go to `aggregor-pty.log` beside it, at most 10 lines a
   run. A session's terminal runs `aggregor-pty --database ‹path› --session ‹id› -- ‹agent command›`: the terminal infra
   service wraps the harness's launch plan, and `getDatabaseFilePath` gives it and the database layer the same path.
@@ -529,8 +602,8 @@ current entry. Leave a field out rather than guess.
 ### Clicking a closed session resumes it (2026-10-08; `hasWorked` since 2026-11-08)
 
 - **Options:** looking for Claude's transcript file (2026-10-08 to 2026-11-08), which only Claude has.
-- **Decision:** once the session has reported `working` (`hasWorked`), its tab runs the agent's resume command
-  (`claude --resume ‹id›`); before that it starts fresh under the session's id.
+- **Decision:** once the session has reported `working` (`hasWorked`), its tab runs its harness's `resumeArgs`
+  (`claude --resume ‹id›`); before that its `args`, which start fresh under the session's id where the agent takes one.
 - **Why:** an agent has a conversation to resume once it has worked, and the flag is the same for every agent.
 
 ### Rows show the status on the session's row (2026-11-08)
@@ -572,14 +645,77 @@ current entry. Leave a field out rather than guess.
 - **Options:** read Claude's transcript (the earlier build; Orca and cmux read OSC titles and the transcript); generate
   a title with an LLM, as T3 Code and Conductor do; read `Terminal.name` every second (2026-11-06 to 2026-11-08), since
   no change event exists.
-- **Decision:** session terminals open without a name, so the tab shows the agent's OSC title. `aggregor-pty` stores the
-  title from the agent's 7501 report and its OSC 0/2 title on the row, and `getSessionTitle` takes the first that holds
-  a title: status marks (symbols, spaces and control characters) trimmed at both ends, and not empty, one of the
-  harness's placeholder titles, or only an id (a UUID, maybe with a prefix such as `ses_`). The title becomes the
-  session's `name`, so the row keeps it while the agent is gone or resuming; only that save is traced, since the check
-  runs on every write to a session. Rename stores a `customName`, which wins in the row and the tab.
-- **Why:** one rule covers every agent's title, and a harness adds only data. Dropping the agent's own name or the
-  project folder from a title waits for step 4, which brings each harness's name.
+- **Decision:** `aggregor-pty` stores the title from the agent's 7501 report and its OSC 0/2 title on the row, and
+  `getSessionTitle` takes the first that holds a title: status marks (symbols, spaces and control characters) trimmed at
+  both ends, the harness's name, its command or the project folder dropped where joined by `-`, `|` or `:` at either
+  end, and not empty, one of those names alone, only an id (a UUID, maybe with a prefix such as `ses_`), or a start time
+  (OpenCode's `New session - 2026-11-09T09:26:37.754Z`). The title becomes the session's `name`, so the row keeps it
+  while the agent is gone or resuming; only that save is traced, since the check runs on every write to a session.
+  Rename stores a `customName`, which wins in the row and the tab.
+- **Why:** one rule covers every agent's title, and a harness adds no title code.
+
+### The session in front stays selected in the Sessions view (2026-11-09)
+
+- **Problem:** the view selected a session when its terminal became active, which failed for a new session (its row is
+  drawn a moment after its tab opens, so the warning "Could not select the active session" was logged and nothing was
+  selected), and any click elsewhere in the view moved the selection off it.
+- **Options:** selecting from the tree's own refresh, which the API gives no event for. Snapping back only from project
+  rows, which still leaves a click on empty space.
+- **Decision:** the row of the session whose tab is in front (`viewedSessionId`) is selected whenever that session
+  changes, the user selects a project row or nothing, or the view comes into sight. Selecting a session row is left
+  alone, since its click opens that session and brings it to the front: putting the old row back first made the
+  selection jump between the two; a reveal that misses a row not yet drawn is retried every 250 ms, up to 8 times. With
+  no session's tab in front, the selection is left alone. Arrow keys move the tree's focus, not its selection, so
+  keyboard navigation still works, and Enter opens the focused session.
+- **Why:** the highlighted row always says which session the editor shows, like Explorer for the active file.
+
+### A session's tab shows its row's name (2026-11-09)
+
+- **Problem:** session tabs opened without a name to show the agent's own title, but VS Code 1.145 shows a terminal's
+  title in its tab only for the agent CLIs it recognizes (Claude Code, Codex, Copilot, Gemini), by process name or title
+  text. Under `aggregor-pty` only Claude and Copilot are recognized, by their titles, and every other tab showed
+  `aggregor-pty`.
+- **Options:** `aggregor-pty` writing the session's name as the terminal title, with the window showing terminal titles
+  in tabs: background tabs follow too, but every terminal tab in the window, shells included, would change. The
+  extension hosting the terminal as a Pseudoterminal, which can rename any tab: all agent output would pass through the
+  extension host, and step 5's tmux attach would change. `titleTemplate`, a proposed API the Marketplace refuses.
+- **Decision:** a session's tab opens with the session's `displayName` and `startSessionTabNameSync` keeps it there:
+  after any write to a session and whenever a session's tab becomes the active terminal, the active tab is renamed if
+  its name differs. VS Code renames only the active terminal, so a tab in the background takes a new name when it next
+  comes to the front. Rename from the row menu no longer brings the tab to the front, and an empty name hands the tab
+  back to the agent's title at once.
+- **Why:** the row and the tab say the same thing for every agent, from the one name in the database. Claude's and
+  Copilot's tabs lose their live marks (✳, the spinner); the row's badge shows the status.
+
+### A gear in the Sessions title bar opens Aggregor's settings (2026-11-09)
+
+- **Options:** a controller, `SettingsService` and an `ISettingsConfig` call, so every command takes the same path.
+- **Decision:** **Open Settings** (`aggregorApp.openSettings`, `$(gear)`) after Add Project opens the Settings editor at
+  `@ext:<extension id>`. `routes.ts` registers it straight to `openAggregorSettingsInSettingsEditor` in `@pkg/vscode`,
+  with `presentAppCommandError`, the presenter for commands that cannot fail.
+- **Why:** it reads and writes no data, and presentation already opens settings itself for an error's Open Settings
+  button.
+
+### New Session asks which agent, among those installed (2026-11-09)
+
+- **Problem:** with five built-in agents, starting a session has to say which, and offering one that isn't installed
+  only fails in its terminal.
+- **Options:** `HarnessRepository.findAll` leaving out uninstalled agents, which mixes what is configured with what is
+  on this machine. Saving the default from inside the picker while it stays open, which puts the decision in
+  infrastructure. Error messages without a way to the setting.
+- **Decision:**
+  - The project row's "New Claude Session" became "New Session"; the title bar's "New Session..." asks for the project
+    first, then the agent. Command ids didn't change.
+  - The picker lists the harnesses whose command is on `PATH` (plus `PATHEXT` on Windows), looked up in the extension
+    host each time through `IShellCommandInfraService.listInstalledCommands`, so a new install shows without a reload.
+    Each row is a `HarnessListItemDto`: icon, name, the command as the description, the default first and marked.
+  - A row's **Set as Default** button ends the pick; the use case saves `aggregorApp.defaultHarness` to user settings
+    through `ISettingsConfig.saveDefaultHarnessId` and shows the picker again, reordered.
+  - One harness installed, or `aggregorApp.skipHarnessPicker` on with the default installed, starts it without the
+    picker; none installed fails with `NoHarnessInstalledError`, naming the commands searched for, with **Open
+    Settings**.
+- **Why:** the use case decides and the picker only shows; whether a command is installed is a fact about the machine,
+  not the configuration.
 
 ### Aggregor keeps its files in one folder, `~/.aggregor` (2026-11-09)
 
@@ -624,7 +760,7 @@ current entry. Leave a field out rather than guess.
   back with it. A workspace folder's project gets a row with its first session without being added, so it stays one of
   the window's own folders. One anchor folder, `~/.aggregor/anchor/Aggregor`, with one save-offer marker. The windows
   tables went with a generated migration, which leaves every project unadded.
-- **Why:** less to build and keep. Adding windows back is one table and a migration. Until step 6 runs agents in tmux, a
+- **Why:** less to build and keep. Adding windows back is one table and a migration. Until step 5 runs agents in tmux, a
   second window shows the same sessions, and opening a running one there would start a second agent on its id.
 
 ### Listed projects are `ProjectListItemDto`s (2026-11-07; a DTO since 2026-11-09)

@@ -59,7 +59,7 @@ The VS Code profile lives in `~/.cache/aggregor-verify/vscode-data` and the exte
      `(() => { const item = [...document.querySelectorAll(".activitybar .action-label")].find((element) => element.getAttribute("aria-label") === "Sessions"); if (!item.closest(".action-item").classList.contains("checked")) item.click(); return "open"; })()`
    - List the rows with their status:
      `[...document.querySelectorAll(".monaco-list-row")].map((row) => row.getAttribute("aria-label")).filter(Boolean)`
-   - Click a title or inline button by its label, such as `New Session...` or `New Claude Session`:
+   - Click a title or inline button by its label, such as `New Session...` or `New Session`:
      `[...document.querySelectorAll(".action-label")].find((element) => element.getAttribute("aria-label") === "New Session...").click()`
    - Read the notifications:
      `[...document.querySelectorAll(".notification-list-item")].map((element) => element.textContent)`

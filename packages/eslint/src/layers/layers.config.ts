@@ -1,0 +1,118 @@
+import {IMPORT_BANS, IMPORT_RULES, OPTION_IMPORT_BANS} from "@pkg/eslint/src/layers/importRules.ts";
+import {ROLE_NAMES} from "@pkg/eslint/src/layers/roleNames.ts";
+import {
+  DOMAIN_SERVICE_EXPORT_BAN,
+  ENTITY_EXPORT_BAN,
+  ERROR_FILE_BAN,
+  EXPORTED_TYPE_BAN,
+  NON_TYPE_BAN,
+  PLAIN_FUNCTION_BAN,
+  SERVICE_CLASS_BAN,
+  SYNTAX_BANS
+} from "@pkg/eslint/src/layers/syntaxBans.ts";
+
+import type {Config} from "eslint/config";
+
+// The DDD layering of apps/extension (see DDD.md), per folder and file role: what it may import, the code it may not
+// contain, how its modules are ordered, and the names its role requires.
+
+export const LAYER_CONFIGS: Config[] = [
+  ...IMPORT_RULES.map(([sourcePath, paths, patterns]): Config => ({
+    files: [`apps/extension/src/${sourcePath}${sourcePath.endsWith(".ts") ? "" : "/**/*.ts"}`],
+    rules: {"@typescript-eslint/no-restricted-imports": ["error", {paths, patterns}]}
+  })),
+  {
+    files: ["apps/extension/src/**/*.ts"],
+    ignores: ["**/*.interface.ts", "**/*.type.ts", "**/*.valueObject.ts", "**/*.dto.ts"],
+    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN, SERVICE_CLASS_BAN, PLAIN_FUNCTION_BAN]}
+  },
+  {
+    files: ["apps/extension/src/**/*.entity.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...SYNTAX_BANS,
+        EXPORTED_TYPE_BAN,
+        SERVICE_CLASS_BAN,
+        PLAIN_FUNCTION_BAN,
+        ENTITY_EXPORT_BAN
+      ]
+    }
+  },
+  {
+    files: ["apps/extension/src/**/*.domainService.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...SYNTAX_BANS,
+        EXPORTED_TYPE_BAN,
+        SERVICE_CLASS_BAN,
+        PLAIN_FUNCTION_BAN,
+        DOMAIN_SERVICE_EXPORT_BAN
+      ]
+    }
+  },
+  {
+    files: ["apps/extension/src/**/*.interface.ts"],
+    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, PLAIN_FUNCTION_BAN]}
+  },
+  {
+    files: ["apps/extension/src/**/*.dto.ts"],
+    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, SERVICE_CLASS_BAN, PLAIN_FUNCTION_BAN]}
+  },
+  // @pkg/vscode is shared by presentation and infrastructure, under the same code rules.
+  {
+    files: ["packages/vscode/src/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": ["error", {paths: IMPORT_BANS}],
+      "no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN, PLAIN_FUNCTION_BAN]
+    }
+  },
+  {
+    files: ["packages/vscode/src/vscode.api.ts"],
+    rules: {"@typescript-eslint/no-restricted-imports": ["error", {paths: OPTION_IMPORT_BANS}]}
+  },
+  {
+    files: ["apps/extension/src/**/*.valueObject.ts"],
+    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, SERVICE_CLASS_BAN, PLAIN_FUNCTION_BAN]}
+  },
+  {
+    files: ["apps/extension/src/**/*.type.ts"],
+    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, NON_TYPE_BAN]}
+  },
+  {files: ["apps/extension/src/**/*.error.ts"], rules: {"no-restricted-syntax": ["error", ERROR_FILE_BAN]}},
+  // A file's errors sit at its top, above its other classes. Blank lines split the sorting, so a type built from the
+  // file's classes can sit below them, where aggregor/type-placement puts it.
+  {
+    files: ["apps/extension/src/**/*.ts"],
+    rules: {
+      "max-classes-per-file": "off",
+      "perfectionist/sort-modules": [
+        "error",
+        {
+          customGroups: [{elementNamePattern: "Error$", groupName: "error-class", selector: "class"}],
+          groups: [
+            "declare-enum",
+            "export-enum",
+            "enum",
+            ["declare-interface", "declare-type"],
+            ["export-interface", "export-type"],
+            ["interface", "type"],
+            "error-class",
+            "declare-class",
+            "class",
+            "export-class",
+            "declare-function",
+            "export-function",
+            "function"
+          ],
+          partitionByNewLine: true
+        }
+      ]
+    }
+  },
+  ...Object.entries(ROLE_NAMES).map(([filePattern, namingOptions]): Config => ({
+    files: [`apps/extension/src/${filePattern}`],
+    rules: {"@typescript-eslint/naming-convention": ["error", ...namingOptions]}
+  }))
+];

@@ -1,5 +1,6 @@
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {
+  MISSING_HARNESS_ROW_ICON,
   PROJECT_ROW_ICON,
   SESSION_BADGE_URI_SCHEME,
   SESSION_ROW_LABELS,
@@ -11,7 +12,7 @@ import {
 } from "@pkg/constants/src/sessionsView.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {makeProjectNodeId, makeSessionNodeId} from "@presentationUtils/sessionsTreeNode.utils.ts";
-import {Clock, Effect} from "effect";
+import {Clock, Effect, Match} from "effect";
 
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {SessionListItemDto} from "@dtos/session.dto.ts";
@@ -25,6 +26,17 @@ export const getSessionBadgeUri = Effect.fn("SessionsView.getSessionBadgeUri")(f
   return Uri.from({path: `/${sessionId}`, scheme: SESSION_BADGE_URI_SCHEME});
 });
 
+// The harness's codicon or image; a session whose harness is gone shows a warning.
+const getSessionRowIcon = Effect.fn("SessionsView.getSessionRowIcon")(function* (sessionListItem: SessionListItemDto) {
+  const {ThemeIcon, Uri} = yield* VsCodeApi;
+  if (sessionListItem.icon === undefined) return new ThemeIcon(MISSING_HARNESS_ROW_ICON);
+
+  return Match.valueTags(sessionListItem.icon, {
+    CodiconIcon: ({codiconId}) => new ThemeIcon(codiconId),
+    FileIcon: ({filePath}) => Uri.file(filePath)
+  });
+});
+
 // A blocked session says what it waits for, when its agent says.
 const getStatusLabel = Effect.fn("SessionsView.getStatusLabel")(function* (sessionListItem: SessionListItemDto) {
   return sessionListItem.statusKind === undefined
@@ -35,13 +47,13 @@ const getStatusLabel = Effect.fn("SessionsView.getStatusLabel")(function* (sessi
 export const createSessionTreeItem = Effect.fn("SessionsView.createSessionTreeItem")(function* (
   sessionListItem: SessionListItemDto
 ) {
-  const {TreeItem, Uri} = yield* VsCodeApi;
+  const {TreeItem} = yield* VsCodeApi;
   const statusLabel = yield* getStatusLabel(sessionListItem);
   const sessionNodeId = yield* makeSessionNodeId(sessionListItem.sessionId);
   const {displayName, statusProgress} = sessionListItem;
   const treeItem = new TreeItem(displayName);
   treeItem.id = sessionNodeId;
-  treeItem.iconPath = Uri.file(sessionListItem.iconPath);
+  treeItem.iconPath = yield* getSessionRowIcon(sessionListItem);
   if (statusProgress !== undefined) treeItem.description = `${statusProgress}%`;
   treeItem.resourceUri = yield* getSessionBadgeUri(sessionListItem.sessionId);
   treeItem.tooltip = SESSION_ROW_LABELS.TOOLTIP({

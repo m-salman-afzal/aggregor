@@ -1,6 +1,6 @@
 import {Schema} from "effect";
 
-// The coding agent a session runs.
-export type HarnessIdValueObject = typeof HarnessIdValueObjectSchema.Type;
+// Which agent CLI a session runs: its key in aggregorApp.harnesses, such as claude.
+export const HarnessIdValueObjectSchema = Schema.NonEmptyString.pipe(Schema.brand("HarnessId"));
 
-export const HarnessIdValueObjectSchema = Schema.Literals(["claude-code"]);
+export type HarnessIdValueObject = typeof HarnessIdValueObjectSchema.Type;

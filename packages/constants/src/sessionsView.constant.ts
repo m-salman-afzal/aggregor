@@ -10,6 +10,9 @@ export const SESSIONS_VIEW_CONTEXT_VALUES = {
 // Any folder can be a project, git or not, so the icon is a plain root folder.
 export const PROJECT_ROW_ICON = "root-folder";
 
+// A session whose agent is gone from the harnesses setting.
+export const MISSING_HARNESS_ROW_ICON = "warning";
+
 // Each session row gets a URI in this scheme so a FileDecorationProvider can draw its status badge.
 export const SESSION_BADGE_URI_SCHEME = "aggregor-session";
 
@@ -24,6 +27,10 @@ export const STATUS_BADGES = {
 } as const;
 
 export const SPINNER_FRAME_INTERVAL_MS = 120;
+
+// VS Code draws a new row a moment after the change that adds it, so selecting it is retried this often, this many times.
+export const SELECT_ROW_RETRY_INTERVAL_MS = 250;
+export const SELECT_ROW_RETRIES = 8;
 
 export const STATUS_LABELS = {
   blocked: "needs input",

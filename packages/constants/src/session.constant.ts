@@ -18,6 +18,7 @@ export const SESSION_NOTICES = {
 } as const;
 
 export const SESSION_ERRORS = {
+  INVALID_SETTINGS: (reason: string) => `The agent settings are invalid: ${reason}`,
   LAUNCH_FAILED: "Could not open a terminal for the session.",
   NOT_FOUND: "This session no longer exists.",
   PROJECT_REQUIRED: "Add a project or open a folder to start a session.",

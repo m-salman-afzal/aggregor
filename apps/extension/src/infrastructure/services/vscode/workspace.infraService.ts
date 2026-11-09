@@ -1,7 +1,7 @@
 import {getAnchorFolderPath} from "@infraUtils/anchorFolder.utils.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {fromEvent} from "@pkg/vscode/src/vscode.utils.ts";
+import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {Array, Effect, Layer, Ref, Schema, Stream} from "effect";
 import {FileSystem} from "effect/FileSystem";
@@ -242,7 +242,7 @@ const saveWorkspaceAs = Effect.fn("WorkspaceInfraService.saveWorkspaceAs")(funct
 const watchWorkspaceFolderChanges = Effect.fn("WorkspaceInfraService.watchWorkspaceFolderChanges")(function* ({
   workspace
 }: WorkspaceDependencies) {
-  const workspaceFolderEvents = yield* fromEvent(workspace.onDidChangeWorkspaceFolders);
+  const workspaceFolderEvents = yield* streamVsCodeEvent(workspace.onDidChangeWorkspaceFolders);
 
   return Stream.as(workspaceFolderEvents, undefined);
 });
