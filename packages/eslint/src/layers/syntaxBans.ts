@@ -29,6 +29,43 @@ export const SYNTAX_BANS = [
   {message: "Import by name: list what the file takes from the module.", selector: "ImportNamespaceSpecifier"}
 ];
 
+// A value object that is a set of values is a Schema.Enum whose file exports the values as an UPPER_CASE constant
+// (AGENT_STATUSES), the one copy of each string; code everywhere else imports that constant.
+const SCHEMA_CALL = (schemaFunctionName: string) =>
+  `CallExpression[callee.object.name='Schema'][callee.property.name='${schemaFunctionName}']`;
+const EXPORTED_ENUM_VALUES = "ExportNamedDeclaration VariableDeclarator > MemberExpression.init[property.name='enums']";
+export const ENUM_VALUE_OBJECT_BANS = [
+  {
+    message: "Make a set of values a Schema.Enum, and export its values as a constant.",
+    selector: SCHEMA_CALL("Literals")
+  },
+  {
+    message: "Export the enum's values beside its schema: export const <THINGS> = <Thing>ValueObjectSchema.enums.",
+    selector: `Program:has(${SCHEMA_CALL("Enum")}):not(:has(${EXPORTED_ENUM_VALUES}))`
+  }
+];
+export const ENUM_VALUES_ACCESS_BAN = {
+  message: "Import the constant the value object exports (AGENT_STATUSES) instead of reading its schema's .enums.",
+  selector: "MemberExpression[property.name='enums']"
+};
+// The states and kinds of wait are the strings code compares most, so comparing with one of them is an error too.
+export const STATUS_LITERAL_BAN = {
+  message: "Name the state through AGENT_STATUSES or SESSION_STATUSES, and the kind of wait through STATUS_KINDS.",
+  selector:
+    "BinaryExpression[operator=/^[!=]==$/] > " +
+    "Literal[value=/^(unknown|idle|working|done|blocked|error|exited|permission|question|auth)$/]"
+};
+
+// The CLIs a session runs are agents, one word everywhere, so a name or text calling them anything else is an error. The
+// patterns spell the banned word in pieces, so this file doesn't match itself.
+const OTHER_NAME_FOR_AGENTS = "/[Hh][Aa][Rr][Nn][Ee][Ss][Ss]/";
+export const AGENT_NAME_BAN = {
+  message: 'Call it an agent: the CLIs a session runs are "agents" in names, texts and settings.',
+  selector:
+    `Identifier[name=${OTHER_NAME_FOR_AGENTS}], Literal[value=${OTHER_NAME_FOR_AGENTS}], ` +
+    `TemplateElement[value.raw=${OTHER_NAME_FOR_AGENTS}]`
+};
+
 // An interface's own types and error unions live in its .interface.ts; types several implementation files share, in a
 // .type.ts.
 export const EXPORTED_TYPE_BAN = {

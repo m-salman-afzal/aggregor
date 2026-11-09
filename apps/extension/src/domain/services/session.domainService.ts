@@ -1,8 +1,11 @@
+import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
 import {LaunchPlanValueObjectSchema} from "@valueObjects/launchPlan.valueObject.ts";
+import {SESSION_STATUSES} from "@valueObjects/sessionStatus.valueObject.ts";
 import {Array, DateTime, Effect, Predicate, Result, Schema, String} from "effect";
 
-import type {HarnessEntity} from "@entities/harness/harness.entity.ts";
+import type {AgentEntity} from "@entities/agent/agent.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
+import type {AgentStatusValueObject} from "@valueObjects/agentStatus.valueObject.ts";
 import type {SessionStatusValueObject} from "@valueObjects/sessionStatus.valueObject.ts";
 
 // What a session's status depends on besides the session: whether its agent's process still runs, and whether the user
@@ -12,11 +15,11 @@ interface SessionViewingFacts {
   readonly isInView: boolean;
 }
 
-// The harness resumes with the agent's own id for the conversation, which the agent never showed.
+// The agent resumes with the agent's own id for the conversation, which the agent never showed.
 export class AgentSessionIdNotFoundError extends Schema.TaggedError<
   AgentSessionIdNotFoundError,
   {readonly brand: unique symbol}
->()("AgentSessionIdNotFoundError", {harnessName: Schema.String}) {}
+>()("AgentSessionIdNotFoundError", {agentName: Schema.String}) {}
 
 // The user named the session, so the agent's title doesn't replace that name.
 export class SessionNamedByUserError extends Schema.TaggedError<
@@ -52,36 +55,36 @@ const START_TIME_TITLE = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/u;
 // What a regular expression treats as syntax, so a name can be matched as plain text.
 const REGEX_SYNTAX_CHARACTERS = /[$()*+./?[\\\]^{|}]/gu;
 
-// The variables a harness's arguments may use: the session's id, and the id the agent gave the conversation, for an agent
+// The variables an agent's arguments may use: the session's id, and the id the agent gave the conversation, for an agent
 // that can't start under ours.
 const SESSION_ID_VARIABLE = `\${sessionId}`;
 const AGENT_SESSION_ID_VARIABLE = `\${agentSessionId}`;
 
 const fillInVariables = Effect.fn("SessionDomainService.fillInVariables")(function* (
-  harnessArgument: string,
-  harness: HarnessEntity,
+  agentArgument: string,
+  agent: AgentEntity,
   session: SessionEntity
 ) {
-  const filledInArgument = String.replaceAll(SESSION_ID_VARIABLE, session.id)(harnessArgument);
+  const filledInArgument = String.replaceAll(SESSION_ID_VARIABLE, session.id)(agentArgument);
   if (!String.includes(AGENT_SESSION_ID_VARIABLE)(filledInArgument)) return filledInArgument;
-  if (session.agentSessionId === undefined) return yield* AgentSessionIdNotFoundError.make({harnessName: harness.name});
+  if (session.agentSessionId === undefined) return yield* AgentSessionIdNotFoundError.make({agentName: agent.name});
 
   return String.replaceAll(AGENT_SESSION_ID_VARIABLE, session.agentSessionId)(filledInArgument);
 });
 
 // The arguments that resume the session's conversation once it has worked, else the ones that start a new one.
 export const prepareLaunchPlan = Effect.fn("SessionDomainService.prepareLaunchPlan")(function* (
-  harness: HarnessEntity,
+  agent: AgentEntity,
   session: SessionEntity
 ) {
-  const harnessArguments = session.hasWorked ? harness.resumeArgs : harness.args;
+  const agentArguments = session.hasWorked ? agent.resumeArgs : agent.args;
 
   return LaunchPlanValueObjectSchema.make({
-    command: harness.command,
-    commandArguments: yield* Effect.forEach(harnessArguments, (harnessArgument) =>
-      fillInVariables(harnessArgument, harness, session)
+    command: agent.command,
+    commandArguments: yield* Effect.forEach(agentArguments, (agentArgument) =>
+      fillInVariables(agentArgument, agent, session)
     ),
-    environmentVariables: harness.environmentVariables
+    environmentVariables: agent.environmentVariables
   });
 });
 
@@ -112,14 +115,14 @@ export const getDefaultSessionName = Effect.fn("SessionDomainService.getDefaultS
 });
 
 // The session's title from what its agent reports: the title in its OSC 7501 report first, else its window title, without
-// status marks or the harness's name, command or project folder at either end. An empty title, one of those names alone,
+// status marks or the agent's name, command or project folder at either end. An empty title, one of those names alone,
 // an id or a start time is no title.
 export const getSessionTitle = Effect.fn("SessionDomainService.getSessionTitle")(function* (
   session: SessionEntity,
-  harness: HarnessEntity,
+  agent: AgentEntity,
   projectName: string
 ) {
-  const names = [harness.name, harness.command, projectName];
+  const names = [agent.name, agent.command, projectName];
   const lowercaseNames = new Set(Array.map(names, String.toLowerCase));
   const agentTitles = Array.filter([session.reportedTitle, session.terminalTitle], Predicate.isNotUndefined);
   const cleanedTitles = yield* Effect.forEach(agentTitles, (agentTitle) =>
@@ -144,11 +147,11 @@ export const getSessionTitle = Effect.fn("SessionDomainService.getSessionTitle")
 // gave wins.
 export const getSessionTitleToSave = Effect.fn("SessionDomainService.getSessionTitleToSave")(function* (
   session: SessionEntity,
-  harness: HarnessEntity,
+  agent: AgentEntity,
   projectName: string
 ) {
   if (session.customName !== undefined) return yield* SessionNamedByUserError.make();
-  const sessionTitle = yield* getSessionTitle(session, harness, projectName);
+  const sessionTitle = yield* getSessionTitle(session, agent, projectName);
   if (sessionTitle === session.name) return yield* SessionTitleUnchangedError.make();
 
   return sessionTitle;
@@ -173,10 +176,10 @@ export const getSessionStatus = Effect.fn("SessionDomainService.getSessionStatus
   session: SessionEntity,
   {isAgentRunning, isInView}: SessionViewingFacts
 ) {
-  if (!isAgentRunning) return "exited" satisfies SessionStatusValueObject;
-  if (session.status === "unknown") return "idle" satisfies SessionStatusValueObject;
-  if (session.status === "done" && !(yield* isFinishedTurnUnseen(session, isInView)))
-    return "idle" satisfies SessionStatusValueObject;
+  if (!isAgentRunning) return SESSION_STATUSES.EXITED;
+  if (session.status === AGENT_STATUSES.UNKNOWN) return SESSION_STATUSES.IDLE;
+  if (session.status === AGENT_STATUSES.DONE && !(yield* isFinishedTurnUnseen(session, isInView)))
+    return SESSION_STATUSES.IDLE;
 
   return session.status;
 });
@@ -185,5 +188,27 @@ export const getSessionStatus = Effect.fn("SessionDomainService.getSessionStatus
 export const isSessionTurnRunning = Effect.fn("SessionDomainService.isSessionTurnRunning")(function* (
   sessionStatus: SessionStatusValueObject
 ) {
-  return sessionStatus === "working" || sessionStatus === "blocked";
+  return sessionStatus === SESSION_STATUSES.WORKING || sessionStatus === SESSION_STATUSES.BLOCKED;
+});
+
+// A turn that went from working back to idle has finished too, for agents that end a turn with idle rather than done
+// (OpenCode).
+export const getAlertedStatus = Effect.fn("SessionDomainService.getAlertedStatus")(function* (
+  heldStatus: AgentStatusValueObject,
+  previousHeldStatus: AgentStatusValueObject | undefined
+) {
+  if (heldStatus === AGENT_STATUSES.IDLE && previousHeldStatus === AGENT_STATUSES.WORKING) return AGENT_STATUSES.DONE;
+
+  return heldStatus;
+});
+
+// A session waits on the user while its agent asks something, after it failed, and while a finished turn is unseen.
+export const isSessionWaitingOnUser = Effect.fn("SessionDomainService.isSessionWaitingOnUser")(function* (
+  sessionStatus: SessionStatusValueObject
+) {
+  return (
+    sessionStatus === SESSION_STATUSES.BLOCKED ||
+    sessionStatus === SESSION_STATUSES.ERROR ||
+    sessionStatus === SESSION_STATUSES.DONE
+  );
 });

@@ -1,7 +1,7 @@
 import {BaseEntity} from "@entities/base/base.entity.ts";
+import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
 import {AgentStatusValueObjectSchema} from "@valueObjects/agentStatus.valueObject.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
-import {HarnessIdValueObjectSchema} from "@valueObjects/harnessId.valueObject.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {StatusKindValueObjectSchema} from "@valueObjects/statusKind.valueObject.ts";
 import {Schema} from "effect";
@@ -10,9 +10,9 @@ import {Schema} from "effect";
 // agentSessionId is the id the agent gave its conversation, for an agent that can't start under ours. viewedAt is when
 // the session last came into or left the user's view.
 export class SessionEntity extends BaseEntity.extend<SessionEntity>("Session")({
+  agentId: AgentIdValueObjectSchema,
   agentSessionId: Schema.optional(Schema.String),
   customName: Schema.optional(Schema.String),
-  harnessId: HarnessIdValueObjectSchema,
   hasWorked: Schema.Boolean,
   name: Schema.String,
   projectId: EntityIdValueObjectSchema,

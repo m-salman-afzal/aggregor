@@ -12,7 +12,7 @@ import {
 import {SESSION_ID_ENV} from "@pkg/constants/src/terminal.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
-import {Effect, Layer, Match, Result, Schema, Stream, SubscriptionRef} from "effect";
+import {Effect, Layer, Result, Schema, Stream, SubscriptionRef} from "effect";
 
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
@@ -22,7 +22,6 @@ import type {
 } from "@infraServices/vscode/terminal/terminal.infraService.type.ts";
 import type {SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {HarnessIconValueObject} from "@valueObjects/harnessIcon.valueObject.ts";
 import type {Terminal} from "vscode";
 
 // Why no session is in view, private to this file: the interface only sees NoViewedSessionError.
@@ -50,16 +49,6 @@ const findSessionTerminal = Effect.fn("TerminalInfraService.findSessionTerminal"
   );
 });
 
-const toTerminalIcon = Effect.fn("TerminalInfraService.toTerminalIcon")(function* (
-  {ThemeIcon, Uri}: TerminalDependencies,
-  harnessIcon: HarnessIconValueObject
-) {
-  return Match.valueTags(harnessIcon, {
-    CodiconIcon: ({codiconId}) => new ThemeIcon(codiconId),
-    FileIcon: ({filePath}) => Uri.file(filePath)
-  });
-});
-
 // The tab is transient: VS Code drops a reattached tab's file icon, so it neither keeps the tab over a reload nor restores
 // it when it starts again. Closing it only detaches from tmux, so the agent keeps running and its row attaches a new tab.
 const launchSessionTerminal = Effect.fn("TerminalInfraService.launchSessionTerminal")(function* (
@@ -67,8 +56,7 @@ const launchSessionTerminal = Effect.fn("TerminalInfraService.launchSessionTermi
   session: SessionEntity,
   {icon, tabCommand, tabName}: SessionTabRequest
 ) {
-  const {ViewColumn, window} = terminalDependencies;
-  const terminalIcon = yield* toTerminalIcon(terminalDependencies, icon);
+  const {Uri, ViewColumn, window} = terminalDependencies;
 
   return yield* Effect.try({
     catch: (cause) => TerminalLaunchFailedError.make({cause}),
@@ -76,7 +64,7 @@ const launchSessionTerminal = Effect.fn("TerminalInfraService.launchSessionTermi
       window.createTerminal({
         cwd: session.projectPath,
         env: {[SESSION_ID_ENV]: session.id},
-        iconPath: terminalIcon,
+        iconPath: Uri.file(icon),
         isTransient: true,
         location: {viewColumn: ViewColumn.Active},
         name: tabName,

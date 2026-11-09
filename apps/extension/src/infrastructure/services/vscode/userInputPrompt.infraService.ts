@@ -1,29 +1,29 @@
 import {
+  AgentPickCancelledError,
   FolderPickCancelledError,
-  HarnessPickCancelledError,
   InputCancelledError,
   IUserInputPromptInfraService,
   ProjectPickCancelledError
 } from "@interfaces/userInputPrompt.infraService.interface.ts";
+import {AGENT_LABELS} from "@pkg/constants/src/agent.constant.ts";
 import {APP_NAME} from "@pkg/constants/src/app.constant.ts";
-import {HARNESS_LABELS} from "@pkg/constants/src/harness.constant.ts";
 import {PROJECT_LABELS} from "@pkg/constants/src/project.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
-import {Array, Effect, Layer, Match, Result} from "effect";
+import {Array, Effect, Layer, Result} from "effect";
 
-import type {HarnessListItemDto} from "@dtos/harness.dto.ts";
+import type {AgentListItemDto} from "@dtos/agent.dto.ts";
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
-import type {HarnessPick} from "@interfaces/userInputPrompt.infraService.interface.ts";
-import type {HarnessIdValueObject} from "@valueObjects/harnessId.valueObject.ts";
+import type {AgentPick} from "@interfaces/userInputPrompt.infraService.interface.ts";
+import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
 import type {QuickInputButton, QuickPickItem, window as VsCodeWindow} from "vscode";
 
-// What the harness picker draws with.
-type HarnessPickerDependencies = Pick<VsCodeApi["Service"], "ThemeIcon" | "Uri" | "window">;
+// What the agent picker draws with.
+type AgentPickerDependencies = Pick<VsCodeApi["Service"], "ThemeIcon" | "Uri" | "window">;
 
-// A harness's row in the picker, with the harness it stands for.
-interface HarnessQuickPickItem extends QuickPickItem {
-  readonly harnessId: HarnessIdValueObject;
+// An agent's row in the picker, with the agent it stands for.
+interface AgentQuickPickItem extends QuickPickItem {
+  readonly agentId: AgentIdValueObject;
 }
 
 type Window = typeof VsCodeWindow;
@@ -83,74 +83,69 @@ const pickProject = Effect.fn("UserInputPromptInfraService.pickProject")(functio
 });
 
 // The default's row says so and has no button; every other row offers to become the default.
-const toHarnessQuickPickItem = Effect.fn("UserInputPromptInfraService.toHarnessQuickPickItem")(function* (
-  {ThemeIcon, Uri}: HarnessPickerDependencies,
+const toAgentQuickPickItem = Effect.fn("UserInputPromptInfraService.toAgentQuickPickItem")(function* (
+  {Uri}: AgentPickerDependencies,
   setAsDefaultButton: QuickInputButton,
-  harnessListItem: HarnessListItemDto
+  agentListItem: AgentListItemDto
 ) {
-  const harnessQuickPickItem: HarnessQuickPickItem = {
-    buttons: harnessListItem.isDefault ? [] : [setAsDefaultButton],
-    description: harnessListItem.isDefault
-      ? `${harnessListItem.command} · ${HARNESS_LABELS.DEFAULT}`
-      : harnessListItem.command,
-    harnessId: harnessListItem.harnessId,
-    iconPath: Match.valueTags(harnessListItem.icon, {
-      CodiconIcon: ({codiconId}) => new ThemeIcon(codiconId),
-      FileIcon: ({filePath}) => Uri.file(filePath)
-    }),
-    label: harnessListItem.name
+  const agentQuickPickItem: AgentQuickPickItem = {
+    agentId: agentListItem.agentId,
+    buttons: agentListItem.isDefault ? [] : [setAsDefaultButton],
+    description: agentListItem.isDefault ? `${agentListItem.command} · ${AGENT_LABELS.DEFAULT}` : agentListItem.command,
+    iconPath: Uri.file(agentListItem.icon),
+    label: agentListItem.name
   };
 
-  return harnessQuickPickItem;
+  return agentQuickPickItem;
 });
 
-// Accepting a row picks its harness; its button asks for it to become the default; closing the picker cancels.
-const showHarnessQuickPick = Effect.fn("UserInputPromptInfraService.showHarnessQuickPick")(function* (
+// Accepting a row picks its agent; its button asks for it to become the default; closing the picker cancels.
+const showAgentQuickPick = Effect.fn("UserInputPromptInfraService.showAgentQuickPick")(function* (
   window: Window,
-  harnessQuickPickItems: readonly HarnessQuickPickItem[],
+  agentQuickPickItems: readonly AgentQuickPickItem[],
   placeHolder: string
 ) {
-  return yield* Effect.callback<HarnessPick, HarnessPickCancelledError>((resume) => {
-    const harnessQuickPick = window.createQuickPick<HarnessQuickPickItem>();
-    harnessQuickPick.items = harnessQuickPickItems;
-    harnessQuickPick.activeItems = harnessQuickPickItems.slice(0, 1);
-    harnessQuickPick.placeholder = placeHolder;
+  return yield* Effect.callback<AgentPick, AgentPickCancelledError>((resume) => {
+    const agentQuickPick = window.createQuickPick<AgentQuickPickItem>();
+    agentQuickPick.items = agentQuickPickItems;
+    agentQuickPick.activeItems = agentQuickPickItems.slice(0, 1);
+    agentQuickPick.placeholder = placeHolder;
     const listeners = [
-      harnessQuickPick.onDidAccept(() => {
-        const [pickedItem] = harnessQuickPick.selectedItems;
-        if (pickedItem !== undefined) resume(Effect.succeed({_tag: "HarnessPicked", harnessId: pickedItem.harnessId}));
+      agentQuickPick.onDidAccept(() => {
+        const [pickedItem] = agentQuickPick.selectedItems;
+        if (pickedItem !== undefined) resume(Effect.succeed({_tag: "AgentPicked", agentId: pickedItem.agentId}));
       }),
-      harnessQuickPick.onDidTriggerItemButton(({item}) => {
-        resume(Effect.succeed({_tag: "DefaultHarnessChosen", harnessId: item.harnessId}));
+      agentQuickPick.onDidTriggerItemButton(({item}) => {
+        resume(Effect.succeed({_tag: "DefaultAgentChosen", agentId: item.agentId}));
       }),
-      harnessQuickPick.onDidHide(() => {
-        resume(Effect.fail(HarnessPickCancelledError.make()));
+      agentQuickPick.onDidHide(() => {
+        resume(Effect.fail(AgentPickCancelledError.make()));
       })
     ];
-    harnessQuickPick.show();
+    agentQuickPick.show();
 
     return Effect.sync(() => {
       for (const listener of listeners) listener.dispose();
-      harnessQuickPick.dispose();
+      agentQuickPick.dispose();
     });
   });
 });
 
-const pickHarness = Effect.fn("UserInputPromptInfraService.pickHarness")(function* (
-  harnessPickerDependencies: HarnessPickerDependencies,
-  harnessListItems: readonly HarnessListItemDto[],
+const pickAgent = Effect.fn("UserInputPromptInfraService.pickAgent")(function* (
+  agentPickerDependencies: AgentPickerDependencies,
+  agentListItems: readonly AgentListItemDto[],
   placeHolder: string
 ) {
-  const {ThemeIcon, window} = harnessPickerDependencies;
+  const {ThemeIcon, window} = agentPickerDependencies;
   const setAsDefaultButton: QuickInputButton = {
     iconPath: new ThemeIcon("star-empty"),
-    tooltip: HARNESS_LABELS.SET_AS_DEFAULT
+    tooltip: AGENT_LABELS.SET_AS_DEFAULT
   };
-  const harnessQuickPickItems = yield* Effect.forEach(harnessListItems, (harnessListItem) =>
-    toHarnessQuickPickItem(harnessPickerDependencies, setAsDefaultButton, harnessListItem)
+  const agentQuickPickItems = yield* Effect.forEach(agentListItems, (agentListItem) =>
+    toAgentQuickPickItem(agentPickerDependencies, setAsDefaultButton, agentListItem)
   );
 
-  return yield* showHarnessQuickPick(window, harnessQuickPickItems, placeHolder);
+  return yield* showAgentQuickPick(window, agentQuickPickItems, placeHolder);
 });
 
 const pickProjectFolderPaths = Effect.fn("UserInputPromptInfraService.pickProjectFolderPaths")(function* (
@@ -177,8 +172,8 @@ const makeUserInputPromptInfraService = Effect.fn("UserInputPromptInfraService.m
   return {
     askForText: (question: string, value: string) => askForText(window, question, value),
     confirm: (message: string, confirmAction: string) => confirm(window, message, confirmAction),
-    pickHarness: (harnessListItems: readonly HarnessListItemDto[], placeHolder: string) =>
-      pickHarness({ThemeIcon, Uri, window}, harnessListItems, placeHolder),
+    pickAgent: (agentListItems: readonly AgentListItemDto[], placeHolder: string) =>
+      pickAgent({ThemeIcon, Uri, window}, agentListItems, placeHolder),
     pickProject: (projects: readonly ProjectListItemDto[], placeHolder: string) =>
       pickProject(window, projects, placeHolder),
     pickProjectFolderPaths: pickProjectFolderPaths(window),

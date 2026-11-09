@@ -2,6 +2,7 @@ import {SettingsConfig} from "@config/settings.config.ts";
 import {DatabaseLayer} from "@di/database.layer.ts";
 import {NodeServices} from "@effect/platform-node";
 import {CommitCliInfraService} from "@infraServices/commitCli/commitCli.infraService.ts";
+import {DesktopNotificationInfraService} from "@infraServices/os/desktopNotification.infraService.ts";
 import {ShellCommandInfraService} from "@infraServices/os/shellCommand.infraService.ts";
 import {TmuxInfraService} from "@infraServices/tmux/tmux.infraService.ts";
 import {GitInfraService} from "@infraServices/vscode/git.infraService.ts";
@@ -9,7 +10,7 @@ import {ProgressInfraService} from "@infraServices/vscode/progress.infraService.
 import {TerminalInfraService} from "@infraServices/vscode/terminal/terminal.infraService.ts";
 import {UserInputPromptInfraService} from "@infraServices/vscode/userInputPrompt.infraService.ts";
 import {WorkspaceInfraService} from "@infraServices/vscode/workspace.infraService.ts";
-import {HarnessRepository} from "@repositories/harness.repository.ts";
+import {AgentRepository} from "@repositories/agent.repository.ts";
 import {ProjectRepository} from "@repositories/project.repository.ts";
 import {SessionRepository} from "@repositories/session.repository.ts";
 import {startSessionTabNameSync, startSessionTitleSync, startViewedAtSync} from "@services/session.service.ts";
@@ -39,11 +40,12 @@ const BackgroundLayer = Layer.mergeAll(
 export const AppLayer = BackgroundLayer.pipe(
   Layer.provideMerge(TerminalInfraService),
   Layer.provideMerge(TmuxInfraService),
-  Layer.provideMerge(HarnessRepository),
+  Layer.provideMerge(AgentRepository),
   Layer.provideMerge(SessionRepository),
   Layer.provideMerge(ProjectRepository),
   Layer.provideMerge(DatabaseLayer),
   Layer.provideMerge(CommitCliInfraService),
+  Layer.provideMerge(DesktopNotificationInfraService),
   Layer.provideMerge(ShellCommandInfraService),
   Layer.provideMerge(WorkspaceInfraService),
   Layer.provideMerge(IndependentLayers)

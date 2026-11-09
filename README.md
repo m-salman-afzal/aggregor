@@ -20,11 +20,11 @@ terminals, tree views, Source Control and diffs.
   then offers once to save the workspace, which names it Aggregor instead of Untitled and stops the save question when
   the window closes.
 - **Agents.** New Session asks which agent to start, among those whose command is on `PATH`, with your default first;
-  each one's **Set as Default** button changes the default, and `aggregorApp.skipHarnessPicker` starts the default
-  without asking. Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot are built in. `aggregorApp.harnesses` in
-  your user settings adds a CLI, changes a built-in's name, command, arguments, environment variables (`env`) or icon,
-  or hides one with `null`; the gear in the Sessions title bar opens Aggregor's settings. A session's tab shows the same
-  name as its row, and the session in front stays selected in the view.
+  each one's **Set as Default** button changes the default, and `aggregorApp.skipAgentPicker` starts the default without
+  asking. Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot are built in. `aggregorApp.agents` in your user
+  settings adds a CLI, changes a built-in's name, command, arguments, environment variables (`env`) or icon, or hides
+  one with `null`; the gear in the Sessions title bar opens Aggregor's settings. A session's tab shows the same name as
+  its row, and the session in front stays selected in the view.
 - **Terminals.** The Terminal panel's + opens in the shown project without asking. Its project button opens a shell in
   any of the window's projects, shown or not.
 - **Persistent sessions.** Every agent runs in tmux (3.2 or newer), so it keeps working when you close its tab, reload
@@ -40,6 +40,12 @@ terminals, tree views, Source Control and diffs.
   session's tab; a session you have seen shows no badge, and a grey hollow dot means it has exited. Reported progress
   shows next to the name. The status comes from the agent's own OSC 7501 reports, read by `aggregor-pty`, which runs
   every session's agent; the Linux and macOS builds carry it, and on Windows sessions run in WSL.
+- **Alerts.** A session out of view notifies once it has held a new state for 3 seconds: waiting for you, finished, an
+  error or its agent exiting by default, picked with `aggregorApp.notifyOn`. The focused window shows it with an
+  **Open** button; when VS Code isn't focused it is a system notification instead, with the agent's logo. Clicking it
+  brings VS Code forward, even from another workspace, and opens the session when the window that comes forward is the
+  one that sent it (`notify-send` on Linux; a PowerShell toast from WSL and `osascript` on macOS, both untested). The
+  Sessions icon's badge counts the sessions waiting on you, and hovering it lists them.
 - **AI commit messages.** A Source Control button writes the commit message for the staged diff.
 
 ## Roadmap
@@ -58,7 +64,7 @@ tmux and alerts.
 
 ### M2: alerts, multi-project, more agents
 
-- [ ] Needs-input alerts: activity-bar badge and a notification for background sessions
+- [x] Needs-input alerts: activity-bar badge and a notification for background sessions
 - [x] tmux persistence: closing a tab detaches instead of killing the agent; clicking reattaches
 - [x] Projects: an extension-owned project list, tree grouped as project > session
 - [x] Agents from settings: Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot built in, any other CLI one
@@ -99,6 +105,18 @@ tmux and alerts.
 ### If the users asked
 
 - [ ] Accept (stage), reject (restore) and review all changes
+- [ ] A desktop notification's click lands on the right window when several VS Code windows are open
+  - Problem: GNOME brings forward the VS Code window used most recently, not the one that sent the notification. Only
+    GNOME may bring a window forward without a click in it, and it can't target one of VS Code's windows: it hands a
+    token to the program that sent the notification, and VS Code has no way to take one from outside. A click inside VS
+    Code does let it switch to another of its windows (checked with `code ‹file›` from another window's terminal).
+  - Proposal: a `sessionAlerts` table the windows share, one row per alert with its session, the state change, the link
+    of the window that showed it and when its notification closed. One window claims each alert: a focused window at
+    once, the one holding the session's tab after 300 ms, any other after 600 ms, so several windows no longer notify
+    twice. The claiming window records when its notification closed. The window that comes into focus within 1.5 seconds
+    of that opens the session if it claimed the alert; otherwise it shows "‹session› finished · Open", whose click opens
+    the claiming window's link, which brings that window forward with the session. Costs a schema change; the focus
+    timing can misfire as it does now.
 
 ### Later
 

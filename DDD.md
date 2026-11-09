@@ -10,10 +10,10 @@ The building blocks, as Evans (_Domain-Driven Design Reference_), Vernon (_Imple
 and Martin (_The Clean Architecture_) define them, and where each sits here.
 
 - **Entity:** an object "distinguished by its identity, rather than its attributes", whose identity runs through time:
-  `SessionEntity`, `ProjectEntity`, `HarnessEntity`. Each entity is its own aggregate root.
+  `SessionEntity`, `ProjectEntity`, `AgentEntity`. Each entity is its own aggregate root.
 - **Value object:** an object that describes or computes a characteristic of something and has no identity of its own;
   "when you care only about the attributes and logic of an element of the model, classify it as a value object". It is
-  immutable and compared by value: a session's status, a project's path, a harness id, an entity's id. Anything that is
+  immutable and compared by value: a session's status, a project's path, an agent id, an entity's id. Anything that is
   identified by an id or a path is not one, however small: a session as a list row is a DTO, not a value object.
 - **Domain service:** a domain rule that is not one entity's own: `getSessionStatus`, `getSessionTitleToSave`.
 - **Repository:** query and write access to an aggregate, declared in the domain and implemented in infrastructure.
@@ -132,7 +132,7 @@ file suffix.
   `IBaseRepository`, the shape every repository interface extends. Data shapes take no prefix.
 - A type that stands alone sits at the top of a file, right after the imports. A type built from a value of its own
   file, directly or through another such type, sits below what it is built from, so the file reads top down: a value
-  object's or DTO's type right after its schema (`HarnessListItemDtoSchema`, then `HarnessListItemDto`), an error union
+  object's or DTO's type right after its schema (`AgentListItemDtoSchema`, then `AgentListItemDto`), an error union
   after its errors. An interface's own types (its inputs, which end in `Request`, and `Settings`) sit in its
   `.interface.ts`. Types several implementation files share live in a `.type.ts`, which holds nothing else.
   `aggregor/type-placement` (`packages/eslint/src/rules/`) checks where types sit, and `no-restricted-syntax` the rest.
@@ -158,8 +158,8 @@ file suffix.
 ```text
 packages/
   constants/src/                           one file per feature, each with its command ids, labels, notices and
-                                           error texts: app, commitMessage, database, git, harness, process, project,
-                                           session, sessionsView, terminal, workspace
+                                           error texts: app, commitMessage, database, git, agent, process, project,
+                                           session, sessionAlert, sessionsView, terminal, workspace
   eslint/src/                              the repo's ESLint setup: base/ per file type, layers/ the DDD layering
                                            checks, rules/ the aggregor plugin (one file per rule), and
                                            eslint.config.ts composing them
@@ -181,38 +181,42 @@ apps/extension/src/
                                            DatabaseWriteError, EntityNotFoundError
       session/
         session.entity.ts                  SessionEntity (BaseEntity and projectId, projectPath, name, customName,
-                                           harnessId, viewedAt, and aggregor-pty's status, statusKind,
+                                           agentId, viewedAt, and aggregor-pty's status, statusKind,
                                            statusMessage, statusProgress, statusChangedAt, hasWorked, reportedTitle,
                                            terminalTitle and agentSessionId; displayName)
         session.repository.interface.ts    ISessionRepository: the base calls
       project/
         project.entity.ts                  ProjectEntity (BaseEntity and path, isAdded)
         project.repository.interface.ts    IProjectRepository: the base calls
-      harness/
-        harness.entity.ts                  HarnessEntity (id, name, command, args, resumeArgs, environmentVariables,
+      agent/
+        agent.entity.ts                  AgentEntity (id, name, command, args, resumeArgs, environmentVariables,
                                            icon): an agent CLI,
                                            from the settings, not a BaseEntity
-        harness.repository.interface.ts    IHarnessRepository: findAll, findById; HarnessNotFoundError
+        agent.repository.interface.ts    IAgentRepository: findAll, findById; AgentNotFoundError
     valueObjects/                          EntityIdValueObject (a branded UUID v7), ProjectPathValueObject (branded),
                                            AgentStatusValueObject and StatusKindValueObject (literals: OSC 7501's
                                            states and kinds), SessionStatusValueObject (the status the user sees,
-                                           picked from the agent's), HarnessIdValueObject (branded: the settings
-                                           key), HarnessIconValueObject (a codicon or an image file),
+                                           picked from the agent's), AgentIdValueObject (branded: the settings
+                                           key), AgentIconValueObject (an image file's path),
                                            EnvironmentVariablesValueObject (names to values),
                                            LaunchPlanValueObject (a command, its arguments and its variables)
     services/
       session.domainService.ts             prepareLaunchPlan, getDefaultSessionName, getSessionTitle,
-                                           getSessionTitleToSave, getSessionStatus, isSessionTurnRunning
+                                           getSessionTitleToSave, getSessionStatus, isSessionTurnRunning,
+                                           getAlertedStatus, isSessionWaitingOnUser
       entityId.domainService.ts            makeEntityId, getEntityIdCreatedAt: the entity id's factory
   application/
     services/
       base.service.ts                      addEntity, findEntityById, findEntities, updateEntity, upsertEntity,
                                            removeEntity, on any repository
-      session.service.ts                   newSession (which picks the project, then the harness), openSession,
-                                           removeSession, renameSession; NoHarnessInstalledError; the list:
+      session.service.ts                   newSession (which picks the project, then the agent), openSession,
+                                           removeSession, renameSession; NoAgentInstalledError; the list:
                                            getSessionListItem, listProjectSessionIds, listWorkingSessionIds,
-                                           watchSessionListChanges, watchViewedSessionIds, findViewedSessionId; startSessionTitleSync,
+                                           watchSessionListChanges, watchViewedSessionIds, findViewedSessionId,
+                                           listSessionsWaitingOnUser (the view's badge); startSessionTitleSync,
                                            startSessionTabNameSync, startViewedAtSync
+      sessionAlert.service.ts              watchSessionAlerts: the states sessions out of view hold for 3 seconds,
+                                           as notifyOn picks them; notifyOnDesktop
       project.service.ts                   listProjects, getProjectListItem, findProjectListItem, pickProject,
                                            addProject, addProjectPaths, findOrAddProject, removeProject,
                                            newProjectTerminal; NoProjectError, ProjectNotListedError
@@ -223,7 +227,8 @@ apps/extension/src/
     dtos/
       session.dto.ts                       SessionListItemDto, SessionListChangeDto, and a request DTO per session
                                            use case
-      harness.dto.ts                       HarnessListItemDto: a row of the harness picker
+      sessionAlert.dto.ts                  SessionAlertDto, NotifyOnDesktopRequestDto
+      agent.dto.ts                       AgentListItemDto: a row of the agent picker
       project.dto.ts                       ProjectListItemDto, GetProjectListItemRequestDto, RemoveProjectRequestDto
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
     interfaces/                            each with the errors and types its signatures name
@@ -236,9 +241,12 @@ apps/extension/src/
                                            SessionTabCommandRequest, PtyBinaryNotFoundError, TmuxUnavailableError
       userInputPrompt.infraService.interface.ts
                                            showErrorMessage, showInformationMessage, confirm, askForText, pickProject,
-                                           pickProjectFolderPaths, pickHarness; HarnessPick
+                                           pickProjectFolderPaths, pickAgent; AgentPick
       shellCommand.infraService.interface.ts
                                            listInstalledCommands: which commands are on PATH
+      desktopNotification.infraService.interface.ts
+                                           notifyOnDesktop: the system's own notification, whose Open opens a link;
+                                           DesktopNotificationRequest
       progress.infraService.interface.ts   withSourceControlProgress
       workspace.infraService.interface.ts  listWorkspaceFolderProjects, workspaceFolderChanges,
                                            showOnlyProjectFolder, removeProjectFolder, claimWorkspaceSaveOffer,
@@ -246,8 +254,8 @@ apps/extension/src/
       git.infraService.interface.ts        getStagedDiff, setCommitMessageInput, commit, stageAll,
                                            openInSourceControl
       commitCli.infraService.interface.ts  generateCommitMessage; CommitMessageRequest
-      settings.config.interface.ts         readSettings, readSessionSettings, saveDefaultHarnessId; Settings,
-                                           SessionSettings
+      settings.config.interface.ts         readSettings, readSessionSettings, readAlertSettings,
+                                           saveDefaultAgentId; Settings, SessionSettings, AlertSettings
   infrastructure/
     database/models/                       a Drizzle table per file (SessionTableModel...); base.model.ts:
                                            BASE_COLUMNS, the shared columns
@@ -259,10 +267,13 @@ apps/extension/src/
                                            startEntityChangeFeed, which reads the rows written since its last check
       session.repository.ts                SessionRepository: sessions with their project's path
       project.repository.ts                ProjectRepository: projects
-      harness.repository.ts                HarnessRepository: the aggregorApp.harnesses setting, decoded with its
+      agent.repository.ts                AgentRepository: the aggregorApp.agents setting, decoded with its
                                            defaults, read again when it changes
     services/
       os/shellCommand.infraService.ts      ShellCommandInfraService: looks commands up on PATH
+      os/desktopNotification.infraService.ts
+                                           DesktopNotificationInfraService: notify-send, filed under VS Code, on Linux,
+                                           osascript on macOS, a PowerShell toast from WSL
       tmux/tmux.infraService.ts            TmuxInfraService: the command a session's tab runs, which starts its
                                            agent under aggregor-pty in a tmux session or attaches to it; stops it;
                                            reads which sessions tmux runs
@@ -290,14 +301,16 @@ apps/extension/src/
     middlewares/registerCommand.middleware.ts
                                            registerCommand: root span per command; shows the presenter's message
                                            for a failure, and logs a crash
-    controllers/                           session, project, commitMessage: decode the input into a request DTO and
-                                           call one service; the Sessions view's reads
+    controllers/                           session, sessionAlert, project, commitMessage: decode the input into a
+                                           request DTO and call one service; the views' reads
     presenters/                            session, project, commitMessage: a failed command's message, and the
                                            setting that fixes it; app: none, for commands that cannot fail
     utils/sessionsTreeNode.utils.ts        the Sessions tree's node ids, and decoding a row's node id into a
                                            request DTO
     views/sessions/                        SessionsView: the tree and badge providers, tree items, spinner, redraws,
-                                           and the session in front kept selected
+                                           the session in front kept selected, and the view's badge
+    views/sessionAlerts/                   SessionAlertsView: shows each alert in the focused window or hands it to
+                                           the system, and handles the session links desktop notifications open
   extension.ts                             activate
 ```
 
@@ -310,10 +323,15 @@ apps/extension/src/
 - Every entity stored in the database extends `BaseEntity` (`id`, `sortId`, `updatedAt`, `deletedAt`), and its
   repository and entity service build on the base pieces: `makeBaseRepository` and `base.service.ts`. Rows reach the
   domain only through `BaseEntity.fromRow`, inside the base repository, so no entity knows how it is stored.
-  `HarnessEntity` lives in the user's settings instead, so it is a plain `Schema.Class` whose id is its settings key.
-- `EntityIdValueObject`, `ProjectPathValueObject` and `HarnessIdValueObject` are branded with `Schema.brand`;
-  `AgentStatusValueObject` is a `Schema.Literals`. Every entity's id is a UUID v7 from `makeEntityId`, so a file name or
-  env value that is not one is not ours.
+  `AgentEntity` lives in the user's settings instead, so it is a plain `Schema.Class` whose id is its settings key.
+- `EntityIdValueObject`, `ProjectPathValueObject` and `AgentIdValueObject` are branded with `Schema.brand`; a value
+  object that is a set of values (`AgentStatusValueObject`, `SessionStatusValueObject`, `StatusKindValueObject`) is a
+  `Schema.Enum` with UPPER_CASE keys, and its file exports the values beside the schema as an UPPER_CASE constant
+  (`export const AGENT_STATUSES = AgentStatusValueObjectSchema.enums`), the one copy of each string. Code elsewhere
+  imports that constant (`AGENT_STATUSES.WORKING`) and never reads `.enums` itself. Presentation, which can't import the
+  domain, compares none: it looks states up in its constants. Lint (`syntaxBans.ts`) bans `Schema.Literals` in a value
+  object, an enum value object without its exported constant, reading `.enums` outside value objects, and comparing with
+  a state or kind-of-wait string; `roleNames.ts` lets a value object export the UPPER_CASE constant.
 - Each value object exports its schema as `<Name>ValueObjectSchema` and its type as `<Name>ValueObject`, since lint's
   `no-redeclare` rejects a value and a type of the same name. Entities and errors are classes, which are both.
 - A Schema class (entity or error) takes a `{readonly brand: unique symbol}` type argument, so two classes with the same
@@ -380,9 +398,9 @@ apps/extension/src/
 - **Container:** `infrastructure/di/app.layer.ts` merges the layers into `AppLayer`; `extension.ts` puts the commands
   and views on top, with the trace log and `VsCodeApi` underneath. There is no resolver and there are no string tokens:
   a use case's type lists the interfaces it needs, so a missing layer is a compile error.
-- **Harnesses are data, not implementations:** each is an `aggregorApp.harnesses` entry that `IHarnessRepository` reads,
-  so a new agent CLI is a settings entry, not code. The domain's `prepareLaunchPlan` turns a harness and a session into
-  a `LaunchPlanValueObject`, and the tmux infra service runs it under `aggregor-pty` in the session's tmux session;
+- **Agents are data, not implementations:** each is an `aggregorApp.agents` entry that `IAgentRepository` reads, so a
+  new agent CLI is a settings entry, not code. The domain's `prepareLaunchPlan` turns an agent and a session into a
+  `LaunchPlanValueObject`, and the tmux infra service runs it under `aggregor-pty` in the session's tmux session;
   neither knows the other.
 - **The agent and its tab are apart:** `ITmuxInfraService` starts and stops agents and says which run;
   `ITerminalInfraService` only opens, focuses, names and closes the tabs attached to them.
@@ -405,8 +423,8 @@ apps/extension/src/
   session's `projectPath`. After changing a model, delete `apps/extension/assets/migrations/` and run
   `pnpm db:generate --name create_tables`, which writes the one migration from zero; before 0.1.0 the old database is
   deleted instead of migrated. `storage.md` lists every stored table and key.
-- `HarnessRepository` reads VS Code's settings, not a table: it decodes `aggregorApp.harnesses` when the window starts
-  and again each time the setting changes, so an invalid entry is warned about once per change, and keeps the result for
-  its reads.
+- `AgentRepository` reads VS Code's settings, not a table: it decodes `aggregorApp.agents` when the window starts and
+  again each time the setting changes, so an invalid entry is warned about once per change, and keeps the result for its
+  reads.
 - A transformer turns an outside format into domain types (none today: `aggregor-pty` writes the domain's own values).
   It sits beside the infra service that reads the format, since only infrastructure knows it.

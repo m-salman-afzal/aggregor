@@ -19,7 +19,7 @@ interface TypeSourceEntry {
 }
 
 // aggregor/type-placement: a type that stands alone sits at the top of the file, after the imports; a type built from a
-// value in its own file (`typeof HarnessListItemDtoSchema.Type`, a union of the file's errors), directly or through
+// value in its own file (`typeof AgentListItemDtoSchema.Type`, a union of the file's errors), directly or through
 // another such type, sits below what it is built from, so the file reads top down.
 
 // The definitions a type can be built from in its own file: a const, a class or a function, or another type built from

@@ -7,7 +7,7 @@ import type {Rule} from "eslint";
 // that ran and finds it with one search.
 
 // The file roles that own their spans, with the suffix the owner's name takes: session.repository.ts is
-// SessionRepository's, harnessInfraServices.layer.ts is HarnessInfraServices'.
+// SessionRepository's, agentInfraServices.layer.ts is AgentInfraServices'.
 const OWNER_ROLE_SUFFIXES = new Map([
   ["config", "Config"],
   ["controller", "Controller"],

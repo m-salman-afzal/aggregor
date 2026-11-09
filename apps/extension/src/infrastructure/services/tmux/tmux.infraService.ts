@@ -100,7 +100,7 @@ const refreshRunningSessionIds = Effect.fn("TmuxInfraService.refreshRunningSessi
   );
 });
 
-// -A attaches to the session's tmux session when it runs, and otherwise starts it with the harness's variables.
+// -A attaches to the session's tmux session when it runs, and otherwise starts it with the agent's variables.
 const prepareTmuxArguments = Effect.fn("TmuxInfraService.prepareTmuxArguments")(function* (
   {tmuxConfigPath, tmuxSocketPath}: TmuxDependencies,
   {launchPlan, projectPath, sessionId}: SessionTabCommandRequest

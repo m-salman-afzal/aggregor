@@ -3,6 +3,7 @@ import {
   findViewedSessionIdForSessionsView,
   getSessionListItemForSessionsView,
   listProjectSessionIdsForSessionsView,
+  listSessionsWaitingOnUserForSessionsView,
   listWorkingSessionIdsForSessionsView,
   watchSessionListChangesForSessionsView,
   watchViewedSessionIdsForSessionsView
@@ -12,7 +13,9 @@ import {
   SELECT_ROW_RETRY_INTERVAL_MS,
   SESSION_BADGE_URI_SCHEME,
   SESSIONS_VIEW_ID,
-  SPINNER_FRAME_INTERVAL_MS
+  SPINNER_FRAME_INTERVAL_MS,
+  STATUS_LABELS,
+  VIEW_BADGE_LABELS
 } from "@pkg/constants/src/sessionsView.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {acquireScopedDisposable, streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
@@ -27,7 +30,7 @@ import {
   createStatusBadge,
   getSessionBadgeUri
 } from "@views/sessions/sessions.utils.ts";
-import {Effect, Layer, Match, Schedule, Schema, Stream, String} from "effect";
+import {Array, Effect, Layer, Match, Schedule, Schema, Stream, String} from "effect";
 
 import type {SessionListChangeDto} from "@dtos/session.dto.ts";
 import type {EventEmitter, TreeView, Uri} from "vscode";
@@ -257,6 +260,23 @@ const redrawChangedNodes = Effect.fn("SessionsView.redrawChangedNodes")(function
   });
 });
 
+// The view's badge counts the sessions waiting on the user, and VS Code shows it on the activity bar too. A failed read
+// leaves the badge as it was.
+const updateViewBadge = Effect.fn("SessionsView.updateViewBadge")(
+  function* (sessionsTreeView: TreeView<string>) {
+    const sessionsWaitingOnUser = yield* listSessionsWaitingOnUserForSessionsView();
+    const tooltipLines = Array.map(sessionsWaitingOnUser, ({displayName, status}) =>
+      VIEW_BADGE_LABELS.TOOLTIP_LINE(displayName, STATUS_LABELS[status])
+    );
+
+    yield* Effect.sync(() => {
+      sessionsTreeView.badge =
+        tooltipLines.length === 0 ? undefined : {tooltip: Array.join(tooltipLines, "\n"), value: tooltipLines.length};
+    });
+  },
+  (effect) => Effect.ignore(effect)
+);
+
 // shortcut: ticks for the view's whole life and reads the working sessions each frame while it is visible. Start and stop
 // it on status changes if those reads ever show up in a profile. A failed read skips the frame.
 const advanceSpinnerFrames = Effect.fn("SessionsView.advanceSpinnerFrames")(
@@ -281,9 +301,13 @@ const makeSessionsView = Effect.fn("SessionsView.make")(function* () {
     ...(yield* registerTreeView(runPromiseUntraced))
   };
   const sessionListChanges = yield* watchSessionListChangesForSessionsView();
+  yield* updateViewBadge(sessionsViewHandles.sessionsTreeView);
   yield* Effect.forkScoped(
     Stream.runForEach(sessionListChanges, (sessionListChange) =>
-      redrawChangedNodes(sessionsViewHandles, sessionListChange)
+      Effect.andThen(
+        redrawChangedNodes(sessionsViewHandles, sessionListChange),
+        updateViewBadge(sessionsViewHandles.sessionsTreeView)
+      )
     )
   );
   yield* Effect.forkScoped(

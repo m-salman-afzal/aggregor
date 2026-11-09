@@ -112,7 +112,7 @@ current entry. Leave a field out rather than guess.
   `CURRENT_TIMESTAMP`, which isn't ISO text. No base service: the services are use cases, and a base one only forwards
   to the repository; the user picked it as the foundation.
 - **Decision:** `BaseEntity` holds `id`, `sortId`, `updatedAt` and `deletedAt`, and every entity stored in the database
-  extends it (`HarnessEntity`, which lives in the settings, does not). `IBaseRepository` and `makeBaseRepository` give
+  extends it (`AgentEntity`, which lives in the settings, does not). `IBaseRepository` and `makeBaseRepository` give
   `add`, `findById`, `findMany`, `update`, `upsert` and `softDelete`. Reads skip soft-deleted rows and follow `sortId`;
   `upsert` brings a soft-deleted row back; `update` writes only the columns it is given, so the extension and
   `aggregor-pty` never overwrite each other's. `base.service.ts` has the same six calls for any repository, which the
@@ -201,38 +201,40 @@ current entry. Leave a field out rather than guess.
 ### Agents are settings entries (2026-11-03, #57; settings since 2026-11-09)
 
 - **Problem:** each agent was code: Claude Code's launch plan, placeholder titles and icon sat in
-  `ClaudeCodeHarnessInfraService`, behind `IHarnessInfraService` and a `LayerMap` keyed by harness id, so supporting
-  another CLI meant a new infra service.
-- **Options:** the harness interface (2026-11-03 to 2026-11-09). A harness as a value object, kept in a map keyed by
-  harness id inside `ISettingsConfig`: smaller, but the identity lives outside the object. Merging the built-ins with
-  the user's entries ourselves, which VS Code turned out to do already. Four flat settings,
-  `aggregorApp.harnesses.commands`, `.resumeCommands`, `.names` and `.icons`, from harness key to a command line or text
-  (tried on 2026-11-09): the Settings editor edits those in place, where it sends the nested setting to settings.json,
-  but four tables for one thing cluttered Aggregor's settings.
+  `ClaudeCodeAgentInfraService`, behind `IAgentInfraService` and a `LayerMap` keyed by agent id, so supporting another
+  CLI meant a new infra service.
+- **Options:** the agent interface (2026-11-03 to 2026-11-09). An agent as a value object, kept in a map keyed by agent
+  id inside `ISettingsConfig`: smaller, but the identity lives outside the object. Merging the built-ins with the user's
+  entries ourselves, which VS Code turned out to do already. Four flat settings, `aggregorApp.agents.commands`,
+  `.resumeCommands`, `.names` and `.icons`, from agent key to a command line or text (tried on 2026-11-09): the Settings
+  editor edits those in place, where it sends the nested setting to settings.json, but four tables for one thing
+  cluttered Aggregor's settings.
 - **Decision:**
-  - A harness is `HarnessEntity`, identified by its settings key (`HarnessIdValueObject`, a branded string), and read
-    through `IHarnessRepository` (`findAll`, `findById`). It is no `BaseEntity`, since it isn't a row.
-  - `aggregorApp.harnesses` holds one entry per harness key, `{name, command, args, resumeArgs, env, icon}`, edited in
+  - An agent is `AgentEntity`, identified by its settings key (`AgentIdValueObject`, a branded string), and read through
+    `IAgentRepository` (`findAll`, `findById`). It is no `BaseEntity`, since it isn't a row.
+  - `aggregorApp.agents` holds one entry per agent key, `{name, command, args, resumeArgs, env, icon}`, edited in
     settings.json. Every field is optional: `command` and `name` default to the key, `args` to none, `resumeArgs` to
-    `args`, `env` to none and `icon` to the `terminal` codicon. `args` and `resumeArgs` take two variables:
-    `${sessionId}`, and `${agentSessionId}` (see "Codex resumes its own conversation by id"). The setting has `machine`
-    scope, so only user settings define commands, and its default holds the built-ins (`claude`, `codex`, `agy`,
-    `opencode`, `copilot`), which VS Code merges with the user's entries field by field, `env` name by name; `null`
-    hides one. An entry that doesn't decode, a variable name that isn't a POSIX name included, is left out with a
-    warning, read once at start and again on each change of the setting.
+    `args`, `env` to none and `icon` to Aggregor's logo. `args` and `resumeArgs` take two variables: `${sessionId}`, and
+    `${agentSessionId}` (see "Codex resumes its own conversation by id"). The setting has `machine` scope, so only user
+    settings define commands, and its default holds the built-ins (`claude`, `codex`, `agy`, `opencode`, `copilot`),
+    which VS Code merges with the user's entries field by field, `env` name by name; `null` hides one. An entry that
+    doesn't decode, a variable name that isn't a POSIX name included, is left out with a warning, read once at start and
+    again on each change of the setting.
   - `env` (added 2026-11-09) holds the variables the agent starts with, passed as tmux `new-session -e NAME=value`.
     Claude's default is `CLAUDE_CODE_TMUX_TRUECOLOR=1`: Claude drops to 256 colours whenever `TMUX` is set unless it is
     set, though Aggregor's tmux passes 24-bit colour. An agent added later that dims its colours in tmux gets its own
-    switch the same way. A setting rather than a line in `tmux.conf`, so each agent's switches sit with its harness and
+    switch the same way. A setting rather than a line in `tmux.conf`, so each agent's switches sit in its own entry and
     the user can add their own; hiding `TMUX` from every agent was rejected, since agents rely on it for clipboard,
     images and keys.
-  - The domain's `prepareLaunchPlan(harness, session)` takes `resumeArgs` once the session has worked, else `args`,
-    fills in the variables and returns a `LaunchPlanValueObject`, which the session's tab runs under `aggregor-pty`.
-  - A session whose harness is gone shows a warning icon, and opening it fails with `HarnessNotFoundError`.
-  - Icons are a codicon id or an image path, relative ones inside the extension. `assets/harnesses/` holds Claude Code's
-    logo, OpenCode's (simple-icons 16.30.0), and Codex's and Antigravity's app icons (lobe-icons 1.102.0, MIT; Codex's
-    without its white tile, which stood out on a dark theme); Copilot uses the `copilot` codicon, which is its logo.
-    Codicons for Codex (`code`) and Antigravity (`rocket`) were the first build's, since simple-icons carries neither.
+  - The domain's `prepareLaunchPlan(agent, session)` takes `resumeArgs` once the session has worked, else `args`, fills
+    in the variables and returns a `LaunchPlanValueObject`, which the session's tab runs under `aggregor-pty`.
+  - A session whose agent is gone shows a warning icon, and opening it fails with `AgentNotFoundError`.
+  - An icon is the path of an SVG or PNG image (an entry naming another file is left out), relative ones inside the
+    extension; codicons were dropped on 2026-11-10, so every agent shows a logo, in its rows, tabs, picker and desktop
+    notifications alike. `assets/agents/` holds Claude Code's logo, OpenCode's and Copilot's (simple-icons 16.30.0, CC0,
+    in OpenCode's grey `#8B929C`), Codex's and Antigravity's app icons (lobe-icons 1.102.0, MIT; Codex's without its
+    white tile, which stood out on a dark theme), and Aggregor's logo in the same grey, which an entry without an icon
+    shows. Codicons for Codex (`code`), Antigravity (`rocket`) and Copilot (`copilot`) came first.
 - **Why:** another CLI is one settings entry, and the rules about launching and titles are the domain's, the same for
   every agent.
 
@@ -290,9 +292,8 @@ current entry. Leave a field out rather than guess.
 
 ### A type sits below what it is built from (2026-11-09)
 
-- **Problem:** lint kept every type at the top of its file, so
-  `HarnessListItemDto = typeof HarnessListItemDtoSchema.Type` sat above the schema it comes from, and an error union
-  above its errors.
+- **Problem:** lint kept every type at the top of its file, so `AgentListItemDto = typeof AgentListItemDtoSchema.Type`
+  sat above the schema it comes from, and an error union above its errors.
 - **Options:** dropping the rule, which lets standalone types scatter; an esquery selector, which can't tell what a type
   refers to.
 - **Decision:** `aggregor/type-placement` in `packages/eslint/src/rules/`, for every TypeScript file: a type built from
@@ -332,7 +333,7 @@ current entry. Leave a field out rather than guess.
 ### The backend drives the Sessions view (2026-11-08; DTOs and presenters since 2026-11-09)
 
 - **Problem:** after step 3 the view still held the unread state, decided each row's status, merged five change sources
-  itself, read the repositories and the terminal and harness services directly, and listed the statuses again
+  itself, read the repositories and the terminal and agent services directly, and listed the statuses again
   (`RowStatus`, inline `done || idle || unknown` checks). Every change redrew the whole tree, and every window kept a
   copy of the sessions and projects.
 - **Options:** a snapshot of every project and session, rebuilt and pushed on each change, which still redraws every
@@ -347,8 +348,8 @@ current entry. Leave a field out rather than guess.
   - The tree's nodes are ids, `project:<path>` and `session:<id>`, since VS Code finds a node to redraw by its id. Each
     draw reads the node through the controllers: a `ProjectListItemDto`, or a `SessionListItemDto` with the status the
     user sees (`SessionStatusValueObject`, picked from the stored `AgentStatusValueObject` by `getSessionStatus`), its
-    kind and progress only while the turn runs, its message unless the agent is gone, its harness's icon and its
-    project's name. `SessionService` assembles it.
+    kind and progress only while the turn runs, its message unless the agent is gone, its agent's icon and its project's
+    name. `SessionService` assembles it.
   - No window keeps a copy: every read is a query, and each repository's `entityChanges` reads only the rows written
     since its last check (see the `data_version` entry). The spinner reads the working sessions each frame while the
     view is visible.
@@ -387,8 +388,8 @@ current entry. Leave a field out rather than guess.
   cancelled pick or a row removed meanwhile. Each feature has a presenter (`presentation/presenters/<x>.presenter.ts`)
   whose type is every failure its services return, so a new failure fails to compile until it has a message; `routes.ts`
   registers each command with its presenter, and `registerCommand` logs the failure and shows the message. A presenter
-  may also name the setting that fixes the failure (`aggregorApp.harnesses` for a missing harness), and the message then
-  has an **Open Settings** button. Work no command started logs its failures in the trace log.
+  may also name the setting that fixes the failure (`aggregorApp.agents` for a missing agent), and the message then has
+  an **Open Settings** button. Work no command started logs its failures in the trace log.
 - **Why:** the backend says what went wrong; presentation decides how to say it.
 
 ### `@pkg/vscode` holds what presentation and infrastructure share (2026-11-09)
@@ -406,7 +407,7 @@ current entry. Leave a field out rather than guess.
 
 - **Problem:** every constant went into `extension.constant.ts` or `message.constant.ts`.
 - **Options:** by kind (ids, UI, runtime, messages).
-- **Decision:** one `@pkg/constants/src/<feature>.constant.ts` per feature (app, commitMessage, database, git, harness,
+- **Decision:** one `@pkg/constants/src/<feature>.constant.ts` per feature (app, commitMessage, database, git, agent,
   project, session, sessionsView, terminal, workspace), each with `<FEATURE>_COMMANDS`, `_LABELS` (titles, buttons,
   placeholders), `_NOTICES` (confirmations and offers) and `_ERRORS` (failure texts) as it needs them.
 - **Why:** a feature's ids and words sit together, and a constant's file says who uses it.
@@ -583,7 +584,7 @@ current entry. Leave a field out rather than guess.
   wait for step 7. A writer thread keeps the latest pending change and writes title changes at most every 500 ms. The
   agent runs whatever happens to the database; errors go to `aggregor-pty.log` beside it, at most 10 lines a run. A
   session's tmux session runs `aggregor-pty --database ‹path› --session ‹id› -- ‹agent command›`: the tmux infra service
-  wraps the harness's launch plan, and `getDatabaseFilePath` gives it and the database layer the same path.
+  wraps the agent's launch plan, and `getDatabaseFilePath` gives it and the database layer the same path.
 - **Why:** the reports carry what each agent knows, in one format. Two title columns leave step 4's title rule to the
   domain. Codex's title spinner changes about ten times a second, and from step 3 every write makes the window read the
   rows it changed.
@@ -613,7 +614,7 @@ current entry. Leave a field out rather than guess.
   restored session tabs after a quit by re-running the command they were opened with, which the extension never saw;
   since session tabs are transient, every tab is opened by the extension, so the pick went back to it.
 - **Decision:** when tmux no longer runs the session's agent, opening it starts the agent again: the domain's
-  `prepareLaunchPlan` takes the harness's `resumeArgs` (`claude --resume ‹id›`) once the session has reported `working`,
+  `prepareLaunchPlan` takes the agent's `resumeArgs` (`claude --resume ‹id›`) once the session has reported `working`,
   else its `args`, which start fresh under the session's id where the agent takes one. While tmux still runs it, opening
   only attaches.
 - **Why:** an agent has a conversation to resume once it has worked, and the flag is the same for every agent.
@@ -660,12 +661,12 @@ current entry. Leave a field out rather than guess.
   no change event exists.
 - **Decision:** `aggregor-pty` stores the title from the agent's 7501 report and its OSC 0/2 title on the row, and
   `getSessionTitle` takes the first that holds a title: status marks (symbols, spaces and control characters) trimmed at
-  both ends, the harness's name, its command or the project folder dropped where joined by `-`, `|` or `:` at either
-  end, and not empty, one of those names alone, only an id (a UUID, maybe with a prefix such as `ses_`), or a start time
+  both ends, the agent's name, its command or the project folder dropped where joined by `-`, `|` or `:` at either end,
+  and not empty, one of those names alone, only an id (a UUID, maybe with a prefix such as `ses_`), or a start time
   (OpenCode's `New session - 2026-11-09T09:26:37.754Z`). The title becomes the session's `name`, so the row keeps it
   while the agent is gone or resuming; only that save is traced, since the check runs on every write to a session.
   Rename stores a `customName`, which wins in the row and the tab.
-- **Why:** one rule covers every agent's title, and a harness adds no title code.
+- **Why:** one rule covers every agent's title, and an agent adds no title code.
 
 ### The session in front stays selected in the Sessions view (2026-11-09)
 
@@ -719,10 +720,10 @@ current entry. Leave a field out rather than guess.
     reopening every restored tab at start reorders and flickers them.
   - When `aggregor-pty` can't start the agent (a command it can't run), it prints why and waits for Enter, so the tab
     doesn't vanish without a word.
-  - tmux learns the tab's colours about 20 ms after the tab attaches and leaves a colour query unanswered until then, so
-    Codex, which asks as it starts, drew its composer without the theme's shade. `aggregor-pty` asks for the background
-    every 20 ms until tmux answers, up to 1 s, and only then starts the agent, which covers every agent that asks early;
-    keys typed in that moment are dropped.
+  - tmux learns the tab's colours about 20 ms after the tab attaches and leaves a colour query unanswered until then.
+    `aggregor-pty` asking for the background every 20 ms until tmux answered, and only then starting the agent, gave
+    Codex's composer the theme's shade in a headless check (`52,53,54` instead of `25,26,27`), but was dropped the same
+    day: Codex looked right without it in use, and it held back every agent's start.
   - `ITmuxInfraService` builds the tab's command after checking tmux and `aggregor-pty`, lists and stops sessions, and
     after a tab opens reads tmux's list until it has the session (every 50 ms, up to 5 s); `TerminalInfraService` only
     opens, focuses, names and closes tabs. A row's exited status comes from tmux's session list, read when the window
@@ -737,6 +738,32 @@ current entry. Leave a field out rather than guess.
   restart closes the session tabs, and their order and layout with them; the agents keep running. An agent that exits at
   once, such as a resume whose conversation is gone, closes its tab without a word; only `aggregor-pty`'s own failures
   wait for Enter.
+
+### A set of values is an enum value object that exports its values (2026-11-10)
+
+- **Problem:** the agent's states and kinds of wait were `Schema.Literals`, so code compared and returned bare strings
+  (`status === "working"`), each one a copy a typo or rename could miss.
+- **Options:** a constants object per set in `@pkg/constants`, which the domain can't import. Reading the schema's
+  `.enums` in each file that needs a value, one local copy per file (tried and dropped the same day).
+- **Decision:** a value object that is a set of values is a `Schema.Enum` with UPPER_CASE keys, and its file exports the
+  values as an UPPER_CASE constant beside the schema (`AGENT_STATUSES`, `SESSION_STATUSES`, `STATUS_KINDS`); code
+  imports the constant. Presentation, which can't import the domain, looks states up in its constants instead of
+  comparing them. Lint bans `Schema.Literals` in value objects, an enum value object without its exported constant,
+  `.enums` outside value objects, and comparing with a state or kind-of-wait string. The stored strings are unchanged.
+- **Why:** each string is written once, in the domain, and lint keeps it that way for every such value object.
+
+### The CLIs a session runs are agents, one word everywhere (2026-11-10)
+
+- **Problem:** the code called them harnesses (the settings entries, `HarnessEntity`) and agents (the running process,
+  its status, the texts the user reads), two words for one thing.
+- **Options:** harness everywhere, considered the same day and dropped: "agent" is what users, the agents' own docs and
+  the product description call them.
+- **Decision:** agent everywhere: `AgentEntity`, `IAgentRepository`, `AgentIdValueObject`, `AgentIconValueObject`,
+  `AgentListItemDto`, `agent.constant.ts`, `assets/agents/`, the settings `aggregorApp.agents`,
+  `aggregorApp.defaultAgent` and `aggregorApp.skipAgentPicker`, and the `sessions.agentId` column; the stack's branch
+  names keep `harness-foundation`, since pushed branches aren't renamed. Lint (`AGENT_NAME_BAN` in `syntaxBans.ts`)
+  rejects the other word in names and texts in the extension and `@pkg/constants`.
+- **Why:** one word for one thing, and the one users already use.
 
 ### Codex resumes its own conversation by id (2026-11-09)
 
@@ -764,6 +791,62 @@ current entry. Leave a field out rather than guess.
   the user's. Codex sessions don't show in `codex agents`. Codex reports `working` for a moment at startup, so a session
   that never got a message counts as worked, and once its agent has stopped, `codex resume ‹id›` finds no saved thread
   and exits, closing the tab.
+
+### Sessions out of view notify, and the view's badge counts those waiting on you (2026-11-10)
+
+- **Problem:** an agent that waits for permission or finishes while the user looks elsewhere, in VS Code or in another
+  app, goes unnoticed until they look at its row.
+- **Options:**
+  - Bringing the window forward from an OS notification by running `code ‹workspace›`: an untitled workspace, which
+    Aggregor's window becomes, has no path to pass.
+  - An **Open** button on the desktop notification whose click opened the window's link through `xdg-open` (built and
+    tried on 2026-11-10): GNOME on Wayland lets a window come forward only with an activation token, which a click hands
+    to the program that sent the notification, `notify-send`. VS Code can't take one from outside: its code never reads
+    `XDG_ACTIVATION_TOKEN`, and it doesn't use Electron's `requestSingleInstanceLock`, the way Chromium passes a token
+    to a running instance. So the link opened the session, and GNOME kept VS Code in the background.
+  - Bringing the right window forward when several VS Code windows are open: kept for "If the users asked" in the
+    README, with the problem and a proposal.
+  - Only the Linux notification for now, macOS and WSL when someone runs them: dropped, so the release has them for
+    contributors to try.
+  - Removing `notifyOn` until it is wanted: kept, so the states can be picked.
+- **Decision:**
+  - `SessionAlertService.watchSessionAlerts` watches the session rows: a write whose `statusChangedAt` moved since the
+    window started, with a new state or kind of wait, is a change. Each session's changes pass once they have held for 3
+    seconds (`SESSION_ALERT_HOLD_MS`), and only when the state differs from the one held before; idle held after working
+    counts as done (`getAlertedStatus`). The session must be out of view when the state changed and once it held, and
+    the state in `aggregorApp.notifyOn` (default: blocked, done, error, exited, idle).
+  - `SessionAlertsView` shows each alert: the focused window as its own notification with **Open**, which runs the open
+    command; an unfocused one through `IDesktopNotificationInfraService`.
+  - On Linux, `notify-send --wait` with `NOTIFY_IGNORE_PORTAL=1`, a `desktop-entry` hint naming VS Code's desktop file
+    (from `CHROME_DESKTOP`, `com.microsoft.VSCode.desktop` in 1.145), the agent's logo as the `image-path` hint and
+    Aggregor's light logo as `--app-icon`, with no button. GNOME Shell 50 (`notificationDaemon.js`) then files the
+    notification under VS Code, so its header shows VS Code's name and icon, and a click on it runs `app.activate()`,
+    which brings VS Code's most recently used window forward and switches to its workspace, as for Ghostty. `--wait`
+    keeps `notify-send` connected: GNOME deletes a notification filed under an app as soon as its sender leaves the bus.
+    libnotify routes a snap's or flatpak's notifications through the portal, which drops hints, and the extension host
+    can inherit a snap terminal's environment.
+  - GNOME tells the sender only that the notification closed, the same for a click as for its X, so the window opens the
+    session when it came into focus within 1.5 seconds of that (`DESKTOP_NOTIFICATION_CLICK_FOCUS_MS`). A click closes
+    every VS Code notification at once, so the first alert to see the focus uses it up and the others open nothing.
+  - From WSL (a kernel release naming microsoft), a PowerShell toast whose click opens a link
+    (`vscode://salmanafzal.aggregor-app/openSession?sessionId=…`, from `env.asExternalUri`, which adds the window's id)
+    through Windows; the view's URI handler opens the session, and VS Code asks once whether the extension may open
+    links. On macOS, `osascript`'s `display notification`, whose click opens Script Editor. Neither shows the logos:
+    osascript always shows Script Editor's icon, and toasts take PNG or JPG, not the SVG logos. Native Windows sends
+    none, since its sessions run in WSL.
+  - The Sessions view's badge, which VS Code also shows on the activity bar, counts the sessions blocked, errored or
+    with a finished turn unseen (`isSessionWaitingOnUser`), and its tooltip lists them; it is read again on every
+    session list change.
+- **Why:** a state that holds is news, quick sequences raise one notification, and Antigravity's 2-second sign-in check
+  at every start raises none. Only GNOME may bring VS Code forward, and it does so for a notification it files under VS
+  Code.
+- **Limits:** VS Code can't close a notification once shown, so one can outlive its state; Open still goes to the
+  session. Each window sends its own, so two windows notify twice. With several VS Code windows, a click brings the most
+  recently used one forward, which may not be the one that sent it; that one then opens nothing (see "If the users
+  asked" in the README). Focusing the window within 1.5 seconds of dismissing a notification with its X opens the
+  session too. A desktop notification waiting keeps a `notify-send` process until it is clicked or dismissed, and
+  Ubuntu's AppArmor profile for `notify-send` keeps VS Code from stopping it, so it outlives a reload. The WSL toast and
+  macOS notification are untested.
 
 ### A session's tab shows its row's name (2026-11-09)
 
@@ -796,20 +879,19 @@ current entry. Leave a field out rather than guess.
 
 - **Problem:** with five built-in agents, starting a session has to say which, and offering one that isn't installed
   only fails in its terminal.
-- **Options:** `HarnessRepository.findAll` leaving out uninstalled agents, which mixes what is configured with what is
-  on this machine. Saving the default from inside the picker while it stays open, which puts the decision in
+- **Options:** `AgentRepository.findAll` leaving out uninstalled agents, which mixes what is configured with what is on
+  this machine. Saving the default from inside the picker while it stays open, which puts the decision in
   infrastructure. Error messages without a way to the setting.
 - **Decision:**
   - The project row's "New Claude Session" became "New Session"; the title bar's "New Session..." asks for the project
     first, then the agent. Command ids didn't change.
-  - The picker lists the harnesses whose command is on `PATH` (plus `PATHEXT` on Windows), looked up in the extension
-    host each time through `IShellCommandInfraService.listInstalledCommands`, so a new install shows without a reload.
-    Each row is a `HarnessListItemDto`: icon, name, the command as the description, the default first and marked.
-  - A row's **Set as Default** button ends the pick; the use case saves `aggregorApp.defaultHarness` to user settings
-    through `ISettingsConfig.saveDefaultHarnessId` and shows the picker again, reordered.
-  - One harness installed, or `aggregorApp.skipHarnessPicker` on with the default installed, starts it without the
-    picker; none installed fails with `NoHarnessInstalledError`, naming the commands searched for, with **Open
-    Settings**.
+  - The picker lists the agents whose command is on `PATH` (plus `PATHEXT` on Windows), looked up in the extension host
+    each time through `IShellCommandInfraService.listInstalledCommands`, so a new install shows without a reload. Each
+    row is an `AgentListItemDto`: icon, name, the command as the description, the default first and marked.
+  - A row's **Set as Default** button ends the pick; the use case saves `aggregorApp.defaultAgent` to user settings
+    through `ISettingsConfig.saveDefaultAgentId` and shows the picker again, reordered.
+  - One agent installed, or `aggregorApp.skipAgentPicker` on with the default installed, starts it without the picker;
+    none installed fails with `NoAgentInstalledError`, naming the commands searched for, with **Open Settings**.
 - **Why:** the use case decides and the picker only shows; whether a command is installed is a fact about the machine,
   not the configuration.
 

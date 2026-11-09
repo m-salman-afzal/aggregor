@@ -31,7 +31,7 @@ fn create_database(test_name: &str) -> PathBuf {
     connection
         .execute_batch(&format!(
             "INSERT INTO projects (id, updatedAt, path) VALUES ('project', '2026-11-08T00:00:00.000Z', '/tmp');
-            INSERT INTO sessions (id, updatedAt, projectId, harnessId, name)
+            INSERT INTO sessions (id, updatedAt, projectId, agentId, name)
             VALUES ('{SESSION_ID}', '2026-11-08T00:00:00.000Z', 'project', 'claude', 'test');"
         ))
         .unwrap();

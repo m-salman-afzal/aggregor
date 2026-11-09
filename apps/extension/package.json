@@ -61,7 +61,7 @@
           "default": false,
           "description": "Commit the staged changes right after generating the commit message."
         },
-        "aggregorApp.harnesses": {
+        "aggregorApp.agents": {
           "type": "object",
           "scope": "machine",
           "default": {
@@ -78,7 +78,7 @@
               "env": {
                 "CLAUDE_CODE_TMUX_TRUECOLOR": "1"
               },
-              "icon": "assets/harnesses/claude.svg"
+              "icon": "assets/agents/claude.svg"
             },
             "codex": {
               "name": "Codex",
@@ -94,7 +94,7 @@
                 "tui.terminal_title=[\"thread-title\"]",
                 "${agentSessionId}"
               ],
-              "icon": "assets/harnesses/codex.svg"
+              "icon": "assets/agents/codex.svg"
             },
             "agy": {
               "name": "Antigravity",
@@ -102,7 +102,7 @@
               "resumeArgs": [
                 "-c"
               ],
-              "icon": "assets/harnesses/antigravity.svg"
+              "icon": "assets/agents/antigravity.svg"
             },
             "opencode": {
               "name": "OpenCode",
@@ -114,7 +114,7 @@
                 "--session",
                 "ses_${sessionId}"
               ],
-              "icon": "assets/harnesses/opencode.svg"
+              "icon": "assets/agents/opencode.svg"
             },
             "copilot": {
               "name": "GitHub Copilot",
@@ -126,7 +126,7 @@
                 "--session-id",
                 "${sessionId}"
               ],
-              "icon": "copilot"
+              "icon": "assets/agents/copilot.svg"
             }
           },
           "additionalProperties": {
@@ -170,21 +170,55 @@
               },
               "icon": {
                 "type": "string",
-                "description": "A codicon id, or the path of an SVG or PNG file."
+                "pattern": "\\.(?:[pP][nN][gG]|[sS][vV][gG])$",
+                "description": "The path of an SVG or PNG file, absolute or inside the extension. Defaults to Aggregor's logo."
               }
             }
           },
           "markdownDescription": "The agent CLIs a session can run, keyed by command name. Your entries merge with the built-ins: change a field of one, add your own, or set one to `null` to hide it. Only user settings can define them."
         },
-        "aggregorApp.defaultHarness": {
+        "aggregorApp.defaultAgent": {
           "type": "string",
           "default": "claude",
-          "markdownDescription": "The key in `#aggregorApp.harnesses#` that New Session lists first and selects."
+          "markdownDescription": "The key in `#aggregorApp.agents#` that New Session lists first and selects."
         },
-        "aggregorApp.skipHarnessPicker": {
+        "aggregorApp.skipAgentPicker": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Start `#aggregorApp.defaultHarness#` straight away instead of asking which agent to use."
+          "markdownDescription": "Start `#aggregorApp.defaultAgent#` straight away instead of asking which agent to use."
+        },
+        "aggregorApp.notifyOn": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "blocked",
+              "done",
+              "error",
+              "exited",
+              "idle",
+              "unknown",
+              "working"
+            ],
+            "enumDescriptions": [
+              "The agent waits for you: a permission, a question or a sign-in.",
+              "The agent finished its turn, or went back to idle after working.",
+              "The agent reported an error.",
+              "The agent exited.",
+              "The agent is idle.",
+              "The agent stopped reporting its status.",
+              "The agent is working."
+            ]
+          },
+          "uniqueItems": true,
+          "default": [
+            "blocked",
+            "done",
+            "error",
+            "exited",
+            "idle"
+          ],
+          "markdownDescription": "The states a session out of view notifies about, once it has held one for 3 seconds: inside VS Code when its window is focused, else as a system notification."
         }
       }
     },

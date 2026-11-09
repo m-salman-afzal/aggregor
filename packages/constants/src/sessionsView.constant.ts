@@ -10,8 +10,8 @@ export const SESSIONS_VIEW_CONTEXT_VALUES = {
 // Any folder can be a project, git or not, so the icon is a plain root folder.
 export const PROJECT_ROW_ICON = "root-folder";
 
-// A session whose agent is gone from the harnesses setting.
-export const MISSING_HARNESS_ROW_ICON = "warning";
+// A session whose agent is gone from the agents setting.
+export const MISSING_AGENT_ROW_ICON = "warning";
 
 // Each session row gets a URI in this scheme so a FileDecorationProvider can draw its status badge.
 export const SESSION_BADGE_URI_SCHEME = "aggregor-session";
@@ -23,6 +23,7 @@ export const STATUS_BADGES = {
   done: {color: "charts.green", frames: ["✓"]},
   error: {color: "errorForeground", frames: ["✕"]},
   exited: {color: "disabledForeground", frames: ["○"]},
+  idle: undefined,
   working: {color: "charts.blue", frames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]}
 } as const;
 
@@ -46,6 +47,11 @@ export const STATUS_KIND_LABELS = {
   auth: "needs sign-in",
   permission: "needs permission",
   question: "has a question"
+} as const;
+
+// The view's badge, which VS Code also shows on the activity bar, lists the sessions waiting on the user when hovered.
+export const VIEW_BADGE_LABELS = {
+  TOOLTIP_LINE: (displayName: string, statusLabel: string) => `${displayName} · ${statusLabel}`
 } as const;
 
 export const SESSION_ROW_LABELS = {

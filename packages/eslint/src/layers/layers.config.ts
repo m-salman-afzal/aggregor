@@ -1,13 +1,17 @@
 import {IMPORT_BANS, IMPORT_RULES, OPTION_IMPORT_BANS} from "@pkg/eslint/src/layers/importRules.ts";
 import {ROLE_NAMES} from "@pkg/eslint/src/layers/roleNames.ts";
 import {
+  AGENT_NAME_BAN,
   DOMAIN_SERVICE_EXPORT_BAN,
   ENTITY_EXPORT_BAN,
+  ENUM_VALUE_OBJECT_BANS,
+  ENUM_VALUES_ACCESS_BAN,
   ERROR_FILE_BAN,
   EXPORTED_TYPE_BAN,
   NON_TYPE_BAN,
   PLAIN_FUNCTION_BAN,
   SERVICE_CLASS_BAN,
+  STATUS_LITERAL_BAN,
   SYNTAX_BANS
 } from "@pkg/eslint/src/layers/syntaxBans.ts";
 
@@ -24,18 +28,32 @@ export const LAYER_CONFIGS: Config[] = [
   {
     files: ["apps/extension/src/**/*.ts"],
     ignores: ["**/*.interface.ts", "**/*.type.ts", "**/*.valueObject.ts", "**/*.dto.ts"],
-    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN, SERVICE_CLASS_BAN, PLAIN_FUNCTION_BAN]}
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        AGENT_NAME_BAN,
+        ...SYNTAX_BANS,
+        EXPORTED_TYPE_BAN,
+        SERVICE_CLASS_BAN,
+        PLAIN_FUNCTION_BAN,
+        STATUS_LITERAL_BAN,
+        ENUM_VALUES_ACCESS_BAN
+      ]
+    }
   },
   {
     files: ["apps/extension/src/**/*.entity.ts"],
     rules: {
       "no-restricted-syntax": [
         "error",
+        AGENT_NAME_BAN,
         ...SYNTAX_BANS,
         EXPORTED_TYPE_BAN,
         SERVICE_CLASS_BAN,
         PLAIN_FUNCTION_BAN,
-        ENTITY_EXPORT_BAN
+        ENTITY_EXPORT_BAN,
+        STATUS_LITERAL_BAN,
+        ENUM_VALUES_ACCESS_BAN
       ]
     }
   },
@@ -44,28 +62,36 @@ export const LAYER_CONFIGS: Config[] = [
     rules: {
       "no-restricted-syntax": [
         "error",
+        AGENT_NAME_BAN,
         ...SYNTAX_BANS,
         EXPORTED_TYPE_BAN,
         SERVICE_CLASS_BAN,
         PLAIN_FUNCTION_BAN,
-        DOMAIN_SERVICE_EXPORT_BAN
+        DOMAIN_SERVICE_EXPORT_BAN,
+        STATUS_LITERAL_BAN,
+        ENUM_VALUES_ACCESS_BAN
       ]
     }
   },
   {
     files: ["apps/extension/src/**/*.interface.ts"],
-    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, PLAIN_FUNCTION_BAN]}
+    rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ...SYNTAX_BANS, PLAIN_FUNCTION_BAN]}
   },
   {
     files: ["apps/extension/src/**/*.dto.ts"],
-    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, SERVICE_CLASS_BAN, PLAIN_FUNCTION_BAN]}
+    rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ...SYNTAX_BANS, SERVICE_CLASS_BAN, PLAIN_FUNCTION_BAN]}
+  },
+  // The texts the user reads live in @pkg/constants, so they call the CLIs agents too.
+  {
+    files: ["packages/constants/src/**/*.ts"],
+    rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ...SYNTAX_BANS]}
   },
   // @pkg/vscode is shared by presentation and infrastructure, under the same code rules.
   {
     files: ["packages/vscode/src/**/*.ts"],
     rules: {
       "@typescript-eslint/no-restricted-imports": ["error", {paths: IMPORT_BANS}],
-      "no-restricted-syntax": ["error", ...SYNTAX_BANS, EXPORTED_TYPE_BAN, PLAIN_FUNCTION_BAN]
+      "no-restricted-syntax": ["error", AGENT_NAME_BAN, ...SYNTAX_BANS, EXPORTED_TYPE_BAN, PLAIN_FUNCTION_BAN]
     }
   },
   {
@@ -74,13 +100,25 @@ export const LAYER_CONFIGS: Config[] = [
   },
   {
     files: ["apps/extension/src/**/*.valueObject.ts"],
-    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, SERVICE_CLASS_BAN, PLAIN_FUNCTION_BAN]}
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        AGENT_NAME_BAN,
+        ...SYNTAX_BANS,
+        SERVICE_CLASS_BAN,
+        PLAIN_FUNCTION_BAN,
+        ...ENUM_VALUE_OBJECT_BANS
+      ]
+    }
   },
   {
     files: ["apps/extension/src/**/*.type.ts"],
-    rules: {"no-restricted-syntax": ["error", ...SYNTAX_BANS, NON_TYPE_BAN]}
+    rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ...SYNTAX_BANS, NON_TYPE_BAN]}
   },
-  {files: ["apps/extension/src/**/*.error.ts"], rules: {"no-restricted-syntax": ["error", ERROR_FILE_BAN]}},
+  {
+    files: ["apps/extension/src/**/*.error.ts"],
+    rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ERROR_FILE_BAN]}
+  },
   // A file's errors sit at its top, above its other classes. Blank lines split the sorting, so a type built from the
   // file's classes can sit below them, where aggregor/type-placement puts it.
   {
