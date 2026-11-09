@@ -77,8 +77,8 @@ export const pickProject = Effect.fn("ProjectService.pickProject")(function* (pl
   return yield* Effect.fromResult(Result.fromNullishOr(projectListItems[0], () => NoProjectError.make()));
 });
 
-// A window showing no project shows the first new one. An empty window gets its anchor folder that way, which keeps its
-// key; the extensions restart, but nothing runs there yet.
+// A window showing no project shows the first new one, opening Aggregor's workspace, which reloads the window; nothing
+// runs there yet.
 const showFirstNewProject = Effect.fn("ProjectService.showFirstNewProject")(function* (
   newProjectPaths: readonly ProjectPathValueObject[]
 ) {
@@ -87,7 +87,7 @@ const showFirstNewProject = Effect.fn("ProjectService.showFirstNewProject")(func
   const [firstNewProjectPath] = newProjectPaths;
   if (workspaceFolderProjects.length > 0 || firstNewProjectPath === undefined) return;
 
-  yield* workspaceInfraService.showOnlyProjectFolder(firstNewProjectPath);
+  yield* workspaceInfraService.showOnlyProjectFolder(firstNewProjectPath, undefined);
 });
 
 // Each goes to the end of the list, an added project too.

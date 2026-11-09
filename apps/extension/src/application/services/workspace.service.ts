@@ -1,10 +1,8 @@
 import {IGitInfraService} from "@interfaces/git.infraService.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
-import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import {WORKSPACE_LABELS, WORKSPACE_NOTICES} from "@pkg/constants/src/workspace.constant.ts";
 import {addProjectPaths, listProjects} from "@services/project.service.ts";
-import {findSession} from "@services/session.service.ts";
+import {findSession, openSession} from "@services/session.service.ts";
 import {Array, Effect, Result, Stream, SubscriptionRef} from "effect";
 
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
@@ -41,7 +39,7 @@ const showSessionProject = Effect.fn("WorkspaceService.showSessionProject")(
     // of showing that the workspace has none.
     yield* IGitInfraService.use((gitInfraService) => gitInfraService.openInSourceControl(session.projectPath));
     yield* IWorkspaceInfraService.use((workspaceInfraService) =>
-      workspaceInfraService.showOnlyProjectFolder(session.projectPath)
+      workspaceInfraService.showOnlyProjectFolder(session.projectPath, session.id)
     );
   },
   // A tab left running by a removed session has no project to show.
@@ -63,20 +61,21 @@ export const startShownProjectSync = Effect.fn("WorkspaceService.startShownProje
   );
 });
 
-// After the first switch the window is an untitled workspace. Saved, VS Code names it after the anchor folder, Aggregor,
-// and closing the window stops asking to save it; it can only be saved through Save Workspace As's dialog.
-const offerToSaveWorkspace = Effect.fn("WorkspaceService.offerToSaveWorkspace")(function* () {
-  const workspaceInfraService = yield* IWorkspaceInfraService;
-  const isOfferClaimed = yield* workspaceInfraService.claimWorkspaceSaveOffer;
-  if (!isOfferClaimed) return;
-  const pickedAction = yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
-    userInputPromptInfraService.showInformationMessage(WORKSPACE_NOTICES.OFFER_SAVE, WORKSPACE_LABELS.SAVE_WORKSPACE)
-  );
+// Opening Aggregor's workspace reloaded the window, which closed the session's tab; the window opens it again. Nothing
+// shows a failure, since no command started this, so it is logged.
+const reopenSessionAfterReload = Effect.fn("WorkspaceService.reopenSessionAfterReload")(
+  function* () {
+    const sessionId = yield* IWorkspaceInfraService.use(
+      (workspaceInfraService) => workspaceInfraService.takeSessionToReopen
+    );
 
-  if (pickedAction === WORKSPACE_LABELS.SAVE_WORKSPACE) yield* workspaceInfraService.saveWorkspaceAs;
-});
+    yield* openSession({sessionId});
+  },
+  Effect.catchTag("NoSessionToReopenError", () => Effect.void),
+  Effect.catch((openError) => Effect.logWarning("Could not reopen the session after the reload", openError))
+);
 
-// In the background, so the window starts without waiting for an answer.
-export const startWorkspaceSaveOffer = Effect.fn("WorkspaceService.startWorkspaceSaveOffer")(function* () {
-  yield* Effect.forkScoped(offerToSaveWorkspace());
+// In the background, so the window starts without waiting for the session's tab.
+export const startSessionReopenAfterReload = Effect.fn("WorkspaceService.startSessionReopenAfterReload")(function* () {
+  yield* Effect.forkScoped(reopenSessionAfterReload());
 });

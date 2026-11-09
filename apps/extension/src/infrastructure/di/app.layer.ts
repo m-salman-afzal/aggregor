@@ -14,7 +14,7 @@ import {AgentRepository} from "@repositories/agent.repository.ts";
 import {ProjectRepository} from "@repositories/project.repository.ts";
 import {SessionRepository} from "@repositories/session.repository.ts";
 import {startSessionTabNameSync, startSessionTitleSync, startViewedAtSync} from "@services/session.service.ts";
-import {startShownProjectSync, startWorkspaceSaveOffer} from "@services/workspace.service.ts";
+import {startSessionReopenAfterReload, startShownProjectSync} from "@services/workspace.service.ts";
 import {Layer} from "effect";
 import {SecureRandom} from "effect/crypto";
 
@@ -33,7 +33,7 @@ const BackgroundLayer = Layer.mergeAll(
   Layer.effectDiscard(startSessionTabNameSync()),
   Layer.effectDiscard(startViewedAtSync()),
   Layer.effectDiscard(startShownProjectSync()),
-  Layer.effectDiscard(startWorkspaceSaveOffer())
+  Layer.effectDiscard(startSessionReopenAfterReload())
 );
 
 // Everything the commands and views run on. It still needs VsCodeApi, and the trace log underneath.

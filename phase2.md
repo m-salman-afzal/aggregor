@@ -84,7 +84,7 @@ Other things the tests showed:
 8. **Statuses are the spec's:** idle, working, done, blocked (kind permission, question or auth, with a message) and
    error, plus `exited` (the agent or its tmux session is gone) and `unknown` (no report yet, or cleared). They live on
    the session's own row. The message shows in the tooltip and notifications; progress shows as `42%` on the row. The
-   root record is the session's status; records with an `id` are the session's tasks, under step 7. The binary enforces
+   root record is the session's status; records with an `id` are the session's tasks, under step 8. The binary enforces
    the spec's limits.
 9. **Done means not seen yet.** A turn that ends while its session is out of view shows as done until the session comes
    into view. Since step 3's review the database stores it: `viewedAt` against `statusChangedAt`, so it covers agents
@@ -273,7 +273,7 @@ The binary is built, tested and packaged; the extension starts running agents th
   - a root report: state, kind, message, progress and title, replaced together as the spec's records are;
     `statusChangedAt` only when the state changes; `hasWorked` from the first `working` on;
   - `clear` with no id, or a full reset (RIS): `unknown`;
-  - reports with an `id`: validated and ignored until step 7;
+  - reports with an `id`: validated and ignored until step 8;
   - on exit: `exited`, keeping the titles.
 - A writer thread takes the latest pending change, so a busy database never holds up the agent's output. State changes
   are written at once, title changes at most every 500 ms.
@@ -404,7 +404,7 @@ the trace log. A window reload ends the agents (their tabs are transient), so th
 
 ## Step 4: agents from settings, and the picker
 
-**Branch:** `stack/harness-foundation/4/feat/agent-settings-and-picker` (step 5, the picker, folded in)
+**Branch:** `stack/harness-foundation/4/feat/harness-settings-and-picker` (step 5, the picker, folded in)
 
 **Changes:**
 
@@ -633,9 +633,29 @@ window forward. With a stand-in `notify-send` in the headless VS Code: its argum
 that came into focus 0.6 seconds after it closed opened the session, and one that didn't within 1.5 seconds opened
 nothing. Not checked: the WSL toast and macOS.
 
-## Step 7: session tasks
+## Step 7: Aggregor's workspace, saved without asking
 
-**Branch:** `stack/harness-foundation/7/feat/session-tasks`
+**Branch:** `stack/harness-foundation/7/feat/saved-aggregor-workspace`
+
+**Changes:**
+
+- The first switch, in a window that isn't a saved workspace with the anchor folder at folder 0, writes
+  `~/.aggregor/anchor/Aggregor.code-workspace` (the anchor folder, then the project) and opens it in the window with
+  `vscode.openFolder`, which reloads it; `sessionToReopen.json` beside it keeps the session, and the reloaded window
+  opens it again. Add Project in an empty window opens it the same way.
+- The offer to save the untitled workspace goes: `startWorkspaceSaveOffer`, `claimWorkspaceSaveOffer`,
+  `saveWorkspaceAs`, the `saveOffered` marker and `workspace.constant.ts`.
+
+**Decided:** the reload once instead of a dialog; a workspace already saved with the anchor at folder 0 is kept.
+
+**Verified (2026-11-10):** in the headless VS Code, a session started in a second project while the window showed
+jsTester wrote the workspace file, reloaded the window into "Aggregor (Workspace)" with no question, and the reloaded
+window took `sessionToReopen.json` and attached the session's tab again; a switch to a jsTester session then swapped
+folder 1 in place, which VS Code wrote into the file, with no reload.
+
+## Step 8: session tasks
+
+**Branch:** `stack/harness-foundation/8/feat/session-tasks`
 
 A session row lists what runs inside it: every OSC 7501 record with an `id`, which Claude Code sends for each running
 subagent.

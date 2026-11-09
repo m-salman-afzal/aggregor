@@ -6,7 +6,7 @@ import {Path} from "effect/Path";
 // since changing folder 0 restarts every extension. It sits a level down, so the window never watches the database.
 const ANCHOR_DIRECTORY = "anchor";
 
-// VS Code names the folder after it in folder pickers, and Save Workspace As suggests it as the workspace's name.
+// VS Code names the folder after it in folder pickers.
 const ANCHOR_FOLDER_NAME = "Aggregor";
 
 export const getAnchorFolderPath = Effect.fn("getAnchorFolderPath")(function* () {
