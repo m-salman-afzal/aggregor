@@ -2,10 +2,11 @@ import {BASE_COLUMNS} from "@models/base.model.ts";
 import {ProjectTableModel} from "@models/project.model.ts";
 import {integer, sqliteTable, text} from "drizzle-orm/sqlite-core";
 
-// aggregor-pty (apps/pty) alone writes the status and title columns, from the agent's OSC 7501 reports and window title;
-// the extension writes the rest.
+// aggregor-pty (apps/pty) alone writes the status and title columns and agentSessionId, from the agent's OSC 7501
+// reports and window title; the extension writes the rest.
 export const SessionTableModel = sqliteTable("sessions", {
   ...BASE_COLUMNS,
+  agentSessionId: text(),
   customName: text(),
   harnessId: text().notNull(),
   hasWorked: integer({mode: "boolean"}).notNull().default(false),

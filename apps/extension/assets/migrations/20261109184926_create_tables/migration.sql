@@ -12,6 +12,7 @@ CREATE TABLE `sessions` (
 	`id` text PRIMARY KEY,
 	`sortId` integer DEFAULT 0 NOT NULL,
 	`updatedAt` text NOT NULL,
+	`agentSessionId` text,
 	`customName` text,
 	`harnessId` text NOT NULL,
 	`hasWorked` integer DEFAULT false NOT NULL,

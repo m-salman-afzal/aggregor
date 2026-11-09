@@ -5,9 +5,10 @@ import {Effect} from "effect";
 
 import type {InvalidVsCodeArgumentError} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
 
-// What a presenter makes of a failure: the message, and the setting that fixes it, when one does.
+// What a presenter makes of a failure: the message, and the setting or web page that fixes it, when one does.
 interface PresentedCommandError {
   readonly message: string;
+  readonly pageToOpen?: {readonly label: string; readonly url: string};
   readonly settingToOpen?: string;
 }
 
@@ -18,8 +19,8 @@ const showCommandError = Effect.fn("RegisterCommandMiddleware.showCommandError")
   presentCommandError: (commandError: CommandError) => Effect.Effect<PresentedCommandError>
 ) {
   yield* Effect.logError(`Command ${commandId} failed`, commandError);
-  const {message, settingToOpen} = yield* presentCommandError(commandError);
-  yield* showErrorNotificationWithoutWaiting(message, settingToOpen);
+  const {message, pageToOpen, settingToOpen} = yield* presentCommandError(commandError);
+  yield* showErrorNotificationWithoutWaiting(message, {pageToOpen, settingToOpen});
 });
 
 // Registered for the surrounding scope's lifetime. Each run is a root span named by the command ID. The presenter must

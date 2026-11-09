@@ -40,6 +40,9 @@
     "npm-run-all2": "catalog:",
     "vite": "catalog:"
   },
+  "extensionKind": [
+    "workspace"
+  ],
   "publisher": "SalmanAfzal",
   "activationEvents": [
     "onStartupFinished"
@@ -72,13 +75,24 @@
                 "--resume",
                 "${sessionId}"
               ],
+              "env": {
+                "CLAUDE_CODE_TMUX_TRUECOLOR": "1"
+              },
               "icon": "assets/harnesses/claude.svg"
             },
             "codex": {
               "name": "Codex",
-              "args": [],
+              "args": [
+                "--no-daemon",
+                "-c",
+                "tui.terminal_title=[\"thread-title\"]"
+              ],
               "resumeArgs": [
-                "resume"
+                "resume",
+                "--no-daemon",
+                "-c",
+                "tui.terminal_title=[\"thread-title\"]",
+                "${agentSessionId}"
               ],
               "icon": "assets/harnesses/codex.svg"
             },
@@ -142,7 +156,17 @@
                 "items": {
                   "type": "string"
                 },
-                "description": "Arguments to reopen a session that has worked. Defaults to args."
+                "description": "Arguments to reopen a session that has worked. Defaults to args. ${agentSessionId} is the id the agent last showed as its whole terminal title, for an agent that can't start under the session's id."
+              },
+              "env": {
+                "type": "object",
+                "propertyNames": {
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                },
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Environment variables the agent starts with, merged with the built-in's."
               },
               "icon": {
                 "type": "string",

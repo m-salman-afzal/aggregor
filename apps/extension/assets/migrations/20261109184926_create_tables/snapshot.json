@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "dd9a1132-8325-47b9-93c7-5c0cdf8cd864",
+  "id": "6b3036f9-7e4f-4afe-b3bc-71a272bf2b46",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -109,6 +109,16 @@
       "name": "updatedAt",
       "type": "text",
       "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sessions",
+      "name": "agentSessionId",
+      "type": "text",
+      "notNull": false,
       "autoincrement": false,
       "default": null,
       "generated": null,

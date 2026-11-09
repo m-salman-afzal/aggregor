@@ -35,16 +35,19 @@ struct Arguments {
 
 fn main() {
     let Some(arguments) = parse_arguments(std::env::args_os().skip(1)) else {
-        eprintln!("{USAGE}");
-        exit(2);
+        fail(USAGE, 2);
     };
     match run(arguments) {
         Ok(exit_code) => exit(exit_code),
-        Err(error) => {
-            eprintln!("aggregor-pty: {error}");
-            exit(1);
-        }
+        Err(error) => fail(&format!("aggregor-pty: {error}"), 1),
     }
+}
+
+/// The terminal is a session tab that closes as soon as we exit, so the error stays on screen until the user has read it.
+fn fail(message: &str, exit_code: i32) -> ! {
+    eprintln!("{message}\nPress Enter to close.");
+    let _ = stdin().read_line(&mut String::new());
+    exit(exit_code);
 }
 
 fn parse_arguments(mut arguments: impl Iterator<Item = OsString>) -> Option<Arguments> {

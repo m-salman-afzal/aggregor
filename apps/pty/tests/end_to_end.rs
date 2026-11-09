@@ -7,8 +7,11 @@ use std::process::{Command, Stdio};
 
 const SESSION_ID: &str = "01a1b9ae-8986-7295-b1cc-487c4a1396f4";
 
-/// The extension's own migrations, so the binary is tested against the real schema.
-fn create_database(directory: &Path) -> PathBuf {
+/// The extension's own migrations, so the binary is tested against the real schema. Each test gets its own folder, since
+/// tests run in parallel.
+fn create_database(test_name: &str) -> PathBuf {
+    let directory = std::env::temp_dir().join(format!("aggregor-pty-test-{}-{test_name}", std::process::id()));
+    fs::create_dir_all(&directory).unwrap();
     let database_path = directory.join("aggregor.db");
     let connection = Connection::open(&database_path).unwrap();
     let migrations_directory = Path::new(env!("CARGO_MANIFEST_DIR")).join("../extension/assets/migrations");
@@ -38,9 +41,7 @@ fn create_database(directory: &Path) -> PathBuf {
 
 #[test]
 fn passes_output_through_and_writes_the_session_row() {
-    let directory = std::env::temp_dir().join(format!("aggregor-pty-test-{}", std::process::id()));
-    fs::create_dir_all(&directory).unwrap();
-    let database_path = create_database(&directory);
+    let database_path = create_database("status");
     let message = STANDARD.encode("Approve Write: notes.txt");
     let title = STANDARD.encode("Write the notes");
     // The agent asks whether the terminal supports OSC 7501 and reads the reply in non-canonical mode (`read -n`).
@@ -99,5 +100,32 @@ fn passes_output_through_and_writes_the_session_row() {
     assert_eq!(row.3.as_deref(), Some("Write the notes"));
     assert_eq!(row.4.as_deref(), Some("answered"), "the query was answered");
     assert!(row.5.is_some_and(|changed_at| changed_at.ends_with('Z')));
-    fs::remove_dir_all(&directory).unwrap();
+    fs::remove_dir_all(database_path.parent().unwrap()).unwrap();
+}
+
+#[test]
+fn records_the_agents_own_session_id_from_its_title() {
+    let database_path = create_database("agent-session-id");
+    let agent_session_id = "01a1c1a2-27df-7a02-9403-56722f44f32e";
+
+    let output = Command::new(env!("CARGO_BIN_EXE_aggregor-pty"))
+        .args([
+            "--database",
+            database_path.to_str().unwrap(),
+            "--session",
+            SESSION_ID,
+            "--",
+        ])
+        .args(["bash", "-c", &format!(r"printf '\033]2;{agent_session_id}\007'")])
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(0));
+    let connection = Connection::open(&database_path).unwrap();
+    let stored_agent_session_id: Option<String> = connection
+        .query_row("SELECT agentSessionId FROM sessions", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(stored_agent_session_id.as_deref(), Some(agent_session_id));
+    fs::remove_dir_all(database_path.parent().unwrap()).unwrap();
 }

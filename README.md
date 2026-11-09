@@ -22,14 +22,15 @@ terminals, tree views, Source Control and diffs.
 - **Agents.** New Session asks which agent to start, among those whose command is on `PATH`, with your default first;
   each one's **Set as Default** button changes the default, and `aggregorApp.skipHarnessPicker` starts the default
   without asking. Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot are built in. `aggregorApp.harnesses` in
-  your user settings adds a CLI, changes a built-in's name, command, arguments or icon, or hides one with `null`; the
-  gear in the Sessions title bar opens Aggregor's settings. A session's tab shows the same name as its row, and the
-  session in front stays selected in the view.
+  your user settings adds a CLI, changes a built-in's name, command, arguments, environment variables (`env`) or icon,
+  or hides one with `null`; the gear in the Sessions title bar opens Aggregor's settings. A session's tab shows the same
+  name as its row, and the session in front stays selected in the view.
 - **Terminals.** The Terminal panel's + opens in the shown project without asking. Its project button opens a shell in
   any of the window's projects, shown or not.
-- **Persistent sessions.** Sessions survive reloads and restarts, and every window that lists their project shows them.
-  Closing a tab keeps the session listed as exited; clicking it resumes the conversation. The row's … menu removes a
-  session.
+- **Persistent sessions.** Every agent runs in tmux (3.2 or newer), so it keeps working when you close its tab, reload
+  the window or quit VS Code; those close the tab, and clicking the session attaches a new one. An agent that has
+  stopped, as after a reboot, shows exited, and clicking it resumes the conversation. Every window that lists a project
+  shows its sessions. The row's … menu removes a session and stops its agent.
 - **Session titles.** Each tab and row shows the title the agent gives its terminal, as it changes (for Claude, its own
   title for the conversation or the one set with `/rename`); a closed session keeps the last one. Rename in the row's …
   menu gives a session your own name in the row and the tab; an empty name hands both back to the agent.
@@ -55,32 +56,49 @@ tmux and alerts.
 - [x] Cleanup before the first release: remove dead ACP, webview and React code, align `@types/vscode` with `engines`
 - [x] Live status: running, needs input, idle and exited (from Claude Code hooks then, from OSC 7501 now)
 
-### M2: alerts, multi-project
+### M2: alerts, multi-project, more agents
 
 - [ ] Needs-input alerts: activity-bar badge and a notification for background sessions
-- [ ] tmux persistence: closing a tab detaches instead of killing the agent; clicking reattaches
+- [x] tmux persistence: closing a tab detaches instead of killing the agent; clicking reattaches
 - [x] Projects: an extension-owned project list, tree grouped as project > session
+- [x] Agents from settings: Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot built in, any other CLI one
+      settings entry, and a picker on New Session
 
 ### M3: worktrees and review
 
 - [ ] Worktree mode: start a session in the project root or in a new git worktree
 - [ ] Changed files under each session, opening git's diff with per-hunk staging
-- [ ] Accept (stage), reject (restore) and review all changes
 - [ ] Archive sessions: remove the worktree, keep unmerged branches
 - [ ] Bookmarks
 - [ ] Create a pull request from a session
 
-### M3: SSH
+### M4: SSH
 
 - [ ] One command path for local and remote targets
 - [ ] SSH hosts in the sidebar, sessions running in tmux on the host
 - [ ] Live status for remote sessions
 - [ ] Remote changed files and "Open in Remote Window"
 
-### M4: more agents
+### M5: bundled tmux
 
-- [x] Agents from settings: Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot built in, any other CLI one
-      settings entry, and a picker on New Session
+- [ ] Bundled tmux: each platform VSIX carries its own tmux, so sessions need nothing installed
+  - Build one pinned tmux release from source in `release.yaml`, next to `aggregor-pty`: fully static for Linux x64 and
+    arm64 (musl, with libevent and ncurses), and for macOS x64 and arm64 with libevent and ncurses linked in and only
+    the system library dynamic, as every macOS binary is. A WSL window installs the Linux VSIX, so it gets one too.
+  - A platform VSIX always runs its own `bin/tmux`. The universal VSIX keeps `tmux` from `PATH`, with the version check
+    and the Install tmux button.
+  - Ship the `xterm-256color` and `tmux-256color` terminfo entries and point tmux at them (`TERMINFO_DIRS`): Linux
+    distributions keep them in different places, and macOS has no `tmux-256color`.
+  - `pnpm --filter=aggregor-app build:tmux` builds it for this machine into `apps/extension/bin`, like `build:pty`; it
+    needs a C compiler.
+  - The VSIX carries the licence notices of tmux (ISC), libevent (BSD-3) and ncurses (MIT-style).
+  - Reverses step 5's "no bundled tmux" in `phase2.md`, whose objection was that macOS has no fully static build.
+  - Risk: an update that bumps tmux while an older server still runs on the socket; check that the client-server
+    protocol version is unchanged before each bump.
+
+### If the users asked
+
+- [ ] Accept (stage), reject (restore) and review all changes
 
 ### Later
 

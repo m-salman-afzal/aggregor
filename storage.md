@@ -46,10 +46,12 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 - **Read by:** `SessionService`, with the project's path: the Sessions view reads each row as it draws it.
 - **Status columns:** `status` (`unknown` until a report, `exited` once the agent is gone), `statusKind`,
   `statusMessage`, `statusProgress`, `statusChangedAt` (when the state last changed), `hasWorked` (it has reported
-  `working`), `reportedTitle` (the title in its latest OSC 7501 report) and `terminalTitle` (its latest window title).
-  Written only by `aggregor-pty` (`apps/pty`), which runs the agent and reads them from its output. The Sessions view
-  shows the status, kind, message and progress, and shows `done` as finished only while the turn ended after `viewedAt`
-  and the session is out of view; the titles become `name`; `hasWorked` picks resume over a fresh start.
+  `working`), `reportedTitle` (the title in its latest OSC 7501 report), `terminalTitle` (its latest window title) and
+  `agentSessionId` (the latest window title that was a bare UUID: Codex's own id for its conversation). Written only by
+  `aggregor-pty` (`apps/pty`), which runs the agent and reads them from its output. The Sessions view shows the status,
+  kind, message and progress, and shows `done` as finished only while the turn ended after `viewedAt` and the session is
+  out of view; the titles become `name`. `SessionService` reads `hasWorked` and `agentSessionId` when it opens a tab, so
+  an agent started again resumes its conversation rather than starting a new one.
 
 ## `data/aggregor-pty.log`
 
@@ -57,6 +59,17 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
   with the time and session id; at most 10 lines a run.
 - **Written by:** `aggregor-pty`, beside the database, since the agent's terminal is no place for its errors.
 - **Cleaned up:** never; it only grows when something is wrong.
+
+## `tmux.sock`
+
+- **Holds:** the socket of Aggregor's own tmux server (`tmux -S`), which runs one tmux session per running agent, named
+  by the session's id. tmux creates it, readable only by its owner.
+- **Written by:** tmux, when a session tab starts the first agent; the server stops with its last session.
+- **Read by:** each session tab's `tmux new-session -A`, which starts or attaches to its tmux session, and
+  `TmuxInfraService`, to list and stop sessions.
+- **Why:** an agent outlives its tab, a reload and VS Code, and the server stays apart from the user's own tmux. In the
+  Aggregor folder, a test's `AGGREGOR_HOME` gets a server of its own.
+- **Cleaned up:** by tmux; a stale socket left by a reboot is replaced when the next server starts.
 
 ## `anchor/`
 

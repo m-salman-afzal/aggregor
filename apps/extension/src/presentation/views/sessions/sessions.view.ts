@@ -52,9 +52,9 @@ const revealRow = Effect.fn("SessionsView.revealRow")(function* (sessionsTreeVie
   });
 });
 
-// The row of the session whose tab is in front stays selected, whatever else the user clicks in the view. A new session's
-// row is drawn a moment after its tab opens, so the reveal is retried. Skipped while the view is hidden, since reveal
-// would open it, and while no session's tab is in front.
+// The row of the session whose tab is in front stays selected, whatever else the user clicks in the view. A new
+// session's row is drawn a moment after its tab opens, so the reveal is retried. Skipped while the view is hidden,
+// since reveal would open it, while no session's tab is in front, and for a session removed while its tab closes.
 const selectViewedSession = Effect.fn("SessionsView.selectViewedSession")(
   function* (sessionsTreeView: TreeView<string>) {
     if (!sessionsTreeView.visible) return;
@@ -62,13 +62,14 @@ const selectViewedSession = Effect.fn("SessionsView.selectViewedSession")(
     const sessionNodeId = yield* makeSessionNodeId(viewedSessionId);
     const {selection} = sessionsTreeView;
     if (selection.length === 1 && selection[0] === sessionNodeId) return;
+    yield* getSessionListItemForSessionsView(viewedSessionId);
 
     yield* Effect.retry(revealRow(sessionsTreeView, sessionNodeId), {
       schedule: Schedule.spaced(SELECT_ROW_RETRY_INTERVAL_MS),
       times: SELECT_ROW_RETRIES
     });
   },
-  Effect.catchTag("NoViewedSessionError", () => Effect.void),
+  Effect.catchTags({NoViewedSessionError: () => Effect.void, SessionNotFoundError: () => Effect.void}),
   Effect.catch((revealError) =>
     Effect.logWarning("Could not select the session in front in the Sessions view", revealError)
   )
@@ -164,6 +165,7 @@ const findParentNodeId = Effect.fn("SessionsView.findParentNodeId")(
 
     return yield* makeProjectNodeId(sessionListItem.projectPath);
   },
+  Effect.catchTag("SessionNotFoundError", () => Effect.undefined),
   Effect.catch((readError) => Effect.as(Effect.logWarning("Could not read a session's project", readError), undefined))
 );
 

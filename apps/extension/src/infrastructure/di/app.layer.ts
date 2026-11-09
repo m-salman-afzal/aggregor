@@ -3,6 +3,7 @@ import {DatabaseLayer} from "@di/database.layer.ts";
 import {NodeServices} from "@effect/platform-node";
 import {CommitCliInfraService} from "@infraServices/commitCli/commitCli.infraService.ts";
 import {ShellCommandInfraService} from "@infraServices/os/shellCommand.infraService.ts";
+import {TmuxInfraService} from "@infraServices/tmux/tmux.infraService.ts";
 import {GitInfraService} from "@infraServices/vscode/git.infraService.ts";
 import {ProgressInfraService} from "@infraServices/vscode/progress.infraService.ts";
 import {TerminalInfraService} from "@infraServices/vscode/terminal/terminal.infraService.ts";
@@ -37,6 +38,7 @@ const BackgroundLayer = Layer.mergeAll(
 // Everything the commands and views run on. It still needs VsCodeApi, and the trace log underneath.
 export const AppLayer = BackgroundLayer.pipe(
   Layer.provideMerge(TerminalInfraService),
+  Layer.provideMerge(TmuxInfraService),
   Layer.provideMerge(HarnessRepository),
   Layer.provideMerge(SessionRepository),
   Layer.provideMerge(ProjectRepository),
