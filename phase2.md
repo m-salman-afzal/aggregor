@@ -112,12 +112,13 @@ Other things the tests showed:
 
 ### Storage
 
-16. **SQLite at `~/.aggregor/aggregor.db`**, overridden by `AGGREGOR_DATA_DIR` for tests, in WAL mode, with related
-    tables that share `id` (a UUID v7), `sortId`, `updatedAt` and `deletedAt`, camelCase names, and a base entity, base
-    repository and base service; under step 1. The extension uses `@effect/sql-sqlite-node` 4.1.2 (Effect's client on
-    Node's built-in `node:sqlite`, so no native module), with Drizzle's tables, query builder and generated migrations
-    on top; the binary uses rusqlite. Today's `globalState` data is not imported. The anchor folders stay in VS Code's
-    global storage.
+16. **SQLite at `~/.aggregor/aggregor.db`** (`~/.aggregor/data/aggregor.db` since step 3's review, the Aggregor folder
+    moved by `AGGREGOR_HOME`), overridden by `AGGREGOR_DATA_DIR` for tests, in WAL mode, with related tables that share
+    `id` (a UUID v7), `sortId`, `updatedAt` and `deletedAt`, camelCase names, and a base entity, base repository and
+    base service; under step 1. The extension uses `@effect/sql-sqlite-node` 4.1.2 (Effect's client on Node's built-in
+    `node:sqlite`, so no native module), with Drizzle's tables, query builder and generated migrations on top; the
+    binary uses rusqlite. Today's `globalState` data is not imported. The anchor folders stay in VS Code's global
+    storage.
 17. **A socket later**, once the extension needs to talk to a running binary: one per session, through the interprocess
     crate.
 
@@ -384,6 +385,8 @@ the headless window loses native focus when Claude starts; that path is the unre
 - `VsCodeApi`, the vscode helpers and argument decoding moved to `@pkg/vscode`; the constants split into one file per
   feature; Source Control progress moved into `CommitMessageService` behind `IProgressInfraService`; `projects.added` is
   `isAdded`; files have no length limit.
+- The Aggregor folder: `~/.aggregor/data/` holds the database and `aggregor-pty.log`, `~/.aggregor/anchor/` the anchor
+  folder and its save-offer marker (out of VS Code's global storage); `AGGREGOR_HOME` replaces `AGGREGOR_DATA_DIR`.
 - The migrations became one, regenerated from zero; the old database has to be deleted.
 - `build:pty` copies the binary with `cp -f`, so it replaces one that running sessions hold open.
 

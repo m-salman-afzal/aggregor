@@ -30,7 +30,6 @@ export class VsCodeApi extends Context.Service<
     readonly extensionUri: Uri;
     readonly FileDecoration: typeof FileDecoration;
     readonly getConfiguration: (settingsSection: string) => Effect.Effect<WorkspaceConfiguration>;
-    readonly globalStorageUri: Uri;
     readonly ProgressLocation: typeof ProgressLocation;
     readonly TabInputTerminal: typeof TabInputTerminal;
     readonly ThemeColor: typeof ThemeColor;
@@ -52,7 +51,6 @@ export class VsCodeApi extends Context.Service<
       extensionUri: extensionContext.extensionUri,
       FileDecoration,
       getConfiguration: (settingsSection) => Effect.sync(() => workspace.getConfiguration(settingsSection)),
-      globalStorageUri: extensionContext.globalStorageUri,
       ProgressLocation,
       TabInputTerminal,
       ThemeColor,

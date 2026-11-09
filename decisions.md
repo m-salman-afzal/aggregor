@@ -480,10 +480,11 @@ current entry. Leave a field out rather than guess.
   relations: a project has many sessions.
 - **Options:** `globalState` (2026-10-09 to 2026-11-07): one JSON value per key, read-modify-written by every window,
   out of reach of other processes. A native SQLite module, which needs a build per Electron version.
-- **Decision:** `~/.aggregor/aggregor.db` (`AGGREGOR_DATA_DIR` moves it), opened with `@effect/sql-sqlite-node` on
-  Node's built-in `node:sqlite` (VS Code 1.145's Electron has Node 24.22 and SQLite 3.53.4), in WAL mode with foreign
-  keys on. The tables are `projects` and `sessions`, every name camelCase, defined and migrated through Drizzle (see its
-  entry). Both SQL modules are unstable Effect APIs, allowed by name in `tsconfig.base.json`.
+- **Decision:** `~/.aggregor/data/aggregor.db` (`AGGREGOR_HOME` moves the Aggregor folder; see its entry), opened with
+  `@effect/sql-sqlite-node` on Node's built-in `node:sqlite` (VS Code 1.145's Electron has Node 24.22 and SQLite
+  3.53.4), in WAL mode with foreign keys on. The tables are `projects` and `sessions`, every name camelCase, defined and
+  migrated through Drizzle (see its entry). Both SQL modules are unstable Effect APIs, allowed by name in
+  `tsconfig.base.json`.
 - **Why:** a file any process can write, real relations, and no native module to ship.
 
 ### `aggregor-pty` runs each agent and records its status (2026-11-08)
@@ -580,6 +581,22 @@ current entry. Leave a field out rather than guess.
 - **Why:** one rule covers every agent's title, and a harness adds only data. Dropping the agent's own name or the
   project folder from a title waits for step 4, which brings each harness's name.
 
+### Aggregor keeps its files in one folder, `~/.aggregor` (2026-11-09)
+
+- **Problem:** the database and `aggregor-pty`'s log sat at the top of `~/.aggregor`, and the anchor folder deep in VS
+  Code's global storage, which each profile, and Insiders, has its own of: every profile got its own anchor and saved
+  workspace while all of them shared one project list.
+- **Options:** the anchor folder in global storage (2026-11-05 to 2026-11-09). The anchor folder straight under
+  `~/.aggregor`, beside the database files. `~/.aggregor` itself as the anchor folder, which would make VS Code watch
+  the database.
+- **Decision:** `~/.aggregor` (or `$AGGREGOR_HOME`, which replaced `$AGGREGOR_DATA_DIR`) holds `data/` (`aggregor.db`,
+  its WAL files and `aggregor-pty.log`) and `anchor/` (`Aggregor/`, the anchor folder, and the `saveOffered` marker).
+  `getAggregorFolderPath` reads it, and `getDatabaseFilePath` and `getAnchorFolderPath` build on it. `VsCodeApi` no
+  longer carries `globalStorageUri`. Nothing moves the old files: the first switch after the change finds folder 0 is
+  not the new anchor folder and anchors the window again, restarting the extensions once and offering to save once.
+- **Why:** one place to find everything Aggregor stores, and every profile opens the same Aggregor workspace. A second
+  window, in any profile, now shares the anchor folder's settings, as a second window in one profile already did.
+
 ### One project in view, behind a hidden anchor folder (2026-11-05, #68)
 
 - **Problem:** with every project a workspace folder, Explorer, search, file watching and Source Control span all of
@@ -587,9 +604,9 @@ current entry. Leave a field out rather than guess.
   Code's own Agents window is exempt.
 - **Options:** swap folder 0 on each switch, restarting every extension each time; an extension-owned anchor at
   folder 0.
-- **Decision:** the first switch puts a hidden anchor folder (`globalStorage/anchor/Aggregor`) at folder 0 and the
-  viewed session's project at folder 1; later switches swap only folder 1. That first switch restarts the extensions
-  once. Session terminals carry `AGGREGOR_SESSION_ID` in their env, so they are found again after the restart, and the
+- **Decision:** the first switch puts a hidden anchor folder (`~/.aggregor/anchor/Aggregor`) at folder 0 and the viewed
+  session's project at folder 1; later switches swap only folder 1. That first switch restarts the extensions once.
+  Session terminals carry `AGGREGOR_SESSION_ID` in their env, so they are found again after the restart, and the
   anchor's `terminal.integrated.cwd` makes New Terminal open in the shown project.
 - **Why:** one restart instead of one per switch. TypeScript, ESLint, Prettier, rust-analyzer and Lua all follow the
   shown project; mise needs `mise.selectWorkspaceFolder` after each switch.
@@ -605,7 +622,7 @@ current entry. Leave a field out rather than guess.
 - **Decision:** the `projects` table is the list: `isAdded` (named `added` until 2026-11-09) marks a listed project, Add
   Project upserts it with `isAdded` (to the end of the list), and Remove Project clears it; its sessions stay and come
   back with it. A workspace folder's project gets a row with its first session without being added, so it stays one of
-  the window's own folders. One anchor folder, `globalStorage/anchor/Aggregor`, with one save-offer marker. The windows
+  the window's own folders. One anchor folder, `~/.aggregor/anchor/Aggregor`, with one save-offer marker. The windows
   tables went with a generated migration, which leaves every project unadded.
 - **Why:** less to build and keep. Adding windows back is one table and a migration. Until step 6 runs agents in tmux, a
   second window shows the same sessions, and opening a running one there would start a second agent on its id.

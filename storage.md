@@ -3,14 +3,14 @@
 What the extension stores, where, and why. Add an entry whenever something new is stored, and keep every entry to what
 is stored now.
 
-Both places are shared by every window and survive reloads, restarts and extension updates.
+Everything lives in the Aggregor folder, `~/.aggregor` (or `$AGGREGOR_HOME`), which only its owner can read. Every
+window and every VS Code profile shares it, and it survives reloads, restarts and extension updates.
 
-## The database
+## `data/aggregor.db`
 
-`~/.aggregor/aggregor.db` (or `aggregor.db` in `$AGGREGOR_DATA_DIR`), a SQLite file in a folder only its owner can read,
-in WAL mode with foreign keys on. Every window opens it through `@effect/sql-sqlite-node`, with Drizzle's query builder.
-`infrastructure/database/models/` defines each table as a Drizzle table, one file per table, and `base.model.ts` the
-shared columns.
+A SQLite file, in WAL mode with foreign keys on, so `aggregor.db-wal` and `aggregor.db-shm` sit beside it. Every window
+opens it through `@effect/sql-sqlite-node`, with Drizzle's query builder. `infrastructure/database/models/` defines each
+table as a Drizzle table, one file per table, and `base.model.ts` the shared columns.
 
 - **Every table** starts with `id` (a UUID v7, which also gives the row's creation time), `sortId` (its place in the
   table's order: a new row, or one upserted again, gets the table's highest plus one, and reads follow it), `updatedAt`
@@ -51,18 +51,14 @@ shared columns.
   shows the status, kind, message and progress, and shows `done` as finished only while the turn ended after `viewedAt`
   and the session is out of view; the titles become `name`; `hasWorked` picks resume over a fresh start.
 
-### `aggregor-pty.log`
+## `data/aggregor-pty.log`
 
 - **Holds:** one line per error `aggregor-pty` hits with the database, such as a locked file or a missing session row,
   with the time and session id; at most 10 lines a run.
 - **Written by:** `aggregor-pty`, beside the database, since the agent's terminal is no place for its errors.
 - **Cleaned up:** never; it only grows when something is wrong.
 
-## Files under `globalStorageUri`
-
-A folder the extension owns. On Linux it is `~/.config/Code/User/globalStorage/salmanafzal.aggregor-app/`.
-
-### `anchor/`
+## `anchor/`
 
 - **Holds:**
   - `Aggregor/`, the anchor folder: empty but for `.vscode/settings.json`, with `files.exclude` set to `{"**": true}`
@@ -76,6 +72,7 @@ A folder the extension owns. On Linux it is `~/.config/Code/User/globalStorage/s
 - **Why:** with the anchor folder at folder 0, the shown project swaps at folder 1; changing folder 0 restarts every
   extension. Its terminal cwd makes New Terminal count it and the project as one folder, so it opens in the project
   without asking. Named `Aggregor`, it names the saved workspace and its row in folder pickers. The marker makes the
-  offer once. Aggregor is meant for one window; a second window would share the anchor folder and its settings.
+  offer once. It sits a level below the Aggregor folder, so the window never watches the database. Aggregor is meant for
+  one window; a second window, in any profile, would share the anchor folder and its settings.
 - **Cleaned up:** never; an empty folder, a settings file of a few hundred bytes, an empty marker and maybe a workspace
   file.

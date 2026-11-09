@@ -249,14 +249,16 @@ apps/extension/src/
     config/settings.config.ts              SettingsConfig
     di/
       app.layer.ts                         AppLayer: the layer graph under the commands and views
-      database.layer.ts                    DatabaseLayer: opens ~/.aggregor/aggregor.db, foreign keys on, and
+      database.layer.ts                    DatabaseLayer: opens ~/.aggregor/data/aggregor.db, foreign keys on, and
                                            applies the migration in assets/migrations
       harnessInfraServices.layer.ts        HarnessInfraServicesLayer: LayerMap.fromRecord from harness id to its
                                            infra service
     logger/traceLog.layer.ts               TraceLogLayer
-    utils/anchorFolder.utils.ts            getAnchorFolderPath: the hidden folder 0 of the window once it shows one
-                                           project
-    utils/database.utils.ts                getDatabaseFilePath: the window opens it, and aggregor-pty writes to it
+    utils/aggregorFolder.utils.ts          getAggregorFolderPath: ~/.aggregor, or $AGGREGOR_HOME
+    utils/anchorFolder.utils.ts            getAnchorFolderPath: anchor/Aggregor in it, the hidden folder 0 of the
+                                           window once it shows one project
+    utils/database.utils.ts                getDatabaseFilePath: data/aggregor.db in it; the window opens it, and
+                                           aggregor-pty writes to it
   presentation/
     routes.ts                              RoutesLayer: each command's ID, controller and presenter
     middlewares/registerCommand.middleware.ts
