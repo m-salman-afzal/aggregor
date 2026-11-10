@@ -84,6 +84,7 @@
           "effect/LayerMap",
           "effect/Path",
           "effect/process",
+          "effect/reactivity/Reactivity",
           "effect/sql/SqlClient"
         ],
         // The extension source runs every Effect rule as an error; config files and scripts keep the defaults.

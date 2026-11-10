@@ -1,7 +1,7 @@
 import {SqliteClient} from "@effect/sql-sqlite-node";
 import {applyPendingMigrations, getDatabaseFilePath} from "@infraUtils/database.utils.ts";
 import {AGGREGOR_FOLDER} from "@pkg/constants/src/app.constant.ts";
-import {MIGRATIONS_FOLDER} from "@pkg/constants/src/database.constant.ts";
+import {MIGRATIONS} from "@pkg/constants/src/database.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {Effect, Layer} from "effect";
 import {FileSystem} from "effect/FileSystem";
@@ -19,7 +19,7 @@ const openDatabaseFile = Effect.fn("Database.openDatabaseFile")(function* () {
 const migrateDatabase = Effect.fn("Database.migrateDatabase")(function* () {
   const {extensionUri, Uri} = yield* VsCodeApi;
 
-  yield* applyPendingMigrations(Uri.joinPath(extensionUri, MIGRATIONS_FOLDER).fsPath);
+  yield* applyPendingMigrations(Uri.joinPath(extensionUri, MIGRATIONS.FOLDER).fsPath);
 });
 
 export const DatabaseLayer = Layer.effectDiscard(migrateDatabase()).pipe(

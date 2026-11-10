@@ -20,6 +20,11 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
   delete; reads skip the row). Timestamps are ISO 8601 text in UTC, such as `2026-11-07T22:13:46.836Z`.
 - **Migrations:** `apps/extension/assets/migrations/`, written by `pnpm db:generate`, one per schema change. A window
   applies the ones the database lacks when it starts, and Drizzle records each applied one in `__drizzle_migrations`.
+- **Backup:** `data/aggregor.before-<migration>.db`, beside the database: a copy taken just before an update's
+  migrations first ran, named after the first of them, with `aggregor.before-<migration>.db-wal` beside it when it was
+  copied as files. Only the latest is kept. To go back to it: quit VS Code, delete `aggregor.db-wal` and
+  `aggregor.db-shm`, then copy the backup over `aggregor.db`, and its `-wal`, if it has one, to `aggregor.db-wal`. The
+  build that starts next runs the migrations again.
 - **Read:** on demand: no window keeps a copy. A window hears of each write within 250 ms of another connection's
   (`aggregor-pty`'s or another window's), which it sees by polling `PRAGMA data_version`, and at once after its own; it
   then reads the rows whose `updatedAt` is at or after the last one it read.

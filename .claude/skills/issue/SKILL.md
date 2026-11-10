@@ -15,8 +15,8 @@ nothing waits in prose or in a conversation.
 Before writing, have each of these from the conversation, the code, logs or data. Investigate what's missing, read-only:
 don't fix it, and don't stage or commit anything.
 
-- **Reported:** what the user saw, in their own words, quoted, or the line of `decisions.md`, `phase2.md`, the README or
-  a `shortcut:` comment that put it off.
+- **Reported:** what the user saw, in their own words, quoted, or the line of `decisions.md`, the README or a
+  `shortcut:` comment that put it off.
 - **What might have gone wrong:** the code path involved and the likely causes, the likeliest first, each with why.
 - **How it was checked:** what was read or run and what it showed (files, commands, data, logs, versions), and what
   wasn't checked.
