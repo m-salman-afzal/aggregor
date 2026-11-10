@@ -79,20 +79,29 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 - **Holds:**
   - `Aggregor/`, the anchor folder: empty but for `.vscode/settings.json`, with `files.exclude` set to `{"**": true}`
     and `terminal.integrated.cwd` set to the shown project.
-  - `Aggregor.code-workspace`, Aggregor's workspace: the anchor folder, then the shown project.
+  - `Aggregor.code-workspace`, Aggregor's workspace: the anchor folder, then the shown project, and as its `settings`
+    the shown project's `.vscode/settings.json`, synced both ways, with relative paths and folder variables naming the
+    project.
+  - `copiedProjectSettings.json`: the settings last copied into the workspace file and the project they came from, which
+    each sync compares both sides with.
   - `sessionToReopen.json`: the session the window was switching to when it reloaded to open the workspace, with when.
 - **Written by:** `WorkspaceInfraService`: the settings before every project switch, the workspace file and the session
-  to reopen on the first switch; VS Code, the workspace file's folders on later switches.
+  to reopen on the first switch, and the workspace file's `settings` and the last copy on each settings sync, through VS
+  Code's own copy of the workspace file; VS Code, the workspace file's folders on later switches, and any setting it or
+  an extension writes at the workspace level.
 - **Read by:** VS Code, the workspace file as the window's workspace and the anchor folder as its folder 0, which its
-  own settings hide from Explorer; `WorkspaceInfraService`, the session to reopen when the window starts.
+  own settings hide from Explorer; `WorkspaceInfraService`, the session to reopen when the window starts, and the
+  workspace file's `settings` and the last copy on each settings sync.
+- **Also written:** the shown project's own `.vscode/settings.json`, by `WorkspaceInfraService`, with each setting VS
+  Code or an extension changed in the workspace file, as VS Code writes it there with the project open alone.
 - **Why:** with the anchor folder at folder 0, the shown project swaps at folder 1; changing folder 0 restarts every
   extension. Its terminal cwd makes New Terminal count it and the project as one folder, so it opens in the project
   without asking. The workspace file names the window Aggregor and is never offered to be saved. It sits a level below
   the Aggregor folder, so the window never watches the database. Aggregor is meant for one window; a second window, in
   any profile, would share the anchor folder and its settings.
 - **Cleaned up:** the session to reopen when the reloaded window reads it, or when one older than a minute is found; the
-  rest never: an empty folder, a settings file of a few hundred bytes and a workspace file. A `saveOffered` marker left
-  from before 2026-11-10 is no longer read.
+  rest never: an empty folder, a settings file of a few hundred bytes, a workspace file and the last copy. A
+  `saveOffered` marker left from before 2026-11-10 is no longer read.
 
 ## User settings
 

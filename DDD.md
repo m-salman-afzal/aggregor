@@ -55,13 +55,13 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-| Layer             | Holds                                                                                        | May import                                                                                                      |
-| ----------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `domain/`         | Entities, value objects, domain services, repository interfaces and their errors             | `effect`, domain                                                                                                |
-| `application/`    | Services (the use cases), DTOs, the interfaces of the infra services and config they use     | `effect`, `@pkg/constants`, domain, application                                                                 |
-| `infrastructure/` | Models, repositories, infra services, config, the layer graph, the trace log                 | `effect`, `@effect/*`, `drizzle-orm`, `vscode` types, `node:*`, `@pkg/*`, domain, application, infrastructure   |
-| `presentation/`   | Command routes, the command middleware, controllers, presenters, views, presentation helpers | `effect`, `vscode` types, `@pkg/*`, and from the layers below only services and DTOs, each part as listed below |
-| `extension.ts`    | `activate`: builds the runtime from the layer graph                                          | everything                                                                                                      |
+| Layer             | Holds                                                                                        | May import                                                                                                                    |
+| ----------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `domain/`         | Entities, value objects, domain services, repository interfaces and their errors             | `effect`, domain                                                                                                              |
+| `application/`    | Services (the use cases), DTOs, the interfaces of the infra services and config they use     | `effect`, `@pkg/constants`, domain, application                                                                               |
+| `infrastructure/` | Models, repositories, infra services, config, the layer graph, the trace log                 | `effect`, `@effect/*`, `drizzle-orm`, `jsonc-parser`, `vscode` types, `node:*`, `@pkg/*`, domain, application, infrastructure |
+| `presentation/`   | Command routes, the command middleware, controllers, presenters, views, presentation helpers | `effect`, `vscode` types, `@pkg/*`, and from the layers below only services and DTOs, each part as listed below               |
+| `extension.ts`    | `activate`: builds the runtime from the layer graph                                          | everything                                                                                                                    |
 
 - Dependencies point inward. Application declares the interfaces it needs, infrastructure implements them, and
   application never imports infrastructure.
@@ -290,8 +290,9 @@ apps/extension/src/
       tmux/tmux.infraService.ts            TmuxInfraService: the command a session's tab runs, which starts its
                                            agent under aggregor-pty in a tmux session or attaches to it; stops it;
                                            reads which sessions tmux runs
-      vscode/                              UserInputPromptInfraService, WorkspaceInfraService, GitInfraService,
-                                           ProgressInfraService
+      vscode/                              UserInputPromptInfraService, WorkspaceInfraService (also syncs the
+                                           shown project's .vscode/settings.json with Aggregor's workspace file),
+                                           GitInfraService, ProgressInfraService
       vscode/terminal/                     TerminalInfraService: session tabs, each a tmux client attached to its
                                            agent, and project shells; terminal.utils finds a tab's session id in
                                            its env

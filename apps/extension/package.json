@@ -29,7 +29,8 @@
     "@pkg/typings": "workspace:*",
     "@pkg/vscode": "workspace:*",
     "drizzle-orm": "catalog:",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "jsonc-parser": "catalog:"
   },
   "devDependencies": {
     "@pkg/tsconfigs": "workspace:*",

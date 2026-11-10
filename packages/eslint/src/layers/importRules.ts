@@ -75,9 +75,9 @@ const DTO_TYPE_IMPORTS = {
 
 const INFRASTRUCTURE_IMPORTS = {
   message:
-    "The infrastructure layer imports only effect, @effect, drizzle-orm, vscode types, node, @pkg, and domain, " +
-    "application or infrastructure code, through their aliases.",
-  regex: `^(?!effect(/|$)|@effect/|drizzle-orm(/|$)|vscode$|node:|@pkg/|@(${DOMAIN_ALIASES}|${APPLICATION_ALIASES}|${INFRASTRUCTURE_ALIASES})/)`
+    "The infrastructure layer imports only effect, @effect, drizzle-orm, jsonc-parser, vscode types, node, @pkg, and " +
+    "domain, application or infrastructure code, through their aliases.",
+  regex: `^(?!effect(/|$)|@effect/|drizzle-orm(/|$)|jsonc-parser$|vscode$|node:|@pkg/|@(${DOMAIN_ALIASES}|${APPLICATION_ALIASES}|${INFRASTRUCTURE_ALIASES})/)`
 };
 
 // Each folder's import allow-list, by its path under apps/extension/src; a later entry overrides an earlier one.
