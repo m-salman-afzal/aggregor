@@ -227,8 +227,8 @@ const watchTmuxChangeHints = Effect.fn("TmuxInfraService.watchTmuxChangeHints")(
   );
 });
 
-// Linux and macOS VSIXs carry aggregor-pty; the universal one, for every other platform, does not. A failed check counts
-// as missing, so the user hears why no session starts.
+// Linux and macOS VSIXs carry aggregor-pty; Windows ones do not. A failed check counts as missing, so the user hears why
+// no session starts.
 const findPtyBinaryPath = Effect.fn("TmuxInfraService.findPtyBinaryPath")(function* (ptyBinaryPath: string) {
   const fileSystem = yield* FileSystem;
   const isPtyBinaryFound = yield* Effect.orElseSucceed(fileSystem.exists(ptyBinaryPath), () => false);

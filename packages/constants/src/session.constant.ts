@@ -24,7 +24,7 @@ export const SESSION_ERRORS = {
   LAUNCH_FAILED: "Could not open a terminal for the session.",
   NOT_FOUND: "This session no longer exists.",
   PROJECT_REQUIRED: "Add a project or open a folder to start a session.",
-  // The universal VSIX, which has no aggregor-pty, still runs sessions on Windows, inside WSL.
+  // A Windows VSIX has no aggregor-pty; sessions on Windows run inside WSL, on the Linux VSIX.
   PTY_BINARY_NOT_FOUND: (isWindows: boolean) =>
     isWindows
       ? "On Windows, sessions run in WSL. Reopen the folder in WSL to start one."

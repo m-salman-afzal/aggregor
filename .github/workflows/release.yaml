@@ -74,19 +74,23 @@ jobs:
           pattern: binaries-*
           merge-multiple: true
           path: binaries
-      # A VSIX per platform with its binary, and a universal one without, which the Marketplace serves to every other
-      # platform. vsce runs vscode:prepublish, which only builds; lint and typecheck already ran in checks.yaml.
-      # Artifacts drop the executable bit, so install sets it again.
+      # A VSIX per platform and no universal one, which a client updating mid-release could get, and keep, before its
+      # own goes live. Windows gets no binary: sessions there run in WSL, on the Linux VSIX. vsce runs
+      # vscode:prepublish, which only builds; lint and typecheck already ran in checks.yaml. Artifacts drop the
+      # executable bit, so install sets it again.
       - name: Package extension
         working-directory: apps/extension
         run: |
           for platform in linux-x64:x86_64-unknown-linux-musl linux-arm64:aarch64-unknown-linux-musl \
+            alpine-x64:x86_64-unknown-linux-musl alpine-arm64:aarch64-unknown-linux-musl \
             darwin-x64:x86_64-apple-darwin darwin-arm64:aarch64-apple-darwin; do
             install -D -m 755 "../../binaries/${platform#*:}/release/aggregor-pty" bin/aggregor-pty
             pnpm exec vsce package --no-dependencies --skip-license --target "${platform%%:*}"
           done
           rm -r bin
-          pnpm exec vsce package --no-dependencies --skip-license
+          for platform in win32-x64 win32-arm64; do
+            pnpm exec vsce package --no-dependencies --skip-license --target "$platform"
+          done
       # Before the release, so a failed run can be re-run: --skip-duplicate skips an already published version.
       - name: Publish to Marketplace
         working-directory: apps/extension

@@ -91,8 +91,8 @@ tmux and alerts.
   - Build one pinned tmux release from source in `release.yaml`, next to `aggregor-pty`: fully static for Linux x64 and
     arm64 (musl, with libevent and ncurses), and for macOS x64 and arm64 with libevent and ncurses linked in and only
     the system library dynamic, as every macOS binary is. A WSL window installs the Linux VSIX, so it gets one too.
-  - A platform VSIX always runs its own `bin/tmux`. The universal VSIX keeps `tmux` from `PATH`, with the version check
-    and the Install tmux button.
+  - A Linux or macOS VSIX always runs its own `bin/tmux`. A local build without it keeps `tmux` from `PATH`, with the
+    version check and the Install tmux button.
   - Ship the `xterm-256color` and `tmux-256color` terminfo entries and point tmux at them (`TERMINFO_DIRS`): Linux
     distributions keep them in different places, and macOS has no `tmux-256color`.
   - `pnpm --filter=aggregor-app build:tmux` builds it for this machine into `apps/extension/bin`, like `build:pty`; it

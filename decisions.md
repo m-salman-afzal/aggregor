@@ -570,19 +570,28 @@ current entry. Leave a field out rather than guess.
 - **Decision:** Checks runs `vsix` on every branch. Renovate moves `vscode` and `@types/vscode` together with
   `rangeStrategy: bump`, and skips `vscode` patch releases, which add no API and would only lock users out.
 
-### A VSIX per platform, built in CI (2026-11-08)
+### A VSIX per platform, built in CI, and no universal one (2026-11-08; no universal VSIX since 2026-11-10)
 
-- **Problem:** the extension ships a native binary, so one VSIX can't serve every platform.
+- **Problem:** the extension ships a native binary, so one VSIX can't serve every platform. v0.0.7 also published a
+  universal VSIX without the binary, and the Marketplace makes each upload live minutes after `vsce publish`, in no set
+  order: the universal one went live before `linux-x64`, a Linux VS Code auto-updated to it in between, and VS Code
+  never swaps an installed universal build for a platform build of the same version, so no session could start until a
+  reinstall.
 - **Options:** building each target on its own native runner. Cross-compiling macOS from Linux with Zig, which needs
-  Apple's SDK for anything beyond libc.
+  Apple's SDK for anything beyond libc. A universal VSIX without the binary for every other platform, published with the
+  rest (the race above) or last: the upload order doesn't set the order they go live, since `darwin-x64`, uploaded after
+  it, went live first. Publishing it once the Marketplace lists every platform build, by polling: still a bet on timing,
+  for a fallback that only reaches platforms where sessions can't run.
 - **Decision:** Release builds `x86_64` and `aarch64` musl binaries with cargo-zigbuild (0.24.1, Zig 0.17.1, in a venv
   on `PATH` so it finds Zig) on one Linux runner, and both macOS targets with cargo on one Apple silicon runner. The
-  release job packages `linux-x64`, `linux-arm64`, `darwin-x64` and `darwin-arm64` with their binary and a universal
-  VSIX without one, and publishes all five. Artifacts drop the executable bit, so packaging sets it again; a packaged
-  binary keeps it through install. Checks packages the VSIX with the runner's own build.
-- **Why:** static musl binaries run on any Linux, two runners cover four targets, and the Marketplace serves the
-  universal VSIX to every other platform, Windows included. Without the binary, starting or reopening a session says why
-  instead: reopen the folder in WSL on Windows, or that the platform isn't supported yet.
+  release job packages `linux-x64`, `linux-arm64`, `alpine-x64`, `alpine-arm64`, `darwin-x64` and `darwin-arm64` with
+  their binary, `win32-x64` and `win32-arm64` without one, and no universal VSIX. Artifacts drop the executable bit, so
+  packaging sets it again; a packaged binary keeps it through install. Checks packages the VSIX with the runner's own
+  build.
+- **Why:** each platform matches only its own VSIX, so a client that updates mid-release gets its build or nothing new.
+  Static musl binaries run on any Linux, Alpine included, so two runners cover the six targets with a binary. Windows
+  still installs the extension, and starting or reopening a session there says to reopen the folder in WSL, which runs
+  the Linux VSIX. `linux-armhf` gets no VSIX.
 
 ## VS Code and agent integration
 

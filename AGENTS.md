@@ -119,5 +119,5 @@ pnpm bump          # On an up-to-date dev: pick the next version; pushes chore/b
 
 To release, run `pnpm bump` (`bump.config.ts`). Merging the bump PR into dev opens the release PR, dev into main
 (`release-pr.yaml`); merging that one publishes to the Marketplace and creates the GitHub release (`release.yaml`): a
-VSIX per platform with its `aggregor-pty`, and a universal one without. The bump sets the same version in the root and
-`apps/extension` `package.json`.
+VSIX per platform, Linux and macOS ones with their `aggregor-pty`, and no universal one. The bump sets the same version
+in the root and `apps/extension` `package.json`.
