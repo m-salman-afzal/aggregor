@@ -13,7 +13,9 @@ that every decision the session made, or changed, is there.
 Work lands as small, feature-sliced, stacked PRs on `stack/<name>/<n>/<type>/<slug>` branches, each starting from the
 one below it. The `stack` skill (`.claude/skills/stack`) creates them; on push, the Auto PR workflow opens each PR into
 the branch below and joins them into a GitHub stack. Land a stack by merging its top PR with a merge commit, never
-squash. The roadmap lives in `README.md`. Commit and push only when the user asks.
+squash. A problem left for later is a GitHub issue with a branch for its fix linked to it, which the `issue` skill
+(`.claude/skills/issue`) files when the user asks for an issue. The roadmap lives in `README.md`. Commit and push only
+when the user asks.
 
 A commit subject is `<type>(<scope>): <subject>`, with `!` before the colon for a breaking change, and its scope is a
 feature from the list in `.github/workflows/pr-title.yaml`. Auto PR titles each PR with its first commit's subject, plus

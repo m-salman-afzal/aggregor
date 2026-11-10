@@ -56,6 +56,17 @@ current entry. Leave a field out rather than guess.
   opens each into the branch below and joins them into a GitHub stack; the top PR lands with a merge commit, never a
   squash. Once the branches below have landed, the lowest open branch opens into dev (2026-11-05, #63).
 
+### Problems for later are GitHub issues, each with its branch (2026-11-10)
+
+- **Problem:** problems put off for later sat in `decisions.md`'s Limits, `phase2.md`'s notes, the README and code
+  comments, where nothing tracked them and a new conversation had to find them again.
+- **Options:** a problems list in the repo, which is one more ledger to keep current; issues without branches.
+- **Decision:** when the user asks for an issue, the `issue` skill (`.claude/skills/issue`) files it on GitHub with what
+  was reported, what might have gone wrong, how it was checked and the proposed solution, labelled `bug`, `enhancement`
+  or `help wanted`, then makes its branch with `gh issue develop` from `dev`, linked to the issue and pushed, without
+  checking it out. The problems put off so far became #99 to #105.
+- **Why:** GitHub tracks them in one place, each one says enough to start on it cold, and its branch is ready.
+
 ### PR titles are commit subjects with a feature scope, plus the stack's step (2026-11-10, on `chore/bump-deps`)
 
 - **Problem:** `gh pr create --fill` takes the commit's subject as the title only when the PR opens with one commit;
