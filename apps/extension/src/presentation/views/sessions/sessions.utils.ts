@@ -16,7 +16,8 @@ import {Array, Clock, Effect} from "effect";
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {SessionListItemDto} from "@dtos/session.dto.ts";
 
-// How the Sessions tree draws what its controllers return: project and session rows, and session badges.
+// How the Sessions tree, and the Archive tree with its rows, draw what their controllers return: project and session
+// rows, and session badges.
 
 // The URI a session row's badge hangs off; the badge provider reads the session id back from its path.
 export const getSessionBadgeUri = Effect.fn("SessionsView.getSessionBadgeUri")(function* (sessionId: string) {
@@ -25,17 +26,29 @@ export const getSessionBadgeUri = Effect.fn("SessionsView.getSessionBadgeUri")(f
   return Uri.from({path: `/${sessionId}`, scheme: SESSION_BADGE_URI_SCHEME});
 });
 
-// The row's kind, then the ways it can move, which the manifest's menus match.
+// The row's kind, then the ways it can move, then the state words given, which the manifest's menus match.
 const makeRowContextValue = Effect.fn("SessionsView.makeRowContextValue")(function* (
   rowKind: string,
-  listItem: ProjectListItemDto | SessionListItemDto
+  listItem: ProjectListItemDto | SessionListItemDto,
+  stateWords: readonly string[]
 ) {
   const moveWords = [
     ...(listItem.canMoveUp ? [SESSIONS_VIEW_CONTEXT_VALUES.CAN_MOVE_UP] : []),
     ...(listItem.canMoveDown ? [SESSIONS_VIEW_CONTEXT_VALUES.CAN_MOVE_DOWN] : [])
   ];
 
-  return Array.join([rowKind, ...moveWords], " ");
+  return Array.join([rowKind, ...moveWords, ...stateWords], " ");
+});
+
+// A session row also says whether its agent runs, for Stop Agent.
+const makeSessionRowContextValue = Effect.fn("SessionsView.makeSessionRowContextValue")(function* (
+  sessionListItem: SessionListItemDto
+) {
+  return yield* makeRowContextValue(
+    SESSIONS_VIEW_CONTEXT_VALUES.SESSION,
+    sessionListItem,
+    sessionListItem.isAgentRunning ? [SESSIONS_VIEW_CONTEXT_VALUES.AGENT_RUNNING] : []
+  );
 });
 
 // The agent's image; a session whose agent is gone shows a warning.
@@ -52,6 +65,16 @@ const getStatusLabel = Effect.fn("SessionsView.getStatusLabel")(function* (sessi
     : STATUS_KIND_LABELS[sessionListItem.statusKind];
 });
 
+// The agent's message, such as the permission it asks for, sits between the name and the folder.
+const makeSessionRowTooltip = Effect.fn("SessionsView.makeSessionRowTooltip")(function* (
+  {name, projectPath, statusMessage}: SessionListItemDto,
+  statusLabel: string
+) {
+  const statusMessageLines = statusMessage === undefined ? [] : [statusMessage];
+
+  return Array.join([SESSION_ROW_LABELS.TOOLTIP_HEADING(name, statusLabel), ...statusMessageLines, projectPath], "\n");
+});
+
 export const createSessionTreeItem = Effect.fn("SessionsView.createSessionTreeItem")(function* (
   sessionListItem: SessionListItemDto
 ) {
@@ -64,16 +87,11 @@ export const createSessionTreeItem = Effect.fn("SessionsView.createSessionTreeIt
   treeItem.iconPath = yield* getSessionRowIcon(sessionListItem);
   if (statusProgress !== undefined) treeItem.description = `${statusProgress}%`;
   treeItem.resourceUri = yield* getSessionBadgeUri(sessionListItem.sessionId);
-  treeItem.tooltip = SESSION_ROW_LABELS.TOOLTIP({
-    sessionName: sessionListItem.name,
-    statusLabel,
-    statusMessage: sessionListItem.statusMessage,
-    workingDirectory: sessionListItem.projectPath
-  });
+  treeItem.tooltip = yield* makeSessionRowTooltip(sessionListItem, statusLabel);
   treeItem.accessibilityInformation = {
     label: SESSION_ROW_LABELS.ACCESSIBLE(displayName, sessionListItem.projectName, statusLabel)
   };
-  treeItem.contextValue = yield* makeRowContextValue(SESSIONS_VIEW_CONTEXT_VALUES.SESSION, sessionListItem);
+  treeItem.contextValue = yield* makeSessionRowContextValue(sessionListItem);
   treeItem.command = {
     arguments: [sessionNodeId],
     command: SESSION_COMMANDS.OPEN,
@@ -93,7 +111,8 @@ export const createProjectTreeItem = Effect.fn("SessionsView.createProjectTreeIt
   treeItem.tooltip = projectListItem.path;
   treeItem.contextValue = yield* makeRowContextValue(
     projectListItem.isAdded ? SESSIONS_VIEW_CONTEXT_VALUES.ADDED_PROJECT : SESSIONS_VIEW_CONTEXT_VALUES.PROJECT,
-    projectListItem
+    projectListItem,
+    []
   );
 
   return treeItem;

@@ -44,13 +44,15 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 ### `sessions`
 
 - **Holds:** `projectId`, `agentId` (its `aggregorApp.agents` key), `name` (the agent's latest title, or ours until it
-  gives one), `customName` (the user's, from the row menu's Rename, or NULL) and `viewedAt` (when the session last came
-  into or left the user's view). The `id` is also the agent's session id.
+  gives one), `customName` (the user's, from the row menu's Rename, or NULL), `viewedAt` (when the session last came
+  into or left the user's view) and `lifecycle` (`ongoing`, listed in the Sessions view, or `archived`, listed in the
+  Archive view). The `id` is also the agent's session id.
 - **Written by:** `SessionService` through the base service: a row per New Session, `name` when the agent's title in the
   row changes, `customName` on Rename, `viewedAt` as the session comes into and leaves view, `sortId` on Move Up, Move
-  Down and a drop on another of its project's sessions, and a soft delete on Remove Session. Removing a project keeps
+  Down and a drop on another of its project's sessions in the same view, `lifecycle` and `sortId` on Archive and
+  Unarchive, which place the session last in its new view, and a soft delete on Remove Session. Removing a project keeps
   its sessions, so adding the project again lists them again.
-- **Read by:** `SessionService`, with the project's path: the Sessions view reads each row as it draws it.
+- **Read by:** `SessionService`, with the project's path: the Sessions and Archive views read each row as they draw it.
 - **Status columns:** `status` (`unknown` until a report, `exited` once the agent is gone), `statusKind`,
   `statusMessage`, `statusProgress`, `statusChangedAt` (when the state last changed), `hasWorked` (it has reported
   `working`), `reportedTitle` (the title in its latest OSC 7501 report), `terminalTitle` (its latest window title) and

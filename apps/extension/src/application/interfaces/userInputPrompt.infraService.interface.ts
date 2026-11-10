@@ -11,6 +11,12 @@ export type AgentPick =
   | {readonly _tag: "AgentPicked"; readonly agentId: AgentIdValueObject}
   | {readonly _tag: "DefaultAgentChosen"; readonly agentId: AgentIdValueObject};
 
+// A question with its answers, each with a line on what picking it does.
+export interface QuestionRequest {
+  readonly answers: readonly {readonly consequence: string; readonly label: string}[];
+  readonly question: string;
+}
+
 export class AgentPickCancelledError extends Schema.TaggedError<
   AgentPickCancelledError,
   {readonly brand: unique symbol}
@@ -27,15 +33,20 @@ export class ProjectPickCancelledError extends Schema.TaggedError<
   ProjectPickCancelledError,
   {readonly brand: unique symbol}
 >()("ProjectPickCancelledError", {}) {}
+export class QuestionCancelledError extends Schema.TaggedError<
+  QuestionCancelledError,
+  {readonly brand: unique symbol}
+>()("QuestionCancelledError", {}) {}
 
-// What the extension asks the user mid-task: a name, a project, folders, a confirmation, or an offer to act.
+// What the extension asks the user mid-task: a name, a project, folders, a question, or an offer to act.
 export class IUserInputPromptInfraService extends Context.Service<
   IUserInputPromptInfraService,
   {
     // A one-line input box filled with `value`; resolves with what the user enters.
     readonly askForText: (question: string, value: string) => Effect.Effect<string, InputCancelledError>;
-    // A modal warning; true when the user picks `confirmAction`.
-    readonly confirm: (message: string, confirmAction: string) => Effect.Effect<boolean>;
+    // A question in VS Code's own quick pick, inside the window rather than a system dialog: its answers, then Cancel.
+    // Resolves with the picked answer's label.
+    readonly askQuestion: (questionRequest: QuestionRequest) => Effect.Effect<string, QuestionCancelledError>;
     // Lists the agents with the default first and selected; each other one offers to become the default.
     readonly pickAgent: (
       agentListItems: readonly AgentListItemDto[],

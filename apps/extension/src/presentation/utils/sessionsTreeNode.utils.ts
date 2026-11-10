@@ -1,6 +1,6 @@
 import {SESSIONS_VIEW_NODE_ID_PREFIXES} from "@pkg/constants/src/sessionsView.constant.ts";
 import {decodeVsCodeArgument, InvalidVsCodeArgumentError} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
-import {Effect, Schema, String} from "effect";
+import {Effect, Match, Schema, String} from "effect";
 
 export const makeProjectNodeId = Effect.fn("makeProjectNodeId")(function* (projectPath: string) {
   return `${SESSIONS_VIEW_NODE_ID_PREFIXES.PROJECT}${projectPath}`;
@@ -32,9 +32,12 @@ export const decodeProjectNodeRequest = Effect.fn("decodeProjectNodeRequest")(fu
 >(requestSchema: RequestSchema, projectNodeIdArgument: unknown) {
   const projectNodeId = yield* decodeVsCodeArgument(Schema.String, projectNodeIdArgument);
   const projectNode = yield* readSessionsTreeNodeId(projectNodeId);
-  if (projectNode._tag !== "ProjectNode") return yield* InvalidVsCodeArgumentError.make({cause: projectNodeId});
+  const projectPath = yield* Match.valueTags(projectNode, {
+    ProjectNode: (chosenProjectNode) => Effect.succeed(chosenProjectNode.projectPath),
+    SessionNode: () => Effect.fail(InvalidVsCodeArgumentError.make({cause: projectNodeId}))
+  });
 
-  return yield* decodeVsCodeArgument(requestSchema, {projectPath: projectNode.projectPath});
+  return yield* decodeVsCodeArgument(requestSchema, {projectPath});
 });
 
 // A session row's menu and its click pass the node's id; the request names its session.
@@ -43,7 +46,10 @@ export const decodeSessionNodeRequest = Effect.fn("decodeSessionNodeRequest")(fu
 >(requestSchema: RequestSchema, sessionNodeIdArgument: unknown) {
   const sessionNodeId = yield* decodeVsCodeArgument(Schema.String, sessionNodeIdArgument);
   const sessionNode = yield* readSessionsTreeNodeId(sessionNodeId);
-  if (sessionNode._tag !== "SessionNode") return yield* InvalidVsCodeArgumentError.make({cause: sessionNodeId});
+  const sessionId = yield* Match.valueTags(sessionNode, {
+    ProjectNode: () => Effect.fail(InvalidVsCodeArgumentError.make({cause: sessionNodeId})),
+    SessionNode: (chosenSessionNode) => Effect.succeed(chosenSessionNode.sessionId)
+  });
 
-  return yield* decodeVsCodeArgument(requestSchema, {sessionId: sessionNode.sessionId});
+  return yield* decodeVsCodeArgument(requestSchema, {sessionId});
 });

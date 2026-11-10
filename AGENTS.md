@@ -52,8 +52,8 @@ and so on), and `@pkg/eslint` (`packages/eslint`) checks each layer's imports, t
 types and interfaces live. Code imports through one alias per folder under a layer (`@entities/`, `@interfaces/`,
 `@infraServices/` and so on, listed in `apps/extension/tsconfig.json`), never through a relative path, and by name,
 never with `import * as`. Every constant outside the domain lives in its feature's `@pkg/constants` file, grouped in a
-labelled object with the constants it belongs with (see `DDD.md`). Enforce a new convention with a lint there, not only
-with prose here.
+labelled object with the constants it belongs with, and holds no logic: a util beside its caller picks between texts
+(see `DDD.md`). Enforce a new convention with a lint there, not only with prose here.
 
 ## Effect
 
@@ -74,6 +74,9 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
   `Effect.withSpan`.
 - **No `?.` and no `??`.** Check the value explicitly, or take a default with `Result.getOrElse` or `UndefinedOr.match`.
   Lint bans both.
+- **Match on tags.** Branch on a tagged value with `Match.valueTags`, or `Match.value` and `Match.exhaustive` for a
+  table of cases, so a new tag without a branch fails the typecheck. Lint bans comparing `_tag`, `switch` and `else`; an
+  `if` that returns early and a ternary stay.
 - **`Result`, never `Option`.** A value that can be missing is a `Result`, or an effect that fails, whose tagged error
   says why it is missing. Turn an `Option` that an Effect API returns into a `Result` right there with
   `Result.fromOption`. Lint bans importing `Option`.
@@ -98,6 +101,10 @@ extension's `~/.aggregor`; elsewhere, pick it with **Developer: Set Log Level...
 Callbacks VS Code makes per row or per spinner frame (tree items, badges, the spinner) run untraced.
 
 ## Dependencies
+
+`components.md` lists what Aggregor is built from, runs on, and is checked and released with: which part of each it
+uses, why, and what else was weighed. Update it in the same commit as a change that adds, removes or changes how one is
+used.
 
 Every dependency version lives once, in `pnpm-workspace.yaml`'s `catalog:`; each `package.json` names it as `"catalog:"`
 (workspace packages stay `workspace:*`). Change versions only there or with `pnpm add` / `pnpm remove`:

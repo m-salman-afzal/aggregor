@@ -1,7 +1,7 @@
 import {APP_NAME, OUTPUT_CHANNEL_LOG_METHODS} from "@pkg/constants/src/app.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {acquireScopedDisposable} from "@pkg/vscode/src/vscode.utils.ts";
-import {Array, Cause, Effect, Exit, Layer, Logger, Predicate, References, Result, Tracer} from "effect";
+import {Array, Cause, Effect, Exit, Layer, Logger, Match, Predicate, References, Result, Tracer} from "effect";
 import {format} from "node:util";
 
 import type {LogOutputChannel} from "vscode";
@@ -11,22 +11,26 @@ import type {LogOutputChannel} from "vscode";
 // "aggregorApp.openSession > SessionController.openChosenSession > SessionService.openSession": the span's name after
 // its ancestors'.
 // eslint-disable-next-line no-restricted-syntax -- runs while a span ends
-const formatSpanPath = (span: Tracer.AnySpan): string => {
-  if (span._tag === "ExternalSpan") return "external";
-
-  return Result.match(
-    Result.fromOption(span.parent, () => "root"),
-    {onFailure: () => span.name, onSuccess: (parentSpan) => `${formatSpanPath(parentSpan)} > ${span.name}`}
-  );
-};
+const formatSpanPath = (span: Tracer.AnySpan): string =>
+  Match.valueTags(span, {
+    ExternalSpan: () => "external",
+    Span: (localSpan) =>
+      Result.match(
+        Result.fromOption(localSpan.parent, () => "root"),
+        {
+          onFailure: () => localSpan.name,
+          onSuccess: (parentSpan) => `${formatSpanPath(parentSpan)} > ${localSpan.name}`
+        }
+      )
+  });
 
 // eslint-disable-next-line no-restricted-syntax -- runs while a span ends
-const formatFailureReason = (reason: Cause.Reason<unknown>) => {
-  if (reason._tag === "Die") return "defect";
-  if (reason._tag === "Interrupt") return "interrupted";
-
-  return Predicate.hasProperty(reason.error, "_tag") ? String(reason.error._tag) : format(reason.error);
-};
+const formatFailureReason = (reason: Cause.Reason<unknown>) =>
+  Match.valueTags(reason, {
+    Die: () => "defect",
+    Fail: ({error}) => (Predicate.hasProperty(error, "_tag") ? String(error._tag) : format(error)),
+    Interrupt: () => "interrupted"
+  });
 
 // eslint-disable-next-line no-restricted-syntax -- runs while a span ends
 const formatSpanOutcome = (exit: Exit.Exit<unknown, unknown>) =>

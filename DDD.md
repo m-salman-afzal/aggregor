@@ -83,7 +83,7 @@ Each folder directly under a layer has one import alias in `apps/extension/tscon
 | Layer            | Aliases                                                                                                                             |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `domain`         | `@domainServices` (`services`), `@entities`, `@valueObjects`                                                                        |
-| `application`    | `@interfaces`, `@services`, `@dtos`                                                                                                 |
+| `application`    | `@interfaces`, `@services`, `@dtos`, `@applicationUtils` (`utils`)                                                                  |
 | `infrastructure` | `@config`, `@models` (`database/models`), `@di`, `@logger`, `@repositories`, `@infraServices` (`services`), `@infraUtils` (`utils`) |
 | `presentation`   | `@controllers`, `@middlewares`, `@presenters`, `@presentationUtils` (`utils`), `@views`                                             |
 
@@ -158,6 +158,11 @@ file suffix.
   constants: log messages, which read beside their code, and the arguments of a command line being built.
   `aggregor/constant-placement` flags a module-level const named in UPPER_CASE, or set to a bare literal, anywhere else
   in the extension and `@pkg/vscode`.
+- A constant holds no logic: it is a literal, or a text with holes, an arrow whose whole body is one template literal
+  (`` (displayName) => `${displayName} finished` ``). A text that depends on a case is one constant per case, and a util
+  beside the code that uses it picks one: a presenter for an error's message, `application/utils` for a question a use
+  case asks. Lint (`CONSTANT_BANS` in `syntaxBans.ts`) bans conditions, calls, spreads and operators in
+  `@pkg/constants`, and any other function there.
 - An aggregate of several entities would get an `.aggregate.ts`.
 
 ## Tree
@@ -167,7 +172,8 @@ packages/
   constants/src/                           one file per feature, each with its command ids, labels, notices, error
                                            texts and the feature's other constants: app, commitMessage, database,
                                            git, agent, process, project, session, sessionAlert, sessionsView,
-                                           terminal, tmux, vscode (VS Code's own command ids), workspace
+                                           archiveView, terminal, tmux, vscode (VS Code's own command ids),
+                                           workspace
   eslint/src/                              the repo's ESLint setup: base/ per file type, layers/ the DDD layering
                                            checks, rules/ the aggregor plugin (one file per rule), and
                                            eslint.config.ts composing them
@@ -189,7 +195,7 @@ apps/extension/src/
                                            DatabaseReadError, DatabaseWriteError, EntityNotFoundError
       session/
         session.entity.ts                  SessionEntity (BaseEntity and projectId, projectPath, name, customName,
-                                           agentId, viewedAt, and aggregor-pty's status, statusKind,
+                                           agentId, viewedAt, lifecycle, and aggregor-pty's status, statusKind,
                                            statusMessage, statusProgress, statusChangedAt, hasWorked, reportedTitle,
                                            terminalTitle and agentSessionId; displayName)
         session.repository.interface.ts    ISessionRepository: the base calls
@@ -204,7 +210,8 @@ apps/extension/src/
     valueObjects/                          EntityIdValueObject (a branded UUID v7), ProjectPathValueObject (branded),
                                            AgentStatusValueObject and StatusKindValueObject (literals: OSC 7501's
                                            states and kinds), SessionStatusValueObject (the status the user sees,
-                                           picked from the agent's), AgentIdValueObject (branded: the settings
+                                           picked from the agent's), SessionLifecycleValueObject (literals:
+                                           ongoing, archived), AgentIdValueObject (branded: the settings
                                            key), AgentIconValueObject (an image file's path),
                                            EnvironmentVariablesValueObject (names to values),
                                            LaunchPlanValueObject (a command, its arguments and its variables),
@@ -221,9 +228,15 @@ apps/extension/src/
       base.service.ts                      addEntity, findEntityById, findEntities, updateEntity, upsertEntity,
                                            removeEntity, placeEntitiesAtEnd, on any repository
       session.service.ts                   newSession (which picks the project, then the agent), openSession,
-                                           removeSession, renameSession, moveSessionUp, moveSessionDown,
-                                           moveSessionToPlaceOf; NoAgentInstalledError; the list:
-                                           getSessionListItem, listProjectSessionIds, listWorkingSessionIds,
+                                           archiveSession, unarchiveSession, removeSession, renameSession,
+                                           stopSessionAgent, stopProjectSessionAgents,
+                                           stopArchivedProjectSessionAgents, stopOngoingSessionAgents,
+                                           stopArchivedSessionAgents (each asks first),
+                                           moveSessionUp, moveSessionDown, moveSessionToPlaceOf (each session moves
+                                           among its project's sessions in its own view); NoAgentInstalledError;
+                                           the lists: getSessionListItem, listProjectSessionIds,
+                                           listArchivedProjectSessionIds, listProjectsWithArchivedSessions,
+                                           listWorkingSessionIds,
                                            watchSessionListChanges, watchViewedSessionIds, findViewedSessionId,
                                            listSessionsWaitingOnUser (the view's badge); startSessionTitleSync,
                                            startSessionTabNameSync, startViewedAtSync
@@ -253,8 +266,9 @@ apps/extension/src/
                                            runningSessionIds, refreshRunningSessionIds, startedOrStoppedSessionIds;
                                            SessionTabCommandRequest, PtyBinaryNotFoundError, TmuxUnavailableError
       userInputPrompt.infraService.interface.ts
-                                           showErrorMessage, showInformationMessage, confirm, askForText, pickProject,
-                                           pickProjectFolderPaths, pickAgent; AgentPick
+                                           showErrorMessage, showInformationMessage, askQuestion (VS Code's quick
+                                           pick, not a system dialog), askForText, pickProject,
+                                           pickProjectFolderPaths, pickAgent; AgentPick, QuestionRequest
       shellCommand.infraService.interface.ts
                                            listInstalledCommands: which commands are on PATH
       desktopNotification.infraService.interface.ts
@@ -269,6 +283,9 @@ apps/extension/src/
       commitCli.infraService.interface.ts  generateCommitMessage; CommitMessageRequest
       settings.config.interface.ts         readSettings, readSessionSettings, readAlertSettings,
                                            saveDefaultAgentId; Settings, SessionSettings, AlertSettings
+    utils/sessionQuestion.utils.ts         makeStopAgentsQuestion, makeArchiveQuestion: the questions that stopping
+                                           or archiving an agent asks, worded for one agent or several, and for a
+                                           turn cut short
   infrastructure/
     database/models/                       a Drizzle table per file (SessionTableModel...); base.model.ts:
                                            BASE_COLUMNS, the shared columns
@@ -322,10 +339,13 @@ apps/extension/src/
                                            request DTO and call one service; the views' reads
     presenters/                            session, project, commitMessage: a failed command's message, and the
                                            setting that fixes it; app: none, for commands that cannot fail
-    utils/sessionsTreeNode.utils.ts        the Sessions tree's node ids, and decoding a row's node id into a
-                                           request DTO
+    utils/sessionsTreeNode.utils.ts        the Sessions and Archive trees' node ids, and decoding a row's node id
+                                           into a request DTO
     views/sessions/                        SessionsView: the tree and badge providers, tree items, spinner, redraws,
                                            drag and drop, the session in front kept selected, and the view's badge
+    views/archive/                         ArchiveView: the archived sessions' tree under their projects, drawn
+                                           with the Sessions view's tree items; their badges are the Sessions
+                                           view's
     views/sessionAlerts/                   SessionAlertsView: shows each alert in the focused window or hands it to
                                            the system, and handles the session links desktop notifications open
   extension.ts                             activate
@@ -370,7 +390,7 @@ apps/extension/tests/
 - An application service is a file of use cases, one per entity or feature, as long as its use cases need: commands
   (`newSession`), queries that return response DTOs (`getSessionListItem`), and the work that runs for the window's life
   (`startSessionTitleSync`). A use case takes a request DTO, and turns entities into response DTOs before they leave it.
-- A use case asks the user what it needs mid-task (a project, a name, a confirmation) through
+- A use case asks the user what it needs mid-task (a project, a name, an answer to a question) through
   `IUserInputPromptInfraService`, and shows progress through `IProgressInfraService`. It returns every failure the user
   should hear about as a typed error, for presentation to show; a cancelled pick or a row removed meanwhile is not a
   failure, so the use case ends quietly. Work no command started, such as the title sync, logs its failures.
@@ -382,12 +402,14 @@ apps/extension/tests/
   shows the presenter's message; the presenter's type covers every failure its services return, so a new one fails to
   compile until it has a message. A command that only drives VS Code and reads no data, Open Settings, goes straight to
   its `@pkg/vscode` helper, with no controller or service.
-- A view registers VS Code's providers and draws what its controllers return. The Sessions tree's nodes are ids,
-  `project:<path>` and `session:<id>` (`sessionsTreeNode.utils.ts`): VS Code finds a node to redraw by its id, and every
-  draw reads the node's DTO again through the controllers, so the view keeps no copy and decides nothing about a
+- A view registers VS Code's providers and draws what its controllers return. The Sessions and Archive trees' nodes are
+  ids, `project:<path>` and `session:<id>` (`sessionsTreeNode.utils.ts`): VS Code finds a node to redraw by its id, and
+  every draw reads the node's DTO again through the controllers, so the view keeps no copy and decides nothing about a
   session. Row menus pass the node id, which the controller decodes into the request DTO.
-- The view redraws only what changed: `watchSessionListChanges` sends `ProjectListChanged` (the whole tree),
-  `ProjectSessionsChanged` (one project's sessions) or `SessionChanged` (one row and its badge).
+- The Sessions view redraws only what changed: `watchSessionListChanges` sends `ProjectListChanged` (the whole tree),
+  `ProjectSessionsChanged` (one project's sessions) or `SessionChanged` (one row and its badge). The Archive view
+  redraws one row for `SessionChanged` and its whole tree for the others, since its project rows come and go with their
+  archived sessions.
 - Text, symbols and colours for a status (`STATUS_LABELS`, `STATUS_BADGES`, `STATUS_KIND_LABELS` in
   `@pkg/constants/src/sessionsView.constant.ts`) are the view's; the status itself is the backend's.
 
