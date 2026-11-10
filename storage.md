@@ -18,9 +18,8 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
   table's order: a new row, or one upserted again, gets the table's highest plus one, a moved row and the rows after its
   new place get the next ones, and reads follow it), `updatedAt` (set on every write) and `deletedAt` (set by a soft
   delete; reads skip the row). Timestamps are ISO 8601 text in UTC, such as `2026-11-07T22:13:46.836Z`.
-- **Migrations:** `apps/extension/assets/migrations/`, written by `pnpm db:generate`: before 0.1.0 one, regenerated from
-  zero on each schema change, with the old database deleted. A window applies the ones the database lacks when it
-  starts, and Drizzle records each applied one in `__drizzle_migrations`.
+- **Migrations:** `apps/extension/assets/migrations/`, written by `pnpm db:generate`, one per schema change. A window
+  applies the ones the database lacks when it starts, and Drizzle records each applied one in `__drizzle_migrations`.
 - **Read:** on demand: no window keeps a copy. A window hears of each write within 250 ms of another connection's
   (`aggregor-pty`'s or another window's), which it sees by polling `PRAGMA data_version`, and at once after its own; it
   then reads the rows whose `updatedAt` is at or after the last one it read.

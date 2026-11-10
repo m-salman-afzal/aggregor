@@ -37,6 +37,8 @@
     "vsix": "pnpm --filter=aggregor-app vsix",
     "publish:vsce": "pnpm --filter=aggregor-app publish:vsce",
     "db:generate": "pnpm --filter=aggregor-app db:generate",
+    "db:check": "pnpm --filter=aggregor-app db:check",
+    "test": "pnpm --filter=aggregor-app test",
     "bump": "bumpp",
     "release:version": "pnpm pkg get version"
   },

@@ -35,10 +35,11 @@ that no scope covers, add its scope in that PR, to `pr-title.yaml` and with what
   reference. Name a thing by what it is to the user, not by the gesture that reached it (`chosenProject`, not
   `clickedProject`), and give each word one meaning: a "prompt" is an LLM's, so asking the user is a user-input prompt
   (`IUserInputPromptInfraService`).
-- **No users before 0.1.0.** Until 0.1.0 ships, the author is the only user. Be brave: rename command IDs, setting keys
-  and storage keys, change stored data without hand-written migrations, and leave no compatibility shims or deprecation
-  paths. A schema change regenerates the one migration from zero (delete `apps/extension/assets/migrations/`, then
-  `pnpm db:generate --name create_tables`), and the old database is deleted, not migrated.
+- **No users before 0.1.0, but their data stays.** Until 0.1.0 ships, the author is the only user. Be brave: rename
+  command IDs, setting keys and storage keys, and leave no compatibility shims or deprecation paths. Stored data is the
+  exception: every schema change is a new migration (`pnpm db:generate --name <change>`) that runs on the user's
+  database when the app updates, and no database is deleted. `DDD.md`'s Tables and migrations has the rules a column and
+  a migration follow.
 
 ## Architecture
 
@@ -115,9 +116,11 @@ pnpm format:fix    # Same, writing the changes
 pnpm typecheck     # tsc --noEmit in the apps, the root config files and .claude's scripts; packages are covered through the apps
 pnpm pty:check     # cargo fmt --check and cargo clippy -D warnings on apps/pty, the aggregor-pty binary
 pnpm pty:test      # aggregor-pty's tests, the end-to-end one included
+pnpm test          # The extension's tests (vitest, apps/extension/tests), the migration test among them
 pnpm quality       # lint:check + format:check + typecheck + pty:check, in parallel
 pnpm lint-staged   # Same lint and format checks on staged files only (the husky pre-commit hook)
-pnpm db:generate   # After changing a table model, with --name create_tables: drizzle-kit writes the migration
+pnpm db:generate   # After changing a table model, with --name <change>: drizzle-kit writes its migration
+pnpm db:check      # Fails when a table model changed without its migration; reports only
 pnpm --filter=aggregor-app build:pty  # Builds aggregor-pty for this machine into apps/extension/bin
 pnpm bump          # On an up-to-date dev: pick the next version; pushes chore/bump-v<version> and opens its PR
 ```

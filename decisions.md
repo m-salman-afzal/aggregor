@@ -215,9 +215,8 @@ current entry. Leave a field out rather than guess.
   - Each `infrastructure/database/models/<table>.model.ts` is a `sqliteTable` (`ProjectTableModel`...) spreading
     `BASE_COLUMNS` from `base.model.ts`.
   - `pnpm db:generate` (`drizzle-kit generate`, configured in `apps/extension/drizzle.config.ts`) writes the migrations
-    into `apps/extension/assets/migrations/`, committed and shipped in the VSIX without drizzle-kit's snapshots. Before
-    0.1.0 there is one: a schema change deletes the folder, runs `pnpm db:generate --name create_tables` and deletes the
-    old database (2026-11-08; until then, a migration per change). From 0.1.0, a migration per change.
+    into `apps/extension/assets/migrations/`, committed and shipped in the VSIX without drizzle-kit's snapshots, one per
+    schema change (see "Every schema change is a migration on the user's database").
   - `DatabaseLayer` runs Drizzle's `migrate` when a window starts, in one `BEGIN IMMEDIATE` transaction so a second
     window starting at once sees the first one's migrations, with foreign keys off around it so a migration can rebuild
     a table.
@@ -290,10 +289,61 @@ current entry. Leave a field out rather than guess.
   abbreviation rule suggests "chosen" for "clicked", and `AGENTS.md`'s naming rule says it.
 - **Why:** a name a person reads without the code open should say what the thing is.
 
-### No users before 0.1.0 (2026-10-31)
+### Every schema change is a migration on the user's database (2026-11-10)
 
-- **Decision:** rename command IDs, setting keys and storage keys, and change stored data, with no hand-written
-  migrations or shims. drizzle-kit's generated schema migrations (2026-11-08) are kept, since they cost nothing.
+- **Problem:** before 0.1.0 a schema change regenerated the one migration from zero and deleted the old database, so an
+  update that changed the schema lost every project and session. The installed build's database held 7 sessions and 4
+  projects when archiving sessions first needed a column.
+- **Options:**
+  - Regenerating and deleting until 0.1.0.
+  - Checking migrations only by hand, against a copy of a real database.
+  - Node's own test runner, with no new dependency: it can't resolve the extension's tsconfig aliases, so it would run
+    Drizzle's migrator directly instead of ours. `@effect/vitest`, whose every export `@effect/tsgo` reports as an
+    unstable API.
+  - `drizzle-kit check` in CI: it checks the migrations folder, not that the models match it.
+- **Decision:**
+  - A migration per schema change, run on the user's database when a window starts; no database is deleted. A release's
+    migration only adds; renaming or dropping a column takes two releases; a migration that moves data adds its SQL and
+    its own check; a released migration is never edited (`DDD.md`'s Tables and migrations).
+  - `applyPendingMigrations` (`database.utils.ts`) runs a folder's pending migrations, split out of `DatabaseLayer` so a
+    test runs the same code on any folder.
+  - vitest 5.1.0 runs `apps/extension/tests` (`pnpm test`); `vitest.config.ts` resolves the tsconfig aliases, and each
+    test runs its effect with `Effect.runPromise`.
+  - `migrations.test.ts` runs every migration on a new database. For each migration it builds a database at that one,
+    fills every table from SQLite's own description of it, migrates it to the newest, and checks that every table, row
+    and value is still there, that new columns hold their defaults, that `integrity_check` and `foreign_key_check` are
+    clean, and that a second run changes nothing. Throwaway migrations that dropped a column, deleted rows, changed
+    values, broke a reference or filled a new column each failed it; one that added a column and one drizzle-kit wrote
+    to rebuild a table each passed.
+  - `pnpm db:check` runs `drizzle-kit generate` into a copy of the migrations and fails when it writes one, so a model
+    can't change without its migration. CI runs both.
+  - Before a release with a migration, the build runs against a copy of a real database (`AGGREGOR_DATABASE_FILE`).
+- **Why:** an update must never cost the user their sessions. The test needs no data written for each migration, so
+  every future migration is checked from every earlier one, which also covers a user who skipped updates.
+
+### One column per dimension (2026-11-10)
+
+- **Problem:** archiving sessions would have added another boolean column to `sessions`. The user asked whether flags
+  such as `hasWorked` and an archived flag should become one status column, a state machine, and for a rule to follow
+  from now on.
+- **Options:**
+  - One stage column holding `hasWorked`, archived and the like: they change independently, so it would need a value per
+    combination (28, with the agent's 7 statuses), and `aggregor-pty` and the extension would both write it.
+  - A lint banning boolean columns: whether a flag is a stage takes judgement, which a lint can't make.
+- **Decision:** `DDD.md`'s Tables and migrations. A column per thing that changes on its own, with one writer. A stage
+  is one enum column even with two values; each action checks the stage it starts from, the row's context value carries
+  the stage, and a transition map comes with a third value. Booleans about one thing merge into its stage column. A
+  boolean column is for a yes-or-no fact that isn't a stage. Nothing merges today: `status` is already a stage column
+  with its details beside it, and `hasWorked` and `isAdded` are such facts.
+- **Why:** a stage column keeps the states and the actions each allows in one place without multiplying them, and one
+  writer per column keeps `aggregor-pty`'s writes and the extension's apart.
+
+### No users before 0.1.0, but their data stays (2026-10-31; data kept since 2026-11-10)
+
+- **Options:** changing stored data too, with no migrations: the old database deleted on a schema change (2026-10-31 to
+  2026-11-10).
+- **Decision:** rename command IDs, setting keys and storage keys, with no shims. Stored data survives every update: see
+  "Every schema change is a migration on the user's database".
 - **Why:** until 0.1.0 the author is the only user. Sessions moved keys four times (`sessions`, `storedSessions`,
   `savedSessions`, `agentSessions`).
 

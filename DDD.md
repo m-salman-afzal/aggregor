@@ -301,14 +301,15 @@ apps/extension/src/
     di/
       app.layer.ts                         AppLayer: the layer graph under the commands and views
       database.layer.ts                    DatabaseLayer: opens ~/.aggregor/data/aggregor.db, foreign keys on, and
-                                           applies the migration in assets/migrations
+                                           applies the migrations in assets/migrations it hasn't run
     logger/traceLog.layer.ts               TraceLogLayer
     utils/aggregorFolder.utils.ts          getAggregorFolderPath: ~/.aggregor, or $AGGREGOR_HOME (~/.aggregorDev
                                            from F5); readAbsolutePathVariable
     utils/anchorFolder.utils.ts            getAnchorFolderPath: anchor/Aggregor in it, the hidden folder 0 of the
                                            window once it shows one project
     utils/database.utils.ts                getDatabaseFilePath: data/aggregor.db in it, or $AGGREGOR_DATABASE_FILE;
-                                           the window opens it, and aggregor-pty writes to it
+                                           the window opens it, and aggregor-pty writes to it.
+                                           applyPendingMigrations: runs a folder's migrations the database hasn't
     utils/tmuxSocket.utils.ts              getTmuxSocketPath: tmux.sock in it, Aggregor's own tmux server
   presentation/
     routes.ts                              RoutesLayer: each command's ID, controller and presenter; Open Settings
@@ -327,6 +328,9 @@ apps/extension/src/
     views/sessionAlerts/                   SessionAlertsView: shows each alert in the focused window or hands it to
                                            the system, and handles the session links desktop notifications open
   extension.ts                             activate
+apps/extension/tests/
+  migrations.test.ts                       every migration on a new database, and on a filled one at each earlier
+                                           migration (see Tables and migrations)
 ```
 
 ## Domain model
@@ -436,11 +440,46 @@ apps/extension/src/
   moved by `placeAtEnd`) when its `sortId` is above every one it saw.
 - Each table model is a Drizzle `sqliteTable` that spreads `BASE_COLUMNS`; its unique columns are what `upsert` matches
   on. A repository passes `makeBaseRepository` a join for the columns it reads from the rows it points at, such as a
-  session's `projectPath`. After changing a model, delete `apps/extension/assets/migrations/` and run
-  `pnpm db:generate --name create_tables`, which writes the one migration from zero; before 0.1.0 the old database is
-  deleted instead of migrated. `storage.md` lists every stored table and key.
+  session's `projectPath`. After changing a model, `pnpm db:generate --name <change>` writes its migration (see Tables
+  and migrations). `storage.md` lists every stored table and key.
 - `AgentRepository` reads VS Code's settings, not a table: it decodes `aggregorApp.agents` when the window starts and
   again each time the setting changes, so an invalid entry is warned about once per change, and keeps the result for its
   reads.
 - A transformer turns an outside format into domain types (none today: `aggregor-pty` writes the domain's own values).
   It sits beside the infra service that reads the format, since only infrastructure knows it.
+
+## Tables and migrations
+
+- **One column per dimension.** A column holds one thing about its row that changes on its own, and one program writes
+  it: the extension or `aggregor-pty`, never both.
+  - A stage a row moves through, such as an agent's status, is one text column backed by an enum value object, even with
+    two values, rather than a boolean per stage. Each action checks the stage it starts from and ends quietly when the
+    row is already where the action would move it. A row's context value carries its stage, so the menus offer only what
+    that stage allows. Once a stage has a third value, the moves between its values go into one transition map in the
+    domain service, which every move checks.
+  - Booleans about the same thing, ones that rule each other out or one that only matters while another holds, merge
+    into that thing's stage column.
+  - Things that change independently stay in their own columns, even when each is a yes or a no: merged, every action
+    has to handle every combination (an agent's 7 statuses, worked or not, and a third yes-or-no make 28 values), and
+    two programs end up writing one column.
+  - A boolean column is for a yes-or-no fact that is not a stage and can't grow a third value: a session's `hasWorked`,
+    which `aggregor-pty` sets once, and a project's `isAdded`.
+- **Every schema change is a migration on the user's database.** `pnpm db:generate --name <change>` writes the next one
+  into `apps/extension/assets/migrations/`; read its SQL before committing it. A user's database is never regenerated or
+  deleted.
+  - When a window starts, `DatabaseLayer` runs the migrations the database hasn't run, matched by name, in one
+    transaction with foreign keys off, so a failed one leaves the database as it was and the extension fails to start.
+  - A release's migration only adds: tables, and columns that are nullable or have a default. Renaming or dropping a
+    column takes two releases, one that adds the new column and copies the data into it, and a later one that drops the
+    old one: windows not yet reloaded, and `aggregor-pty` processes still running in tmux from the older build, keep
+    writing the old column in between.
+  - A migration that moves data, such as filling a new column from old ones, gets its SQL added to the generated file,
+    or a file of its own from `drizzle-kit generate --custom`, and its own check in the migration test.
+  - A released migration is never edited: a database that ran it doesn't run it again.
+- **Migrations are tested.** `apps/extension/tests/migrations.test.ts` (`pnpm test`) runs every migration on a new
+  database. For each migration it also builds a database at that one, fills every table from SQLite's own description of
+  it (a row with every column set, and one with only the required ones), migrates it to the newest, and checks that
+  every table, row and value is still there, that each new column holds its default, that SQLite finds the database
+  intact with every foreign key resolving, and that migrating again changes nothing. `pnpm db:check` fails when a table
+  model changed without its migration. CI runs both. Before releasing a migration, run the build against a copy of a
+  real database (`AGGREGOR_DATABASE_FILE`) and check that every project and session still shows.
