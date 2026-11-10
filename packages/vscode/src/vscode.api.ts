@@ -8,6 +8,7 @@ import {
   extensions,
   FileDecoration,
   ProgressLocation,
+  Range,
   TabInputTerminal,
   ThemeColor,
   ThemeIcon,
@@ -16,7 +17,8 @@ import {
   Uri,
   ViewColumn,
   window,
-  workspace
+  workspace,
+  WorkspaceEdit
 } from "vscode";
 
 import type {ExtensionContext, WorkspaceConfiguration} from "vscode";
@@ -36,6 +38,7 @@ export class VsCodeApi extends Context.Service<
     readonly FileDecoration: typeof FileDecoration;
     readonly getConfiguration: (settingsSection: string) => Effect.Effect<WorkspaceConfiguration>;
     readonly ProgressLocation: typeof ProgressLocation;
+    readonly Range: typeof Range;
     readonly TabInputTerminal: typeof TabInputTerminal;
     readonly ThemeColor: typeof ThemeColor;
     readonly ThemeIcon: typeof ThemeIcon;
@@ -45,6 +48,7 @@ export class VsCodeApi extends Context.Service<
     readonly ViewColumn: typeof ViewColumn;
     readonly window: typeof window;
     readonly workspace: typeof workspace;
+    readonly WorkspaceEdit: typeof WorkspaceEdit;
   }
 >()("@pkg/vscode/vscode.api/VsCodeApi") {
   public static readonly layer = (extensionContext: ExtensionContext) =>
@@ -60,6 +64,7 @@ export class VsCodeApi extends Context.Service<
       FileDecoration,
       getConfiguration: (settingsSection) => Effect.sync(() => workspace.getConfiguration(settingsSection)),
       ProgressLocation,
+      Range,
       TabInputTerminal,
       ThemeColor,
       ThemeIcon,
@@ -68,6 +73,7 @@ export class VsCodeApi extends Context.Service<
       Uri,
       ViewColumn,
       window,
-      workspace
+      workspace,
+      WorkspaceEdit
     });
 }

@@ -7,15 +7,41 @@ export const AGGREGOR_WORKSPACE = {
   WORKSPACE_FILE_NAME: "Aggregor.code-workspace"
 } as const;
 
-// The anchor folder's own settings, in VS Code's folder settings file. Excluding every file hides its row in Explorer
-// and touches no other folder; its terminal cwd set to the shown project makes New Terminal count the two folders as
-// one, so it opens there unasked.
+// VS Code's settings file in a workspace folder: the anchor folder's, which Aggregor writes, and each project's own.
+export const FOLDER_SETTINGS_FILE = {
+  FILE_NAME: "settings.json",
+  FOLDER_NAME: ".vscode",
+  WATCH_PATTERN: "**/.vscode/settings.json"
+} as const;
+
+// The anchor folder's own settings. Excluding every file hides its row in Explorer and touches no other folder; its
+// terminal cwd set to the shown project makes New Terminal count the two folders as one, so it opens there unasked.
 export const ANCHOR_FOLDER_SETTINGS = {
   EVERY_FILE_PATTERN: "**",
   EXCLUDED_FILES_KEY: "files.exclude",
-  FILE_NAME: "settings.json",
-  FOLDER_NAME: ".vscode",
   TERMINAL_CWD_KEY: "terminal.integrated.cwd"
+} as const;
+
+// A workspace with several folders reads a folder's settings file only for settings scoped to a resource, so the shown
+// project's settings are synced with the workspace file, where every setting applies. There a relative path or a folder
+// variable would name the anchor folder, so the copy names the project instead. The last copy, beside the workspace
+// file, tells an edit on one side from one on the other. An edit keeps the file's own indentation: the first indented
+// line's, else the default.
+export const PROJECT_SETTINGS_SYNC = {
+  COPIED_SETTINGS_FILE_NAME: "copiedProjectSettings.json",
+  CURRENT_FOLDER: "./",
+  DEFAULT_INDENTATION: "    ",
+  EMPTY_SETTINGS_TEXT: "{}\n",
+  INDENTATION_PATTERN: /^(?<indentation>[\t ]+)\S/mu,
+  PARENT_FOLDER: "..",
+  RELATIVE_PATH_PREFIXES: ["./", "../"],
+  TAB: "\t",
+  TAB_SIZE: 4,
+  WORKSPACE_FILE_SETTINGS_KEY: "settings",
+  // eslint-disable-next-line no-template-curly-in-string -- VS Code's variable, written as settings write it
+  WORKSPACE_FOLDER_BASENAME_VARIABLE: "${workspaceFolderBasename}",
+  // eslint-disable-next-line no-template-curly-in-string -- VS Code's variable, written as settings write it
+  WORKSPACE_FOLDER_VARIABLE: "${workspaceFolder}"
 } as const;
 
 // The session the window showed when it reloaded to open Aggregor's workspace, beside the anchor folder. A reload takes

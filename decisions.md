@@ -1105,6 +1105,46 @@ current entry. Leave a field out rather than guess.
   come back as after any reload. When another window already has the file open, VS Code shows that window and this one
   stays as it was; the session to reopen then expires unused.
 
+### The shown project's own settings sync with Aggregor's workspace file (2026-11-10)
+
+- **Problem:** in a workspace with several folders, VS Code reads a folder's `.vscode/settings.json` only for settings
+  scoped to a resource, and Aggregor's workspace always has two, the anchor folder and the project. Every other setting
+  in a project's own file was ignored, VS Code's and every extension's, `aggregorApp.commitCommand` included. The other
+  way round, VS Code and extensions write a window's "workspace" settings into the workspace file, so an edit that lands
+  in the project's own file when the project is open alone, such as Peacock's color, never reached it.
+- **Options:** scoping Aggregor's commit settings to a resource and reading them with the project's folder, which fixes
+  those two alone. Opening each project as a plain folder, which reloads the window on every switch. Keeping the last
+  copy in the database, a table, repository and migration for one JSON value. Writing through VS Code's settings API,
+  one write per key, which refuses the keys of extensions that aren't installed. A one-way copy written straight to the
+  file (the first version, the same day): it replaced Peacock's color with the project's on the next switch, its write
+  raced VS Code's own save of the folder swap ("File Modified Since", a compare-or-overwrite prompt, and the swap timing
+  out), and with two colors in play Peacock's writes traded them back and forth every second.
+- **Decision:** `WorkspaceInfraService` syncs the shown project's `.vscode/settings.json` with the `settings` of
+  `~/.aggregor/anchor/Aggregor.code-workspace`, both ways, against the last copy, which `copiedProjectSettings.json`
+  beside the workspace file keeps with its project's path. A setting changed in the project's file since then takes the
+  project's value; one changed only in the workspace file is written into the project's file, alone, with its comments
+  and indentation kept, and the project's file wins when both changed. With no last copy of the project, its settings
+  replace the workspace file's. Each sync writes the project's file first, then the workspace file, then the last copy,
+  so a failure, such as the project's file having unsaved changes in an editor, leaves the edits for the next one. Both
+  files are written through VS Code's own copy of them (`openTextDocument`, one edit for the whole text, then a save),
+  which its settings writes and every extension's share, so none of them finds the file changed under it. A sync runs
+  when the window starts, on every settings change VS Code makes, when the folders change and when the shown project's
+  own `.vscode/settings.json` changes, one at a time behind a lock that a switch holds too. A switch syncs the leaving
+  project, copies the next one's settings in before its folder, so an extension that reads them as the folders change,
+  as Peacock does, finds them already there, then swaps the folder and syncs again. The first switch, which writes the
+  workspace file anew, syncs the last copy's project first. String values starting with `./` or `../` become absolute
+  paths in the project, and `${workspaceFolder}` and `${workspaceFolderBasename}` its path and name; a relative path
+  written in the workspace file goes into the project's file relative to the project. Files are parsed and edited with
+  `jsonc-parser` (3.3.1, Microsoft's, as VS Code uses). A window showing several projects syncs nothing.
+- **Why:** the workspace level takes every setting but application- and machine-scoped ones, VS Code applies a change to
+  the file without a reload, and edits land where they would with the project open alone, so the project's own settings
+  work as then, Peacock included. Writing through VS Code's copy and in turns keeps every writer from racing another.
+- **Limits:** a string that starts with `./` or `../` but isn't a path is made one too. An extension that rewrites its
+  own settings whenever they change, as Peacock does, can still be caught mid-write by a switch; copying the next
+  project's settings in first leaves it one value to apply. A switch while the leaving project's file has unsaved
+  changes drops that project's pending workspace edits. A workspace the user saved with the anchor folder at folder 0
+  isn't synced, since its settings are the user's.
+
 ### Wait for the git extension before reading its API (2026-11-01, #47)
 
 - **Problem:** the git extension may not be active yet when aggregor reads its exports.
