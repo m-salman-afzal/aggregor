@@ -14,8 +14,8 @@ export interface SessionTabCommandRequest {
   readonly sessionId: EntityIdValueObject;
 }
 
-// This build has no aggregor-pty for the platform, which runs every session's agent: the universal VSIX on Windows, where
-// sessions need WSL, or on a platform no VSIX is built for.
+// This build has no aggregor-pty, which runs every session's agent: a Windows VSIX, where sessions need WSL, or a local
+// build without it.
 export class PtyBinaryNotFoundError extends Schema.TaggedError<
   PtyBinaryNotFoundError,
   {readonly brand: unique symbol}
