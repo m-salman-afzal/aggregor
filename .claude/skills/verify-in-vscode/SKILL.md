@@ -66,16 +66,18 @@ database.
      `[...document.querySelectorAll(".monaco-list-row")].map((row) => row.getAttribute("aria-label")).filter(Boolean)`
    - Click a title or inline button by its label, such as `New Session...` or `New Session`:
      `[...document.querySelectorAll(".action-label")].find((element) => element.getAttribute("aria-label") === "New Session...").click()`
-   - Open a row's … menu, then pick an item from it; both need the mouse events, which a bare `click()` doesn't send:
+   - Open a row's … menu, then pick an item from it; both need the mouse events, which a bare `click()` doesn't send.
+     Each item's title starts with its glyph and an em space (`"⤓\u2003Archive"`, `"■\u2003Stop Agent"`):
      `(() => { const row = [...document.querySelectorAll(".monaco-list-row")].find((element) => (element.getAttribute("aria-label") || "").startsWith("jsTester #1,")); const more = row.querySelector('.action-label[aria-label="More Actions..."]'); for (const type of ["mousedown", "mouseup", "click"]) more.dispatchEvent(new MouseEvent(type, {bubbles: true})); return "opened"; })()`
-     `(() => { const item = [...document.querySelectorAll(".monaco-menu .action-label")].findLast((element) => element.textContent === "Archive"); for (const type of ["mousedown", "mouseup", "click"]) item.dispatchEvent(new MouseEvent(type, {bubbles: true})); return "picked"; })()`
+     `(() => { const item = [...document.querySelectorAll(".monaco-menu .action-label")].findLast((element) => element.textContent === "⤓\u2003Archive"); for (const type of ["mousedown", "mouseup", "click"]) item.dispatchEvent(new MouseEvent(type, {bubbles: true})); return "picked"; })()`
    - A view's title … menu ignores those synthetic events, and VS Code draws every menu in a shadow root, which
      `querySelectorAll` doesn't reach. Focus the view's header, read the … button's `getBoundingClientRect()`, click it
      with CDP's `Input.dispatchMouseEvent` (`mouseMoved`, `mousePressed`, `mouseReleased` at that point, in CSS pixels,
      on the page `http://127.0.0.1:9447/json` lists), and read the menu from a screenshot.
    - A question a command asks (`askQuestion`) is a quick pick: read
      `document.querySelector(".quick-input-widget .quick-input-title").textContent` and its rows' `aria-label`s, and
-     answer with Enter or Escape dispatched on `.quick-input-widget input`.
+     answer with a real key over CDP: `Input.dispatchKeyEvent` with `rawKeyDown` then `keyUp` for `Enter` (key code 13)
+     or `Escape` (27). A synthetic Enter `KeyboardEvent` is ignored.
    - Read the notifications:
      `[...document.querySelectorAll(".notification-list-item")].map((element) => element.textContent)`
 3. **Check the stored data** when a change touches it: stop VS Code first, then read or seed

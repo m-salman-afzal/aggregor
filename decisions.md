@@ -2237,3 +2237,17 @@ stopped it. Not exercised: the mid-turn wording, and a project's Stop Agents, wh
   entry that weighed them. A component no entry weighed says so, and its other options are marked as not weighed.
   decisions.md keeps the full reasoning; `AGENTS.md` asks for components.md to change in the same commit as the use.
 - **Why:** a component's use and its reason read in one place, without walking the decision history.
+
+#### Menu items start with a glyph (2026-11-11)
+
+- **Problem:** the … menus are text only, and the user wants to tell their items apart at a glance.
+- **Options:** codicons (`$(archive) Archive`), which VS Code drops from menu items; inline icon buttons on the rows,
+  which crowd them; emoji such as 🗑, drawn in colour and wider than the rest.
+- **Decision:** every menu item's title starts with a plain Unicode glyph, so the items stay in line: ∧ Move Up, ∨ Move
+  Down, ■ Stop Agent, Stop Agents and Stop All Agents, ✎ Rename, ⤓ Archive, ⤒ Unarchive, ✕ Remove and Remove Project. An
+  em space (`\u2003` in the manifest) follows the glyph: HTML doesn't collapse it, as it does a run of plain spaces. The
+  commands are hidden from the Command Palette, so the glyphs show only in the menus.
+- **Why:** the menu font draws them as text, in both themes, with nothing to bundle.
+- **Limits:** a screen reader reads each glyph's name before the item; ∧ ∨ are the logical and and or signs, chosen
+  because they match each other's size and line, which ⌃ ⌄ and ˄ ˅ don't; ⤓ ⤒ are thin; and the glyphs differ in width,
+  so the words after them start a few pixels apart.

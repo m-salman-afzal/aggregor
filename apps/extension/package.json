@@ -487,7 +487,7 @@
         "category": "Aggregor App"
       },
       {
-        "title": "Remove",
+        "title": "✕\u2003Remove",
         "command": "aggregorApp.removeSession",
         "category": "Aggregor App"
       },
@@ -498,7 +498,7 @@
         "icon": "$(new-folder)"
       },
       {
-        "title": "Remove Project",
+        "title": "✕\u2003Remove Project",
         "command": "aggregorApp.removeProject",
         "category": "Aggregor App"
       },
@@ -509,51 +509,51 @@
         "icon": "$(root-folder)"
       },
       {
-        "title": "Rename",
+        "title": "✎\u2003Rename",
         "command": "aggregorApp.renameSession"
       },
       {
-        "title": "Archive",
+        "title": "⤓\u2003Archive",
         "command": "aggregorApp.archiveSession"
       },
       {
-        "title": "Unarchive",
+        "title": "⤒\u2003Unarchive",
         "command": "aggregorApp.unarchiveSession"
       },
       {
-        "title": "Stop Agent",
+        "title": "■\u2003Stop Agent",
         "command": "aggregorApp.stopSessionAgent"
       },
       {
-        "title": "Stop Agents",
+        "title": "■\u2003Stop Agents",
         "command": "aggregorApp.stopProjectSessionAgents"
       },
       {
-        "title": "Stop Agents",
+        "title": "■\u2003Stop Agents",
         "command": "aggregorApp.stopArchivedProjectSessionAgents"
       },
       {
-        "title": "Stop All Agents",
+        "title": "■\u2003Stop All Agents",
         "command": "aggregorApp.stopOngoingSessionAgents"
       },
       {
-        "title": "Stop All Agents",
+        "title": "■\u2003Stop All Agents",
         "command": "aggregorApp.stopArchivedSessionAgents"
       },
       {
-        "title": "Move Up",
+        "title": "∧\u2003Move Up",
         "command": "aggregorApp.moveSessionUp"
       },
       {
-        "title": "Move Down",
+        "title": "∨\u2003Move Down",
         "command": "aggregorApp.moveSessionDown"
       },
       {
-        "title": "Move Up",
+        "title": "∧\u2003Move Up",
         "command": "aggregorApp.moveProjectUp"
       },
       {
-        "title": "Move Down",
+        "title": "∨\u2003Move Down",
         "command": "aggregorApp.moveProjectDown"
       },
       {
