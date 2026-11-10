@@ -26,7 +26,30 @@ export const SYNTAX_BANS = [
       `:matches(${TAGGED_ERROR_CLASS}, ${EXPORTED_TAGGED_ERROR_CLASS})`
   },
   {message: "End an error class's name in Error.", selector: `${TAGGED_ERROR_CLASS}:not([id.name=/Error$/])`},
-  {message: "Import by name: list what the file takes from the module.", selector: "ImportNamespaceSpecifier"}
+  {message: "Import by name: list what the file takes from the module.", selector: "ImportNamespaceSpecifier"},
+  // Match fails the typecheck when a new tag has no branch; a comparison lets it fall through unnoticed.
+  {
+    message: "Match on a tag with Match.valueTags, or Match.tag and Match.exhaustive, instead of comparing _tag.",
+    selector: "BinaryExpression[operator=/^[!=]==$/] > MemberExpression[property.name='_tag']"
+  },
+  {message: "Use Match instead of switch: it checks that every case has a branch.", selector: "SwitchStatement"},
+  {message: "No else: return early from the if instead.", selector: "IfStatement[alternate]"}
+];
+
+// A constant is a value: a literal, or a text with holes, an arrow whose whole body is one template literal. Picking
+// between texts, or working a value out, happens in a util beside the code that uses it.
+export const CONSTANT_BANS = [
+  {
+    message:
+      "A constant text with holes is an arrow whose whole body is one template literal; pick between texts in a util.",
+    selector: ":function:not(ArrowFunctionExpression[body.type='TemplateLiteral'])"
+  },
+  {
+    message: "Constants hold no logic: pick or work out the value in a util beside the code that uses it.",
+    selector:
+      ":matches(ConditionalExpression, LogicalExpression, BinaryExpression, IfStatement, CallExpression, " +
+      "NewExpression, SpreadElement)"
+  }
 ];
 
 // A value object that is a set of values is a Schema.Enum whose file exports the values as an UPPER_CASE constant

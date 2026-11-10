@@ -1,0 +1,1 @@
+ALTER TABLE `sessions` ADD `lifecycle` text DEFAULT 'ongoing' NOT NULL;

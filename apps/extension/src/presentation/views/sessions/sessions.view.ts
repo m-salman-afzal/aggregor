@@ -61,7 +61,8 @@ const revealRow = Effect.fn("SessionsView.revealRow")(function* (sessionsTreeVie
 
 // The row of the session whose tab is in front stays selected, whatever else the user clicks in the view. A new
 // session's row is drawn a moment after its tab opens, so the reveal is retried. Skipped while the view is hidden,
-// since reveal would open it, while no session's tab is in front, and for a session removed while its tab closes.
+// since reveal would open it, while no session's tab is in front, for a session removed while its tab closes, and for
+// an archived one, whose row is in the Archive view.
 const selectViewedSession = Effect.fn("SessionsView.selectViewedSession")(
   function* (sessionsTreeView: TreeView<string>) {
     if (!sessionsTreeView.visible) return;
@@ -69,7 +70,8 @@ const selectViewedSession = Effect.fn("SessionsView.selectViewedSession")(
     const sessionNodeId = yield* makeSessionNodeId(viewedSessionId);
     const {selection} = sessionsTreeView;
     if (selection.length === 1 && selection[0] === sessionNodeId) return;
-    yield* getSessionListItemForSessionsView(viewedSessionId);
+    const viewedSessionListItem = yield* getSessionListItemForSessionsView(viewedSessionId);
+    if (viewedSessionListItem.isArchived) return;
 
     yield* Effect.retry(revealRow(sessionsTreeView, sessionNodeId), {
       schedule: Schedule.spaced(SELECT_ROW_RETRY.INTERVAL_MS),
@@ -90,7 +92,7 @@ const isSessionRowSelected = Effect.fn("SessionsView.isSessionRowSelected")(
     if (selectedNodeId === undefined) return false;
     const selectedNode = yield* readSessionsTreeNodeId(selectedNodeId);
 
-    return selectedNode._tag === "SessionNode";
+    return Match.valueTags(selectedNode, {ProjectNode: () => false, SessionNode: () => true});
   },
   Effect.catchTag("InvalidVsCodeArgumentError", () => Effect.succeed(false))
 );
@@ -126,10 +128,14 @@ const listChildNodeIds = Effect.fn("SessionsView.listChildNodeIds")(
       return yield* Effect.forEach(projectListItems, (projectListItem) => makeProjectNodeId(projectListItem.path));
     }
     const parentNode = yield* readSessionsTreeNodeId(parentNodeId);
-    if (parentNode._tag === "SessionNode") return [];
-    const sessionIds = yield* listProjectSessionIdsForSessionsView(parentNode.projectPath);
 
-    return yield* Effect.forEach(sessionIds, (sessionId) => makeSessionNodeId(sessionId));
+    return yield* Match.valueTags(parentNode, {
+      ProjectNode: ({projectPath}) =>
+        Effect.flatMap(listProjectSessionIdsForSessionsView(projectPath), (sessionIds) =>
+          Effect.forEach(sessionIds, (sessionId) => makeSessionNodeId(sessionId))
+        ),
+      SessionNode: () => Effect.succeed([])
+    });
   },
   Effect.catch((readError) => Effect.as(Effect.logWarning("Could not read the Sessions view's rows", readError), []))
 );
@@ -145,14 +151,17 @@ const createEmptyTreeItem = Effect.fn("SessionsView.createEmptyTreeItem")(functi
 const createNodeTreeItem = Effect.fn("SessionsView.createNodeTreeItem")(
   function* (nodeId: string) {
     const node = yield* readSessionsTreeNodeId(nodeId);
-    if (node._tag === "ProjectNode") {
-      const projectListItem = yield* getProjectListItemForSessionsView(node.projectPath);
 
-      return yield* createProjectTreeItem(projectListItem);
-    }
-    const sessionListItem = yield* getSessionListItemForSessionsView(node.sessionId);
-
-    return yield* createSessionTreeItem(sessionListItem);
+    return yield* Match.valueTags(node, {
+      ProjectNode: ({projectPath}) =>
+        Effect.flatMap(getProjectListItemForSessionsView(projectPath), (projectListItem) =>
+          createProjectTreeItem(projectListItem)
+        ),
+      SessionNode: ({sessionId}) =>
+        Effect.flatMap(getSessionListItemForSessionsView(sessionId), (sessionListItem) =>
+          createSessionTreeItem(sessionListItem)
+        )
+    });
   },
   Effect.catchTags({
     ProjectNotListedError: () => createEmptyTreeItem(),
@@ -167,10 +176,14 @@ const createNodeTreeItem = Effect.fn("SessionsView.createNodeTreeItem")(
 const findParentNodeId = Effect.fn("SessionsView.findParentNodeId")(
   function* (nodeId: string) {
     const node = yield* readSessionsTreeNodeId(nodeId);
-    if (node._tag === "ProjectNode") return undefined;
-    const sessionListItem = yield* getSessionListItemForSessionsView(node.sessionId);
 
-    return yield* makeProjectNodeId(sessionListItem.projectPath);
+    return yield* Match.valueTags(node, {
+      ProjectNode: () => Effect.undefined,
+      SessionNode: ({sessionId}) =>
+        Effect.flatMap(getSessionListItemForSessionsView(sessionId), (sessionListItem) =>
+          makeProjectNodeId(sessionListItem.projectPath)
+        )
+    });
   },
   Effect.catchTag("SessionNotFoundError", () => Effect.undefined),
   Effect.catch((readError) => Effect.as(Effect.logWarning("Could not read a session's project", readError), undefined))
@@ -210,10 +223,15 @@ const moveDroppedRow = Effect.fn("SessionsView.moveDroppedRow", {root: true})(
     const draggedNode = yield* readSessionsTreeNodeId(draggedNodeId);
     const targetNode = yield* readSessionsTreeNodeId(targetNodeId);
 
-    if (draggedNode._tag === "SessionNode" && targetNode._tag === "SessionNode")
-      yield* moveSessionToPlaceOfForSessionsView(draggedNode.sessionId, targetNode.sessionId);
-    if (draggedNode._tag === "ProjectNode" && targetNode._tag === "ProjectNode")
-      yield* moveProjectToPlaceOfForSessionsView(draggedNode.projectPath, targetNode.projectPath);
+    yield* Match.value({draggedNode, targetNode}).pipe(
+      Match.when({draggedNode: {_tag: "SessionNode"}, targetNode: {_tag: "SessionNode"}}, (sessionDrop) =>
+        moveSessionToPlaceOfForSessionsView(sessionDrop.draggedNode.sessionId, sessionDrop.targetNode.sessionId)
+      ),
+      Match.when({draggedNode: {_tag: "ProjectNode"}, targetNode: {_tag: "ProjectNode"}}, (projectDrop) =>
+        moveProjectToPlaceOfForSessionsView(projectDrop.draggedNode.projectPath, projectDrop.targetNode.projectPath)
+      ),
+      Match.orElse(() => Effect.void)
+    );
   },
   Effect.catch((moveError) => Effect.logWarning("Could not move the dropped row in the Sessions view", moveError))
 );
@@ -308,8 +326,11 @@ const redrawChangedNodes = Effect.fn("SessionsView.redrawChangedNodes")(function
     ProjectSessionsChanged: ({projectPath}) => makeProjectNodeId(projectPath),
     SessionChanged: ({sessionId}) => makeSessionNodeId(sessionId)
   });
-  const changedBadgeUris =
-    sessionListChange._tag === "SessionChanged" ? [yield* getSessionBadgeUri(sessionListChange.sessionId)] : [];
+  const changedBadgeUris = yield* Match.valueTags(sessionListChange, {
+    ProjectListChanged: () => Effect.succeed([]),
+    ProjectSessionsChanged: () => Effect.succeed([]),
+    SessionChanged: ({sessionId}) => Effect.map(getSessionBadgeUri(sessionId), (sessionBadgeUri) => [sessionBadgeUri])
+  });
 
   yield* Effect.sync(() => {
     sessionsViewHandles.treeChangedEmitter.fire(changedNodeId);

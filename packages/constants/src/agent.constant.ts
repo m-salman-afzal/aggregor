@@ -24,7 +24,7 @@ export const AGENT_LABELS = {
 } as const;
 
 export const AGENT_ERRORS = {
-  NONE_INSTALLED: (searchedCommands: readonly string[]) =>
-    `No agent CLI is installed: none of ${searchedCommands.join(", ")} is on PATH. Install one, or add yours to the agents setting.`,
+  NONE_INSTALLED: (searchedCommandList: string) =>
+    `No agent CLI is installed: none of ${searchedCommandList} is on PATH. Install one, or add yours to the agents setting.`,
   NOT_FOUND: (agentId: string) => `This session's agent, "${agentId}", is no longer in the agents setting.`
 } as const;

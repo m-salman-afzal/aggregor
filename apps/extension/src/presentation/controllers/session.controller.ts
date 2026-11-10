@@ -1,5 +1,7 @@
 import {
+  ArchiveSessionRequestDtoSchema,
   GetSessionListItemRequestDtoSchema,
+  ListArchivedProjectSessionIdsRequestDtoSchema,
   ListProjectSessionIdsRequestDtoSchema,
   MoveSessionDownRequestDtoSchema,
   MoveSessionToPlaceOfRequestDtoSchema,
@@ -7,14 +9,21 @@ import {
   NewSessionRequestDtoSchema,
   OpenSessionRequestDtoSchema,
   RemoveSessionRequestDtoSchema,
-  RenameSessionRequestDtoSchema
+  RenameSessionRequestDtoSchema,
+  StopArchivedProjectSessionAgentsRequestDtoSchema,
+  StopProjectSessionAgentsRequestDtoSchema,
+  StopSessionAgentRequestDtoSchema,
+  UnarchiveSessionRequestDtoSchema
 } from "@dtos/session.dto.ts";
 import {decodeVsCodeArgument} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
 import {decodeProjectNodeRequest, decodeSessionNodeRequest} from "@presentationUtils/sessionsTreeNode.utils.ts";
 import {
+  archiveSession,
   findViewedSessionId,
   getSessionListItem,
+  listArchivedProjectSessionIds,
   listProjectSessionIds,
+  listProjectsWithArchivedSessions,
   listSessionsWaitingOnUser,
   listWorkingSessionIds,
   moveSessionDown,
@@ -24,6 +33,12 @@ import {
   openSession,
   removeSession,
   renameSession,
+  stopArchivedProjectSessionAgents,
+  stopArchivedSessionAgents,
+  stopOngoingSessionAgents,
+  stopProjectSessionAgents,
+  stopSessionAgent,
+  unarchiveSession,
   watchSessionListChanges,
   watchViewedSessionIds
 } from "@services/session.service.ts";
@@ -56,6 +71,56 @@ export const removeChosenSession = Effect.fn("SessionController.removeChosenSess
 ) {
   const request = yield* decodeSessionNodeRequest(RemoveSessionRequestDtoSchema, sessionNodeId);
   yield* removeSession(request);
+});
+
+// The Sessions view's session row's … menu passes the row's node id.
+export const archiveChosenSession = Effect.fn("SessionController.archiveChosenSession")(function* (
+  sessionNodeId: unknown
+) {
+  const request = yield* decodeSessionNodeRequest(ArchiveSessionRequestDtoSchema, sessionNodeId);
+  yield* archiveSession(request);
+});
+
+// The Archive view's session row's … menu passes the row's node id.
+export const unarchiveChosenSession = Effect.fn("SessionController.unarchiveChosenSession")(function* (
+  sessionNodeId: unknown
+) {
+  const request = yield* decodeSessionNodeRequest(UnarchiveSessionRequestDtoSchema, sessionNodeId);
+  yield* unarchiveSession(request);
+});
+
+// The session row's … menu, in either view, passes the row's node id.
+export const stopChosenSessionAgent = Effect.fn("SessionController.stopChosenSessionAgent")(function* (
+  sessionNodeId: unknown
+) {
+  const request = yield* decodeSessionNodeRequest(StopSessionAgentRequestDtoSchema, sessionNodeId);
+  yield* stopSessionAgent(request);
+});
+
+// The Sessions view's project row's … menu passes the row's node id.
+export const stopChosenProjectSessionAgents = Effect.fn("SessionController.stopChosenProjectSessionAgents")(function* (
+  projectNodeId: unknown
+) {
+  const request = yield* decodeProjectNodeRequest(StopProjectSessionAgentsRequestDtoSchema, projectNodeId);
+  yield* stopProjectSessionAgents(request);
+});
+
+// The Archive view's project row's … menu passes the row's node id.
+export const stopChosenArchivedProjectSessionAgents = Effect.fn(
+  "SessionController.stopChosenArchivedProjectSessionAgents"
+)(function* (projectNodeId: unknown) {
+  const request = yield* decodeProjectNodeRequest(StopArchivedProjectSessionAgentsRequestDtoSchema, projectNodeId);
+  yield* stopArchivedProjectSessionAgents(request);
+});
+
+// VS Code passes the view title's … menu the focused row, which can be any row, so its arguments are dropped.
+export const stopAllOngoingSessionAgents = Effect.fn("SessionController.stopAllOngoingSessionAgents")(function* () {
+  yield* stopOngoingSessionAgents();
+});
+
+// VS Code passes the view title's … menu the focused row, which can be any row, so its arguments are dropped.
+export const stopAllArchivedSessionAgents = Effect.fn("SessionController.stopAllArchivedSessionAgents")(function* () {
+  yield* stopArchivedSessionAgents();
 });
 
 // The session row's … menu passes the row's node id.
@@ -135,3 +200,29 @@ export const findViewedSessionIdForSessionsView = Effect.fn("SessionController.f
     return yield* findViewedSessionId();
   }
 );
+
+export const listProjectsForArchiveView = Effect.fn("SessionController.listProjectsForArchiveView")(function* () {
+  return yield* listProjectsWithArchivedSessions();
+});
+
+export const listProjectSessionIdsForArchiveView = Effect.fn("SessionController.listProjectSessionIdsForArchiveView")(
+  function* (projectPath: string) {
+    const request = yield* decodeVsCodeArgument(ListArchivedProjectSessionIdsRequestDtoSchema, {projectPath});
+
+    return yield* listArchivedProjectSessionIds(request);
+  }
+);
+
+export const getSessionListItemForArchiveView = Effect.fn("SessionController.getSessionListItemForArchiveView")(
+  function* (sessionId: string) {
+    const request = yield* decodeVsCodeArgument(GetSessionListItemRequestDtoSchema, {sessionId});
+
+    return yield* getSessionListItem(request);
+  }
+);
+
+export const watchSessionListChangesForArchiveView = Effect.fn(
+  "SessionController.watchSessionListChangesForArchiveView"
+)(function* () {
+  return yield* watchSessionListChanges();
+});

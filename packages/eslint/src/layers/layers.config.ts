@@ -2,6 +2,7 @@ import {IMPORT_BANS, IMPORT_RULES, OPTION_IMPORT_BANS} from "@pkg/eslint/src/lay
 import {ROLE_NAMES} from "@pkg/eslint/src/layers/roleNames.ts";
 import {
   AGENT_NAME_BAN,
+  CONSTANT_BANS,
   DOMAIN_SERVICE_EXPORT_BAN,
   ENTITY_EXPORT_BAN,
   ENUM_VALUE_OBJECT_BANS,
@@ -84,7 +85,7 @@ export const LAYER_CONFIGS: Config[] = [
   // The texts the user reads live in @pkg/constants, so they call the CLIs agents too.
   {
     files: ["packages/constants/src/**/*.ts"],
-    rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ...SYNTAX_BANS]}
+    rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ...SYNTAX_BANS, ...CONSTANT_BANS]}
   },
   // @pkg/vscode is shared by presentation and infrastructure, under the same code rules.
   {

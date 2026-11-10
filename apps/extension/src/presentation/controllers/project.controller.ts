@@ -77,3 +77,11 @@ export const getProjectListItemForSessionsView = Effect.fn("ProjectController.ge
     return yield* getProjectListItem(request);
   }
 );
+
+export const getProjectListItemForArchiveView = Effect.fn("ProjectController.getProjectListItemForArchiveView")(
+  function* (projectPath: string) {
+    const request = yield* decodeVsCodeArgument(GetProjectListItemRequestDtoSchema, {projectPath});
+
+    return yield* getProjectListItem(request);
+  }
+);

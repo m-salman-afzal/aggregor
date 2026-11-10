@@ -74,9 +74,10 @@ with what was turned down and why.
 
 ### M3: worktrees and review
 
-- [ ] Worktree mode: start a session in the project root or in a new git worktree
+- [x] Archive sessions you are done with, in an Archive view under Sessions
+- [ ] Worktree mode: start a session in the project root or in a new git worktree; archiving removes the worktree and
+      keeps an unmerged branch
 - [ ] Changed files under each session, opening git's diff with per-hunk staging
-- [ ] Archive/Done sessions: remove the worktree, keep unmerged branches
 - [ ] Bookmarks
 - [ ] Create/Link a pull request from a session
 

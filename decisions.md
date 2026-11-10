@@ -2055,7 +2055,7 @@ projects), whose backup kept every row at the old schema while the migrated data
 - **Why:** everything chosen and turned down, and why, in one file, in the order it happened. What holds now is already
   in `DDD.md`, `storage.md` and `AGENTS.md`.
 
-### m3 2: archived sessions (planned)
+### m3 2: archived sessions (`stack/m3/2/feat/archive-sessions`)
 
 **Agreed (2026-11-10), before its code:**
 
@@ -2070,6 +2070,7 @@ projects), whose backup kept every row at the old schema while the migrated data
 3. **Archiving stops the agent.** Archive in a session row's … menu closes the session's tab and stops its agent; the
    row and the agent's conversation stay. It asks first only while a turn runs (working, or waiting on you). Turned
    down: moving the row with the agent left running. Removing the session's worktree joins it once worktrees exist.
+   **Replaced by:** m3 2's "Archiving asks whether to keep the agent running" (2026-11-11).
 4. **An archived session opens where it is.** Clicking an Archive row opens the session, resuming its conversation as
    for an exited one, and it stays archived; Unarchive in its menu moves it back to the end of its project's sessions.
    Turned down: a click that also moves it back.
@@ -2079,7 +2080,8 @@ projects), whose backup kept every row at the old schema while the migrated data
    is left for later), counts in the activity-bar badge, shows its status and moves up and down among its project's
    archived sessions. Turned down: leaving archived sessions out of the alerts and the badge, a condition in each.
 7. **Archive's rows:** a project row has no buttons, so nothing starts a project or a session there; a session row's
-   menu has Move Up, Move Down, Rename, Unarchive and Remove.
+   menu has Move Up, Move Down, Rename, Unarchive and Remove. **Replaced by:** m3 2's "Agents stop from the session,
+   project and view menus" (2026-11-11), for the project row's … menu with Stop Agents.
 8. **Storage:** a `lifecycle` column, `ongoing` or `archived` and `ongoing` by default, behind an enum value object
    (`SESSION_LIFECYCLES`), as "One column per dimension" asks. Archiving and unarchiving also place the session at the
    end of the order, so the change feed reads it as placed and both views redraw its project, and Archive lists sessions
@@ -2091,3 +2093,147 @@ projects), whose backup kept every row at the old schema while the migrated data
    its own in `presentation/views/` that draws its rows with `createSessionTreeItem`, while the status badges stay with
    the Sessions view's provider, which draws them in both; the commands `aggregorApp.archiveSession` (Archive) and
    `aggregorApp.unarchiveSession` (Unarchive).
+
+Built (2026-11-11) as agreed: the sessions table's `lifecycle` column and its migration, the first a user's database
+runs; Archive and Unarchive in the session rows' menus; and the Archive view under Sessions, in a container now named
+Aggregor. The entries below are what was decided while building it.
+
+**Verified (2026-11-11):** the migration test, which runs the new migration on a filled database at `create_tables`,
+keeps every row, finds `lifecycle` at its default and the backup holding the rows from before; `pnpm pty:test`, whose
+database runs the extension's migrations; and the headless VS Code. There, a copy of the installed build's database (16
+sessions, 5 of them removed, and 4 projects) migrated with its backup beside it and every row unchanged; archiving an
+exited session, then a second, Move Down and Unarchive in the Archive, and an empty Archive's text; on a running Claude
+session, Archive with no question while idle, which closed its tab and stopped its agent; opening it from the Archive,
+which resumed it and left it there; and Archive while working, which asked, kept it on Cancel and archived it on
+Archive.
+
+#### The views ask for archived sessions by name (2026-11-11)
+
+- **Problem:** the Archive view needs its own lists, and a view needs to tell an archived session from another, but
+  presentation can't import the domain's `SESSION_LIFECYCLES`.
+- **Options:** a lifecycle field in the list requests, which the views would fill with a value the domain owns; the
+  session list item's lifecycle value object, which the views would compare with that same value.
+- **Decision:** `listArchivedProjectSessionIds` and `listProjectsWithArchivedSessions` in `session.service.ts`, beside
+  `listProjectSessionIds`, which now lists only the ongoing sessions; `isArchived` on `SessionListItemDto`; and the
+  controllers' `…ForArchiveView` functions, one per read.
+- **Why:** each view asks for what it shows, and the lifecycle stays the backend's.
+
+#### The Archive lists the listed projects, and redraws whole (2026-11-11)
+
+- **Problem:** Archive groups by project, but which projects, and how it redraws when a project gets its first archived
+  session: the Sessions view redraws that project's row, which the Archive doesn't have yet.
+- **Options:** every project with an archived session, listed or not, which would show a removed project's archived
+  sessions while its others stay hidden; redrawing one project's row, which misses a project row that arrives or goes.
+- **Decision:** the projects the Sessions view lists, workspace folders and added ones, that have an archived session,
+  in the list's order. A session's own change redraws its row, and any other change the whole tree.
+- **Why:** a project hides its archived sessions as it hides its others, and the tree is small enough to draw whole.
+
+#### Archiving asks while the agent works or waits on an answer (2026-11-11)
+
+- **Problem:** Agreed 3 asks before archiving "while a turn runs (working, or waiting on you)", but waiting on you, as
+  the view's badge counts it, also covers a failed turn and a finished one not yet seen, where nothing is cut short.
+- **Decision:** it asks while `isSessionTurnRunning`: working, or blocked on a permission, a question or a sign-in. The
+  question names the session and says its agent is in the middle of a turn and will be stopped.
+- **Why:** those are the turns stopping the agent cuts short.
+- **Replaced by:** "Archiving asks whether to keep the agent running" (2026-11-11).
+
+#### The Archive view leaves out the Sessions view's extras (2026-11-11)
+
+- **Problem:** the Sessions view also takes drops, keeps the session in front selected and turns the working spinner.
+- **Decision:** the Archive has Move Up and Move Down in its menu but no drag and drop, and keeps nothing selected; the
+  Sessions view skips an archived session in front, whose row it doesn't have, rather than retrying its reveal. The
+  Sessions view's badge provider draws the Archive rows' badges.
+- **Why:** none of them was asked for, and each can come with its own step if it is missed.
+- **Limits:** the spinner turns only while the Sessions pane is visible, so a working archived session's spinner stops
+  while that pane is collapsed.
+
+#### A stack's bottom branch doesn't track dev (2026-11-11)
+
+- **Problem:** m3 0 was cut with `git switch -c … origin/dev`, which made it track `origin/dev`, so its push went
+  straight to `dev`: no PR, no GitHub stack, and a subject without a scope on `dev`.
+- **Options:** unsetting the upstream after cutting; pushing only with an explicit branch name.
+- **Decision:** the stack skill cuts the bottom with `git switch --no-track -c`, so its first push gives it its own
+  upstream (`push.autoSetupRemote`).
+- **Why:** one flag where the branch is cut, rather than a step to remember at every push.
+
+**Verified again (2026-11-11), after the stop commands:** in the headless VS Code, the menus: Stop Agent on a session
+row only while its agent runs, in both views; Stop Agents on project rows in both views, alone on the Archive's; Stop
+All Agents in both views' title … menus. Archiving a running Claude session asked in the quick pick, and Keep Agent
+Running archived it with its tab closed and its tmux session alive; Stop All Agents in the Archive asked and stopped it;
+opening it from the Archive started it again; Remove asked in the quick pick and kept it on Escape; Stop Agent asked and
+stopped it. Not exercised: the mid-turn wording, and a project's Stop Agents, which runs the same code as the others.
+
+#### Archiving asks whether to keep the agent running (2026-11-11)
+
+- **Replaces:** m3 2's Agreed 3, "Archiving stops the agent", and its entry "Archiving asks while the agent works or
+  waits on an answer".
+- **Problem:** stopping the agent on Archive cuts a running turn short, and the user wants the turn to finish and to
+  decide when the agent exits.
+- **Options:** archiving with the agent left running and nothing asked; stopping it, as before.
+- **Decision:** with its agent running, Archive asks whether to keep it running, first so that Enter keeps it, or stop
+  it; Cancel or Escape leaves the session where it is. Its tab closes either way: a kept agent runs on in tmux, finishes
+  its turn and opens again from the Archive. With no agent running, it asks nothing.
+- **Why:** the user decides when they archive, and nothing is cut short unless they choose it.
+
+#### Agents stop from the session, project and view menus (2026-11-11)
+
+- **Replaces:** m3 2's Agreed 7, "Archive's rows", for the project row, which now has a … menu with Stop Agents.
+- **Problem:** with Archive keeping agents running, the user needs to stop them: one, a project's, or a whole view's.
+- **Options:** inline stop buttons on the rows; a stop for one session only.
+- **Decision:** Stop Agent in a session row's … menu while its agent runs, in both views; Stop Agents in a project row's
+  … menu, for that project's sessions in that view, now on every project row in both views; Stop All Agents in each
+  view's title … menu, for the sessions that view lists. Each asks every time, naming how many agents stop and how many
+  of them are mid-turn, and closes the stopped sessions' tabs. They are five commands, since a title or project menu
+  doesn't tell its command which view it is in.
+- **Why:** each scope stops from where it is shown, and asking every time keeps a stop from being a slip.
+- **Limits:** each stopped agent raises its own exited alert, as Agreed 6 left it, so Stop All Agents raises one per
+  agent.
+
+#### Questions are asked in VS Code's quick pick (2026-11-11)
+
+- **Problem:** the confirmations were modal warnings, which VS Code draws as a system dialog, outside the window, under
+  its default `window.dialogStyle`.
+- **Options:** a notification with buttons, which can be missed and closes on its own; changing `window.dialogStyle`,
+  the user's setting for every extension.
+- **Decision:** `IUserInputPromptInfraService.askQuestion` replaces `confirm`: a quick pick titled with the question, a
+  row per answer with a line on what it does, then Cancel. Cancel, Escape or a click outside fails with
+  `QuestionCancelledError`, which the use cases take as no. Remove's question uses it too.
+- **Why:** it opens inside the window, takes the keyboard as the agent and project pickers do, and can't be lost.
+
+#### Constants hold no logic (2026-11-11)
+
+- **Problem:** some constants chose their text: `SESSION_NOTICES`' stop and archive lines on agent and turn counts, the
+  tmux and aggregor-pty errors on what was found, the row tooltip on whether the agent left a message. A choice in a
+  text file is out of sight of the code that makes it, and none of its cases reads as a whole sentence.
+- **Options:** no functions in constants at all, with `{placeholder}` texts filled by a formatter, which TypeScript
+  can't check.
+- **Decision:** a constant is a literal, or a text with holes: an arrow whose whole body is one template literal. A text
+  that depends on a case is one constant per case, and a util beside the code that uses it picks one: the presenter for
+  an error's message, `application/utils/sessionQuestion.utils.ts` (`@applicationUtils`, a new alias) for the stop and
+  archive questions, `sessions.utils.ts` for the tooltip. `CONSTANT_BANS` in `syntaxBans.ts` bans conditions, calls,
+  spreads and operators in `@pkg/constants`, and any other function there. Archive's Stop Agent line is now the one Stop
+  Agent uses, which it repeated word for word.
+- **Why:** each text reads whole where it is kept, and each choice sits with the code that makes it.
+
+#### Match on tags; no switch or else (2026-11-11)
+
+- **Problem:** code branched on a tagged value by comparing `_tag`, as in the Sessions and Archive trees' node kinds and
+  their change kinds, so a new kind would fall through an `if` unnoticed.
+- **Options:** banning `if` and ternaries for `Match` everywhere, which makes early returns and two-way choices longer
+  and checks nothing more; a cap on branches per function (`complexity`, at ESLint's default 20 now).
+- **Decision:** lint bans comparing `_tag` (use `Match.valueTags`, or `Match.value` and `Match.exhaustive` for a table
+  of cases), `switch` and `else`; ESLint already bans nested ternaries. The 17 comparisons are now `Match`, and the stop
+  question's four lines are a `Match` table on one agent or several and a turn running or not. An `if` that returns
+  early and a ternary stay.
+- **Why:** a tag without a branch fails the typecheck, and the code keeps the early-return shape it already has.
+
+#### Components are listed in components.md (2026-11-11)
+
+- **Problem:** what Aggregor is built on (tmux, aggregor-pty and its crates, SQLite, Effect, Drizzle, the build and
+  release tools) was spread across decisions.md entries, with no one place saying what part of each is used.
+- **Options:** keeping it in decisions.md only, which is ordered by when things were decided, not by component.
+- **Decision:** `components.md` lists every component by where it runs (the user's machine, inside the extension,
+  building and checking, releasing): what it is, what part we use, why, and the alternatives, naming the decisions.md
+  entry that weighed them. A component no entry weighed says so, and its other options are marked as not weighed.
+  decisions.md keeps the full reasoning; `AGENTS.md` asks for components.md to change in the same commit as the use.
+- **Why:** a component's use and its reason read in one place, without walking the decision history.

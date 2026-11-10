@@ -25,8 +25,7 @@ export const TMUX_LABELS = {
 } as const;
 
 export const TMUX_ERRORS = {
-  UNAVAILABLE: (foundVersion: string | undefined) =>
-    foundVersion === undefined
-      ? "Aggregor runs every session in tmux 3.2 or newer, which isn't installed."
-      : `Aggregor runs every session in tmux 3.2 or newer; this machine has ${foundVersion}.`
+  NOT_INSTALLED: "Aggregor runs every session in tmux 3.2 or newer, which isn't installed.",
+  TOO_OLD: (foundVersion: string) =>
+    `Aggregor runs every session in tmux 3.2 or newer; this machine has ${foundVersion}.`
 } as const;

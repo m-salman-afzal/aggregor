@@ -16,6 +16,7 @@ export const APP_COMMANDS = {
 } as const;
 
 export const APP_LABELS = {
+  CANCEL: "Cancel",
   OPEN_SETTINGS: "Open Settings"
 } as const;
 

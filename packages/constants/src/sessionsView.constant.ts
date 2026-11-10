@@ -12,10 +12,12 @@ export const SESSIONS_VIEW_NODE_ID_PREFIXES = {
   SESSION: "session:"
 } as const;
 
-// A row's context value is its kind, then the ways it can move, separated by spaces; the manifest's menus match these
-// words: only an added project can be removed from the list, and Move Up and Move Down show only where they move.
+// A row's context value is its kind, then the ways it can move, then a session's running agent, separated by spaces;
+// the manifest's menus match these words: only an added project can be removed from the list, Move Up and Move Down
+// show only where they move, and Stop Agent only while the agent runs.
 export const SESSIONS_VIEW_CONTEXT_VALUES = {
   ADDED_PROJECT: "addedProject",
+  AGENT_RUNNING: "agentRunning",
   CAN_MOVE_DOWN: "canMoveDown",
   CAN_MOVE_UP: "canMoveUp",
   PROJECT: "project",
@@ -76,19 +78,5 @@ export const SESSION_ROW_LABELS = {
   ACCESSIBLE: (displayName: string, projectName: string, statusLabel: string) =>
     `${displayName}, ${projectName}, ${statusLabel}`,
   OPEN_SESSION: "Open Session",
-  // The agent's message, such as the permission it asks for, sits between the name and the folder.
-  TOOLTIP: ({
-    sessionName,
-    statusLabel,
-    statusMessage,
-    workingDirectory
-  }: {
-    readonly sessionName: string;
-    readonly statusLabel: string;
-    readonly statusMessage: string | undefined;
-    readonly workingDirectory: string;
-  }) =>
-    [`${sessionName} · ${statusLabel}`, ...(statusMessage === undefined ? [] : [statusMessage]), workingDirectory].join(
-      "\n"
-    )
+  TOOLTIP_HEADING: (sessionName: string, statusLabel: string) => `${sessionName} · ${statusLabel}`
 } as const;

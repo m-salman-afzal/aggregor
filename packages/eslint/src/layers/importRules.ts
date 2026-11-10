@@ -15,7 +15,7 @@ export const IMPORT_BANS = [
 // Each layer's folders, by their tsconfig.json aliases. A layer's code is imported only through these, so each file has
 // one import path.
 const DOMAIN_ALIASES = "domainServices|entities|valueObjects";
-const APPLICATION_ALIASES = "interfaces|services|dtos";
+const APPLICATION_ALIASES = "interfaces|services|dtos|applicationUtils";
 const INFRASTRUCTURE_ALIASES = "config|models|di|logger|repositories|infraServices|infraUtils";
 
 // The layers' allow-lists.

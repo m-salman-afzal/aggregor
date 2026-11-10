@@ -3,10 +3,11 @@ import {
   FolderPickCancelledError,
   InputCancelledError,
   IUserInputPromptInfraService,
-  ProjectPickCancelledError
+  ProjectPickCancelledError,
+  QuestionCancelledError
 } from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {AGENT_LABELS} from "@pkg/constants/src/agent.constant.ts";
-import {APP_NAME} from "@pkg/constants/src/app.constant.ts";
+import {APP_LABELS, APP_NAME} from "@pkg/constants/src/app.constant.ts";
 import {PROJECT_LABELS} from "@pkg/constants/src/project.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
@@ -14,7 +15,7 @@ import {Array, Effect, Layer, Result} from "effect";
 
 import type {AgentListItemDto} from "@dtos/agent.dto.ts";
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
-import type {AgentPick} from "@interfaces/userInputPrompt.infraService.interface.ts";
+import type {AgentPick, QuestionRequest} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
 import type {QuickInputButton, QuickPickItem, window as VsCodeWindow} from "vscode";
 
@@ -44,14 +45,20 @@ const showInformationMessage = Effect.fn("UserInputPromptInfraService.showInform
   return yield* Effect.promise(() => window.showInformationMessage(`${APP_NAME}: ${message}`, ...actions));
 });
 
-const confirm = Effect.fn("UserInputPromptInfraService.confirm")(function* (
+// Cancel, Escape and a click outside the quick pick all cancel.
+const askQuestion = Effect.fn("UserInputPromptInfraService.askQuestion")(function* (
   window: Window,
-  message: string,
-  confirmAction: string
+  {answers, question}: QuestionRequest
 ) {
-  const pickedAction = yield* Effect.promise(() => window.showWarningMessage(message, {modal: true}, confirmAction));
+  const answerItems: readonly QuickPickItem[] = [
+    ...Array.map(answers, ({consequence, label}) => ({detail: consequence, label})),
+    {label: APP_LABELS.CANCEL}
+  ];
+  const pickedItem = yield* Effect.promise(() => window.showQuickPick(answerItems, {title: question}));
+  const pickedAnswer = yield* Effect.fromResult(Result.fromNullishOr(pickedItem, () => QuestionCancelledError.make()));
+  if (pickedAnswer.label === APP_LABELS.CANCEL) return yield* QuestionCancelledError.make();
 
-  return pickedAction === confirmAction;
+  return pickedAnswer.label;
 });
 
 const askForText = Effect.fn("UserInputPromptInfraService.askForText")(function* (
@@ -171,7 +178,7 @@ const makeUserInputPromptInfraService = Effect.fn("UserInputPromptInfraService.m
 
   return {
     askForText: (question: string, value: string) => askForText(window, question, value),
-    confirm: (message: string, confirmAction: string) => confirm(window, message, confirmAction),
+    askQuestion: (questionRequest: QuestionRequest) => askQuestion(window, questionRequest),
     pickAgent: (agentListItems: readonly AgentListItemDto[], placeHolder: string) =>
       pickAgent({ThemeIcon, Uri, window}, agentListItems, placeHolder),
     pickProject: (projects: readonly ProjectListItemDto[], placeHolder: string) =>
