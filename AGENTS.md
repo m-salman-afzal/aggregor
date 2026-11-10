@@ -46,7 +46,9 @@ change that moves where code goes. Each file's suffix names its role (`.entity.t
 and so on), and `@pkg/eslint` (`packages/eslint`) checks each layer's imports, the names each role requires, and where
 types and interfaces live. Code imports through one alias per folder under a layer (`@entities/`, `@interfaces/`,
 `@infraServices/` and so on, listed in `apps/extension/tsconfig.json`), never through a relative path, and by name,
-never with `import * as`. Enforce a new convention with a lint there, not only with prose here.
+never with `import * as`. Every constant outside the domain lives in its feature's `@pkg/constants` file, grouped in a
+labelled object with the constants it belongs with (see `DDD.md`). Enforce a new convention with a lint there, not only
+with prose here.
 
 ## Effect
 
@@ -85,7 +87,8 @@ bare const name. `aggregor/span-name` (`packages/eslint/src/rules/`) checks ever
 Finished spans and Effect logs go to the **Aggregor App** output channel, one trace-level line per span:
 `aggregorApp.openSession > SessionController.openChosenSession > SessionService.openSession > TerminalInfraService.focusSessionTerminal 0.8ms failed: TerminalNotFoundError`.
 Work a layer starts in the background, such as a watcher, nests under that layer's `make` span. F5 starts the extension
-at trace level; elsewhere, pick it with **Developer: Set Log Level...**. VS Code also writes the channel to
+at trace level, with its data in `~/.aggregorDev` (`AGGREGOR_HOME` in `.vscode/launch.json`), apart from the installed
+extension's `~/.aggregor`; elsewhere, pick it with **Developer: Set Log Level...**. VS Code also writes the channel to
 `<logs>/window<n>/exthost/SalmanAfzal.aggregor-app/Aggregor App.log`, so a test run's trace can be read from disk.
 Callbacks VS Code makes per row or per spinner frame (tree items, badges, the spinner) run untraced.
 

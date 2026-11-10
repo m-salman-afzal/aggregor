@@ -32,7 +32,7 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
 
 ```text
 ┌──────────────────────────────── packages ────────────────────────────────┐
-│ @pkg/constants  ids, labels, notices and error texts, one file a feature │
+│ @pkg/constants  every constant outside the domain, one file a feature    │
 │ @pkg/vscode     VsCodeApi (the one runtime `vscode` import), vscode      │
 │                 helpers, decodeVsCodeArgument                            │
 └─────────▲──────────────── shared by FE and infra ────────────▲───────────┘
@@ -149,17 +149,25 @@ file suffix.
   `<Owner>.make`. A helper file belongs to the one owner in its folder (`vscode/terminal/terminal.utils.ts` to
   `TerminalInfraService`); a file with no owner gives the bare const name (`acquireScopedDisposable`). A command's root
   span is its command ID.
-- The aggregor plugin (`packages/eslint/src/rules/`, one file per rule) checks the span names, the `.type.ts` placement
-  and the stem folders, and fixes span names.
+- The aggregor plugin (`packages/eslint/src/rules/`, one file per rule) checks the span names, the `.type.ts` placement,
+  the stem folders and where constants live, and fixes span names.
+- A constant lives in `@pkg/constants/src/<feature>.constant.ts`: ids, labels and texts, and also file and folder names,
+  environment variables, external commands, VS Code's and other extensions' ids, timings and patterns. Constants that
+  describe one thing share an object with a label per value (`TMUX.SOCKET_FILE_NAME`, `SESSIONS_VIEW.ID`). The domain,
+  which can't import `@pkg/constants`, keeps its patterns beside its rules, and a model's `BASE_COLUMNS` is code. Not
+  constants: log messages, which read beside their code, and the arguments of a command line being built.
+  `aggregor/constant-placement` flags a module-level const named in UPPER_CASE, or set to a bare literal, anywhere else
+  in the extension and `@pkg/vscode`.
 - An aggregate of several entities would get an `.aggregate.ts`.
 
 ## Tree
 
 ```text
 packages/
-  constants/src/                           one file per feature, each with its command ids, labels, notices and
-                                           error texts: app, commitMessage, database, git, agent, process, project,
-                                           session, sessionAlert, sessionsView, terminal, workspace
+  constants/src/                           one file per feature, each with its command ids, labels, notices, error
+                                           texts and the feature's other constants: app, commitMessage, database,
+                                           git, agent, process, project, session, sessionAlert, sessionsView,
+                                           terminal, tmux, vscode (VS Code's own command ids), workspace
   eslint/src/                              the repo's ESLint setup: base/ per file type, layers/ the DDD layering
                                            checks, rules/ the aggregor plugin (one file per rule), and
                                            eslint.config.ts composing them
@@ -177,8 +185,8 @@ apps/extension/src/
         base.entity.ts                     BaseEntity (Schema.Class: id, sortId, updatedAt, deletedAt; fromRow, the
                                            factory every stored row goes through)
         base.repository.interface.ts       IBaseRepository<Entity, AddRequest>: add, findById, findMany, update,
-                                           upsert, softDelete, entityChanges; EntityChange; DatabaseReadError,
-                                           DatabaseWriteError, EntityNotFoundError
+                                           upsert, softDelete, placeAtEnd, entityChanges; EntityChange;
+                                           DatabaseReadError, DatabaseWriteError, EntityNotFoundError
       session/
         session.entity.ts                  SessionEntity (BaseEntity and projectId, projectPath, name, customName,
                                            agentId, viewedAt, and aggregor-pty's status, statusKind,
@@ -199,18 +207,22 @@ apps/extension/src/
                                            picked from the agent's), AgentIdValueObject (branded: the settings
                                            key), AgentIconValueObject (an image file's path),
                                            EnvironmentVariablesValueObject (names to values),
-                                           LaunchPlanValueObject (a command, its arguments and its variables)
+                                           LaunchPlanValueObject (a command, its arguments and its variables),
+                                           EntityChangeKindValueObject (literals: placed, updated, removed)
     services/
       session.domainService.ts             prepareLaunchPlan, getDefaultSessionName, getSessionTitle,
                                            getSessionTitleToSave, getSessionStatus, isSessionTurnRunning,
                                            getAlertedStatus, isSessionWaitingOnUser
       entityId.domainService.ts            makeEntityId, getEntityIdCreatedAt: the entity id's factory
+      sortOrder.domainService.ts           findEntityIdsToPlaceAtEnd, canMoveUpInOrder, canMoveDownInOrder: how
+                                           rows move within an order
   application/
     services/
       base.service.ts                      addEntity, findEntityById, findEntities, updateEntity, upsertEntity,
-                                           removeEntity, on any repository
+                                           removeEntity, placeEntitiesAtEnd, on any repository
       session.service.ts                   newSession (which picks the project, then the agent), openSession,
-                                           removeSession, renameSession; NoAgentInstalledError; the list:
+                                           removeSession, renameSession, moveSessionUp, moveSessionDown,
+                                           moveSessionToPlaceOf; NoAgentInstalledError; the list:
                                            getSessionListItem, listProjectSessionIds, listWorkingSessionIds,
                                            watchSessionListChanges, watchViewedSessionIds, findViewedSessionId,
                                            listSessionsWaitingOnUser (the view's badge); startSessionTitleSync,
@@ -219,6 +231,7 @@ apps/extension/src/
                                            as notifyOn picks them; notifyOnDesktop
       project.service.ts                   listProjects, getProjectListItem, findProjectListItem, pickProject,
                                            addProject, addProjectPaths, findOrAddProject, removeProject,
+                                           moveProjectUp, moveProjectDown, moveProjectToPlaceOf,
                                            newProjectTerminal; NoProjectError, ProjectNotListedError
       commitMessage.service.ts             generateCommitMessage: writes the message with Source Control's progress,
                                            and offers to stage everything when nothing is staged
@@ -229,7 +242,7 @@ apps/extension/src/
                                            use case
       sessionAlert.dto.ts                  SessionAlertDto, NotifyOnDesktopRequestDto
       agent.dto.ts                       AgentListItemDto: a row of the agent picker
-      project.dto.ts                       ProjectListItemDto, GetProjectListItemRequestDto, RemoveProjectRequestDto
+      project.dto.ts                       ProjectListItemDto, and a request DTO per project use case
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
     interfaces/                            each with the errors and types its signatures name
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
@@ -289,11 +302,12 @@ apps/extension/src/
       database.layer.ts                    DatabaseLayer: opens ~/.aggregor/data/aggregor.db, foreign keys on, and
                                            applies the migration in assets/migrations
     logger/traceLog.layer.ts               TraceLogLayer
-    utils/aggregorFolder.utils.ts          getAggregorFolderPath: ~/.aggregor, or $AGGREGOR_HOME
+    utils/aggregorFolder.utils.ts          getAggregorFolderPath: ~/.aggregor, or $AGGREGOR_HOME (~/.aggregorDev
+                                           from F5); readAbsolutePathVariable
     utils/anchorFolder.utils.ts            getAnchorFolderPath: anchor/Aggregor in it, the hidden folder 0 of the
                                            window once it shows one project
-    utils/database.utils.ts                getDatabaseFilePath: data/aggregor.db in it; the window opens it, and
-                                           aggregor-pty writes to it
+    utils/database.utils.ts                getDatabaseFilePath: data/aggregor.db in it, or $AGGREGOR_DATABASE_FILE;
+                                           the window opens it, and aggregor-pty writes to it
     utils/tmuxSocket.utils.ts              getTmuxSocketPath: tmux.sock in it, Aggregor's own tmux server
   presentation/
     routes.ts                              RoutesLayer: each command's ID, controller and presenter; Open Settings
@@ -308,7 +322,7 @@ apps/extension/src/
     utils/sessionsTreeNode.utils.ts        the Sessions tree's node ids, and decoding a row's node id into a
                                            request DTO
     views/sessions/                        SessionsView: the tree and badge providers, tree items, spinner, redraws,
-                                           the session in front kept selected, and the view's badge
+                                           drag and drop, the session in front kept selected, and the view's badge
     views/sessionAlerts/                   SessionAlertsView: shows each alert in the focused window or hands it to
                                            the system, and handles the session links desktop notifications open
   extension.ts                             activate
@@ -325,13 +339,14 @@ apps/extension/src/
   domain only through `BaseEntity.fromRow`, inside the base repository, so no entity knows how it is stored.
   `AgentEntity` lives in the user's settings instead, so it is a plain `Schema.Class` whose id is its settings key.
 - `EntityIdValueObject`, `ProjectPathValueObject` and `AgentIdValueObject` are branded with `Schema.brand`; a value
-  object that is a set of values (`AgentStatusValueObject`, `SessionStatusValueObject`, `StatusKindValueObject`) is a
-  `Schema.Enum` with UPPER_CASE keys, and its file exports the values beside the schema as an UPPER_CASE constant
-  (`export const AGENT_STATUSES = AgentStatusValueObjectSchema.enums`), the one copy of each string. Code elsewhere
-  imports that constant (`AGENT_STATUSES.WORKING`) and never reads `.enums` itself. Presentation, which can't import the
-  domain, compares none: it looks states up in its constants. Lint (`syntaxBans.ts`) bans `Schema.Literals` in a value
-  object, an enum value object without its exported constant, reading `.enums` outside value objects, and comparing with
-  a state or kind-of-wait string; `roleNames.ts` lets a value object export the UPPER_CASE constant.
+  object that is a set of values (`AgentStatusValueObject`, `SessionStatusValueObject`, `StatusKindValueObject`,
+  `EntityChangeKindValueObject`) is a `Schema.Enum` with UPPER_CASE keys, and its file exports the values beside the
+  schema as an UPPER_CASE constant (`export const AGENT_STATUSES = AgentStatusValueObjectSchema.enums`), the one copy of
+  each string. Code elsewhere imports that constant (`AGENT_STATUSES.WORKING`) and never reads `.enums` itself.
+  Presentation, which can't import the domain, compares none: it looks states up in its constants. Lint
+  (`syntaxBans.ts`) bans `Schema.Literals` in a value object, an enum value object without its exported constant,
+  reading `.enums` outside value objects, and comparing with a state, kind-of-wait or kind-of-change string;
+  `roleNames.ts` lets a value object export the UPPER_CASE constant.
 - Each value object exports its schema as `<Name>ValueObjectSchema` and its type as `<Name>ValueObject`, since lint's
   `no-redeclare` rejects a value and a type of the same name. Entities and errors are classes, which are both.
 - A Schema class (entity or error) takes a `{readonly brand: unique symbol}` type argument, so two classes with the same
@@ -413,11 +428,11 @@ apps/extension/src/
   column-scoped: `update` sets only the columns it is given, so the extension and `aggregor-pty` never overwrite each
   other's columns.
 - The database is the only copy of the data: every read is a query, and no repository, service or view keeps rows. Each
-  repository's `entityChanges` streams every write to its table as an `EntityChange` (added, updated, removed): after
+  repository's `entityChanges` streams every write to its table as an `EntityChange` (placed, updated, removed): after
   the window's own writes at once, and after another connection's (`aggregor-pty`, another window) once
   `PRAGMA data_version` moves, which is polled every 250 ms, untraced. Each check reads the rows whose `updatedAt` is at
-  or after the last one it read, skips those it already read unchanged at that instant, and counts a row new when its
-  `sortId` is above every one it saw.
+  or after the last one it read, skips those it already read unchanged at that instant, and counts a row placed (new, or
+  moved by `placeAtEnd`) when its `sortId` is above every one it saw.
 - Each table model is a Drizzle `sqliteTable` that spreads `BASE_COLUMNS`; its unique columns are what `upsert` matches
   on. A repository passes `makeBaseRepository` a join for the columns it reads from the rows it points at, such as a
   session's `projectPath`. After changing a model, delete `apps/extension/assets/migrations/` and run

@@ -1,10 +1,14 @@
 import {generateCommitMessageForSourceControl} from "@controllers/commitMessage.controller.ts";
 import {
   addProjectsAskingForFolders,
+  moveChosenProjectDown,
+  moveChosenProjectUp,
   newProjectTerminalAskingForProject,
   removeChosenProject
 } from "@controllers/project.controller.ts";
 import {
+  moveChosenSessionDown,
+  moveChosenSessionUp,
   newSessionAskingForProject,
   newSessionInChosenProject,
   openChosenSession,
@@ -35,7 +39,11 @@ export const RoutesLayer = Layer.effectDiscard(
       presentCommitMessageCommandError
     ),
     registerCommand(PROJECT_COMMANDS.ADD, addProjectsAskingForFolders, presentProjectCommandError),
+    registerCommand(PROJECT_COMMANDS.MOVE_DOWN, moveChosenProjectDown, presentProjectCommandError),
+    registerCommand(PROJECT_COMMANDS.MOVE_UP, moveChosenProjectUp, presentProjectCommandError),
     registerCommand(PROJECT_COMMANDS.REMOVE, removeChosenProject, presentProjectCommandError),
+    registerCommand(SESSION_COMMANDS.MOVE_DOWN, moveChosenSessionDown, presentSessionCommandError),
+    registerCommand(SESSION_COMMANDS.MOVE_UP, moveChosenSessionUp, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.NEW_ASKING_FOR_PROJECT, newSessionAskingForProject, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT, newSessionInChosenProject, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.OPEN, openChosenSession, presentSessionCommandError),

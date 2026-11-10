@@ -1,5 +1,13 @@
 import {getAnchorFolderPath} from "@infraUtils/anchorFolder.utils.ts";
 import {IWorkspaceInfraService, NoSessionToReopenError} from "@interfaces/workspace.infraService.interface.ts";
+import {VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
+import {
+  AGGREGOR_WORKSPACE,
+  ANCHOR_FOLDER_SETTINGS,
+  FOLDER_SELECT_COMMANDS,
+  SESSION_TO_REOPEN,
+  WORKSPACE_FOLDERS_UPDATE_TIMEOUT
+} from "@pkg/constants/src/workspace.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
@@ -43,12 +51,10 @@ class WorkspaceFoldersUpdateRejectedError extends Schema.TaggedError<
   {readonly brand: unique symbol}
 >()("WorkspaceFoldersUpdateRejectedError", {}) {}
 
-// The anchor folder's own settings. Excluding everything hides its row in Explorer and touches no other folder; its
-// terminal cwd set to the shown project makes New Terminal count the two folders as one, so it opens there unasked.
 const AnchorFolderSettingsJson = Schema.fromJsonString(
   Schema.Struct({
-    "files.exclude": Schema.Record(Schema.String, Schema.Boolean),
-    "terminal.integrated.cwd": Schema.String
+    [ANCHOR_FOLDER_SETTINGS.EXCLUDED_FILES_KEY]: Schema.Record(Schema.String, Schema.Boolean),
+    [ANCHOR_FOLDER_SETTINGS.TERMINAL_CWD_KEY]: Schema.String
   })
 );
 
@@ -62,18 +68,6 @@ const AggregorWorkspaceJson = Schema.fromJsonString(
 const SessionToReopenJson = Schema.fromJsonString(
   Schema.Struct({sessionId: EntityIdValueObjectSchema, writtenAt: Schema.Finite})
 );
-
-// Beside the anchor folder.
-const AGGREGOR_WORKSPACE_FILE_NAME = "Aggregor.code-workspace";
-const SESSION_TO_REOPEN_FILE_NAME = "sessionToReopen.json";
-
-// A reload takes seconds; an older session to reopen is left from a window that didn't reload, as when VS Code showed
-// another window that already had Aggregor's workspace open.
-const SESSION_TO_REOPEN_LIFETIME_MS = 60_000;
-
-// Extensions that work in one workspace folder and take folder 0, the anchor folder, until told otherwise, with the
-// command that tells them.
-const FOLDER_SELECT_COMMANDS = [{command: "mise.selectWorkspaceFolder", extensionId: "hverlin.mise-vscode"}] as const;
 
 // Every workspace folder's path, the anchor folder's included.
 const readWorkspaceFolderPaths = Effect.fn("WorkspaceInfraService.readWorkspaceFolderPaths")(function* ({
@@ -102,39 +96,38 @@ const listWorkspaceFolderProjects = Effect.fn("WorkspaceInfraService.listWorkspa
 });
 
 // One change at a time: VS Code rejects a folder update made before the last one fired onDidChangeWorkspaceFolders.
-const updateWorkspaceFolders = Effect.fn("WorkspaceInfraService.updateWorkspaceFolders")(
-  function* ({workspace}: WorkspaceDependencies, {deleteCount, foldersToAdd, start}: WorkspaceFoldersSplice) {
-    yield* Effect.callback<undefined, WorkspaceFoldersUpdateRejectedError>((resume) => {
-      const changeListener = workspace.onDidChangeWorkspaceFolders(() => {
-        changeListener.dispose();
-        resume(Effect.undefined);
-      });
-      if (!workspace.updateWorkspaceFolders(start, deleteCount, ...foldersToAdd)) {
-        changeListener.dispose();
-        resume(Effect.fail(WorkspaceFoldersUpdateRejectedError.make()));
-      }
-
-      return Effect.sync(() => {
-        changeListener.dispose();
-      });
+const updateWorkspaceFolders = Effect.fn("WorkspaceInfraService.updateWorkspaceFolders")(function* (
+  {workspace}: WorkspaceDependencies,
+  {deleteCount, foldersToAdd, start}: WorkspaceFoldersSplice
+) {
+  yield* Effect.callback<undefined, WorkspaceFoldersUpdateRejectedError>((resume) => {
+    const changeListener = workspace.onDidChangeWorkspaceFolders(() => {
+      changeListener.dispose();
+      resume(Effect.undefined);
     });
-  },
-  // A change to folder 0 restarts the extension host, and this one never hears back.
-  Effect.timeout("5 seconds")
-);
+    if (!workspace.updateWorkspaceFolders(start, deleteCount, ...foldersToAdd)) {
+      changeListener.dispose();
+      resume(Effect.fail(WorkspaceFoldersUpdateRejectedError.make()));
+    }
+
+    return Effect.sync(() => {
+      changeListener.dispose();
+    });
+  });
+}, Effect.timeout(WORKSPACE_FOLDERS_UPDATE_TIMEOUT));
 
 // Written before every switch, which also brings back a deleted or edited copy.
 const writeAnchorFolderSettings = Effect.fn("WorkspaceInfraService.writeAnchorFolderSettings")(function* (
   {anchorFolderPath, fileSystem, path}: WorkspaceDependencies,
   projectPath: ProjectPathValueObject
 ) {
-  const settingsDirectoryPath = path.join(anchorFolderPath, ".vscode");
+  const settingsDirectoryPath = path.join(anchorFolderPath, ANCHOR_FOLDER_SETTINGS.FOLDER_NAME);
   const settingsJson = yield* Schema.encodeEffect(AnchorFolderSettingsJson)({
-    "files.exclude": {"**": true},
-    "terminal.integrated.cwd": projectPath
+    [ANCHOR_FOLDER_SETTINGS.EXCLUDED_FILES_KEY]: {[ANCHOR_FOLDER_SETTINGS.EVERY_FILE_PATTERN]: true},
+    [ANCHOR_FOLDER_SETTINGS.TERMINAL_CWD_KEY]: projectPath
   });
   yield* fileSystem.makeDirectory(settingsDirectoryPath, {recursive: true});
-  yield* fileSystem.writeFileString(path.join(settingsDirectoryPath, "settings.json"), settingsJson);
+  yield* fileSystem.writeFileString(path.join(settingsDirectoryPath, ANCHOR_FOLDER_SETTINGS.FILE_NAME), settingsJson);
 });
 
 // A saved workspace whose folder 0 is the anchor folder: Aggregor's own, or one the user saved.
@@ -164,7 +157,7 @@ const writeSessionToReopen = Effect.fn("WorkspaceInfraService.writeSessionToReop
   const sessionToReopenText = yield* Schema.encodeEffect(SessionToReopenJson)({sessionId: sessionToReopen, writtenAt});
 
   yield* fileSystem.writeFileString(
-    path.join(path.dirname(anchorFolderPath), SESSION_TO_REOPEN_FILE_NAME),
+    path.join(path.dirname(anchorFolderPath), SESSION_TO_REOPEN.FILE_NAME),
     sessionToReopenText
   );
 });
@@ -177,14 +170,14 @@ const openAggregorWorkspace = Effect.fn("WorkspaceInfraService.openAggregorWorks
   sessionToReopen: EntityIdValueObject | undefined
 ) {
   const {anchorFolderPath, commands, fileSystem, path, Uri} = workspaceDependencies;
-  const workspaceFilePath = path.join(path.dirname(anchorFolderPath), AGGREGOR_WORKSPACE_FILE_NAME);
+  const workspaceFilePath = path.join(path.dirname(anchorFolderPath), AGGREGOR_WORKSPACE.WORKSPACE_FILE_NAME);
   const folders = [{path: anchorFolderPath}, {path: projectPath}];
   const workspaceFileText = yield* Schema.encodeEffect(AggregorWorkspaceJson)({folders});
   yield* fileSystem.writeFileString(workspaceFilePath, workspaceFileText);
   if (sessionToReopen !== undefined) yield* writeSessionToReopen(workspaceDependencies, sessionToReopen);
 
   yield* Effect.promise(() =>
-    commands.executeCommand("vscode.openFolder", Uri.file(workspaceFilePath), {forceReuseWindow: true})
+    commands.executeCommand(VS_CODE_COMMANDS.OPEN_FOLDER, Uri.file(workspaceFilePath), {forceReuseWindow: true})
   );
 });
 
@@ -261,12 +254,12 @@ const removeProjectFolder = Effect.fn("WorkspaceInfraService.removeProjectFolder
 // Read and deleted, so the session opens once; any failure means there is none.
 const takeSessionToReopen = Effect.fn("WorkspaceInfraService.takeSessionToReopen")(
   function* ({anchorFolderPath, fileSystem, path}: WorkspaceDependencies) {
-    const sessionToReopenPath = path.join(path.dirname(anchorFolderPath), SESSION_TO_REOPEN_FILE_NAME);
+    const sessionToReopenPath = path.join(path.dirname(anchorFolderPath), SESSION_TO_REOPEN.FILE_NAME);
     const sessionToReopenText = yield* fileSystem.readFileString(sessionToReopenPath);
     yield* fileSystem.remove(sessionToReopenPath);
     const {sessionId, writtenAt} = yield* Schema.decodeEffect(SessionToReopenJson)(sessionToReopenText);
     const now = yield* Clock.currentTimeMillis;
-    if (now - writtenAt > SESSION_TO_REOPEN_LIFETIME_MS) return yield* NoSessionToReopenError.make();
+    if (now - writtenAt > SESSION_TO_REOPEN.LIFETIME_MS) return yield* NoSessionToReopenError.make();
 
     return sessionId;
   },

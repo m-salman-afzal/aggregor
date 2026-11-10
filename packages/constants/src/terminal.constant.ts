@@ -9,6 +9,10 @@ export const PTY_BINARY = "bin/aggregor-pty";
 // Every session terminal carries its session id, so a restarted extension host can tell which tab is whose.
 export const SESSION_ID_ENV = "AGGREGOR_SESSION_ID";
 
+// Switching tabs fires the tab and active-terminal events separately and in either order, so the session in view is read
+// once they have been quiet this long.
+export const VIEWED_SESSION_SETTLE_INTERVAL = "100 millis";
+
 export const TERMINAL_LABELS = {
   PICK_PROJECT: "Project for the new terminal"
 } as const;

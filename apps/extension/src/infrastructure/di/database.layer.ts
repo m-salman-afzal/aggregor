@@ -1,5 +1,6 @@
 import {SqliteClient} from "@effect/sql-sqlite-node";
 import {getDatabaseFilePath} from "@infraUtils/database.utils.ts";
+import {AGGREGOR_FOLDER} from "@pkg/constants/src/app.constant.ts";
 import {MIGRATIONS_FOLDER} from "@pkg/constants/src/database.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {makeWithDefaults} from "drizzle-orm/effect-sqlite-node";
@@ -13,7 +14,7 @@ const openDatabaseFile = Effect.fn("Database.openDatabaseFile")(function* () {
   const fileSystem = yield* FileSystem;
   const path = yield* Path;
   const databaseFilePath = yield* getDatabaseFilePath();
-  yield* fileSystem.makeDirectory(path.dirname(databaseFilePath), {mode: 0o700, recursive: true});
+  yield* fileSystem.makeDirectory(path.dirname(databaseFilePath), {mode: AGGREGOR_FOLDER.MODE, recursive: true});
 
   return SqliteClient.layer({filename: databaseFilePath});
 });

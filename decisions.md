@@ -164,8 +164,8 @@ current entry. Leave a field out rather than guess.
   Ordering by `updatedAt`, which every write changes.
 - **Decision:** a `sortId INTEGER NOT NULL` base column. The base repository gives a written row the table's highest
   `sortId` plus one, in the statement that writes it; `upsert` does the same for the row it brings back, so an
-  added-again project moves to the end. Reads list rows in `sortId` order. Moving a row is a `sortId` change, for when
-  that feature comes.
+  added-again project moves to the end. Reads list rows in `sortId` order. Moving a row places it, and the rows after
+  its new place, after every other row (see "Projects and sessions move up and down").
 - **Why:** a writing statement holds SQLite's write lock, so two windows never get the same `sortId`; soft-deleted rows
   keep theirs, so none is reused.
 
@@ -365,8 +365,9 @@ current entry. Leave a field out rather than guess.
   of row it was given; but those have identity, so they are no value objects, and a controller only calls a service.
 - **Decision:**
   - The backend sends what changed, not the data: `SessionListChangeDto` is `ProjectListChanged`,
-    `ProjectSessionsChanged` (a session added or removed) or `SessionChanged` (any other write, or its tab opening or
-    closing), and the view redraws only that: the whole tree, one project, or one row and its badge.
+    `ProjectSessionsChanged` (a session placed, that is added or moved, or removed) or `SessionChanged` (any other
+    write, or its tab opening or closing), and the view redraws only that: the whole tree, one project, or one row and
+    its badge.
   - The tree's nodes are ids, `project:<path>` and `session:<id>`, since VS Code finds a node to redraw by its id. Each
     draw reads the node through the controllers: a `ProjectListItemDto`, or a `SessionListItemDto` with the status the
     user sees (`SessionStatusValueObject`, picked from the stored `AgentStatusValueObject` by `getSessionStatus`), its
@@ -425,14 +426,29 @@ current entry. Leave a field out rather than guess.
   gesture rather than what each one does.
 - **Why:** presentation imports nothing from infrastructure, and the shared code has one home.
 
-### Constants are split by feature (2026-11-09)
+### Constants live in `@pkg/constants`, split by feature (2026-11-09; every constant since 2026-11-10, #98)
 
-- **Problem:** every constant went into `extension.constant.ts` or `message.constant.ts`.
-- **Options:** by kind (ids, UI, runtime, messages).
+- **Problem:** every constant went into `extension.constant.ts` or `message.constant.ts`. Later, file names, timings,
+  environment variables, external commands and VS Code's ids sat as loose constants or bare literals in the files that
+  used them, so the database's folder name lived in a helper and the tmux socket's in another.
+- **Options:** by kind (ids, UI, runtime, messages). Only ids and texts in `@pkg/constants` (2026-11-09 to 2026-11-10),
+  the rest beside its code. Letting the domain import `@pkg/constants` for its title patterns, which would tie the
+  domain to a package presentation and infrastructure share.
 - **Decision:** one `@pkg/constants/src/<feature>.constant.ts` per feature (app, commitMessage, database, git, agent,
-  project, session, sessionsView, terminal, workspace), each with `<FEATURE>_COMMANDS`, `_LABELS` (titles, buttons,
-  placeholders), `_NOTICES` (confirmations and offers) and `_ERRORS` (failure texts) as it needs them.
-- **Why:** a feature's ids and words sit together, and a constant's file says who uses it.
+  process, project, session, sessionAlert, sessionsView, terminal, tmux, vscode, workspace), each with
+  `<FEATURE>_COMMANDS`, `_LABELS` (titles, buttons, placeholders), `_NOTICES` (confirmations and offers) and `_ERRORS`
+  (failure texts) as it needs them, and every other constant outside the domain: file and folder names, environment
+  variables, external commands, VS Code's and other extensions' ids, timings, modes and patterns. Constants that
+  describe one thing share an object with a label per value: `AGGREGOR_FOLDER`, `DATABASE_FILE`, `TMUX`,
+  `AGENT_START_WAIT`, `SESSIONS_VIEW`, `ROW_ICONS`, `SELECT_ROW_RETRY`, `DESKTOP_NOTIFICATION`, `DESKTOP_NOTIFIERS`,
+  `GIT_EXTENSION`, `AGENT_ICON`, `COMMAND_SEARCH`, `AGGREGOR_WORKSPACE`, `ANCHOR_FOLDER_SETTINGS`, `SESSION_TO_REOPEN`.
+  `vscode.constant.ts` holds VS Code's own command ids, which several features run. The domain's patterns stay beside
+  its rules, since the domain imports only `effect` and itself; a model's `BASE_COLUMNS` and the session repository's
+  join are code. Log messages and a command line's arguments stay in their code. `aggregor/constant-placement` flags a
+  module-level const named in UPPER_CASE, or set to a bare literal, in the extension outside the domain and models, and
+  in `@pkg/vscode`. `drizzle.config.ts` reads `MIGRATIONS_FOLDER`.
+- **Why:** a feature's ids, words and settings sit together, a constant's file says who uses it, and one change to a
+  name or a timing touches one line.
 
 ## Dependencies and tooling
 
@@ -642,9 +658,10 @@ current entry. Leave a field out rather than guess.
 - **Decision:** each repository's change feed (`entityChange.utils.ts`) looks again when `PRAGMA data_version` moves,
   read every 250 ms, untraced, which only another connection's commit does, and right after each of the window's own
   writes. A look reads the rows whose `updatedAt` is at or after the latest one it read, soft-deleted ones too, skips
-  those it already read unchanged at that same millisecond, and calls a row added when its `sortId` is above every one
-  it saw, removed when it has `deletedAt`, else updated. It publishes each as an `EntityChange`; a failed look leaves
-  the cursor where it was.
+  those it already read unchanged at that same millisecond, and calls a row placed when its `sortId` is above every one
+  it saw (new, or moved; `added` until 2026-11-10), removed when it has `deletedAt`, else updated. It publishes each as
+  an `EntityChange`, whose kind is `EntityChangeKindValueObject` (`ENTITY_CHANGE_KINDS`); a failed look leaves the
+  cursor where it was.
 - **Why:** one small query per write, no copy of the data, and a status shows within a quarter second. A clock that
   steps back could hide a write until the row's next one; the counter column is the fix if that ever shows.
 
@@ -724,6 +741,44 @@ current entry. Leave a field out rather than guess.
   keyboard navigation still works, and Enter opens the focused session.
 - **Why:** the highlighted row always says which session the editor shows, like Explorer for the active file.
 
+### Projects and sessions move up and down (2026-11-10)
+
+- **Problem:** the Sessions view listed projects in the order they were added and sessions in the order they started,
+  and the user wants to arrange both.
+- **Options:**
+  - Gestures: drag and drop only, which the keyboard and screen readers can't reach; Move Up and Move Down only; inline
+    arrow buttons, beside the two buttons rows already have.
+  - Storage: a `position` column, whose moves would arrive as plain updates, which redraw only the moved session's row,
+    and the change feed can't tell a move from another update without keeping a copy of the rows. Swapping two rows'
+    `sortId`s, for the same reason.
+  - The drop: always before the row dropped on, with a drop on the project row moving a session to the end.
+  - The drop through a hidden command, for the command's root span and presenter; the view calls a controller directly,
+    as it does for its reads.
+  - Showing Move Up and Move Down on every row, doing nothing at an end; the flags come from the order the services read
+    anyway.
+- **Decision:**
+  - Drag and drop, and Move Up and Move Down in each row's … menu. A session moves among its project's sessions, an
+    added project among the added projects; the window's own folders stay first and don't move.
+  - A dropped row takes the place of the row it is dropped on: after it when moving down, before it when moving up. Any
+    other drop does nothing: on another project's session, a session on a project, a project on a session.
+  - A move places the rows from the first place that changes on, in their new order, after every other row of the table:
+    the base repository's `placeAtEnd`, one `UPDATE` that reads the highest `sortId` once. `findEntityIdsToPlaceAtEnd`
+    in `sortOrder.domainService.ts` works those rows out.
+  - The change feed reads those rows as placed, as it reads a new row, so every window, this one included, reads the
+    project's sessions or the project list again. The kind `added` became `placed`, an `EntityChangeKindValueObject`
+    with `ENTITY_CHANGE_KINDS`, since a moved row was never added; lint bans comparing with the kind strings.
+  - `ProjectListItemDto` and `SessionListItemDto` carry `canMoveUp` and `canMoveDown`, from the row's place in the order
+    (`canMoveUpInOrder`, `canMoveDownInOrder`); each row's context value lists them after its kind
+    (`session canMoveUp`), and the menus show Move Up and Move Down only where they move. Each add, remove or move
+    already reads the whole list again, so the flags stay right.
+  - The view's `handleDrag` keeps the dragged row's node id under the tree's own drag type, and `handleDrop` hands both
+    node ids to the project or session controller. A drag and a drop are root spans (`SessionsView.keepDraggedNodeId`,
+    `SessionsView.moveDroppedRow`), and a failed drop is logged.
+- **Why:** dragging is the quick way and the menu the one the keyboard reaches, and both run one service per kind. The
+  order lives in the column every read already sorts by, and the change feed needs nothing new to redraw a move.
+- **Limits:** VS Code drops onto a row, never between two, and gives keyboard users no drag; Move Up and Move Down cover
+  them. No keybinding: a keybinding gets no row, so it would move the session in front.
+
 ### Every session's agent runs in tmux (2026-11-09)
 
 - **Problem:** a session's agent ran as its tab's process, so a window reload, quitting VS Code or closing the tab ended
@@ -787,10 +842,11 @@ current entry. Leave a field out rather than guess.
 - **Options:** a constants object per set in `@pkg/constants`, which the domain can't import. Reading the schema's
   `.enums` in each file that needs a value, one local copy per file (tried and dropped the same day).
 - **Decision:** a value object that is a set of values is a `Schema.Enum` with UPPER_CASE keys, and its file exports the
-  values as an UPPER_CASE constant beside the schema (`AGENT_STATUSES`, `SESSION_STATUSES`, `STATUS_KINDS`); code
-  imports the constant. Presentation, which can't import the domain, looks states up in its constants instead of
-  comparing them. Lint bans `Schema.Literals` in value objects, an enum value object without its exported constant,
-  `.enums` outside value objects, and comparing with a state or kind-of-wait string. The stored strings are unchanged.
+  values as an UPPER_CASE constant beside the schema (`AGENT_STATUSES`, `SESSION_STATUSES`, `STATUS_KINDS`,
+  `ENTITY_CHANGE_KINDS` since 2026-11-10); code imports the constant. Presentation, which can't import the domain, looks
+  states up in its constants instead of comparing them. Lint bans `Schema.Literals` in value objects, an enum value
+  object without its exported constant, `.enums` outside value objects, and comparing with a state, kind-of-wait or
+  kind-of-change string. The stored strings are unchanged.
 - **Why:** each string is written once, in the domain, and lint keeps it that way for every such value object.
 
 ### The CLIs a session runs are agents, one word everywhere (2026-11-10)
@@ -867,7 +923,7 @@ current entry. Leave a field out rather than guess.
     libnotify routes a snap's or flatpak's notifications through the portal, which drops hints, and the extension host
     can inherit a snap terminal's environment.
   - GNOME tells the sender only that the notification closed, the same for a click as for its X, so the window opens the
-    session when it came into focus within 1.5 seconds of that (`DESKTOP_NOTIFICATION_CLICK_FOCUS_MS`). A click closes
+    session when it came into focus within 1.5 seconds of that (`DESKTOP_NOTIFICATION.CLICK_FOCUS_MS`). A click closes
     every VS Code notification at once, so the first alert to see the focus uses it up and the others open nothing.
   - From WSL (a kernel release naming microsoft), a PowerShell toast whose click opens a link
     (`vscode://salmanafzal.aggregor-app/openSession?sessionId=…`, from `env.asExternalUri`, which adds the window's id)
@@ -952,6 +1008,32 @@ current entry. Leave a field out rather than guess.
   anchor folder and anchors the window again.
 - **Why:** one place to find everything Aggregor stores, and every profile opens the same Aggregor workspace. A second
   window, in any profile, now shares the anchor folder's settings, as a second window in one profile already did.
+
+### The F5 build keeps its own Aggregor folder, `~/.aggregorDev` (2026-11-10, #98)
+
+- **Problem:** the build F5 runs and the installed Marketplace build shared `~/.aggregor`: one database, one tmux server
+  and one anchor workspace. A dev schema change, which regenerates the migration from zero, broke the installed
+  extension's database; F5's sessions showed in the installed extension's list; and the F5 window couldn't open the
+  anchor workspace while the other window had it open, since VS Code shows that window instead.
+- **Options:**
+  - The extension picks `~/.aggregorDev` itself when VS Code runs it in development mode, with no variable; a
+    `.env.development` file that `launch.json` loads.
+  - Naming the variable `AGGREGOR_DATA_DIR` again: the folder holds `anchor/` and `tmux.sock` besides its own `data/`,
+    and beside a database variable it would read as moving only `data/`.
+  - Variables for the tmux socket and the anchor folder, which follow the folder, so dev and installed builds already
+    get their own; a separate socket variable could put two folders on one tmux server. `AGGREGOR_PTY_BINARY`, for a
+    cargo debug build, which `build:pty` already copies in.
+  - Expanding a leading `~`, which a shell does before VS Code sees the value and `launch.json` writes as `${userHome}`.
+- **Decision:**
+  - "Run Extension" in `.vscode/launch.json` sets `AGGREGOR_HOME` to `${userHome}/.aggregorDev`; unset, as in the
+    installed extension, it stays `~/.aggregor`. The verify skill keeps its own folder.
+  - `AGGREGOR_DATABASE_FILE` names the database file, `data/aggregor.db` in the Aggregor folder by default, to try
+    another database; `aggregor-pty` gets it through `--database` and writes its log beside it.
+  - Both are read through Effect's `Config` by `readAbsolutePathVariable`; a value that isn't an absolute path fails
+    activation with an error naming the variable.
+  - `~/.aggregor` keeps what it holds, dev and installed rows alike; `~/.aggregorDev` starts empty. Nothing is copied or
+    deleted. The database error messages no longer name `~/.aggregor/data`.
+- **Why:** one variable already moved everything, so F5 only had to set it, and swapping the database is one more.
 
 ### One project in view, behind a hidden anchor folder (2026-11-05, #68)
 

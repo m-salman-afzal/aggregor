@@ -1,13 +1,15 @@
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {Schema} from "effect";
 
+import type {EntityChangeKindValueObject} from "@valueObjects/entityChangeKind.valueObject.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {Effect, Stream} from "effect";
 
-// A row some connection wrote since the repository last looked: new, changed, or soft-deleted.
+// A row some connection wrote since the repository last looked: placed at the end of the order, changed, or
+// soft-deleted.
 export interface EntityChange<Entity> {
   readonly entity: Entity;
-  readonly kind: "added" | "removed" | "updated";
+  readonly kind: EntityChangeKindValueObject;
 }
 
 export class DatabaseReadError extends Schema.TaggedError<DatabaseReadError, {readonly brand: unique symbol}>()(
@@ -29,6 +31,8 @@ export interface IBaseRepository<Entity, AddRequest> {
   readonly entityChanges: Stream.Stream<EntityChange<Entity>>;
   readonly findById: (entityId: EntityIdValueObject) => Effect.Effect<Entity, DatabaseReadError | EntityNotFoundError>;
   readonly findMany: (filter: Partial<AddRequest>) => Effect.Effect<readonly Entity[], DatabaseReadError>;
+  // Moves the rows, in the order given, after every other row of the table.
+  readonly placeAtEnd: (entityIds: readonly EntityIdValueObject[]) => Effect.Effect<void, DatabaseWriteError>;
   readonly softDelete: (entityId: EntityIdValueObject) => Effect.Effect<void, DatabaseWriteError>;
   readonly update: (
     entityId: EntityIdValueObject,

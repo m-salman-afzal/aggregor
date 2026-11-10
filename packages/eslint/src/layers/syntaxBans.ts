@@ -48,12 +48,15 @@ export const ENUM_VALUES_ACCESS_BAN = {
   message: "Import the constant the value object exports (AGENT_STATUSES) instead of reading its schema's .enums.",
   selector: "MemberExpression[property.name='enums']"
 };
-// The states and kinds of wait are the strings code compares most, so comparing with one of them is an error too.
+// The states, kinds of wait and kinds of change are the strings code compares most, so comparing with one of them is an
+// error too.
 export const STATUS_LITERAL_BAN = {
-  message: "Name the state through AGENT_STATUSES or SESSION_STATUSES, and the kind of wait through STATUS_KINDS.",
+  message:
+    "Name the state through AGENT_STATUSES or SESSION_STATUSES, the kind of wait through STATUS_KINDS, and the kind " +
+    "of change through ENTITY_CHANGE_KINDS.",
   selector:
     "BinaryExpression[operator=/^[!=]==$/] > " +
-    "Literal[value=/^(unknown|idle|working|done|blocked|error|exited|permission|question|auth)$/]"
+    "Literal[value=/^(unknown|idle|working|done|blocked|error|exited|permission|question|auth|placed|updated|removed)$/]"
 };
 
 // The CLIs a session runs are agents, one word everywhere, so a name or text calling them anything else is an error. The

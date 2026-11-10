@@ -1,4 +1,6 @@
 export const SESSION_COMMANDS = {
+  MOVE_DOWN: "aggregorApp.moveSessionDown",
+  MOVE_UP: "aggregorApp.moveSessionUp",
   NEW_ASKING_FOR_PROJECT: "aggregorApp.newSessionAskingForProject",
   NEW_IN_CHOSEN_PROJECT: "aggregorApp.newSessionInChosenProject",
   OPEN: "aggregorApp.openSession",

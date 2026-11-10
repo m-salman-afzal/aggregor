@@ -1,4 +1,5 @@
 import {APP_LABELS, APP_NAME} from "@pkg/constants/src/app.constant.ts";
+import {SETTINGS_EDITOR_EXTENSION_FILTER, VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {Effect, Queue, Stream} from "effect";
 
@@ -29,7 +30,7 @@ export const setWhenClauseContextKey = Effect.fn("setWhenClauseContextKey")(func
 ) {
   const {commands} = yield* VsCodeApi;
 
-  yield* Effect.promise(() => commands.executeCommand("setContext", contextKey, contextValue));
+  yield* Effect.promise(() => commands.executeCommand(VS_CODE_COMMANDS.SET_CONTEXT, contextKey, contextValue));
 });
 
 // Shows VS Code's progress indicator while the effect runs; the effect's failure comes back out once the progress ends.
@@ -51,7 +52,9 @@ export const runWithProgressIndicator = Effect.fn("runWithProgressIndicator")(fu
 export const openAggregorSettingsInSettingsEditor = Effect.fn("openAggregorSettingsInSettingsEditor")(function* () {
   const {commands, extensionId} = yield* VsCodeApi;
 
-  yield* Effect.promise(() => commands.executeCommand("workbench.action.openSettings", `@ext:${extensionId}`));
+  yield* Effect.promise(() =>
+    commands.executeCommand(VS_CODE_COMMANDS.OPEN_SETTINGS, `${SETTINGS_EDITOR_EXTENSION_FILTER}${extensionId}`)
+  );
 });
 
 // Shows the error notification without waiting for the user to dismiss it, so whatever failed can finish now. With a
@@ -76,7 +79,7 @@ export const showErrorNotificationWithoutWaiting = Effect.fn("showErrorNotificat
   yield* Effect.forkDetach(
     Effect.flatMap(showErrorMessageAndWaitForButton, (chosenButton) => {
       if (chosenButton === APP_LABELS.OPEN_SETTINGS && settingToOpen !== undefined)
-        return Effect.promise(() => commands.executeCommand("workbench.action.openSettings", settingToOpen));
+        return Effect.promise(() => commands.executeCommand(VS_CODE_COMMANDS.OPEN_SETTINGS, settingToOpen));
       if (pageToOpen !== undefined && chosenButton === pageToOpen.label)
         return Effect.promise(() => env.openExternal(Uri.parse(pageToOpen.url)));
 

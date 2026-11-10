@@ -7,7 +7,9 @@ terminals, tree views, Source Control and diffs.
 ## What works today
 
 - **Sessions sidebar.** The Sessions activity-bar view lists the window's projects, each with its sessions, and starts
-  an agent in an editor-tab terminal. Clicking a session focuses its tab; switching tabs selects the session.
+  an agent in an editor-tab terminal. Clicking a session focuses its tab; switching tabs selects the session. Drag a
+  session onto another of its project's sessions, or an added project onto another, to put it in that place, or use Move
+  Up and Move Down in the row's … menu.
 - **Projects.** The window's workspace folders are always listed; Add Project lists any other folder, and in a window
   showing no project it also shows the first one. Added projects are one list, kept for every window: Aggregor is meant
   to run in one window. A project row's + starts a session in it, the view's + asks which project to use, and an added
@@ -127,4 +129,6 @@ Read-only diffs for SSH sessions in the local window, per-turn checkpoints, scre
 
 ## Development
 
-See [AGENTS.md](AGENTS.md) for the commands. Press F5 in VS Code to run the extension.
+See [AGENTS.md](AGENTS.md) for the commands. Press F5 in VS Code to run the extension; it keeps its data in
+`~/.aggregorDev`, so the installed extension's `~/.aggregor` stays untouched. `AGGREGOR_HOME` moves the whole folder and
+`AGGREGOR_DATABASE_FILE` only the database, each an absolute path.

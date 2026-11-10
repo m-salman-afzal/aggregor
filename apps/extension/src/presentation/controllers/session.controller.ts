@@ -1,6 +1,9 @@
 import {
   GetSessionListItemRequestDtoSchema,
   ListProjectSessionIdsRequestDtoSchema,
+  MoveSessionDownRequestDtoSchema,
+  MoveSessionToPlaceOfRequestDtoSchema,
+  MoveSessionUpRequestDtoSchema,
   NewSessionRequestDtoSchema,
   OpenSessionRequestDtoSchema,
   RemoveSessionRequestDtoSchema,
@@ -14,6 +17,9 @@ import {
   listProjectSessionIds,
   listSessionsWaitingOnUser,
   listWorkingSessionIds,
+  moveSessionDown,
+  moveSessionToPlaceOf,
+  moveSessionUp,
   newSession,
   openSession,
   removeSession,
@@ -59,6 +65,30 @@ export const renameChosenSession = Effect.fn("SessionController.renameChosenSess
   const request = yield* decodeSessionNodeRequest(RenameSessionRequestDtoSchema, sessionNodeId);
   yield* renameSession(request);
 });
+
+// The session row's … menu passes the row's node id.
+export const moveChosenSessionUp = Effect.fn("SessionController.moveChosenSessionUp")(function* (
+  sessionNodeId: unknown
+) {
+  const request = yield* decodeSessionNodeRequest(MoveSessionUpRequestDtoSchema, sessionNodeId);
+  yield* moveSessionUp(request);
+});
+
+// The session row's … menu passes the row's node id.
+export const moveChosenSessionDown = Effect.fn("SessionController.moveChosenSessionDown")(function* (
+  sessionNodeId: unknown
+) {
+  const request = yield* decodeSessionNodeRequest(MoveSessionDownRequestDtoSchema, sessionNodeId);
+  yield* moveSessionDown(request);
+});
+
+// A session row dropped on another session row.
+export const moveSessionToPlaceOfForSessionsView = Effect.fn("SessionController.moveSessionToPlaceOfForSessionsView")(
+  function* (sessionId: string, placeOfSessionId: string) {
+    const request = yield* decodeVsCodeArgument(MoveSessionToPlaceOfRequestDtoSchema, {placeOfSessionId, sessionId});
+    yield* moveSessionToPlaceOf(request);
+  }
+);
 
 export const getSessionListItemForSessionsView = Effect.fn("SessionController.getSessionListItemForSessionsView")(
   function* (sessionId: string) {

@@ -1,18 +1,22 @@
-import {getProjectListItemForSessionsView, listProjectsForSessionsView} from "@controllers/project.controller.ts";
+import {
+  getProjectListItemForSessionsView,
+  listProjectsForSessionsView,
+  moveProjectToPlaceOfForSessionsView
+} from "@controllers/project.controller.ts";
 import {
   findViewedSessionIdForSessionsView,
   getSessionListItemForSessionsView,
   listProjectSessionIdsForSessionsView,
   listSessionsWaitingOnUserForSessionsView,
   listWorkingSessionIdsForSessionsView,
+  moveSessionToPlaceOfForSessionsView,
   watchSessionListChangesForSessionsView,
   watchViewedSessionIdsForSessionsView
 } from "@controllers/session.controller.ts";
 import {
-  SELECT_ROW_RETRIES,
-  SELECT_ROW_RETRY_INTERVAL_MS,
+  SELECT_ROW_RETRY,
   SESSION_BADGE_URI_SCHEME,
-  SESSIONS_VIEW_ID,
+  SESSIONS_VIEW,
   SPINNER_FRAME_INTERVAL_MS,
   STATUS_LABELS,
   VIEW_BADGE_LABELS
@@ -33,7 +37,7 @@ import {
 import {Array, Effect, Layer, Match, Schedule, Schema, Stream, String} from "effect";
 
 import type {SessionListChangeDto} from "@dtos/session.dto.ts";
-import type {EventEmitter, TreeView, Uri} from "vscode";
+import type {DataTransfer, EventEmitter, TreeView, Uri} from "vscode";
 
 // The tree's nodes are ids (see sessionsTreeNode.utils.ts): VS Code finds the node to redraw by its id, and every draw
 // reads the node's project or session again through the controllers, so the view keeps no copy of them.
@@ -68,8 +72,8 @@ const selectViewedSession = Effect.fn("SessionsView.selectViewedSession")(
     yield* getSessionListItemForSessionsView(viewedSessionId);
 
     yield* Effect.retry(revealRow(sessionsTreeView, sessionNodeId), {
-      schedule: Schedule.spaced(SELECT_ROW_RETRY_INTERVAL_MS),
-      times: SELECT_ROW_RETRIES
+      schedule: Schedule.spaced(SELECT_ROW_RETRY.INTERVAL_MS),
+      times: SELECT_ROW_RETRY.TIMES
     });
   },
   Effect.catchTags({NoViewedSessionError: () => Effect.void, SessionNotFoundError: () => Effect.void}),
@@ -182,30 +186,74 @@ const createSessionBadge = Effect.fn("SessionsView.createSessionBadge")(
   Effect.catch((readError) => Effect.as(Effect.logWarning("Could not read a session's status", readError), undefined))
 );
 
-// What the tree and badge callbacks need to run.
+// VS Code hands the item a drag sets under the tree's own type to a drop on a row of the same tree.
+const keepDraggedNodeId = Effect.fn("SessionsView.keepDraggedNodeId", {root: true})(function* (
+  draggedNodeIds: readonly string[],
+  draggedRows: DataTransfer
+) {
+  const {DataTransferItem} = yield* VsCodeApi;
+  const [draggedNodeId] = draggedNodeIds;
+  if (draggedNodeId === undefined) return;
+
+  yield* Effect.sync(() => {
+    draggedRows.set(SESSIONS_VIEW.DRAG_MIME_TYPE, new DataTransferItem(draggedNodeId));
+  });
+});
+
+// A row dropped on another row of its kind takes that row's place; the services keep each row among its own project's
+// sessions or the added projects. Any other drop does nothing, and a failure is logged.
+const moveDroppedRow = Effect.fn("SessionsView.moveDroppedRow", {root: true})(
+  function* (targetNodeId: string | undefined, draggedRows: DataTransfer) {
+    const draggedRowItem = draggedRows.get(SESSIONS_VIEW.DRAG_MIME_TYPE);
+    if (targetNodeId === undefined || draggedRowItem === undefined) return;
+    const draggedNodeId = yield* Effect.promise(() => draggedRowItem.asString());
+    const draggedNode = yield* readSessionsTreeNodeId(draggedNodeId);
+    const targetNode = yield* readSessionsTreeNodeId(targetNodeId);
+
+    if (draggedNode._tag === "SessionNode" && targetNode._tag === "SessionNode")
+      yield* moveSessionToPlaceOfForSessionsView(draggedNode.sessionId, targetNode.sessionId);
+    if (draggedNode._tag === "ProjectNode" && targetNode._tag === "ProjectNode")
+      yield* moveProjectToPlaceOfForSessionsView(draggedNode.projectPath, targetNode.projectPath);
+  },
+  Effect.catch((moveError) => Effect.logWarning("Could not move the dropped row in the Sessions view", moveError))
+);
+
+// What the tree, drag and drop, and badge callbacks need to run.
 type SessionsViewServices =
   | Effect.Services<
       ReturnType<
-        typeof createNodeTreeItem | typeof createSessionBadge | typeof findParentNodeId | typeof listChildNodeIds
+        | typeof createNodeTreeItem
+        | typeof createSessionBadge
+        | typeof findParentNodeId
+        | typeof keepDraggedNodeId
+        | typeof listChildNodeIds
+        | typeof moveDroppedRow
       >
     >
   | VsCodeApi;
 
-// VS Code calls the tree and badge callbacks for every row on every redraw and spinner frame, so they run untraced.
-type RunPromiseUntraced = <A, E>(effect: Effect.Effect<A, E, SessionsViewServices>) => Promise<A>;
+type RunPromise = <A, E>(effect: Effect.Effect<A, E, SessionsViewServices>) => Promise<A>;
 
-const makeUntracedRunner = Effect.fn("SessionsView.makeUntracedRunner")(function* () {
+// VS Code calls the tree and badge callbacks for every row on every redraw and spinner frame, so they run untraced; a
+// drag and its drop are one user action each, so they are traced.
+interface SessionsViewRunners {
+  readonly runPromise: RunPromise;
+  readonly runPromiseUntraced: RunPromise;
+}
+
+const makeCallbackRunners = Effect.fn("SessionsView.makeCallbackRunners")(function* () {
   const sessionsViewContext = yield* Effect.context<SessionsViewServices>();
   const runPromise = Effect.runPromiseWith(sessionsViewContext);
-  const runPromiseUntraced: RunPromiseUntraced = (effect) => runPromise(Effect.withTracerEnabled(effect, false));
+  const sessionsViewRunners: SessionsViewRunners = {
+    runPromise,
+    runPromiseUntraced: (effect) => runPromise(Effect.withTracerEnabled(effect, false))
+  };
 
-  return runPromiseUntraced;
+  return sessionsViewRunners;
 });
 
 // Each session row's status badge is a file decoration on its URI.
-const registerStatusBadges = Effect.fn("SessionsView.registerStatusBadges")(function* (
-  runPromiseUntraced: RunPromiseUntraced
-) {
+const registerStatusBadges = Effect.fn("SessionsView.registerStatusBadges")(function* (runPromiseUntraced: RunPromise) {
   const {EventEmitter, window} = yield* VsCodeApi;
   const badgesChangedEmitter = yield* acquireScopedDisposable(() => new EventEmitter<Uri[]>());
   yield* acquireScopedDisposable(() =>
@@ -222,11 +270,20 @@ const registerStatusBadges = Effect.fn("SessionsView.registerStatusBadges")(func
   return badgesChangedEmitter;
 });
 
-const registerTreeView = Effect.fn("SessionsView.registerTreeView")(function* (runPromiseUntraced: RunPromiseUntraced) {
+const registerTreeView = Effect.fn("SessionsView.registerTreeView")(function* ({
+  runPromise,
+  runPromiseUntraced
+}: SessionsViewRunners) {
   const {EventEmitter, window} = yield* VsCodeApi;
   const treeChangedEmitter = yield* acquireScopedDisposable(() => new EventEmitter<string | undefined>());
   const sessionsTreeView = yield* acquireScopedDisposable(() =>
-    window.createTreeView<string>(SESSIONS_VIEW_ID, {
+    window.createTreeView<string>(SESSIONS_VIEW.ID, {
+      dragAndDropController: {
+        dragMimeTypes: [],
+        dropMimeTypes: [SESSIONS_VIEW.DRAG_MIME_TYPE],
+        handleDrag: (draggedNodeIds, draggedRows) => runPromise(keepDraggedNodeId(draggedNodeIds, draggedRows)),
+        handleDrop: (targetNodeId, draggedRows) => runPromise(moveDroppedRow(targetNodeId, draggedRows))
+      },
       treeDataProvider: {
         getChildren: (parentNodeId) =>
           runPromiseUntraced(Effect.map(listChildNodeIds(parentNodeId), (childNodeIds) => [...childNodeIds])),
@@ -295,10 +352,10 @@ const advanceSpinnerFrames = Effect.fn("SessionsView.advanceSpinnerFrames")(
 
 // Registers the Sessions tree for the lifetime of the runtime; disposing the runtime unregisters it.
 const makeSessionsView = Effect.fn("SessionsView.make")(function* () {
-  const runPromiseUntraced = yield* makeUntracedRunner();
+  const sessionsViewRunners = yield* makeCallbackRunners();
   const sessionsViewHandles: SessionsViewHandles = {
-    badgesChangedEmitter: yield* registerStatusBadges(runPromiseUntraced),
-    ...(yield* registerTreeView(runPromiseUntraced))
+    badgesChangedEmitter: yield* registerStatusBadges(sessionsViewRunners.runPromiseUntraced),
+    ...(yield* registerTreeView(sessionsViewRunners))
   };
   const sessionListChanges = yield* watchSessionListChangesForSessionsView();
   yield* updateViewBadge(sessionsViewHandles.sessionsTreeView);

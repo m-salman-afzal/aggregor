@@ -1,10 +1,9 @@
-import {APP_NAME} from "@pkg/constants/src/app.constant.ts";
+import {APP_NAME, OUTPUT_CHANNEL_LOG_METHODS} from "@pkg/constants/src/app.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {acquireScopedDisposable} from "@pkg/vscode/src/vscode.utils.ts";
 import {Array, Cause, Effect, Exit, Layer, Logger, Predicate, References, Result, Tracer} from "effect";
 import {format} from "node:util";
 
-import type {LogLevel} from "effect";
 import type {LogOutputChannel} from "vscode";
 
 // The formatters run while a span ends, so they stay plain functions: a span of their own would end inside the tracer.
@@ -53,15 +52,6 @@ const makeSpanLineTracer = Effect.fn("TraceLog.makeSpanLineTracer")(function* (o
   });
 });
 
-const OUTPUT_CHANNEL_METHODS = {
-  Debug: "debug",
-  Error: "error",
-  Fatal: "error",
-  Info: "info",
-  Trace: "trace",
-  Warn: "warn"
-} as const satisfies Record<LogLevel.Severity, keyof LogOutputChannel>;
-
 // Effect's log calls, at the matching VS Code log level; the channel drops lines below the level the user picked.
 const makeOutputChannelLogger = Effect.fn("TraceLog.makeOutputChannelLogger")(function* (
   outputChannel: LogOutputChannel
@@ -76,7 +66,7 @@ const makeOutputChannelLogger = Effect.fn("TraceLog.makeOutputChannelLogger")(fu
     // "All" and "None" are thresholds for filtering, never the level of a log call.
     if (logLevel === "All" || logLevel === "None") return;
 
-    outputChannel[OUTPUT_CHANNEL_METHODS[logLevel]](logLine);
+    outputChannel[OUTPUT_CHANNEL_LOG_METHODS[logLevel]](logLine);
   });
 });
 

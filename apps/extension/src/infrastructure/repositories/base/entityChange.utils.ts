@@ -1,6 +1,7 @@
 import {BaseEntity} from "@entities/base/base.entity.ts";
 import {DatabaseReadError} from "@entities/base/base.repository.interface.ts";
 import {selectRows, watchDataVersionChanges} from "@repositories/base/repository.utils.ts";
+import {ENTITY_CHANGE_KINDS} from "@valueObjects/entityChangeKind.valueObject.ts";
 import {gte, max} from "drizzle-orm";
 import {Array, DateTime, Effect, PubSub, Queue, Schema, Stream} from "effect";
 
@@ -12,7 +13,8 @@ import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 // rows: it reads the rows written since its last check.
 
 // Where the last check of the table stopped: the latest updatedAt it read, each row written at that same instant (the
-// next check reads them again, and skips them unless they changed), and the highest sortId, above which a row is new.
+// next check reads them again, and skips them unless they changed), and the highest sortId, above which a row was
+// placed: new, or moved after every other row.
 interface ChangeCursor {
   readonly highestSortId: number;
   readonly latestRowsAsJson: ReadonlyMap<EntityIdValueObject, string>;
@@ -102,11 +104,11 @@ const toEntityChange = Effect.fn("BaseRepository.toEntityChange")(function* <Ent
   changeCursor: ChangeCursor,
   entity: Entity
 ) {
-  if (entity.deletedAt !== undefined) return {entity, kind: "removed"} satisfies EntityChange<Entity>;
+  if (entity.deletedAt !== undefined) return {entity, kind: ENTITY_CHANGE_KINDS.REMOVED} satisfies EntityChange<Entity>;
 
   return {
     entity,
-    kind: entity.sortId > changeCursor.highestSortId ? "added" : "updated"
+    kind: entity.sortId > changeCursor.highestSortId ? ENTITY_CHANGE_KINDS.PLACED : ENTITY_CHANGE_KINDS.UPDATED
   } satisfies EntityChange<Entity>;
 });
 
