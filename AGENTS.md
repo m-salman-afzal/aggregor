@@ -46,7 +46,9 @@ change that moves where code goes. Each file's suffix names its role (`.entity.t
 and so on), and `@pkg/eslint` (`packages/eslint`) checks each layer's imports, the names each role requires, and where
 types and interfaces live. Code imports through one alias per folder under a layer (`@entities/`, `@interfaces/`,
 `@infraServices/` and so on, listed in `apps/extension/tsconfig.json`), never through a relative path, and by name,
-never with `import * as`. Enforce a new convention with a lint there, not only with prose here.
+never with `import * as`. Every constant outside the domain lives in its feature's `@pkg/constants` file, grouped in a
+labelled object with the constants it belongs with (see `DDD.md`). Enforce a new convention with a lint there, not only
+with prose here.
 
 ## Effect
 

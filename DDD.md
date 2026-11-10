@@ -32,7 +32,7 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
 
 ```text
 ┌──────────────────────────────── packages ────────────────────────────────┐
-│ @pkg/constants  ids, labels, notices and error texts, one file a feature │
+│ @pkg/constants  every constant outside the domain, one file a feature    │
 │ @pkg/vscode     VsCodeApi (the one runtime `vscode` import), vscode      │
 │                 helpers, decodeVsCodeArgument                            │
 └─────────▲──────────────── shared by FE and infra ────────────▲───────────┘
@@ -149,17 +149,25 @@ file suffix.
   `<Owner>.make`. A helper file belongs to the one owner in its folder (`vscode/terminal/terminal.utils.ts` to
   `TerminalInfraService`); a file with no owner gives the bare const name (`acquireScopedDisposable`). A command's root
   span is its command ID.
-- The aggregor plugin (`packages/eslint/src/rules/`, one file per rule) checks the span names, the `.type.ts` placement
-  and the stem folders, and fixes span names.
+- The aggregor plugin (`packages/eslint/src/rules/`, one file per rule) checks the span names, the `.type.ts` placement,
+  the stem folders and where constants live, and fixes span names.
+- A constant lives in `@pkg/constants/src/<feature>.constant.ts`: ids, labels and texts, and also file and folder names,
+  environment variables, external commands, VS Code's and other extensions' ids, timings and patterns. Constants that
+  describe one thing share an object with a label per value (`TMUX.SOCKET_FILE_NAME`, `SESSIONS_VIEW.ID`). The domain,
+  which can't import `@pkg/constants`, keeps its patterns beside its rules, and a model's `BASE_COLUMNS` is code. Not
+  constants: log messages, which read beside their code, and the arguments of a command line being built.
+  `aggregor/constant-placement` flags a module-level const named in UPPER_CASE, or set to a bare literal, anywhere else
+  in the extension and `@pkg/vscode`.
 - An aggregate of several entities would get an `.aggregate.ts`.
 
 ## Tree
 
 ```text
 packages/
-  constants/src/                           one file per feature, each with its command ids, labels, notices and
-                                           error texts: app, commitMessage, database, git, agent, process, project,
-                                           session, sessionAlert, sessionsView, terminal, workspace
+  constants/src/                           one file per feature, each with its command ids, labels, notices, error
+                                           texts and the feature's other constants: app, commitMessage, database,
+                                           git, agent, process, project, session, sessionAlert, sessionsView,
+                                           terminal, tmux, vscode (VS Code's own command ids), workspace
   eslint/src/                              the repo's ESLint setup: base/ per file type, layers/ the DDD layering
                                            checks, rules/ the aggregor plugin (one file per rule), and
                                            eslint.config.ts composing them

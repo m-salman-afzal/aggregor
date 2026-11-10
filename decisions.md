@@ -426,14 +426,29 @@ current entry. Leave a field out rather than guess.
   gesture rather than what each one does.
 - **Why:** presentation imports nothing from infrastructure, and the shared code has one home.
 
-### Constants are split by feature (2026-11-09)
+### Constants live in `@pkg/constants`, split by feature (2026-11-09; every constant since 2026-11-10, #98)
 
-- **Problem:** every constant went into `extension.constant.ts` or `message.constant.ts`.
-- **Options:** by kind (ids, UI, runtime, messages).
+- **Problem:** every constant went into `extension.constant.ts` or `message.constant.ts`. Later, file names, timings,
+  environment variables, external commands and VS Code's ids sat as loose constants or bare literals in the files that
+  used them, so the database's folder name lived in a helper and the tmux socket's in another.
+- **Options:** by kind (ids, UI, runtime, messages). Only ids and texts in `@pkg/constants` (2026-11-09 to 2026-11-10),
+  the rest beside its code. Letting the domain import `@pkg/constants` for its title patterns, which would tie the
+  domain to a package presentation and infrastructure share.
 - **Decision:** one `@pkg/constants/src/<feature>.constant.ts` per feature (app, commitMessage, database, git, agent,
-  project, session, sessionsView, terminal, workspace), each with `<FEATURE>_COMMANDS`, `_LABELS` (titles, buttons,
-  placeholders), `_NOTICES` (confirmations and offers) and `_ERRORS` (failure texts) as it needs them.
-- **Why:** a feature's ids and words sit together, and a constant's file says who uses it.
+  process, project, session, sessionAlert, sessionsView, terminal, tmux, vscode, workspace), each with
+  `<FEATURE>_COMMANDS`, `_LABELS` (titles, buttons, placeholders), `_NOTICES` (confirmations and offers) and `_ERRORS`
+  (failure texts) as it needs them, and every other constant outside the domain: file and folder names, environment
+  variables, external commands, VS Code's and other extensions' ids, timings, modes and patterns. Constants that
+  describe one thing share an object with a label per value: `AGGREGOR_FOLDER`, `DATABASE_FILE`, `TMUX`,
+  `AGENT_START_WAIT`, `SESSIONS_VIEW`, `ROW_ICONS`, `SELECT_ROW_RETRY`, `DESKTOP_NOTIFICATION`, `DESKTOP_NOTIFIERS`,
+  `GIT_EXTENSION`, `AGENT_ICON`, `COMMAND_SEARCH`, `AGGREGOR_WORKSPACE`, `ANCHOR_FOLDER_SETTINGS`, `SESSION_TO_REOPEN`.
+  `vscode.constant.ts` holds VS Code's own command ids, which several features run. The domain's patterns stay beside
+  its rules, since the domain imports only `effect` and itself; a model's `BASE_COLUMNS` and the session repository's
+  join are code. Log messages and a command line's arguments stay in their code. `aggregor/constant-placement` flags a
+  module-level const named in UPPER_CASE, or set to a bare literal, in the extension outside the domain and models, and
+  in `@pkg/vscode`. `drizzle.config.ts` reads `MIGRATIONS_FOLDER`.
+- **Why:** a feature's ids, words and settings sit together, a constant's file says who uses it, and one change to a
+  name or a timing touches one line.
 
 ## Dependencies and tooling
 
@@ -899,7 +914,7 @@ current entry. Leave a field out rather than guess.
     libnotify routes a snap's or flatpak's notifications through the portal, which drops hints, and the extension host
     can inherit a snap terminal's environment.
   - GNOME tells the sender only that the notification closed, the same for a click as for its X, so the window opens the
-    session when it came into focus within 1.5 seconds of that (`DESKTOP_NOTIFICATION_CLICK_FOCUS_MS`). A click closes
+    session when it came into focus within 1.5 seconds of that (`DESKTOP_NOTIFICATION.CLICK_FOCUS_MS`). A click closes
     every VS Code notification at once, so the first alert to see the focus uses it up and the others open nothing.
   - From WSL (a kernel release naming microsoft), a PowerShell toast whose click opens a link
     (`vscode://salmanafzal.aggregor-app/openSession?sessionId=…`, from `env.asExternalUri`, which adds the window's id)
