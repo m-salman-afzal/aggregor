@@ -129,4 +129,6 @@ Read-only diffs for SSH sessions in the local window, per-turn checkpoints, scre
 
 ## Development
 
-See [AGENTS.md](AGENTS.md) for the commands. Press F5 in VS Code to run the extension.
+See [AGENTS.md](AGENTS.md) for the commands. Press F5 in VS Code to run the extension; it keeps its data in
+`~/.aggregorDev`, so the installed extension's `~/.aggregor` stays untouched. `AGGREGOR_HOME` moves the whole folder and
+`AGGREGOR_DATABASE_FILE` only the database, each an absolute path.

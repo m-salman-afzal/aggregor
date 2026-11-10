@@ -47,7 +47,9 @@ git state matters: Source Control checks can stage files there.
 
 The VS Code profile lives in `~/.cache/aggregor-verify/vscode-data` and the extension's Aggregor folder (database,
 `aggregor-pty`'s log, anchor folder) in `~/.cache/aggregor-verify/aggregor` (or `$AGGREGOR_HOME`), never the real
-`~/.aggregor`. Both persist between runs, sessions and added projects included. Delete them to start fresh.
+`~/.aggregor` or the F5 build's `~/.aggregorDev`. Both persist between runs, sessions and added projects included.
+Delete them to start fresh, or run `start` with `AGGREGOR_DATABASE_FILE` set to an absolute path to try another
+database.
 
 ## Checking a change
 

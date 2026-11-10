@@ -9,7 +9,7 @@ import {
   TerminalLaunchFailedError,
   TerminalNotFoundError
 } from "@interfaces/terminal.infraService.interface.ts";
-import {SESSION_ID_ENV} from "@pkg/constants/src/terminal.constant.ts";
+import {SESSION_ID_ENV, VIEWED_SESSION_SETTLE_INTERVAL} from "@pkg/constants/src/terminal.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
 import {Effect, Layer, Result, Schema, Stream, SubscriptionRef} from "effect";
@@ -207,8 +207,7 @@ const updateViewedSessionId = Effect.fn("TerminalInfraService.updateViewedSessio
   yield* SubscriptionRef.set(viewedSessionId, nextViewedSessionId);
 });
 
-// Switching tabs fires the tab and active-terminal events separately and in either order, so wait for them to settle;
-// reading in between could credit the tab being left.
+// Reading between the events of one tab switch could credit the tab being left.
 const watchFocusChanges = Effect.fn("TerminalInfraService.watchFocusChanges")(function* ({
   sessionTerminals,
   window
@@ -221,7 +220,10 @@ const watchFocusChanges = Effect.fn("TerminalInfraService.watchFocusChanges")(fu
     SubscriptionRef.changes(sessionTerminals)
   ];
 
-  return Stream.debounce(Stream.mergeAll(focusChangeSources, {concurrency: "unbounded"}), "100 millis");
+  return Stream.debounce(
+    Stream.mergeAll(focusChangeSources, {concurrency: "unbounded"}),
+    VIEWED_SESSION_SETTLE_INTERVAL
+  );
 });
 
 const trackViewedSessionId = Effect.fn("TerminalInfraService.trackViewedSessionId")(function* (

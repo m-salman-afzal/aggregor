@@ -4,7 +4,9 @@ What the extension stores, where, and why. Add an entry whenever something new i
 is stored now.
 
 Everything but one user setting lives in the Aggregor folder, `~/.aggregor` (or `$AGGREGOR_HOME`), which only its owner
-can read. Every window and every VS Code profile shares it, and it survives reloads, restarts and extension updates.
+can read. Every window and every VS Code profile shares it, and it survives reloads, restarts and extension updates. The
+build F5 runs keeps its own, `~/.aggregorDev`, and `$AGGREGOR_DATABASE_FILE` puts the database elsewhere, with
+`aggregor-pty.log` beside it.
 
 ## `data/aggregor.db`
 

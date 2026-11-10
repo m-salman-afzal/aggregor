@@ -1,4 +1,5 @@
 import {SESSION_ID_ENV} from "@pkg/constants/src/terminal.constant.ts";
+import {VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
 import {decodeEntityId} from "@valueObjects/entityId.valueObject.ts";
 import {Array, Effect, Result, Schema, SubscriptionRef} from "effect";
 
@@ -64,7 +65,7 @@ const renameActiveTerminal = Effect.fn("TerminalInfraService.renameActiveTermina
   commands: TerminalDependencies["commands"],
   tabName: string
 ) {
-  yield* Effect.promise(() => commands.executeCommand("workbench.action.terminal.renameWithArg", {name: tabName}));
+  yield* Effect.promise(() => commands.executeCommand(VS_CODE_COMMANDS.RENAME_ACTIVE_TERMINAL, {name: tabName}));
 });
 
 // VS Code renames only the active terminal, so a tab in the background keeps its name until it comes to the front. A

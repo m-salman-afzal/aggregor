@@ -294,11 +294,12 @@ apps/extension/src/
       database.layer.ts                    DatabaseLayer: opens ~/.aggregor/data/aggregor.db, foreign keys on, and
                                            applies the migration in assets/migrations
     logger/traceLog.layer.ts               TraceLogLayer
-    utils/aggregorFolder.utils.ts          getAggregorFolderPath: ~/.aggregor, or $AGGREGOR_HOME
+    utils/aggregorFolder.utils.ts          getAggregorFolderPath: ~/.aggregor, or $AGGREGOR_HOME (~/.aggregorDev
+                                           from F5); readAbsolutePathVariable
     utils/anchorFolder.utils.ts            getAnchorFolderPath: anchor/Aggregor in it, the hidden folder 0 of the
                                            window once it shows one project
-    utils/database.utils.ts                getDatabaseFilePath: data/aggregor.db in it; the window opens it, and
-                                           aggregor-pty writes to it
+    utils/database.utils.ts                getDatabaseFilePath: data/aggregor.db in it, or $AGGREGOR_DATABASE_FILE;
+                                           the window opens it, and aggregor-pty writes to it
     utils/tmuxSocket.utils.ts              getTmuxSocketPath: tmux.sock in it, Aggregor's own tmux server
   presentation/
     routes.ts                              RoutesLayer: each command's ID, controller and presenter; Open Settings

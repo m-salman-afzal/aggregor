@@ -985,6 +985,32 @@ current entry. Leave a field out rather than guess.
 - **Why:** one place to find everything Aggregor stores, and every profile opens the same Aggregor workspace. A second
   window, in any profile, now shares the anchor folder's settings, as a second window in one profile already did.
 
+### The F5 build keeps its own Aggregor folder, `~/.aggregorDev` (2026-11-10, #98)
+
+- **Problem:** the build F5 runs and the installed Marketplace build shared `~/.aggregor`: one database, one tmux server
+  and one anchor workspace. A dev schema change, which regenerates the migration from zero, broke the installed
+  extension's database; F5's sessions showed in the installed extension's list; and the F5 window couldn't open the
+  anchor workspace while the other window had it open, since VS Code shows that window instead.
+- **Options:**
+  - The extension picks `~/.aggregorDev` itself when VS Code runs it in development mode, with no variable; a
+    `.env.development` file that `launch.json` loads.
+  - Naming the variable `AGGREGOR_DATA_DIR` again: the folder holds `anchor/` and `tmux.sock` besides its own `data/`,
+    and beside a database variable it would read as moving only `data/`.
+  - Variables for the tmux socket and the anchor folder, which follow the folder, so dev and installed builds already
+    get their own; a separate socket variable could put two folders on one tmux server. `AGGREGOR_PTY_BINARY`, for a
+    cargo debug build, which `build:pty` already copies in.
+  - Expanding a leading `~`, which a shell does before VS Code sees the value and `launch.json` writes as `${userHome}`.
+- **Decision:**
+  - "Run Extension" in `.vscode/launch.json` sets `AGGREGOR_HOME` to `${userHome}/.aggregorDev`; unset, as in the
+    installed extension, it stays `~/.aggregor`. The verify skill keeps its own folder.
+  - `AGGREGOR_DATABASE_FILE` names the database file, `data/aggregor.db` in the Aggregor folder by default, to try
+    another database; `aggregor-pty` gets it through `--database` and writes its log beside it.
+  - Both are read through Effect's `Config` by `readAbsolutePathVariable`; a value that isn't an absolute path fails
+    activation with an error naming the variable.
+  - `~/.aggregor` keeps what it holds, dev and installed rows alike; `~/.aggregorDev` starts empty. Nothing is copied or
+    deleted. The database error messages no longer name `~/.aggregor/data`.
+- **Why:** one variable already moved everything, so F5 only had to set it, and swapping the database is one more.
+
 ### One project in view, behind a hidden anchor folder (2026-11-05, #68)
 
 - **Problem:** with every project a workspace folder, Explorer, search, file watching and Source Control span all of

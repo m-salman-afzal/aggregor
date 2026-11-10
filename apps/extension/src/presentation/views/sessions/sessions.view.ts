@@ -14,11 +14,9 @@ import {
   watchViewedSessionIdsForSessionsView
 } from "@controllers/session.controller.ts";
 import {
-  SELECT_ROW_RETRIES,
-  SELECT_ROW_RETRY_INTERVAL_MS,
+  SELECT_ROW_RETRY,
   SESSION_BADGE_URI_SCHEME,
-  SESSIONS_VIEW_DRAG_MIME_TYPE,
-  SESSIONS_VIEW_ID,
+  SESSIONS_VIEW,
   SPINNER_FRAME_INTERVAL_MS,
   STATUS_LABELS,
   VIEW_BADGE_LABELS
@@ -74,8 +72,8 @@ const selectViewedSession = Effect.fn("SessionsView.selectViewedSession")(
     yield* getSessionListItemForSessionsView(viewedSessionId);
 
     yield* Effect.retry(revealRow(sessionsTreeView, sessionNodeId), {
-      schedule: Schedule.spaced(SELECT_ROW_RETRY_INTERVAL_MS),
-      times: SELECT_ROW_RETRIES
+      schedule: Schedule.spaced(SELECT_ROW_RETRY.INTERVAL_MS),
+      times: SELECT_ROW_RETRY.TIMES
     });
   },
   Effect.catchTags({NoViewedSessionError: () => Effect.void, SessionNotFoundError: () => Effect.void}),
@@ -198,7 +196,7 @@ const keepDraggedNodeId = Effect.fn("SessionsView.keepDraggedNodeId", {root: tru
   if (draggedNodeId === undefined) return;
 
   yield* Effect.sync(() => {
-    draggedRows.set(SESSIONS_VIEW_DRAG_MIME_TYPE, new DataTransferItem(draggedNodeId));
+    draggedRows.set(SESSIONS_VIEW.DRAG_MIME_TYPE, new DataTransferItem(draggedNodeId));
   });
 });
 
@@ -206,7 +204,7 @@ const keepDraggedNodeId = Effect.fn("SessionsView.keepDraggedNodeId", {root: tru
 // sessions or the added projects. Any other drop does nothing, and a failure is logged.
 const moveDroppedRow = Effect.fn("SessionsView.moveDroppedRow", {root: true})(
   function* (targetNodeId: string | undefined, draggedRows: DataTransfer) {
-    const draggedRowItem = draggedRows.get(SESSIONS_VIEW_DRAG_MIME_TYPE);
+    const draggedRowItem = draggedRows.get(SESSIONS_VIEW.DRAG_MIME_TYPE);
     if (targetNodeId === undefined || draggedRowItem === undefined) return;
     const draggedNodeId = yield* Effect.promise(() => draggedRowItem.asString());
     const draggedNode = yield* readSessionsTreeNodeId(draggedNodeId);
@@ -279,10 +277,10 @@ const registerTreeView = Effect.fn("SessionsView.registerTreeView")(function* ({
   const {EventEmitter, window} = yield* VsCodeApi;
   const treeChangedEmitter = yield* acquireScopedDisposable(() => new EventEmitter<string | undefined>());
   const sessionsTreeView = yield* acquireScopedDisposable(() =>
-    window.createTreeView<string>(SESSIONS_VIEW_ID, {
+    window.createTreeView<string>(SESSIONS_VIEW.ID, {
       dragAndDropController: {
         dragMimeTypes: [],
-        dropMimeTypes: [SESSIONS_VIEW_DRAG_MIME_TYPE],
+        dropMimeTypes: [SESSIONS_VIEW.DRAG_MIME_TYPE],
         handleDrag: (draggedNodeIds, draggedRows) => runPromise(keepDraggedNodeId(draggedNodeIds, draggedRows)),
         handleDrop: (targetNodeId, draggedRows) => runPromise(moveDroppedRow(targetNodeId, draggedRows))
       },

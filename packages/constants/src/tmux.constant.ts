@@ -1,18 +1,24 @@
 // Every session's agent runs in a tmux session on Aggregor's own tmux server, named by the session's id.
-
-export const TMUX_COMMAND = "tmux";
-
-// Read instead of ~/.tmux.conf when the server starts, and again when a window starts.
-export const TMUX_CONFIG_FILE = "assets/tmux.conf";
-
-// The oldest tmux tmux.conf works with: extended-keys and terminal-features arrived in 3.2.
-export const MINIMUM_TMUX_VERSION = {MAJOR: 3, MINOR: 2} as const;
-
-export const TMUX_INSTALL_PAGE = "https://github.com/tmux/tmux/wiki/Installing";
+export const TMUX = {
+  COMMAND: "tmux",
+  // Read instead of ~/.tmux.conf when the server starts, and again when a window starts.
+  CONFIG_FILE: "assets/tmux.conf",
+  INSTALL_PAGE: "https://github.com/tmux/tmux/wiki/Installing",
+  // The oldest tmux tmux.conf works with: extended-keys and terminal-features arrived in 3.2.
+  MINIMUM_VERSION: {MAJOR: 3, MINOR: 2},
+  // In the Aggregor folder, where the server listens (tmux -S), apart from the user's tmux; a test's Aggregor folder
+  // gets a server of its own.
+  SOCKET_FILE_NAME: "tmux.sock",
+  // What `tmux -V` prints: "tmux 3.8", "tmux 3.3a" or "tmux next-3.6".
+  VERSION_NUMBER_PATTERN: /(?<major>\d+)\.(?<minor>\d+)/u,
+  VERSION_PREFIX: "tmux"
+} as const;
 
 // How long a session's tab may take to start its agent's tmux session, and how often tmux's list is read meanwhile.
-export const AGENT_START_TIMEOUT_MS = 5000;
-export const AGENT_START_POLL_INTERVAL_MS = 50;
+export const AGENT_START_WAIT = {
+  POLL_INTERVAL_MS: 50,
+  TIMEOUT_MS: 5000
+} as const;
 
 export const TMUX_LABELS = {
   INSTALL: "Install tmux"

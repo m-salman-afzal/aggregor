@@ -7,7 +7,7 @@ import {
   IGitInfraService,
   NothingStagedError
 } from "@interfaces/git.infraService.interface.ts";
-import {GIT_EXTENSION_API_VERSION} from "@pkg/constants/src/git.constant.ts";
+import {GIT_EXTENSION} from "@pkg/constants/src/git.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {Effect, Layer, Result, Schema} from "effect";
 
@@ -24,7 +24,9 @@ class GitRepositoryOpenFailedError extends Schema.TaggedError<
 
 const getGitApi = Effect.fn("GitInfraService.getGitApi")(function* ({extensions}: GitDependencies) {
   const gitExtension = yield* Effect.fromResult(
-    Result.fromNullishOr(extensions.getExtension<GitExtension>("vscode.git"), () => GitExtensionUnavailableError.make())
+    Result.fromNullishOr(extensions.getExtension<GitExtension>(GIT_EXTENSION.ID), () =>
+      GitExtensionUnavailableError.make()
+    )
   );
   // We can activate before git does (an open Sessions view activates us at startup), and git has no exports until it
   // is active. activate() returns them, at once when git is already active.
@@ -36,7 +38,7 @@ const getGitApi = Effect.fn("GitInfraService.getGitApi")(function* ({extensions}
   // getAPI throws when git is turned off in the settings.
   return yield* Effect.try({
     catch: () => GitExtensionDisabledError.make(),
-    try: () => gitExports.getAPI(GIT_EXTENSION_API_VERSION)
+    try: () => gitExports.getAPI(GIT_EXTENSION.API_VERSION)
   });
 });
 
@@ -113,14 +115,14 @@ const commit = Effect.fn("GitInfraService.commit")(function* (
   });
 });
 
-// git.stageAll finds the repository that contains the path it is given.
+// Stage All finds the repository that contains the path it is given.
 const stageAll = Effect.fn("GitInfraService.stageAll")(function* (
   gitDependencies: GitDependencies,
   projectPath: ProjectPathValueObject
 ) {
   const {commands, Uri} = gitDependencies;
 
-  yield* Effect.promise(() => commands.executeCommand("git.stageAll", Uri.file(projectPath)));
+  yield* Effect.promise(() => commands.executeCommand(GIT_EXTENSION.STAGE_ALL_COMMAND, Uri.file(projectPath)));
 });
 
 const openAndLoadRepository = Effect.fn("GitInfraService.openAndLoadRepository")(function* (
