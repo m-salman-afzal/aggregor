@@ -13,9 +13,9 @@ opens it through `@effect/sql-sqlite-node`, with Drizzle's query builder. `infra
 table as a Drizzle table, one file per table, and `base.model.ts` the shared columns.
 
 - **Every table** starts with `id` (a UUID v7, which also gives the row's creation time), `sortId` (its place in the
-  table's order: a new row, or one upserted again, gets the table's highest plus one, and reads follow it), `updatedAt`
-  (set on every write) and `deletedAt` (set by a soft delete; reads skip the row). Timestamps are ISO 8601 text in UTC,
-  such as `2026-11-07T22:13:46.836Z`.
+  table's order: a new row, or one upserted again, gets the table's highest plus one, a moved row and the rows after its
+  new place get the next ones, and reads follow it), `updatedAt` (set on every write) and `deletedAt` (set by a soft
+  delete; reads skip the row). Timestamps are ISO 8601 text in UTC, such as `2026-11-07T22:13:46.836Z`.
 - **Migrations:** `apps/extension/assets/migrations/`, written by `pnpm db:generate`: before 0.1.0 one, regenerated from
   zero on each schema change, with the old database deleted. A window applies the ones the database lacks when it
   starts, and Drizzle records each applied one in `__drizzle_migrations`.
@@ -32,7 +32,7 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
   it at the end of the list, removed before or not; Remove Project clears `isAdded`. A window's own folder that makes
   way for the shown project is added the same way; a project already added keeps its place, so switching projects never
   moves one. A session in a window's own folder gives that folder a row without `isAdded`, so it stays one of the
-  window's own.
+  window's own. Move Up, Move Down and a drop on another added project rewrite `sortId`.
 - **Read by:** `ProjectService`: the added projects in `sortId` order, for the Sessions view and the project pickers.
 
 ### `sessions`
@@ -41,8 +41,9 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
   gives one), `customName` (the user's, from the row menu's Rename, or NULL) and `viewedAt` (when the session last came
   into or left the user's view). The `id` is also the agent's session id.
 - **Written by:** `SessionService` through the base service: a row per New Session, `name` when the agent's title in the
-  row changes, `customName` on Rename, `viewedAt` as the session comes into and leaves view, and a soft delete on Remove
-  Session. Removing a project keeps its sessions, so adding the project again lists them again.
+  row changes, `customName` on Rename, `viewedAt` as the session comes into and leaves view, `sortId` on Move Up, Move
+  Down and a drop on another of its project's sessions, and a soft delete on Remove Session. Removing a project keeps
+  its sessions, so adding the project again lists them again.
 - **Read by:** `SessionService`, with the project's path: the Sessions view reads each row as it draws it.
 - **Status columns:** `status` (`unknown` until a report, `exited` once the agent is gone), `statusKind`,
   `statusMessage`, `statusProgress`, `statusChangedAt` (when the state last changed), `hasWorked` (it has reported

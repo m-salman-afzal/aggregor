@@ -268,30 +268,53 @@
         {
           "submenu": "aggregorApp.sessionActions",
           "group": "inline",
-          "when": "view == aggregorApp.sessions && viewItem == session"
+          "when": "view == aggregorApp.sessions && viewItem =~ /^session/"
         },
         {
           "command": "aggregorApp.newSessionInChosenProject",
           "group": "inline@1",
-          "when": "view == aggregorApp.sessions && viewItem =~ /^(project|addedProject)$/"
+          "when": "view == aggregorApp.sessions && viewItem =~ /^(project|addedProject)/"
         },
         {
           "submenu": "aggregorApp.projectActions",
           "group": "inline@2",
-          "when": "view == aggregorApp.sessions && viewItem == addedProject"
+          "when": "view == aggregorApp.sessions && viewItem =~ /^addedProject/"
         }
       ],
       "aggregorApp.sessionActions": [
         {
-          "command": "aggregorApp.renameSession"
+          "command": "aggregorApp.moveSessionUp",
+          "group": "1_order@1",
+          "when": "viewItem =~ /canMoveUp/"
         },
         {
-          "command": "aggregorApp.removeSession"
+          "command": "aggregorApp.moveSessionDown",
+          "group": "1_order@2",
+          "when": "viewItem =~ /canMoveDown/"
+        },
+        {
+          "command": "aggregorApp.renameSession",
+          "group": "2_session@1"
+        },
+        {
+          "command": "aggregorApp.removeSession",
+          "group": "2_session@2"
         }
       ],
       "aggregorApp.projectActions": [
         {
-          "command": "aggregorApp.removeProject"
+          "command": "aggregorApp.moveProjectUp",
+          "group": "1_order@1",
+          "when": "viewItem =~ /canMoveUp/"
+        },
+        {
+          "command": "aggregorApp.moveProjectDown",
+          "group": "1_order@2",
+          "when": "viewItem =~ /canMoveDown/"
+        },
+        {
+          "command": "aggregorApp.removeProject",
+          "group": "2_project@1"
         }
       ],
       "commandPalette": [
@@ -309,6 +332,22 @@
         },
         {
           "command": "aggregorApp.removeProject",
+          "when": "false"
+        },
+        {
+          "command": "aggregorApp.moveProjectUp",
+          "when": "false"
+        },
+        {
+          "command": "aggregorApp.moveProjectDown",
+          "when": "false"
+        },
+        {
+          "command": "aggregorApp.moveSessionUp",
+          "when": "false"
+        },
+        {
+          "command": "aggregorApp.moveSessionDown",
           "when": "false"
         },
         {
@@ -394,6 +433,22 @@
       {
         "title": "Rename",
         "command": "aggregorApp.renameSession"
+      },
+      {
+        "title": "Move Up",
+        "command": "aggregorApp.moveSessionUp"
+      },
+      {
+        "title": "Move Down",
+        "command": "aggregorApp.moveSessionDown"
+      },
+      {
+        "title": "Move Up",
+        "command": "aggregorApp.moveProjectUp"
+      },
+      {
+        "title": "Move Down",
+        "command": "aggregorApp.moveProjectDown"
       },
       {
         "title": "Open Settings",

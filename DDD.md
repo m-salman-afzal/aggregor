@@ -177,8 +177,8 @@ apps/extension/src/
         base.entity.ts                     BaseEntity (Schema.Class: id, sortId, updatedAt, deletedAt; fromRow, the
                                            factory every stored row goes through)
         base.repository.interface.ts       IBaseRepository<Entity, AddRequest>: add, findById, findMany, update,
-                                           upsert, softDelete, entityChanges; EntityChange; DatabaseReadError,
-                                           DatabaseWriteError, EntityNotFoundError
+                                           upsert, softDelete, placeAtEnd, entityChanges; EntityChange;
+                                           DatabaseReadError, DatabaseWriteError, EntityNotFoundError
       session/
         session.entity.ts                  SessionEntity (BaseEntity and projectId, projectPath, name, customName,
                                            agentId, viewedAt, and aggregor-pty's status, statusKind,
@@ -199,18 +199,22 @@ apps/extension/src/
                                            picked from the agent's), AgentIdValueObject (branded: the settings
                                            key), AgentIconValueObject (an image file's path),
                                            EnvironmentVariablesValueObject (names to values),
-                                           LaunchPlanValueObject (a command, its arguments and its variables)
+                                           LaunchPlanValueObject (a command, its arguments and its variables),
+                                           EntityChangeKindValueObject (literals: placed, updated, removed)
     services/
       session.domainService.ts             prepareLaunchPlan, getDefaultSessionName, getSessionTitle,
                                            getSessionTitleToSave, getSessionStatus, isSessionTurnRunning,
                                            getAlertedStatus, isSessionWaitingOnUser
       entityId.domainService.ts            makeEntityId, getEntityIdCreatedAt: the entity id's factory
+      sortOrder.domainService.ts           findEntityIdsToPlaceAtEnd, canMoveUpInOrder, canMoveDownInOrder: how
+                                           rows move within an order
   application/
     services/
       base.service.ts                      addEntity, findEntityById, findEntities, updateEntity, upsertEntity,
-                                           removeEntity, on any repository
+                                           removeEntity, placeEntitiesAtEnd, on any repository
       session.service.ts                   newSession (which picks the project, then the agent), openSession,
-                                           removeSession, renameSession; NoAgentInstalledError; the list:
+                                           removeSession, renameSession, moveSessionUp, moveSessionDown,
+                                           moveSessionToPlaceOf; NoAgentInstalledError; the list:
                                            getSessionListItem, listProjectSessionIds, listWorkingSessionIds,
                                            watchSessionListChanges, watchViewedSessionIds, findViewedSessionId,
                                            listSessionsWaitingOnUser (the view's badge); startSessionTitleSync,
@@ -219,6 +223,7 @@ apps/extension/src/
                                            as notifyOn picks them; notifyOnDesktop
       project.service.ts                   listProjects, getProjectListItem, findProjectListItem, pickProject,
                                            addProject, addProjectPaths, findOrAddProject, removeProject,
+                                           moveProjectUp, moveProjectDown, moveProjectToPlaceOf,
                                            newProjectTerminal; NoProjectError, ProjectNotListedError
       commitMessage.service.ts             generateCommitMessage: writes the message with Source Control's progress,
                                            and offers to stage everything when nothing is staged
@@ -229,7 +234,7 @@ apps/extension/src/
                                            use case
       sessionAlert.dto.ts                  SessionAlertDto, NotifyOnDesktopRequestDto
       agent.dto.ts                       AgentListItemDto: a row of the agent picker
-      project.dto.ts                       ProjectListItemDto, GetProjectListItemRequestDto, RemoveProjectRequestDto
+      project.dto.ts                       ProjectListItemDto, and a request DTO per project use case
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
     interfaces/                            each with the errors and types its signatures name
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
@@ -308,7 +313,7 @@ apps/extension/src/
     utils/sessionsTreeNode.utils.ts        the Sessions tree's node ids, and decoding a row's node id into a
                                            request DTO
     views/sessions/                        SessionsView: the tree and badge providers, tree items, spinner, redraws,
-                                           the session in front kept selected, and the view's badge
+                                           drag and drop, the session in front kept selected, and the view's badge
     views/sessionAlerts/                   SessionAlertsView: shows each alert in the focused window or hands it to
                                            the system, and handles the session links desktop notifications open
   extension.ts                             activate
@@ -325,13 +330,14 @@ apps/extension/src/
   domain only through `BaseEntity.fromRow`, inside the base repository, so no entity knows how it is stored.
   `AgentEntity` lives in the user's settings instead, so it is a plain `Schema.Class` whose id is its settings key.
 - `EntityIdValueObject`, `ProjectPathValueObject` and `AgentIdValueObject` are branded with `Schema.brand`; a value
-  object that is a set of values (`AgentStatusValueObject`, `SessionStatusValueObject`, `StatusKindValueObject`) is a
-  `Schema.Enum` with UPPER_CASE keys, and its file exports the values beside the schema as an UPPER_CASE constant
-  (`export const AGENT_STATUSES = AgentStatusValueObjectSchema.enums`), the one copy of each string. Code elsewhere
-  imports that constant (`AGENT_STATUSES.WORKING`) and never reads `.enums` itself. Presentation, which can't import the
-  domain, compares none: it looks states up in its constants. Lint (`syntaxBans.ts`) bans `Schema.Literals` in a value
-  object, an enum value object without its exported constant, reading `.enums` outside value objects, and comparing with
-  a state or kind-of-wait string; `roleNames.ts` lets a value object export the UPPER_CASE constant.
+  object that is a set of values (`AgentStatusValueObject`, `SessionStatusValueObject`, `StatusKindValueObject`,
+  `EntityChangeKindValueObject`) is a `Schema.Enum` with UPPER_CASE keys, and its file exports the values beside the
+  schema as an UPPER_CASE constant (`export const AGENT_STATUSES = AgentStatusValueObjectSchema.enums`), the one copy of
+  each string. Code elsewhere imports that constant (`AGENT_STATUSES.WORKING`) and never reads `.enums` itself.
+  Presentation, which can't import the domain, compares none: it looks states up in its constants. Lint
+  (`syntaxBans.ts`) bans `Schema.Literals` in a value object, an enum value object without its exported constant,
+  reading `.enums` outside value objects, and comparing with a state, kind-of-wait or kind-of-change string;
+  `roleNames.ts` lets a value object export the UPPER_CASE constant.
 - Each value object exports its schema as `<Name>ValueObjectSchema` and its type as `<Name>ValueObject`, since lint's
   `no-redeclare` rejects a value and a type of the same name. Entities and errors are classes, which are both.
 - A Schema class (entity or error) takes a `{readonly brand: unique symbol}` type argument, so two classes with the same
@@ -413,11 +419,11 @@ apps/extension/src/
   column-scoped: `update` sets only the columns it is given, so the extension and `aggregor-pty` never overwrite each
   other's columns.
 - The database is the only copy of the data: every read is a query, and no repository, service or view keeps rows. Each
-  repository's `entityChanges` streams every write to its table as an `EntityChange` (added, updated, removed): after
+  repository's `entityChanges` streams every write to its table as an `EntityChange` (placed, updated, removed): after
   the window's own writes at once, and after another connection's (`aggregor-pty`, another window) once
   `PRAGMA data_version` moves, which is polled every 250 ms, untraced. Each check reads the rows whose `updatedAt` is at
-  or after the last one it read, skips those it already read unchanged at that instant, and counts a row new when its
-  `sortId` is above every one it saw.
+  or after the last one it read, skips those it already read unchanged at that instant, and counts a row placed (new, or
+  moved by `placeAtEnd`) when its `sortId` is above every one it saw.
 - Each table model is a Drizzle `sqliteTable` that spreads `BASE_COLUMNS`; its unique columns are what `upsert` matches
   on. A repository passes `makeBaseRepository` a join for the columns it reads from the rows it points at, such as a
   session's `projectPath`. After changing a model, delete `apps/extension/assets/migrations/` and run

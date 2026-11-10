@@ -1,8 +1,15 @@
 export const SESSIONS_VIEW_ID = "aggregorApp.sessions";
 
-// The manifest's menus pick rows by these: only an added project can be removed from the list.
+// The tree's own drag and drop type, application/vnd.code.tree.<view id in lower case>, which VS Code keeps the dragged
+// rows' items under within the tree.
+export const SESSIONS_VIEW_DRAG_MIME_TYPE = "application/vnd.code.tree.aggregorapp.sessions";
+
+// A row's context value is its kind, then the ways it can move, separated by spaces; the manifest's menus match these
+// words: only an added project can be removed from the list, and Move Up and Move Down show only where they move.
 export const SESSIONS_VIEW_CONTEXT_VALUES = {
   ADDED_PROJECT: "addedProject",
+  CAN_MOVE_DOWN: "canMoveDown",
+  CAN_MOVE_UP: "canMoveUp",
   PROJECT: "project",
   SESSION: "session"
 } as const;

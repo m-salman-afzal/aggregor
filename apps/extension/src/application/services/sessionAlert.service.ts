@@ -7,6 +7,7 @@ import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {SESSION_ALERT_HOLD_MS} from "@pkg/constants/src/sessionAlert.constant.ts";
 import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
+import {ENTITY_CHANGE_KINDS} from "@valueObjects/entityChangeKind.valueObject.ts";
 import {DateTime, Duration, Effect, Result, Schema, Stream, SubscriptionRef} from "effect";
 
 import type {NotifyOnDesktopRequestDto} from "@dtos/sessionAlert.dto.ts";
@@ -48,7 +49,7 @@ const watchChangedSessions = Effect.fn("SessionAlertService.watchChangedSessions
   const alertsStartedAt = yield* DateTime.now;
 
   return Stream.filterMap(entityChanges, ({entity, kind}) =>
-    kind !== "removed" &&
+    kind !== ENTITY_CHANGE_KINDS.REMOVED &&
     entity.statusChangedAt !== undefined &&
     DateTime.isGreaterThan(entity.statusChangedAt, alertsStartedAt)
       ? Result.succeed(entity)

@@ -58,3 +58,13 @@ export const removeEntity = Effect.fn("BaseService.removeEntity")(function* <Ide
   const repository = yield* repositoryKey;
   yield* repository.softDelete(entityId);
 });
+
+// Moves the entities, in the order given, after every other entity of their table.
+export const placeEntitiesAtEnd = Effect.fn("BaseService.placeEntitiesAtEnd")(function* <
+  Identifier,
+  Entity,
+  AddRequest
+>(repositoryKey: RepositoryKey<Identifier, Entity, AddRequest>, entityIds: readonly EntityIdValueObject[]) {
+  const repository = yield* repositoryKey;
+  yield* repository.placeAtEnd(entityIds);
+});

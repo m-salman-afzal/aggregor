@@ -1,15 +1,28 @@
+import {
+  canMoveDownInOrder,
+  canMoveUpInOrder,
+  findEntityIdsToPlaceAtEnd
+} from "@domainServices/sortOrder.domainService.ts";
 import {ProjectListItemDtoSchema} from "@dtos/project.dto.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {TERMINAL_LABELS} from "@pkg/constants/src/terminal.constant.ts";
-import {addEntity, findEntities, updateEntity, upsertEntity} from "@services/base.service.ts";
+import {addEntity, findEntities, placeEntitiesAtEnd, updateEntity, upsertEntity} from "@services/base.service.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {Array, Effect, Result, Schema} from "effect";
 import {Path} from "effect/Path";
 
-import type {GetProjectListItemRequestDto, RemoveProjectRequestDto} from "@dtos/project.dto.ts";
+import type {
+  GetProjectListItemRequestDto,
+  MoveProjectDownRequestDto,
+  MoveProjectToPlaceOfRequestDto,
+  MoveProjectUpRequestDto,
+  RemoveProjectRequestDto
+} from "@dtos/project.dto.ts";
+import type {ProjectEntity} from "@entities/project/project.entity.ts";
+import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
 export class NoProjectError extends Schema.TaggedError<NoProjectError, {readonly brand: unique symbol}>()(
@@ -23,10 +36,25 @@ export class ProjectNotListedError extends Schema.TaggedError<ProjectNotListedEr
   {projectPath: ProjectPathValueObjectSchema}
 ) {}
 
+// An added project moves among the added projects.
+const toAddedProjectListItem = Effect.fn("ProjectService.toAddedProjectListItem")(function* (
+  addedProject: ProjectEntity,
+  addedProjectIds: readonly EntityIdValueObject[]
+) {
+  const path = yield* Path;
+
+  return ProjectListItemDtoSchema.make({
+    canMoveDown: yield* canMoveDownInOrder(addedProjectIds, addedProject.id),
+    canMoveUp: yield* canMoveUpInOrder(addedProjectIds, addedProject.id),
+    isAdded: true,
+    name: path.basename(addedProject.path),
+    path: addedProject.path
+  });
+});
+
 // The window's own workspace folders, then the added projects. An added project shown as a workspace folder stays an
 // added project.
 export const listProjects = Effect.fn("ProjectService.listProjects")(function* () {
-  const path = yield* Path;
   const workspaceFolderProjects = yield* IWorkspaceInfraService.use(
     (workspaceInfraService) => workspaceInfraService.listWorkspaceFolderProjects
   );
@@ -36,14 +64,19 @@ export const listProjects = Effect.fn("ProjectService.listProjects")(function* (
     workspaceFolderProjects,
     (workspaceFolderProject) => !addedProjectPaths.has(workspaceFolderProject.path)
   );
+  const addedProjectIds = Array.map(addedProjects, (addedProject) => addedProject.id);
 
   return [
     ...Array.map(ownFolderProjects, (ownFolderProject) =>
-      ProjectListItemDtoSchema.make({isAdded: false, name: ownFolderProject.name, path: ownFolderProject.path})
+      ProjectListItemDtoSchema.make({
+        canMoveDown: false,
+        canMoveUp: false,
+        isAdded: false,
+        name: ownFolderProject.name,
+        path: ownFolderProject.path
+      })
     ),
-    ...Array.map(addedProjects, (addedProject) =>
-      ProjectListItemDtoSchema.make({isAdded: true, name: path.basename(addedProject.path), path: addedProject.path})
-    )
+    ...(yield* Effect.forEach(addedProjects, (addedProject) => toAddedProjectListItem(addedProject, addedProjectIds)))
   ];
 });
 
@@ -130,6 +163,46 @@ export const addProject = Effect.fn("ProjectService.addProject")(
   },
   Effect.catchTag("FolderPickCancelledError", () => Effect.void)
 );
+
+// The added projects in their order: their ids, to move them, and their paths, to find one. A project that isn't added
+// has no place among them.
+const listAddedProjectOrder = Effect.fn("ProjectService.listAddedProjectOrder")(function* () {
+  const addedProjects = yield* findEntities(IProjectRepository, {isAdded: true});
+
+  return {
+    addedProjectIds: Array.map(addedProjects, (addedProject) => addedProject.id),
+    addedProjectPaths: Array.map(addedProjects, (addedProject) => addedProject.path)
+  };
+});
+
+// The first added project stays where it is.
+export const moveProjectUp = Effect.fn("ProjectService.moveProjectUp")(function* (request: MoveProjectUpRequestDto) {
+  const {addedProjectIds, addedProjectPaths} = yield* listAddedProjectOrder();
+  const projectIndex = addedProjectPaths.indexOf(request.projectPath);
+  const projectIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(addedProjectIds, projectIndex, projectIndex - 1);
+  yield* placeEntitiesAtEnd(IProjectRepository, projectIdsToPlaceAtEnd);
+});
+
+// The last added project stays where it is.
+export const moveProjectDown = Effect.fn("ProjectService.moveProjectDown")(function* (
+  request: MoveProjectDownRequestDto
+) {
+  const {addedProjectIds, addedProjectPaths} = yield* listAddedProjectOrder();
+  const projectIndex = addedProjectPaths.indexOf(request.projectPath);
+  const projectIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(addedProjectIds, projectIndex, projectIndex + 1);
+  yield* placeEntitiesAtEnd(IProjectRepository, projectIdsToPlaceAtEnd);
+});
+
+// The window's own folders don't move, so the place of one moves nothing.
+export const moveProjectToPlaceOf = Effect.fn("ProjectService.moveProjectToPlaceOf")(function* (
+  request: MoveProjectToPlaceOfRequestDto
+) {
+  const {addedProjectIds, addedProjectPaths} = yield* listAddedProjectOrder();
+  const projectIndex = addedProjectPaths.indexOf(request.projectPath);
+  const placeIndex = addedProjectPaths.indexOf(request.placeOfProjectPath);
+  const projectIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(addedProjectIds, projectIndex, placeIndex);
+  yield* placeEntitiesAtEnd(IProjectRepository, projectIdsToPlaceAtEnd);
+});
 
 // Its sessions stay saved and their open tabs keep running; adding the project again lists them again. Its folder leaves
 // the workspace first, since a workspace folder that is not added is listed as one of the window's own.

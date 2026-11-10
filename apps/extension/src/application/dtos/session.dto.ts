@@ -8,8 +8,11 @@ import {Schema} from "effect";
 // What crosses between presentation and the session use cases.
 
 // A session as the list shows it. The kind of wait and the progress are present only while the agent is at its turn,
-// and the message only while the agent runs. No icon means its agent is gone from the settings.
+// and the message only while the agent runs. No icon means its agent is gone from the settings. It moves only among its
+// project's sessions.
 export const SessionListItemDtoSchema = Schema.Struct({
+  canMoveDown: Schema.Boolean,
+  canMoveUp: Schema.Boolean,
   displayName: Schema.String,
   icon: Schema.optional(AgentIconValueObjectSchema),
   name: Schema.String,
@@ -50,6 +53,22 @@ export type RemoveSessionRequestDto = typeof RemoveSessionRequestDtoSchema.Type;
 export const RenameSessionRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
 
 export type RenameSessionRequestDto = typeof RenameSessionRequestDtoSchema.Type;
+
+export const MoveSessionUpRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
+
+export type MoveSessionUpRequestDto = typeof MoveSessionUpRequestDtoSchema.Type;
+
+export const MoveSessionDownRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
+
+export type MoveSessionDownRequestDto = typeof MoveSessionDownRequestDtoSchema.Type;
+
+// The session takes the place of the other session of its project.
+export const MoveSessionToPlaceOfRequestDtoSchema = Schema.Struct({
+  placeOfSessionId: EntityIdValueObjectSchema,
+  sessionId: EntityIdValueObjectSchema
+});
+
+export type MoveSessionToPlaceOfRequestDto = typeof MoveSessionToPlaceOfRequestDtoSchema.Type;
 
 export const GetSessionListItemRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
 

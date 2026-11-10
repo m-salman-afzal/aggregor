@@ -5,11 +5,25 @@ import {SESSION_ERRORS} from "@pkg/constants/src/session.constant.ts";
 import {TMUX_ERRORS, TMUX_INSTALL_PAGE, TMUX_LABELS} from "@pkg/constants/src/tmux.constant.ts";
 import {Effect, Match} from "effect";
 
-import type {newSession, openSession, removeSession, renameSession} from "@services/session.service.ts";
+import type {
+  moveSessionDown,
+  moveSessionUp,
+  newSession,
+  openSession,
+  removeSession,
+  renameSession
+} from "@services/session.service.ts";
 
 // Every failure the session commands' use cases return.
 type SessionCommandError = Effect.Error<
-  ReturnType<typeof newSession | typeof openSession | typeof removeSession | typeof renameSession>
+  ReturnType<
+    | typeof moveSessionDown
+    | typeof moveSessionUp
+    | typeof newSession
+    | typeof openSession
+    | typeof removeSession
+    | typeof renameSession
+  >
 >;
 
 const AGENTS_SETTING = `${SETTINGS_SECTION}.${AGENT_SETTINGS.AGENTS}`;

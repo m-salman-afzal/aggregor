@@ -6,6 +6,11 @@ import {
   isSessionWaitingOnUser,
   prepareLaunchPlan
 } from "@domainServices/session.domainService.ts";
+import {
+  canMoveDownInOrder,
+  canMoveUpInOrder,
+  findEntityIdsToPlaceAtEnd
+} from "@domainServices/sortOrder.domainService.ts";
 import {AgentListItemDtoSchema} from "@dtos/agent.dto.ts";
 import {SessionListChangeDtoSchema, SessionListItemDtoSchema} from "@dtos/session.dto.ts";
 import {AgentNotFoundError, IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
@@ -19,9 +24,17 @@ import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraSer
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {AGENT_LABELS} from "@pkg/constants/src/agent.constant.ts";
 import {SESSION_LABELS, SESSION_NOTICES} from "@pkg/constants/src/session.constant.ts";
-import {addEntity, findEntities, findEntityById, removeEntity, updateEntity} from "@services/base.service.ts";
+import {
+  addEntity,
+  findEntities,
+  findEntityById,
+  placeEntitiesAtEnd,
+  removeEntity,
+  updateEntity
+} from "@services/base.service.ts";
 import {findOrAddProject, findProjectListItem, pickProject} from "@services/project.service.ts";
 import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
+import {ENTITY_CHANGE_KINDS} from "@valueObjects/entityChangeKind.valueObject.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {SESSION_STATUSES} from "@valueObjects/sessionStatus.valueObject.ts";
 import {Array, DateTime, Effect, Predicate, Result, Schema, Stream, String, SubscriptionRef} from "effect";
@@ -31,6 +44,9 @@ import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {
   GetSessionListItemRequestDto,
   ListProjectSessionIdsRequestDto,
+  MoveSessionDownRequestDto,
+  MoveSessionToPlaceOfRequestDto,
+  MoveSessionUpRequestDto,
   NewSessionRequestDto,
   OpenSessionRequestDto,
   RemoveSessionRequestDto,
@@ -60,8 +76,8 @@ export class SessionNotFoundError extends Schema.TaggedError<SessionNotFoundErro
   {sessionId: EntityIdValueObjectSchema}
 ) {}
 
-// The session use cases: starting, opening, renaming and removing a session, the list the Sessions view shows, and the
-// work that keeps each session's name and viewedAt current.
+// The session use cases: starting, opening, renaming, moving and removing a session, the list the Sessions view shows,
+// and the work that keeps each session's name and viewedAt current.
 
 const {ProjectListChanged, ProjectSessionsChanged, SessionChanged} = SessionListChangeDtoSchema.cases;
 
@@ -311,9 +327,71 @@ export const renameSession = Effect.fn("SessionService.renameSession")(
   })
 );
 
+// The session's place among its project's sessions, in their order.
+const findSessionPlaceInProject = Effect.fn("SessionService.findSessionPlaceInProject")(function* (
+  sessionId: EntityIdValueObject
+) {
+  const session = yield* findSession(sessionId);
+  const projectSessions = yield* findEntities(ISessionRepository, {projectId: session.projectId});
+  const projectSessionIds = Array.map(projectSessions, (projectSession) => projectSession.id);
+
+  return {projectSessionIds, sessionIndex: projectSessionIds.indexOf(sessionId)};
+});
+
+// The first session stays where it is. A session removed meanwhile is left alone.
+export const moveSessionUp = Effect.fn("SessionService.moveSessionUp")(
+  function* (request: MoveSessionUpRequestDto) {
+    const {projectSessionIds, sessionIndex} = yield* findSessionPlaceInProject(request.sessionId);
+    const sessionIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(projectSessionIds, sessionIndex, sessionIndex - 1);
+    yield* placeEntitiesAtEnd(ISessionRepository, sessionIdsToPlaceAtEnd);
+  },
+  Effect.catchTag("SessionNotFoundError", () => Effect.void)
+);
+
+// The last session stays where it is. A session removed meanwhile is left alone.
+export const moveSessionDown = Effect.fn("SessionService.moveSessionDown")(
+  function* (request: MoveSessionDownRequestDto) {
+    const {projectSessionIds, sessionIndex} = yield* findSessionPlaceInProject(request.sessionId);
+    const sessionIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(projectSessionIds, sessionIndex, sessionIndex + 1);
+    yield* placeEntitiesAtEnd(ISessionRepository, sessionIdsToPlaceAtEnd);
+  },
+  Effect.catchTag("SessionNotFoundError", () => Effect.void)
+);
+
+// A session moves only among its project's sessions, so the place of another project's session moves nothing.
+export const moveSessionToPlaceOf = Effect.fn("SessionService.moveSessionToPlaceOf")(
+  function* (request: MoveSessionToPlaceOfRequestDto) {
+    const {projectSessionIds, sessionIndex} = yield* findSessionPlaceInProject(request.sessionId);
+    const placeIndex = projectSessionIds.indexOf(request.placeOfSessionId);
+    const sessionIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(projectSessionIds, sessionIndex, placeIndex);
+    yield* placeEntitiesAtEnd(ISessionRepository, sessionIdsToPlaceAtEnd);
+  },
+  Effect.catchTag("SessionNotFoundError", () => Effect.void)
+);
+
+// Which ways the session can move among its project's sessions, read from sessions in their order that include them.
+const findSessionMoves = Effect.fn("SessionService.findSessionMoves")(function* (
+  session: SessionEntity,
+  orderedSessions: readonly SessionEntity[]
+) {
+  const projectSessions = Array.filter(
+    orderedSessions,
+    (orderedSession) => orderedSession.projectId === session.projectId
+  );
+  const projectSessionIds = Array.map(projectSessions, (projectSession) => projectSession.id);
+
+  return {
+    canMoveDown: yield* canMoveDownInOrder(projectSessionIds, session.id),
+    canMoveUp: yield* canMoveUpInOrder(projectSessionIds, session.id)
+  };
+});
+
 // The kind of wait and the progress go only with a running turn, and the message only with a running agent. A session
 // whose agent is gone from the settings has no icon.
-const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function* (session: SessionEntity) {
+const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function* (
+  session: SessionEntity,
+  orderedSessions: readonly SessionEntity[]
+) {
   const {viewedSessionId} = yield* ITerminalInfraService;
   const tmuxInfraService = yield* ITmuxInfraService;
   const path = yield* Path;
@@ -327,6 +405,7 @@ const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function
   );
 
   return SessionListItemDtoSchema.make({
+    ...(yield* findSessionMoves(session, orderedSessions)),
     displayName: session.displayName,
     icon: Result.getOrUndefined(Result.map(agentResult, (sessionAgent) => sessionAgent.icon)),
     name: session.name,
@@ -344,8 +423,9 @@ export const getSessionListItem = Effect.fn("SessionService.getSessionListItem")
   request: GetSessionListItemRequestDto
 ) {
   const session = yield* findSession(request.sessionId);
+  const projectSessions = yield* findEntities(ISessionRepository, {projectId: session.projectId});
 
-  return yield* toSessionListItem(session);
+  return yield* toSessionListItem(session, projectSessions);
 });
 
 // In the order they were started. A workspace folder without a session has no project row yet.
@@ -366,7 +446,9 @@ export const listWorkingSessionIds = Effect.fn("SessionService.listWorkingSessio
     storedSessions,
     (storedSession) => storedSession.status === AGENT_STATUSES.WORKING
   );
-  const sessionListItems = yield* Effect.forEach(reportedWorkingSessions, toSessionListItem);
+  const sessionListItems = yield* Effect.forEach(reportedWorkingSessions, (reportedWorkingSession) =>
+    toSessionListItem(reportedWorkingSession, storedSessions)
+  );
   const workingSessionListItems = Array.filter(
     sessionListItems,
     (sessionListItem) => sessionListItem.status === SESSION_STATUSES.WORKING
@@ -378,13 +460,15 @@ export const listWorkingSessionIds = Effect.fn("SessionService.listWorkingSessio
 // The sessions waiting on the user, for the view's badge: asking something, failed, or with a finished turn unseen.
 export const listSessionsWaitingOnUser = Effect.fn("SessionService.listSessionsWaitingOnUser")(function* () {
   const storedSessions = yield* findEntities(ISessionRepository, {});
-  const sessionListItems = yield* Effect.forEach(storedSessions, toSessionListItem);
+  const sessionListItems = yield* Effect.forEach(storedSessions, (storedSession) =>
+    toSessionListItem(storedSession, storedSessions)
+  );
 
   return yield* Effect.filter(sessionListItems, (sessionListItem) => isSessionWaitingOnUser(sessionListItem.status));
 });
 
-// A session added or removed changes its project's sessions; any other write to it, or its agent starting or stopping,
-// changes the session. A project added or removed, or a workspace folder, changes the project list. Coming into or
+// A session placed (added, or moved) or removed changes its project's sessions; any other write to it, or its agent
+// starting or stopping, changes the session. A project added or removed, or a workspace folder, changes the project list. Coming into or
 // leaving view writes viewedAt, so it arrives as a write.
 export const watchSessionListChanges = Effect.fn("SessionService.watchSessionListChanges")(function* () {
   const projectRepository = yield* IProjectRepository;
@@ -394,7 +478,7 @@ export const watchSessionListChanges = Effect.fn("SessionService.watchSessionLis
   const sessionListChangeSources: readonly Stream.Stream<SessionListChangeDto>[] = [
     Stream.as(Stream.merge(projectRepository.entityChanges, workspaceFolderChanges), ProjectListChanged.make({})),
     Stream.map(sessionRepository.entityChanges, ({entity, kind}) =>
-      kind === "updated"
+      kind === ENTITY_CHANGE_KINDS.UPDATED
         ? SessionChanged.make({sessionId: entity.id})
         : ProjectSessionsChanged.make({projectPath: entity.projectPath})
     ),
@@ -441,7 +525,7 @@ const saveSessionTitle = Effect.fn("SessionService.saveSessionTitle")(
 export const startSessionTitleSync = Effect.fn("SessionService.startSessionTitleSync")(function* () {
   const {entityChanges} = yield* ISessionRepository;
   const writtenSessions = Stream.map(
-    Stream.filter(entityChanges, ({kind}) => kind !== "removed"),
+    Stream.filter(entityChanges, ({kind}) => kind !== ENTITY_CHANGE_KINDS.REMOVED),
     ({entity}) => entity
   );
 
@@ -482,7 +566,7 @@ export const startSessionTabNameSync = Effect.fn("SessionService.startSessionTab
   const {entityChanges} = yield* ISessionRepository;
   const {activatedSessionIds} = yield* ITerminalInfraService;
   const writtenSessions = Stream.map(
-    Stream.filter(entityChanges, ({kind}) => kind !== "removed"),
+    Stream.filter(entityChanges, ({kind}) => kind !== ENTITY_CHANGE_KINDS.REMOVED),
     ({entity}) => entity
   );
   const writtenOrActivatedSessions = Stream.merge(writtenSessions, activatedSessionIds);

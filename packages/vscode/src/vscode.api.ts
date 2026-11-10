@@ -2,6 +2,7 @@ import {Context, Effect, Layer} from "effect";
 import {
   commands,
   ConfigurationTarget,
+  DataTransferItem,
   env,
   EventEmitter,
   extensions,
@@ -26,6 +27,7 @@ export class VsCodeApi extends Context.Service<
   {
     readonly commands: typeof commands;
     readonly ConfigurationTarget: typeof ConfigurationTarget;
+    readonly DataTransferItem: typeof DataTransferItem;
     readonly env: typeof env;
     readonly EventEmitter: typeof EventEmitter;
     readonly extensionId: string;
@@ -49,6 +51,7 @@ export class VsCodeApi extends Context.Service<
     Layer.succeed(VsCodeApi, {
       commands,
       ConfigurationTarget,
+      DataTransferItem,
       env,
       EventEmitter,
       extensionId: extensionContext.extension.id,
