@@ -7,8 +7,10 @@ implemented). Before writing a PR's code, post its decision list with a recommen
 user to approve or change it. Call out any deviation from an agreed decision when handing the work back.
 
 `decisions.md` records every decision: the problem, the options weighed, what was picked and why, dependencies included.
-Add each one once it is agreed, in the same commit as the code it shapes, and before a session's last hand-back check
-that every decision the session made, or changed, is there.
+It is the one place for them and for each stack's plan, by milestone, stack and step, in the order they happened; there
+are no separate plan files. Add each one once it is agreed, in the same commit as the code it shapes, under its step; a
+changed decision is a new entry that names the one it replaces. Before a session's last hand-back, check that every
+decision the session made, or changed, is there.
 
 Work lands as small, feature-sliced, stacked PRs on `stack/<name>/<n>/<type>/<slug>` branches, each starting from the
 one below it. The `stack` skill (`.claude/skills/stack`) creates them; on push, the Auto PR workflow opens each PR into

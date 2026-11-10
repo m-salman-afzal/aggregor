@@ -309,7 +309,8 @@ apps/extension/src/
                                            window once it shows one project
     utils/database.utils.ts                getDatabaseFilePath: data/aggregor.db in it, or $AGGREGOR_DATABASE_FILE;
                                            the window opens it, and aggregor-pty writes to it.
-                                           applyPendingMigrations: runs a folder's migrations the database hasn't
+                                           applyPendingMigrations: backs the database up, then runs a folder's
+                                           migrations it hasn't
     utils/tmuxSocket.utils.ts              getTmuxSocketPath: tmux.sock in it, Aggregor's own tmux server
   presentation/
     routes.ts                              RoutesLayer: each command's ID, controller and presenter; Open Settings
@@ -469,6 +470,11 @@ apps/extension/tests/
   deleted.
   - When a window starts, `DatabaseLayer` runs the migrations the database hasn't run, matched by name, in one
     transaction with foreign keys off, so a failed one leaves the database as it was and the extension fails to start.
+    The transaction holds SQLite's write lock from before the backup to the last migration, so a second window starting
+    at once waits, up to the client's 5-second busy timeout, and then finds nothing to run.
+  - Before an existing database runs a migration, it is copied beside itself as `aggregor.before-<migration>.db`, by
+    `VACUUM INTO` on a second, read-only connection, or by copying its file and write-ahead log when that fails; only
+    the latest copy is kept. When neither copy works, a warning is logged and the migrations still run.
   - A release's migration only adds: tables, and columns that are nullable or have a default. Renaming or dropping a
     column takes two releases, one that adds the new column and copies the data into it, and a later one that drops the
     old one: windows not yet reloaded, and `aggregor-pty` processes still running in tmux from the older build, keep
@@ -480,6 +486,7 @@ apps/extension/tests/
   database. For each migration it also builds a database at that one, fills every table from SQLite's own description of
   it (a row with every column set, and one with only the required ones), migrates it to the newest, and checks that
   every table, row and value is still there, that each new column holds its default, that SQLite finds the database
-  intact with every foreign key resolving, and that migrating again changes nothing. `pnpm db:check` fails when a table
-  model changed without its migration. CI runs both. Before releasing a migration, run the build against a copy of a
-  real database (`AGGREGOR_DATABASE_FILE`) and check that every project and session still shows.
+  intact with every foreign key resolving, that the backup holds every row from before and replaced the older one, and
+  that migrating again changes nothing. `pnpm db:check` fails when a table model changed without its migration. CI runs
+  both. Before releasing a migration, run the build against a copy of a real database (`AGGREGOR_DATABASE_FILE`) and
+  check that every project and session still shows.

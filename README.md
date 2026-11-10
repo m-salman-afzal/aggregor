@@ -54,8 +54,8 @@ terminals, tree views, Source Control and diffs.
 
 Each item is one small PR, stacked on the previous one. Releases wait for the end of a milestone.
 
-[phase2.md](phase2.md) plans the next stack step by step: SQLite storage, status from OSC 7501, agents from settings,
-tmux and alerts.
+[decisions.md](decisions.md) follows this roadmap milestone by milestone: each stack's plan, and each step's decisions,
+with what was turned down and why.
 
 ### M1: local Claude sessions
 
@@ -100,7 +100,8 @@ tmux and alerts.
   - `pnpm --filter=aggregor-app build:tmux` builds it for this machine into `apps/extension/bin`, like `build:pty`; it
     needs a C compiler.
   - The VSIX carries the licence notices of tmux (ISC), libevent (BSD-3) and ncurses (MIT-style).
-  - Reverses step 5's "no bundled tmux" in `phase2.md`, whose objection was that macOS has no fully static build.
+  - Reverses harness-foundation 5's "no bundled tmux" in `decisions.md`, whose objection was that macOS has no fully
+    static build.
   - Risk: an update that bumps tmux while an older server still runs on the socket; check that the client-server
     protocol version is unchanged before each bump.
 

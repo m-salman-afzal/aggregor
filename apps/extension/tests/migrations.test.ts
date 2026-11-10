@@ -1,13 +1,15 @@
 import {NodeServices} from "@effect/platform-node";
 import {SqliteClient} from "@effect/sql-sqlite-node";
 import {applyPendingMigrations} from "@infraUtils/database.utils.ts";
-import {DATABASE_FILE, MIGRATIONS_FOLDER} from "@pkg/constants/src/database.constant.ts";
-import {Array, Effect} from "effect";
+import {DATABASE_BACKUP, DATABASE_FILE, MIGRATIONS} from "@pkg/constants/src/database.constant.ts";
+import {Array, Effect, Order, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {SqlClient} from "effect/sql/SqlClient";
 import {readdirSync} from "node:fs";
 import {join} from "node:path";
 import {describe, expect, it} from "vitest";
+
+import type {Path} from "effect/Path";
 
 // The column whose values a column takes when seeded: the column its foreign key references, or the column itself.
 interface SeedSource {
@@ -45,11 +47,15 @@ interface TableSnapshot extends StoredTable {
 }
 
 // What each test proves: a database migrated from any earlier migration to the newest keeps every row and every value,
-// whichever migrations it skipped, and running the migrations again changes nothing.
+// whichever migrations it skipped, leaves a backup of itself from before, and running the migrations again changes
+// nothing.
 
 // The migrations this build ships, oldest first, as the migrator runs them.
-const MIGRATIONS_FOLDER_PATH = join(import.meta.dirname, "..", MIGRATIONS_FOLDER);
+const MIGRATIONS_FOLDER_PATH = join(import.meta.dirname, "..", MIGRATIONS.FOLDER);
 const MIGRATION_NAMES = readdirSync(MIGRATIONS_FOLDER_PATH).toSorted();
+
+// A backup an earlier update left, which the next backup replaces.
+const OLDER_BACKUP_FILE_NAME = DATABASE_BACKUP.FILE_NAME("00000000000000_older");
 
 // Every table gets a row with every column set, and one with only the columns SQLite requires.
 const SEED_ROWS = {FULL: 1, REQUIRED_ONLY: 2} as const;
@@ -210,7 +216,9 @@ const expectDatabaseIntact = Effect.fn("expectDatabaseIntact")(function* () {
   const sql = yield* SqlClient;
   const integrityResults = yield* sql<{readonly integrity_check: string}>`PRAGMA integrity_check`;
   const brokenReferences = yield* sql`PRAGMA foreign_key_check`;
-  const appliedMigrations = yield* sql<{readonly name: string}>`SELECT name FROM __drizzle_migrations ORDER BY id`;
+  const appliedMigrations = yield* sql<{
+    readonly name: string;
+  }>`SELECT name FROM ${sql(MIGRATIONS.RECORD_TABLE)} ORDER BY id`;
 
   expect(Array.map(integrityResults, (integrityResult) => integrityResult.integrity_check)).toStrictEqual(["ok"]);
   expect(brokenReferences).toHaveLength(0);
@@ -231,13 +239,50 @@ const copyEarlierMigrations = Effect.fn("copyEarlierMigrations")(function* (
   return earlierMigrationsFolderPath;
 });
 
-// A user's database at an earlier migration, with rows in every table, updated to this build's migrations.
+// The backups' database files; a backup copied as files has its write-ahead log beside it.
+const listBackupFileNames = Effect.fn("listBackupFileNames")(function* (testFolderPath: string) {
+  const fileSystem = yield* FileSystem;
+  const testFolderFileNames = yield* fileSystem.readDirectory(testFolderPath);
+
+  return Array.filter(
+    Array.sort(testFolderFileNames, Order.String),
+    (fileName) =>
+      String.startsWith(DATABASE_BACKUP.FILE_NAME_PREFIX)(fileName) &&
+      !String.endsWith(DATABASE_BACKUP.WRITE_AHEAD_LOG_SUFFIX)(fileName)
+  );
+});
+
+// A database with migrations to run leaves one backup, holding every row it had before them, in place of the older one;
+// one with nothing to run keeps the backups it had.
+const expectBackupOfRowsBefore = Effect.fn("expectBackupOfRowsBefore")(function* (
+  testFolderPath: string,
+  appliedMigrationCount: number,
+  snapshotsBefore: readonly TableSnapshot[]
+) {
+  const backupFileNames = yield* listBackupFileNames(testFolderPath);
+  const firstPendingMigrationName = MIGRATION_NAMES[appliedMigrationCount];
+  if (firstPendingMigrationName === undefined) {
+    expect(backupFileNames).toStrictEqual([OLDER_BACKUP_FILE_NAME]);
+
+    return;
+  }
+  const backupFileName = DATABASE_BACKUP.FILE_NAME(firstPendingMigrationName);
+  const backupLayer = SqliteClient.layer({filename: join(testFolderPath, backupFileName), readonly: true});
+
+  expect(backupFileNames).toStrictEqual([backupFileName]);
+  expect(yield* Effect.provide(readTableSnapshots(), backupLayer)).toStrictEqual(snapshotsBefore);
+});
+
+// A user's database at an earlier migration, with rows in every table and a backup from an earlier update, updated to
+// this build's migrations.
 const checkUpgradeFrom = Effect.fn("checkUpgradeFrom")(function* (
   testFolderPath: string,
   appliedMigrationCount: number
 ) {
+  const fileSystem = yield* FileSystem;
   yield* applyPendingMigrations(yield* copyEarlierMigrations(testFolderPath, appliedMigrationCount));
   yield* seedEveryTable(yield* readStoredTables());
+  yield* fileSystem.writeFileString(join(testFolderPath, OLDER_BACKUP_FILE_NAME), "");
   const snapshotsBefore = yield* readTableSnapshots();
 
   yield* applyPendingMigrations(MIGRATIONS_FOLDER_PATH);
@@ -245,19 +290,24 @@ const checkUpgradeFrom = Effect.fn("checkUpgradeFrom")(function* (
   yield* expectEveryRowKept(snapshotsBefore, snapshotsAfter);
   yield* expectNewColumnsAtDefault(snapshotsBefore, snapshotsAfter);
   yield* expectDatabaseIntact();
+  yield* expectBackupOfRowsBefore(testFolderPath, appliedMigrationCount, snapshotsBefore);
+  const backupFileNames = yield* listBackupFileNames(testFolderPath);
 
   yield* applyPendingMigrations(MIGRATIONS_FOLDER_PATH);
   expect(yield* readTableSnapshots()).toStrictEqual(snapshotsAfter);
+  expect(yield* listBackupFileNames(testFolderPath)).toStrictEqual(backupFileNames);
 });
 
-const checkNewDatabase = Effect.fn("checkNewDatabase")(function* () {
+// A new database holds nothing to back up.
+const checkNewDatabase = Effect.fn("checkNewDatabase")(function* (testFolderPath: string) {
   yield* applyPendingMigrations(MIGRATIONS_FOLDER_PATH);
   yield* expectDatabaseIntact();
+  expect(yield* listBackupFileNames(testFolderPath)).toStrictEqual([]);
 });
 
 // Each check gets its own folder, with its own database file in it, deleted when the check ends.
 const runInTestFolder = Effect.fn("runInTestFolder")(
-  function* (check: (testFolderPath: string) => Effect.Effect<void, unknown, FileSystem | SqlClient>) {
+  function* (check: (testFolderPath: string) => Effect.Effect<void, unknown, FileSystem | Path | SqlClient>) {
     const fileSystem = yield* FileSystem;
     const testFolderPath = yield* fileSystem.makeTempDirectoryScoped();
     const databaseLayer = SqliteClient.layer({filename: join(testFolderPath, DATABASE_FILE.FILE_NAME)});
