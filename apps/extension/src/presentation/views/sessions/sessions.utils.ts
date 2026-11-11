@@ -75,6 +75,17 @@ const makeSessionRowTooltip = Effect.fn("SessionsView.makeSessionRowTooltip")(fu
   return Array.join([SESSION_ROW_LABELS.TOOLTIP_HEADING(name, statusLabel), ...statusMessageLines, projectPath], "\n");
 });
 
+// How many of a view's sessions wait on the user, for the count in its name.
+export const countViewSessionsWaitingOnUser = Effect.fn("SessionsView.countViewSessionsWaitingOnUser")(function* (
+  sessionsWaitingOnUser: readonly SessionListItemDto[],
+  isArchiveView: boolean
+) {
+  return Array.filter(
+    sessionsWaitingOnUser,
+    (sessionWaitingOnUser) => sessionWaitingOnUser.isArchived === isArchiveView
+  ).length;
+});
+
 export const createSessionTreeItem = Effect.fn("SessionsView.createSessionTreeItem")(function* (
   sessionListItem: SessionListItemDto
 ) {

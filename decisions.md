@@ -2251,3 +2251,22 @@ stopped it. Not exercised: the mid-turn wording, and a project's Stop Agents, wh
 - **Limits:** a screen reader reads each glyph's name before the item; ∧ ∨ are the logical and and or signs, chosen
   because they match each other's size and line, which ⌃ ⌄ and ˄ ˅ don't; ⤓ ⤒ are thin; and the glyphs differ in width,
   so the words after them start a few pixels apart.
+
+### Outside a stack: from #110
+
+#### Each view's name counts its sessions waiting on you (2026-11-11, on `feat/waiting-count-in-view-headings`)
+
+- **Problem:** the activity-bar badge counts the sessions waiting on the user in both views, so with archived agents
+  left running, a finished one in the Archive raises the count without saying where it is.
+- **Options:** moving the count from the badge to the headings, which leaves nothing to see while another tab of the
+  side bar, such as Chat, is in front; one total in both headings, which says no more than the badge; the view's
+  `TreeView.description`, tried first, which VS Code draws small in `panelTitle.inactiveForeground`, too faint to read,
+  and hides while the view is collapsed, as the Archive starts. An extension can't change that colour, and a user's
+  `workbench.colorCustomizations` would change the bottom panel's tabs with it.
+- **Decision:** each view's `TreeView.title` is its name, with the number of its sessions waiting on the user (a
+  finished turn unseen, a question, a failure) in brackets while there are any: `Archive (1)`. The badge stays, counting
+  both views. Both views read `listSessionsWaitingOnUser` on every change of the session list;
+  `countViewSessionsWaitingOnUser` in `sessions.utils.ts` picks a view's sessions by `isArchived`, and the names live in
+  `SESSIONS_VIEW_LABELS` and `ARCHIVE_VIEW_LABELS`, matching the manifest's.
+- **Why:** the count sits on the view that holds the sessions, readable and shown when the view is collapsed, and the
+  badge still shows from any other tab.

@@ -17,6 +17,7 @@ import {
   SELECT_ROW_RETRY,
   SESSION_BADGE_URI_SCHEME,
   SESSIONS_VIEW,
+  SESSIONS_VIEW_LABELS,
   SPINNER_FRAME_INTERVAL_MS,
   STATUS_LABELS,
   VIEW_BADGE_LABELS
@@ -29,6 +30,7 @@ import {
   readSessionsTreeNodeId
 } from "@presentationUtils/sessionsTreeNode.utils.ts";
 import {
+  countViewSessionsWaitingOnUser,
   createProjectTreeItem,
   createSessionTreeItem,
   createStatusBadge,
@@ -338,18 +340,22 @@ const redrawChangedNodes = Effect.fn("SessionsView.redrawChangedNodes")(function
   });
 });
 
-// The view's badge counts the sessions waiting on the user, and VS Code shows it on the activity bar too. A failed read
-// leaves the badge as it was.
-const updateViewBadge = Effect.fn("SessionsView.updateViewBadge")(
+// The view's badge counts the sessions waiting on the user in both views, and VS Code shows it on the activity bar too;
+// the count in the view's name, this view's. The name, not the description VS Code draws faded beside it: that one is
+// hard to read and hidden while the view is collapsed. A failed read leaves both as they were.
+const updateWaitingCounts = Effect.fn("SessionsView.updateWaitingCounts")(
   function* (sessionsTreeView: TreeView<string>) {
     const sessionsWaitingOnUser = yield* listSessionsWaitingOnUserForSessionsView();
     const tooltipLines = Array.map(sessionsWaitingOnUser, ({displayName, status}) =>
       VIEW_BADGE_LABELS.TOOLTIP_LINE(displayName, STATUS_LABELS[status])
     );
+    const waitingCount = yield* countViewSessionsWaitingOnUser(sessionsWaitingOnUser, false);
 
     yield* Effect.sync(() => {
       sessionsTreeView.badge =
         tooltipLines.length === 0 ? undefined : {tooltip: Array.join(tooltipLines, "\n"), value: tooltipLines.length};
+      sessionsTreeView.title =
+        waitingCount === 0 ? SESSIONS_VIEW_LABELS.TITLE : SESSIONS_VIEW_LABELS.TITLE_WITH_WAITING_COUNT(waitingCount);
     });
   },
   (effect) => Effect.ignore(effect)
@@ -379,12 +385,12 @@ const makeSessionsView = Effect.fn("SessionsView.make")(function* () {
     ...(yield* registerTreeView(sessionsViewRunners))
   };
   const sessionListChanges = yield* watchSessionListChangesForSessionsView();
-  yield* updateViewBadge(sessionsViewHandles.sessionsTreeView);
+  yield* updateWaitingCounts(sessionsViewHandles.sessionsTreeView);
   yield* Effect.forkScoped(
     Stream.runForEach(sessionListChanges, (sessionListChange) =>
       Effect.andThen(
         redrawChangedNodes(sessionsViewHandles, sessionListChange),
-        updateViewBadge(sessionsViewHandles.sessionsTreeView)
+        updateWaitingCounts(sessionsViewHandles.sessionsTreeView)
       )
     )
   );
