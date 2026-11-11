@@ -34,7 +34,7 @@ import {
 } from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
-import {applyEdits, modify, parse} from "jsonc-parser";
+import {applyEdits, modify, parse, parseTree} from "jsonc-parser";
 
 import type {WorkspaceFolderProject} from "@interfaces/workspace.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
@@ -156,7 +156,8 @@ const AnchorFolderSettingsJson = Schema.fromJsonString(
 // Aggregor's own workspace file: its folders, the anchor folder then the shown project, and the project's settings. VS
 // Code names the window after the file, Aggregor, and never asks to save it.
 const AggregorWorkspaceJson = Schema.fromJsonString(
-  Schema.Struct({folders: Schema.Array(Schema.Struct({path: Schema.String})), settings: FolderSettingsSchema})
+  Schema.Struct({folders: Schema.Array(Schema.Struct({path: Schema.String})), settings: FolderSettingsSchema}),
+  {space: PROJECT_SETTINGS_SYNC.DEFAULT_INDENTATION}
 );
 
 // A workspace file's folder entry: a path, absolute or from the file's folder, as VS Code writes one, or a URI.
@@ -431,20 +432,33 @@ const mergeProjectSettings = Effect.fn("WorkspaceInfraService.mergeProjectSettin
   return {mergedSettings, workspaceEdits};
 });
 
+// The indentation of the first top-level property that starts a line. A deeper line's, such as the first folder's after
+// `{"folders":[`, would double with every edit.
+const findJsonIndentation = Effect.fn("WorkspaceInfraService.findJsonIndentation")(function* (jsonText: string) {
+  const rootNode = parseTree(jsonText);
+  const topLevelPropertyNodes = rootNode === undefined || rootNode.children === undefined ? [] : rootNode.children;
+  const propertyIndentations = Array.filterMap(topLevelPropertyNodes, (propertyNode) => {
+    const textBeforeProperty = String.slice(0, propertyNode.offset)(jsonText);
+    const indentationMatch = String.match(PROJECT_SETTINGS_SYNC.INDENTATION_PATTERN)(textBeforeProperty);
+
+    return Result.flatMap(
+      Result.fromOption(indentationMatch, () => undefined),
+      ({groups}) =>
+        groups === undefined || groups.indentation === undefined ? Result.failVoid : Result.succeed(groups.indentation)
+    );
+  });
+  const [indentation = PROJECT_SETTINGS_SYNC.DEFAULT_INDENTATION] = propertyIndentations;
+
+  return indentation;
+});
+
 // The JSON text with one top-level property set, or removed for an undefined value, indented as the file already is.
 const editJsonPropertyInText = Effect.fn("WorkspaceInfraService.editJsonPropertyInText")(function* (
   jsonText: string,
   propertyKey: string,
   propertyValue: unknown
 ) {
-  const indentationMatch = Result.fromOption(
-    String.match(PROJECT_SETTINGS_SYNC.INDENTATION_PATTERN)(jsonText),
-    () => undefined
-  );
-  const {indentation = PROJECT_SETTINGS_SYNC.DEFAULT_INDENTATION} =
-    Result.isFailure(indentationMatch) || indentationMatch.success.groups === undefined
-      ? {}
-      : indentationMatch.success.groups;
+  const indentation = yield* findJsonIndentation(jsonText);
   const isTabIndented = String.startsWith(PROJECT_SETTINGS_SYNC.TAB)(indentation);
   const formattingOptions = {
     insertSpaces: !isTabIndented,
