@@ -166,7 +166,11 @@ const killTmuxSession = Effect.fn("TmuxInfraService.killTmuxSession")(function* 
   tmuxDependencies: TmuxDependencies,
   sessionId: EntityIdValueObject
 ) {
-  yield* Effect.ignore(runTmuxCommand(tmuxDependencies, ["kill-session", "-t", `=${sessionId}`]));
+  // A session that has already ended has nothing to kill.
+  yield* Effect.ignore(runTmuxCommand(tmuxDependencies, ["kill-session", "-t", `=${sessionId}`]), {
+    log: "Debug",
+    message: "tmux did not kill the session"
+  });
 
   return yield* readRunningSessionIds(tmuxDependencies);
 });
@@ -254,7 +258,10 @@ const makeTmuxInfraService = Effect.fn("TmuxInfraService.make")(function* () {
   const {runningSessionIds, tmuxConfigPath} = tmuxDependencies;
   const initialSessionIds = yield* SubscriptionRef.get(runningSessionIds);
   if (initialSessionIds.size > 0)
-    yield* Effect.ignore(runTmuxCommand(tmuxDependencies, ["source-file", tmuxConfigPath]));
+    yield* Effect.ignore(runTmuxCommand(tmuxDependencies, ["source-file", tmuxConfigPath]), {
+      log: "Warn",
+      message: "Could not read this window's tmux.conf into the running tmux server"
+    });
   yield* Effect.forkScoped(watchTmuxChangeHints(tmuxDependencies));
 
   return {

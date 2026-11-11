@@ -5,6 +5,8 @@ import {TMUX, TMUX_ERRORS, TMUX_LABELS} from "@pkg/constants/src/tmux.constant.t
 import {Array, Effect, Match} from "effect";
 
 import type {
+  archiveOngoingSessions,
+  archiveProjectSessions,
   archiveSession,
   moveSessionDown,
   moveSessionUp,
@@ -22,6 +24,8 @@ import type {
 // Every failure the session commands' use cases return.
 type SessionCommandError = Effect.Error<
   ReturnType<
+    | typeof archiveOngoingSessions
+    | typeof archiveProjectSessions
     | typeof archiveSession
     | typeof moveSessionDown
     | typeof moveSessionUp

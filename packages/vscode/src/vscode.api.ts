@@ -7,6 +7,7 @@ import {
   EventEmitter,
   extensions,
   FileDecoration,
+  LogLevel,
   ProgressLocation,
   Range,
   TabInputTerminal,
@@ -37,6 +38,7 @@ export class VsCodeApi extends Context.Service<
     readonly extensionUri: Uri;
     readonly FileDecoration: typeof FileDecoration;
     readonly getConfiguration: (settingsSection: string) => Effect.Effect<WorkspaceConfiguration>;
+    readonly LogLevel: typeof LogLevel;
     readonly ProgressLocation: typeof ProgressLocation;
     readonly Range: typeof Range;
     readonly TabInputTerminal: typeof TabInputTerminal;
@@ -63,6 +65,7 @@ export class VsCodeApi extends Context.Service<
       extensionUri: extensionContext.extensionUri,
       FileDecoration,
       getConfiguration: (settingsSection) => Effect.sync(() => workspace.getConfiguration(settingsSection)),
+      LogLevel,
       ProgressLocation,
       Range,
       TabInputTerminal,

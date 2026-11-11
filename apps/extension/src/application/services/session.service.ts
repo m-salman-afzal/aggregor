@@ -1,4 +1,8 @@
-import {makeArchiveQuestion, makeStopAgentsQuestion} from "@applicationUtils/sessionQuestion.utils.ts";
+import {
+  makeArchiveQuestion,
+  makeArchiveSessionsQuestion,
+  makeStopAgentsQuestion
+} from "@applicationUtils/sessionQuestion.utils.ts";
 import {
   getDefaultSessionName,
   getSessionStatus,
@@ -44,6 +48,7 @@ import {Path} from "effect/Path";
 
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {
+  ArchiveProjectSessionsRequestDto,
   ArchiveSessionRequestDto,
   GetSessionListItemRequestDto,
   ListArchivedProjectSessionIdsRequestDto,
@@ -64,6 +69,7 @@ import type {
 import type {AgentEntity} from "@entities/agent/agent.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
+import type {QuestionRequest} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
@@ -327,43 +333,80 @@ const stopRunningAgentsAsking = Effect.fn("SessionService.stopRunningAgentsAskin
   yield* Effect.forEach(runningAgentSessions, (runningAgentSession) => stopAgentAndCloseTab(runningAgentSession.id));
 });
 
-// True when the user chooses to stop the agent.
-const askToStopAgentOnArchive = Effect.fn("SessionService.askToStopAgentOnArchive")(function* (
-  session: SessionEntity,
-  turnRunningCount: number
+// True when the user chooses to stop the agents.
+const askToStopAgentsOnArchive = Effect.fn("SessionService.askToStopAgentsOnArchive")(function* (
+  archiveQuestion: QuestionRequest
 ) {
-  const archiveQuestion = yield* makeArchiveQuestion(session.displayName, turnRunningCount);
   const pickedAnswer = yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
     userInputPromptInfraService.askQuestion(archiveQuestion)
   );
 
-  return pickedAnswer === SESSION_LABELS.STOP_AGENT;
+  return pickedAnswer === SESSION_LABELS.STOP_AGENT || pickedAnswer === SESSION_LABELS.STOP_AGENTS;
 });
 
-// The session goes to the end of the order, so it lands last among its project's sessions in its new view, and the
-// change feed reads it as placed, which redraws its project in both views.
-const moveSessionToLifecycle = Effect.fn("SessionService.moveSessionToLifecycle")(function* (
-  sessionId: EntityIdValueObject,
+// The sessions go to the end of the order, in the order given, so they land last among their project's sessions in
+// their new view, and the change feed reads them as placed, which redraws their projects in both views.
+const moveSessionsToLifecycle = Effect.fn("SessionService.moveSessionsToLifecycle")(function* (
+  sessionIds: readonly EntityIdValueObject[],
   lifecycle: SessionLifecycleValueObject
 ) {
-  yield* updateEntity(ISessionRepository, sessionId, {lifecycle});
-  yield* placeEntitiesAtEnd(ISessionRepository, [sessionId]);
+  yield* Effect.forEach(sessionIds, (sessionId) => updateEntity(ISessionRepository, sessionId, {lifecycle}));
+  yield* placeEntitiesAtEnd(ISessionRepository, sessionIds);
 });
 
-// A running agent asks whether to keep it; then the session is archived, then its agent stops if the user chose that,
-// so a failed write never stops the agent for nothing. Its tab closes either way; a kept agent runs on in tmux and
-// finishes its turn.
+// Archived first, then the chosen agents stop, so a failed write never stops one for nothing. Every tab closes; a kept
+// agent runs on in tmux and finishes its turn.
+const archiveSessionsStoppingAgents = Effect.fn("SessionService.archiveSessionsStoppingAgents")(function* (
+  sessionIds: readonly EntityIdValueObject[],
+  agentSessionIdsToStop: readonly EntityIdValueObject[]
+) {
+  yield* moveSessionsToLifecycle(sessionIds, SESSION_LIFECYCLES.ARCHIVED);
+  yield* Effect.forEach(agentSessionIdsToStop, (agentSessionId) =>
+    ITmuxInfraService.use((tmuxInfraService) => tmuxInfraService.stopSessionAgent(agentSessionId))
+  );
+  yield* Effect.forEach(sessionIds, (sessionId) => closeSessionTab(sessionId));
+});
+
+// A running agent asks whether to keep it; with none running, it asks nothing.
 const archiveSessionAskingAboutAgent = Effect.fn("SessionService.archiveSessionAskingAboutAgent")(function* (
   session: SessionEntity
 ) {
   const {runningAgentSessions, turnRunningSessions} = yield* findRunningAgentSessions([session]);
-  const shouldStopAgent =
-    runningAgentSessions.length > 0 ? yield* askToStopAgentOnArchive(session, turnRunningSessions.length) : false;
+  if (runningAgentSessions.length === 0) {
+    yield* archiveSessionsStoppingAgents([session.id], []);
 
-  yield* moveSessionToLifecycle(session.id, SESSION_LIFECYCLES.ARCHIVED);
-  if (shouldStopAgent)
-    yield* ITmuxInfraService.use((tmuxInfraService) => tmuxInfraService.stopSessionAgent(session.id));
-  yield* closeSessionTab(session.id);
+    return;
+  }
+  const archiveQuestion = yield* makeArchiveQuestion(session.displayName, turnRunningSessions.length);
+  const shouldStopAgent = yield* askToStopAgentsOnArchive(archiveQuestion);
+
+  yield* archiveSessionsStoppingAgents([session.id], shouldStopAgent ? [session.id] : []);
+});
+
+// One question for them all, every time, so every running agent is kept or stopped alike. A lone session archives as its
+// row's Archive does.
+const archiveSessionsAskingAboutAgents = Effect.fn("SessionService.archiveSessionsAskingAboutAgents")(function* (
+  sessions: readonly SessionEntity[]
+) {
+  const [firstSession, ...otherSessions] = sessions;
+  if (firstSession === undefined) return;
+  if (otherSessions.length === 0) {
+    yield* archiveSessionAskingAboutAgent(firstSession);
+
+    return;
+  }
+  const {runningAgentSessions, turnRunningSessions} = yield* findRunningAgentSessions(sessions);
+  const archiveSessionsQuestion = yield* makeArchiveSessionsQuestion(
+    sessions.length,
+    runningAgentSessions.length,
+    turnRunningSessions.length
+  );
+  const shouldStopAgents = yield* askToStopAgentsOnArchive(archiveSessionsQuestion);
+
+  yield* archiveSessionsStoppingAgents(
+    Array.map(sessions, (session) => session.id),
+    shouldStopAgents ? Array.map(runningAgentSessions, (runningAgentSession) => runningAgentSession.id) : []
+  );
 });
 
 // Starts a session in the request's project; without one, the user picks a project. A project no longer listed starts
@@ -421,7 +464,7 @@ export const unarchiveSession = Effect.fn("SessionService.unarchiveSession")(
     const session = yield* findSession(request.sessionId);
     if (session.lifecycle === SESSION_LIFECYCLES.ONGOING) return;
 
-    yield* moveSessionToLifecycle(session.id, SESSION_LIFECYCLES.ONGOING);
+    yield* moveSessionsToLifecycle([session.id], SESSION_LIFECYCLES.ONGOING);
   },
   Effect.catchTags({EntityNotFoundError: () => Effect.void, SessionNotFoundError: () => Effect.void})
 );
@@ -613,6 +656,25 @@ export const listProjectsWithArchivedSessions = Effect.fn("SessionService.listPr
 
     return Array.filter(projectListItems, (projectListItem) => archivedSessionProjectPaths.has(projectListItem.path));
   }
+);
+
+// The Sessions view's project row: the project's sessions that aren't archived. A session removed meanwhile leaves those
+// after it where they are.
+export const archiveProjectSessions = Effect.fn("SessionService.archiveProjectSessions")(
+  function* (request: ArchiveProjectSessionsRequestDto) {
+    const projectSessions = yield* findProjectSessions(request.projectPath, SESSION_LIFECYCLES.ONGOING);
+    yield* archiveSessionsAskingAboutAgents(projectSessions);
+  },
+  Effect.catchTags({EntityNotFoundError: () => Effect.void, QuestionCancelledError: () => Effect.void})
+);
+
+// The Sessions view's title: every session it lists. A session removed meanwhile leaves those after it where they are.
+export const archiveOngoingSessions = Effect.fn("SessionService.archiveOngoingSessions")(
+  function* () {
+    const listedSessions = yield* findListedSessions(SESSION_LIFECYCLES.ONGOING);
+    yield* archiveSessionsAskingAboutAgents(listedSessions);
+  },
+  Effect.catchTags({EntityNotFoundError: () => Effect.void, QuestionCancelledError: () => Effect.void})
 );
 
 // The session row's Stop Agent, in either view. A session removed meanwhile is left alone.
