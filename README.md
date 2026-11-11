@@ -7,7 +7,9 @@ terminals, tree views, Source Control and diffs.
 ## What works today
 
 - **Sessions sidebar.** The Sessions activity-bar view lists the window's projects, each with its sessions, and starts
-  an agent in an editor-tab terminal. Clicking a session focuses its tab; switching tabs selects the session.
+  an agent in an editor-tab terminal. Clicking a session focuses its tab; switching tabs selects the session. Drag a
+  session onto another of its project's sessions, or an added project onto another, to put it in that place, or use Move
+  Up and Move Down in the row's … menu.
 - **Projects.** The window's workspace folders are always listed; Add Project lists any other folder, and in a window
   showing no project it also shows the first one. Added projects are one list, kept for every window: Aggregor is meant
   to run in one window. A project row's + starts a session in it, the view's + asks which project to use, and an added
@@ -45,15 +47,16 @@ terminals, tree views, Source Control and diffs.
   **Open** button; when VS Code isn't focused it is a system notification instead, with the agent's logo. Clicking it
   brings VS Code forward, even from another workspace, and opens the session when the window that comes forward is the
   one that sent it (`notify-send` on Linux; a PowerShell toast from WSL and `osascript` on macOS, both untested). The
-  Sessions icon's badge counts the sessions waiting on you, and hovering it lists them.
+  Sessions icon's badge counts the sessions waiting on you, and hovering it lists them; the Sessions and Archive names
+  end with how many of them each view holds, as in Archive (1).
 - **AI commit messages.** A Source Control button writes the commit message for the staged diff.
 
 ## Roadmap
 
 Each item is one small PR, stacked on the previous one. Releases wait for the end of a milestone.
 
-[phase2.md](phase2.md) plans the next stack step by step: SQLite storage, status from OSC 7501, agents from settings,
-tmux and alerts.
+[decisions.md](decisions.md) follows this roadmap milestone by milestone: each stack's plan, and each step's decisions,
+with what was turned down and why.
 
 ### M1: local Claude sessions
 
@@ -72,9 +75,10 @@ tmux and alerts.
 
 ### M3: worktrees and review
 
-- [ ] Worktree mode: start a session in the project root or in a new git worktree
+- [x] Archive sessions you are done with, in an Archive view under Sessions
+- [ ] Worktree mode: start a session in the project root or in a new git worktree; archiving removes the worktree and
+      keeps an unmerged branch
 - [ ] Changed files under each session, opening git's diff with per-hunk staging
-- [ ] Archive/Done sessions: remove the worktree, keep unmerged branches
 - [ ] Bookmarks
 - [ ] Create/Link a pull request from a session
 
@@ -91,14 +95,15 @@ tmux and alerts.
   - Build one pinned tmux release from source in `release.yaml`, next to `aggregor-pty`: fully static for Linux x64 and
     arm64 (musl, with libevent and ncurses), and for macOS x64 and arm64 with libevent and ncurses linked in and only
     the system library dynamic, as every macOS binary is. A WSL window installs the Linux VSIX, so it gets one too.
-  - A platform VSIX always runs its own `bin/tmux`. The universal VSIX keeps `tmux` from `PATH`, with the version check
-    and the Install tmux button.
+  - A Linux or macOS VSIX always runs its own `bin/tmux`. A local build without it keeps `tmux` from `PATH`, with the
+    version check and the Install tmux button.
   - Ship the `xterm-256color` and `tmux-256color` terminfo entries and point tmux at them (`TERMINFO_DIRS`): Linux
     distributions keep them in different places, and macOS has no `tmux-256color`.
   - `pnpm --filter=aggregor-app build:tmux` builds it for this machine into `apps/extension/bin`, like `build:pty`; it
     needs a C compiler.
   - The VSIX carries the licence notices of tmux (ISC), libevent (BSD-3) and ncurses (MIT-style).
-  - Reverses step 5's "no bundled tmux" in `phase2.md`, whose objection was that macOS has no fully static build.
+  - Reverses harness-foundation 5's "no bundled tmux" in `decisions.md`, whose objection was that macOS has no fully
+    static build.
   - Risk: an update that bumps tmux while an older server still runs on the socket; check that the client-server
     protocol version is unchanged before each bump.
 
@@ -127,4 +132,6 @@ Read-only diffs for SSH sessions in the local window, per-turn checkpoints, scre
 
 ## Development
 
-See [AGENTS.md](AGENTS.md) for the commands. Press F5 in VS Code to run the extension.
+See [AGENTS.md](AGENTS.md) for the commands. Press F5 in VS Code to run the extension; it keeps its data in
+`~/.aggregorDev`, so the installed extension's `~/.aggregor` stays untouched. `AGGREGOR_HOME` moves the whole folder and
+`AGGREGOR_DATABASE_FILE` only the database, each an absolute path.

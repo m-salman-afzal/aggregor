@@ -1,7 +1,6 @@
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {
-  MISSING_AGENT_ROW_ICON,
-  PROJECT_ROW_ICON,
+  ROW_ICONS,
   SESSION_BADGE_URI_SCHEME,
   SESSION_ROW_LABELS,
   SESSIONS_VIEW_CONTEXT_VALUES,
@@ -12,12 +11,13 @@ import {
 } from "@pkg/constants/src/sessionsView.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {makeProjectNodeId, makeSessionNodeId} from "@presentationUtils/sessionsTreeNode.utils.ts";
-import {Clock, Effect} from "effect";
+import {Array, Clock, Effect} from "effect";
 
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {SessionListItemDto} from "@dtos/session.dto.ts";
 
-// How the Sessions tree draws what its controllers return: project and session rows, and session badges.
+// How the Sessions tree, and the Archive tree with its rows, draw what their controllers return: project and session
+// rows, and session badges.
 
 // The URI a session row's badge hangs off; the badge provider reads the session id back from its path.
 export const getSessionBadgeUri = Effect.fn("SessionsView.getSessionBadgeUri")(function* (sessionId: string) {
@@ -26,11 +26,36 @@ export const getSessionBadgeUri = Effect.fn("SessionsView.getSessionBadgeUri")(f
   return Uri.from({path: `/${sessionId}`, scheme: SESSION_BADGE_URI_SCHEME});
 });
 
+// The row's kind, then the ways it can move, then the state words given, which the manifest's menus match.
+const makeRowContextValue = Effect.fn("SessionsView.makeRowContextValue")(function* (
+  rowKind: string,
+  listItem: ProjectListItemDto | SessionListItemDto,
+  stateWords: readonly string[]
+) {
+  const moveWords = [
+    ...(listItem.canMoveUp ? [SESSIONS_VIEW_CONTEXT_VALUES.CAN_MOVE_UP] : []),
+    ...(listItem.canMoveDown ? [SESSIONS_VIEW_CONTEXT_VALUES.CAN_MOVE_DOWN] : [])
+  ];
+
+  return Array.join([rowKind, ...moveWords, ...stateWords], " ");
+});
+
+// A session row also says whether its agent runs, for Stop Agent.
+const makeSessionRowContextValue = Effect.fn("SessionsView.makeSessionRowContextValue")(function* (
+  sessionListItem: SessionListItemDto
+) {
+  return yield* makeRowContextValue(
+    SESSIONS_VIEW_CONTEXT_VALUES.SESSION,
+    sessionListItem,
+    sessionListItem.isAgentRunning ? [SESSIONS_VIEW_CONTEXT_VALUES.AGENT_RUNNING] : []
+  );
+});
+
 // The agent's image; a session whose agent is gone shows a warning.
 const getSessionRowIcon = Effect.fn("SessionsView.getSessionRowIcon")(function* (sessionListItem: SessionListItemDto) {
   const {ThemeIcon, Uri} = yield* VsCodeApi;
 
-  return sessionListItem.icon === undefined ? new ThemeIcon(MISSING_AGENT_ROW_ICON) : Uri.file(sessionListItem.icon);
+  return sessionListItem.icon === undefined ? new ThemeIcon(ROW_ICONS.MISSING_AGENT) : Uri.file(sessionListItem.icon);
 });
 
 // A blocked session says what it waits for, when its agent says.
@@ -38,6 +63,27 @@ const getStatusLabel = Effect.fn("SessionsView.getStatusLabel")(function* (sessi
   return sessionListItem.statusKind === undefined
     ? STATUS_LABELS[sessionListItem.status]
     : STATUS_KIND_LABELS[sessionListItem.statusKind];
+});
+
+// The agent's message, such as the permission it asks for, sits between the name and the folder.
+const makeSessionRowTooltip = Effect.fn("SessionsView.makeSessionRowTooltip")(function* (
+  {name, projectPath, statusMessage}: SessionListItemDto,
+  statusLabel: string
+) {
+  const statusMessageLines = statusMessage === undefined ? [] : [statusMessage];
+
+  return Array.join([SESSION_ROW_LABELS.TOOLTIP_HEADING(name, statusLabel), ...statusMessageLines, projectPath], "\n");
+});
+
+// How many of a view's sessions wait on the user, for the count in its name.
+export const countViewSessionsWaitingOnUser = Effect.fn("SessionsView.countViewSessionsWaitingOnUser")(function* (
+  sessionsWaitingOnUser: readonly SessionListItemDto[],
+  isArchiveView: boolean
+) {
+  return Array.filter(
+    sessionsWaitingOnUser,
+    (sessionWaitingOnUser) => sessionWaitingOnUser.isArchived === isArchiveView
+  ).length;
 });
 
 export const createSessionTreeItem = Effect.fn("SessionsView.createSessionTreeItem")(function* (
@@ -52,16 +98,11 @@ export const createSessionTreeItem = Effect.fn("SessionsView.createSessionTreeIt
   treeItem.iconPath = yield* getSessionRowIcon(sessionListItem);
   if (statusProgress !== undefined) treeItem.description = `${statusProgress}%`;
   treeItem.resourceUri = yield* getSessionBadgeUri(sessionListItem.sessionId);
-  treeItem.tooltip = SESSION_ROW_LABELS.TOOLTIP({
-    sessionName: sessionListItem.name,
-    statusLabel,
-    statusMessage: sessionListItem.statusMessage,
-    workingDirectory: sessionListItem.projectPath
-  });
+  treeItem.tooltip = yield* makeSessionRowTooltip(sessionListItem, statusLabel);
   treeItem.accessibilityInformation = {
     label: SESSION_ROW_LABELS.ACCESSIBLE(displayName, sessionListItem.projectName, statusLabel)
   };
-  treeItem.contextValue = SESSIONS_VIEW_CONTEXT_VALUES.SESSION;
+  treeItem.contextValue = yield* makeSessionRowContextValue(sessionListItem);
   treeItem.command = {
     arguments: [sessionNodeId],
     command: SESSION_COMMANDS.OPEN,
@@ -77,11 +118,13 @@ export const createProjectTreeItem = Effect.fn("SessionsView.createProjectTreeIt
   const {ThemeIcon, TreeItem, TreeItemCollapsibleState} = yield* VsCodeApi;
   const treeItem = new TreeItem(projectListItem.name, TreeItemCollapsibleState.Expanded);
   treeItem.id = yield* makeProjectNodeId(projectListItem.path);
-  treeItem.iconPath = new ThemeIcon(PROJECT_ROW_ICON);
+  treeItem.iconPath = new ThemeIcon(ROW_ICONS.PROJECT);
   treeItem.tooltip = projectListItem.path;
-  treeItem.contextValue = projectListItem.isAdded
-    ? SESSIONS_VIEW_CONTEXT_VALUES.ADDED_PROJECT
-    : SESSIONS_VIEW_CONTEXT_VALUES.PROJECT;
+  treeItem.contextValue = yield* makeRowContextValue(
+    projectListItem.isAdded ? SESSIONS_VIEW_CONTEXT_VALUES.ADDED_PROJECT : SESSIONS_VIEW_CONTEXT_VALUES.PROJECT,
+    projectListItem,
+    []
+  );
 
   return treeItem;
 });

@@ -1,26 +1,27 @@
+import {SESSIONS_VIEW_NODE_ID_PREFIXES} from "@pkg/constants/src/sessionsView.constant.ts";
 import {decodeVsCodeArgument, InvalidVsCodeArgumentError} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
-import {Effect, Schema, String} from "effect";
-
-// A Sessions tree node's id says what the node shows: "project:<path>" or "session:<session id>". VS Code finds the node
-// to redraw by its id, and passes the id to the row's menu commands.
-
-const PROJECT_NODE_ID_PREFIX = "project:";
-const SESSION_NODE_ID_PREFIX = "session:";
+import {Effect, Match, Schema, String} from "effect";
 
 export const makeProjectNodeId = Effect.fn("makeProjectNodeId")(function* (projectPath: string) {
-  return `${PROJECT_NODE_ID_PREFIX}${projectPath}`;
+  return `${SESSIONS_VIEW_NODE_ID_PREFIXES.PROJECT}${projectPath}`;
 });
 
 export const makeSessionNodeId = Effect.fn("makeSessionNodeId")(function* (sessionId: string) {
-  return `${SESSION_NODE_ID_PREFIX}${sessionId}`;
+  return `${SESSIONS_VIEW_NODE_ID_PREFIXES.SESSION}${sessionId}`;
 });
 
 // The project's path or the session's id that the node shows.
 export const readSessionsTreeNodeId = Effect.fn("readSessionsTreeNodeId")(function* (nodeId: string) {
-  if (String.startsWith(PROJECT_NODE_ID_PREFIX)(nodeId))
-    return {_tag: "ProjectNode", projectPath: String.slice(PROJECT_NODE_ID_PREFIX.length)(nodeId)} as const;
-  if (String.startsWith(SESSION_NODE_ID_PREFIX)(nodeId))
-    return {_tag: "SessionNode", sessionId: String.slice(SESSION_NODE_ID_PREFIX.length)(nodeId)} as const;
+  if (String.startsWith(SESSIONS_VIEW_NODE_ID_PREFIXES.PROJECT)(nodeId))
+    return {
+      _tag: "ProjectNode",
+      projectPath: String.slice(SESSIONS_VIEW_NODE_ID_PREFIXES.PROJECT.length)(nodeId)
+    } as const;
+  if (String.startsWith(SESSIONS_VIEW_NODE_ID_PREFIXES.SESSION)(nodeId))
+    return {
+      _tag: "SessionNode",
+      sessionId: String.slice(SESSIONS_VIEW_NODE_ID_PREFIXES.SESSION.length)(nodeId)
+    } as const;
 
   return yield* InvalidVsCodeArgumentError.make({cause: nodeId});
 });
@@ -31,9 +32,12 @@ export const decodeProjectNodeRequest = Effect.fn("decodeProjectNodeRequest")(fu
 >(requestSchema: RequestSchema, projectNodeIdArgument: unknown) {
   const projectNodeId = yield* decodeVsCodeArgument(Schema.String, projectNodeIdArgument);
   const projectNode = yield* readSessionsTreeNodeId(projectNodeId);
-  if (projectNode._tag !== "ProjectNode") return yield* InvalidVsCodeArgumentError.make({cause: projectNodeId});
+  const projectPath = yield* Match.valueTags(projectNode, {
+    ProjectNode: (chosenProjectNode) => Effect.succeed(chosenProjectNode.projectPath),
+    SessionNode: () => Effect.fail(InvalidVsCodeArgumentError.make({cause: projectNodeId}))
+  });
 
-  return yield* decodeVsCodeArgument(requestSchema, {projectPath: projectNode.projectPath});
+  return yield* decodeVsCodeArgument(requestSchema, {projectPath});
 });
 
 // A session row's menu and its click pass the node's id; the request names its session.
@@ -42,7 +46,10 @@ export const decodeSessionNodeRequest = Effect.fn("decodeSessionNodeRequest")(fu
 >(requestSchema: RequestSchema, sessionNodeIdArgument: unknown) {
   const sessionNodeId = yield* decodeVsCodeArgument(Schema.String, sessionNodeIdArgument);
   const sessionNode = yield* readSessionsTreeNodeId(sessionNodeId);
-  if (sessionNode._tag !== "SessionNode") return yield* InvalidVsCodeArgumentError.make({cause: sessionNodeId});
+  const sessionId = yield* Match.valueTags(sessionNode, {
+    ProjectNode: () => Effect.fail(InvalidVsCodeArgumentError.make({cause: sessionNodeId})),
+    SessionNode: (chosenSessionNode) => Effect.succeed(chosenSessionNode.sessionId)
+  });
 
-  return yield* decodeVsCodeArgument(requestSchema, {sessionId: sessionNode.sessionId});
+  return yield* decodeVsCodeArgument(requestSchema, {sessionId});
 });

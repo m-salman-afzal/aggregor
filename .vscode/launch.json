@@ -14,6 +14,10 @@
         // Turns on the extension's trace-level span lines in the Aggregor App output channel.
         "--log=SalmanAfzal.aggregor-app:trace"
       ],
+      // Keeps the dev build's database, tmux server and anchor workspace apart from the installed extension's ~/.aggregor.
+      "env": {
+        "AGGREGOR_HOME": "${userHome}/.aggregorDev"
+      },
       "outFiles": ["${workspaceFolder}/apps/extension/dist/**/*.js"],
       "preLaunchTask": "${defaultBuildTask}"
     }

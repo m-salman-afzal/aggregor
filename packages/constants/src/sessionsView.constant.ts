@@ -1,17 +1,41 @@
-export const SESSIONS_VIEW_ID = "aggregorApp.sessions";
+// The view's id, and the tree's own drag and drop type, application/vnd.code.tree.<view id in lower case>, which VS Code
+// keeps the dragged rows' items under within the tree.
+export const SESSIONS_VIEW = {
+  DRAG_MIME_TYPE: "application/vnd.code.tree.aggregorapp.sessions",
+  ID: "aggregorApp.sessions"
+} as const;
 
-// The manifest's menus pick rows by these: only an added project can be removed from the list.
+// The view's name, as the manifest gives it, and with the number of its sessions waiting on the user.
+export const SESSIONS_VIEW_LABELS = {
+  TITLE: "Sessions",
+  TITLE_WITH_WAITING_COUNT: (waitingCount: number) => `Sessions (${waitingCount})`
+} as const;
+
+// A tree node's id is its kind's prefix, then the project's path or the session's id. VS Code finds the node to redraw
+// by its id, and passes the id to the row's menu commands.
+export const SESSIONS_VIEW_NODE_ID_PREFIXES = {
+  PROJECT: "project:",
+  SESSION: "session:"
+} as const;
+
+// A row's context value is its kind, then the ways it can move, then a session's running agent, separated by spaces;
+// the manifest's menus match these words: only an added project can be removed from the list, Move Up and Move Down
+// show only where they move, and Stop Agent only while the agent runs.
 export const SESSIONS_VIEW_CONTEXT_VALUES = {
   ADDED_PROJECT: "addedProject",
+  AGENT_RUNNING: "agentRunning",
+  CAN_MOVE_DOWN: "canMoveDown",
+  CAN_MOVE_UP: "canMoveUp",
   PROJECT: "project",
   SESSION: "session"
 } as const;
 
-// Any folder can be a project, git or not, so the icon is a plain root folder.
-export const PROJECT_ROW_ICON = "root-folder";
-
-// A session whose agent is gone from the agents setting.
-export const MISSING_AGENT_ROW_ICON = "warning";
+// The rows' theme icons: a plain root folder for a project, since any folder can be one, git or not, and a warning for a
+// session whose agent is gone from the agents setting.
+export const ROW_ICONS = {
+  MISSING_AGENT: "warning",
+  PROJECT: "root-folder"
+} as const;
 
 // Each session row gets a URI in this scheme so a FileDecorationProvider can draw its status badge.
 export const SESSION_BADGE_URI_SCHEME = "aggregor-session";
@@ -30,8 +54,10 @@ export const STATUS_BADGES = {
 export const SPINNER_FRAME_INTERVAL_MS = 120;
 
 // VS Code draws a new row a moment after the change that adds it, so selecting it is retried this often, this many times.
-export const SELECT_ROW_RETRY_INTERVAL_MS = 250;
-export const SELECT_ROW_RETRIES = 8;
+export const SELECT_ROW_RETRY = {
+  INTERVAL_MS: 250,
+  TIMES: 8
+} as const;
 
 export const STATUS_LABELS = {
   blocked: "needs input",
@@ -58,19 +84,5 @@ export const SESSION_ROW_LABELS = {
   ACCESSIBLE: (displayName: string, projectName: string, statusLabel: string) =>
     `${displayName}, ${projectName}, ${statusLabel}`,
   OPEN_SESSION: "Open Session",
-  // The agent's message, such as the permission it asks for, sits between the name and the folder.
-  TOOLTIP: ({
-    sessionName,
-    statusLabel,
-    statusMessage,
-    workingDirectory
-  }: {
-    readonly sessionName: string;
-    readonly statusLabel: string;
-    readonly statusMessage: string | undefined;
-    readonly workingDirectory: string;
-  }) =>
-    [`${sessionName} · ${statusLabel}`, ...(statusMessage === undefined ? [] : [statusMessage]), workingDirectory].join(
-      "\n"
-    )
+  TOOLTIP_HEADING: (sessionName: string, statusLabel: string) => `${sessionName} · ${statusLabel}`
 } as const;

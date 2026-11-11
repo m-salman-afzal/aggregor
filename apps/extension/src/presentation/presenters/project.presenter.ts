@@ -2,11 +2,19 @@ import {DATABASE_ERRORS} from "@pkg/constants/src/database.constant.ts";
 import {TERMINAL_ERRORS} from "@pkg/constants/src/terminal.constant.ts";
 import {Effect, Match} from "effect";
 
-import type {addProject, newProjectTerminal, removeProject} from "@services/project.service.ts";
+import type {
+  addProject,
+  moveProjectDown,
+  moveProjectUp,
+  newProjectTerminal,
+  removeProject
+} from "@services/project.service.ts";
 
 // Every failure the project commands' use cases return.
 type ProjectCommandError = Effect.Error<
-  ReturnType<typeof addProject | typeof newProjectTerminal | typeof removeProject>
+  ReturnType<
+    typeof addProject | typeof moveProjectDown | typeof moveProjectUp | typeof newProjectTerminal | typeof removeProject
+  >
 >;
 
 // The message a failed project command shows the user.

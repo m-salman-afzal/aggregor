@@ -23,12 +23,13 @@ is unclear.
 
 ## Start a stack
 
-Check that the name is free, since a reused name breaks the parent lookup, then branch from the latest `dev`:
+Check that the name is free, since a reused name breaks the parent lookup, then branch from the latest `dev`, without
+tracking it: a branch that tracks `origin/dev` pushes straight to `dev`, as VS Code's Sync does, and its PR never opens.
 
 ```bash
 git ls-remote --heads origin "refs/heads/stack/<name>/*"   # must print nothing
 git fetch origin dev
-git switch -c stack/<name>/0/<type>/<slug> origin/dev
+git switch --no-track -c stack/<name>/0/<type>/<slug> origin/dev
 ```
 
 ## Next branch

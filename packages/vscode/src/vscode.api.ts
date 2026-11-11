@@ -2,11 +2,13 @@ import {Context, Effect, Layer} from "effect";
 import {
   commands,
   ConfigurationTarget,
+  DataTransferItem,
   env,
   EventEmitter,
   extensions,
   FileDecoration,
   ProgressLocation,
+  Range,
   TabInputTerminal,
   ThemeColor,
   ThemeIcon,
@@ -15,7 +17,8 @@ import {
   Uri,
   ViewColumn,
   window,
-  workspace
+  workspace,
+  WorkspaceEdit
 } from "vscode";
 
 import type {ExtensionContext, WorkspaceConfiguration} from "vscode";
@@ -26,6 +29,7 @@ export class VsCodeApi extends Context.Service<
   {
     readonly commands: typeof commands;
     readonly ConfigurationTarget: typeof ConfigurationTarget;
+    readonly DataTransferItem: typeof DataTransferItem;
     readonly env: typeof env;
     readonly EventEmitter: typeof EventEmitter;
     readonly extensionId: string;
@@ -34,6 +38,7 @@ export class VsCodeApi extends Context.Service<
     readonly FileDecoration: typeof FileDecoration;
     readonly getConfiguration: (settingsSection: string) => Effect.Effect<WorkspaceConfiguration>;
     readonly ProgressLocation: typeof ProgressLocation;
+    readonly Range: typeof Range;
     readonly TabInputTerminal: typeof TabInputTerminal;
     readonly ThemeColor: typeof ThemeColor;
     readonly ThemeIcon: typeof ThemeIcon;
@@ -43,12 +48,14 @@ export class VsCodeApi extends Context.Service<
     readonly ViewColumn: typeof ViewColumn;
     readonly window: typeof window;
     readonly workspace: typeof workspace;
+    readonly WorkspaceEdit: typeof WorkspaceEdit;
   }
 >()("@pkg/vscode/vscode.api/VsCodeApi") {
   public static readonly layer = (extensionContext: ExtensionContext) =>
     Layer.succeed(VsCodeApi, {
       commands,
       ConfigurationTarget,
+      DataTransferItem,
       env,
       EventEmitter,
       extensionId: extensionContext.extension.id,
@@ -57,6 +64,7 @@ export class VsCodeApi extends Context.Service<
       FileDecoration,
       getConfiguration: (settingsSection) => Effect.sync(() => workspace.getConfiguration(settingsSection)),
       ProgressLocation,
+      Range,
       TabInputTerminal,
       ThemeColor,
       ThemeIcon,
@@ -65,6 +73,7 @@ export class VsCodeApi extends Context.Service<
       Uri,
       ViewColumn,
       window,
-      workspace
+      workspace,
+      WorkspaceEdit
     });
 }

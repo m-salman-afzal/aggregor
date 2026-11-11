@@ -1,6 +1,6 @@
 import {AgentEntity} from "@entities/agent/agent.entity.ts";
 import {AgentNotFoundError, IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
-import {AGENT_SETTINGS, DEFAULT_AGENT_ICON} from "@pkg/constants/src/agent.constant.ts";
+import {AGENT_ICON, AGENT_SETTINGS, AGENTS_SETTING_ID} from "@pkg/constants/src/agent.constant.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/app.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
@@ -18,16 +18,13 @@ interface AgentSettingsSource {
   readonly workspace: VsCodeApi["Service"]["workspace"];
 }
 
-// An icon is an SVG or PNG file; an entry naming anything else is left out.
-const IMAGE_FILE_PATH = /\.(?:png|svg)$/iu;
-
 // One aggregorApp.agents entry as the user may write it: the command defaults to its key, the name too, resumeArgs
 // to args, and the icon to Aggregor's logo.
 const AgentSettingSchema = Schema.Struct({
   args: Schema.optional(Schema.Array(Schema.String)),
   command: Schema.optional(Schema.NonEmptyString),
   env: Schema.optional(EnvironmentVariablesValueObjectSchema),
-  icon: Schema.optional(Schema.String.check(Schema.isPattern(IMAGE_FILE_PATH))),
+  icon: Schema.optional(Schema.String.check(Schema.isPattern(AGENT_ICON.FILE_PATTERN))),
   name: Schema.optional(Schema.NonEmptyString),
   resumeArgs: Schema.optional(Schema.Array(Schema.String))
 });
@@ -37,7 +34,7 @@ const toAgentIcon = Effect.fn("AgentRepository.toAgentIcon")(function* (
   {extensionPath, path}: AgentSettingsSource,
   icon: string | undefined
 ) {
-  const iconPath = icon === undefined ? DEFAULT_AGENT_ICON : icon;
+  const iconPath = icon === undefined ? AGENT_ICON.DEFAULT : icon;
 
   return path.isAbsolute(iconPath) ? iconPath : path.join(extensionPath, iconPath);
 });
@@ -86,7 +83,7 @@ const watchAgentSettings = Effect.fn("AgentRepository.watchAgentSettings")(funct
 ) {
   const settingsChanges = yield* streamVsCodeEvent(agentSettingsSource.workspace.onDidChangeConfiguration);
   const agentSettingChanges = Stream.filter(settingsChanges, (settingsChange) =>
-    settingsChange.affectsConfiguration(`${SETTINGS_SECTION}.${AGENT_SETTINGS.AGENTS}`)
+    settingsChange.affectsConfiguration(AGENTS_SETTING_ID)
   );
 
   yield* Stream.runForEach(agentSettingChanges, () =>

@@ -1,4 +1,5 @@
 import {IShellCommandInfraService} from "@interfaces/shellCommand.infraService.interface.ts";
+import {COMMAND_SEARCH, PLATFORMS} from "@pkg/constants/src/process.constant.ts";
 import {Array, Config, Effect, Layer, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
@@ -10,18 +11,23 @@ interface CommandSearch {
   readonly searchFolders: readonly string[];
 }
 
-// The owner's, group's and others' execute bits in a file's mode.
-const EXECUTE_BITS = [0o100, 0o010, 0o001];
-
 // Windows runs a bare name through PATHEXT's endings; elsewhere the name is the file. Reading the environment can't fail
 // with defaults in place, so a failure is a defect.
 const readCommandSearch = Effect.fn("ShellCommandInfraService.readCommandSearch")(function* () {
-  const searchPath = yield* Config.withDefault(Config.String("PATH"), "");
-  const pathExtensions = yield* Config.withDefault(Config.String("PATHEXT"), ".COM;.EXE;.BAT;.CMD");
-  const isWindows = platform() === "win32";
+  const searchPath = yield* Config.withDefault(Config.String(COMMAND_SEARCH.PATH_ENV), "");
+  const pathExtensions = yield* Config.withDefault(
+    Config.String(COMMAND_SEARCH.PATH_EXTENSIONS_ENV),
+    COMMAND_SEARCH.DEFAULT_PATH_EXTENSIONS
+  );
+  const isWindows = platform() === PLATFORMS.WINDOWS;
+  const pathSeparator = isWindows ? COMMAND_SEARCH.WINDOWS_PATH_SEPARATOR : COMMAND_SEARCH.POSIX_PATH_SEPARATOR;
+  const windowsExtensions = Array.map(
+    String.split(COMMAND_SEARCH.WINDOWS_PATH_SEPARATOR)(pathExtensions),
+    String.toLowerCase
+  );
   const commandSearch: CommandSearch = {
-    commandExtensions: isWindows ? ["", ...Array.map(String.split(";")(pathExtensions), String.toLowerCase)] : [""],
-    searchFolders: Array.filter(String.split(isWindows ? ";" : ":")(searchPath), (searchFolder) => searchFolder !== "")
+    commandExtensions: isWindows ? ["", ...windowsExtensions] : [""],
+    searchFolders: Array.filter(String.split(pathSeparator)(searchPath), (searchFolder) => searchFolder !== "")
   };
 
   return commandSearch;
@@ -33,9 +39,12 @@ const isRunnableFile = Effect.fn("ShellCommandInfraService.isRunnableFile")(
     const fileSystem = yield* FileSystem;
     const fileInfo = yield* fileSystem.stat(filePath);
 
-    const hasExecuteBit = Array.some(EXECUTE_BITS, (executeBit) => Math.floor(fileInfo.mode / executeBit) % 2 === 1);
+    const hasExecuteBit = Array.some(
+      COMMAND_SEARCH.EXECUTE_BITS,
+      (executeBit) => Math.floor(fileInfo.mode / executeBit) % 2 === 1
+    );
 
-    return fileInfo.type === "File" && (platform() === "win32" || hasExecuteBit);
+    return fileInfo.type === "File" && (platform() === PLATFORMS.WINDOWS || hasExecuteBit);
   },
   Effect.orElseSucceed(() => false)
 );

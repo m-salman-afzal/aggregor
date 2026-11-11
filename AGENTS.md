@@ -7,13 +7,17 @@ implemented). Before writing a PR's code, post its decision list with a recommen
 user to approve or change it. Call out any deviation from an agreed decision when handing the work back.
 
 `decisions.md` records every decision: the problem, the options weighed, what was picked and why, dependencies included.
-Add each one once it is agreed, in the same commit as the code it shapes, and before a session's last hand-back check
-that every decision the session made, or changed, is there.
+It is the one place for them and for each stack's plan, by milestone, stack and step, in the order they happened; there
+are no separate plan files. Add each one once it is agreed, in the same commit as the code it shapes, under its step; a
+changed decision is a new entry that names the one it replaces. Before a session's last hand-back, check that every
+decision the session made, or changed, is there.
 
 Work lands as small, feature-sliced, stacked PRs on `stack/<name>/<n>/<type>/<slug>` branches, each starting from the
 one below it. The `stack` skill (`.claude/skills/stack`) creates them; on push, the Auto PR workflow opens each PR into
 the branch below and joins them into a GitHub stack. Land a stack by merging its top PR with a merge commit, never
-squash. The roadmap lives in `README.md`. Commit and push only when the user asks.
+squash. A problem left for later is a GitHub issue with a branch for its fix linked to it, which the `issue` skill
+(`.claude/skills/issue`) files when the user asks for an issue. The roadmap lives in `README.md`. Commit and push only
+when the user asks.
 
 A commit subject is `<type>(<scope>): <subject>`, with `!` before the colon for a breaking change, and its scope is a
 feature from the list in `.github/workflows/pr-title.yaml`. Auto PR titles each PR with its first commit's subject, plus
@@ -33,10 +37,11 @@ that no scope covers, add its scope in that PR, to `pr-title.yaml` and with what
   reference. Name a thing by what it is to the user, not by the gesture that reached it (`chosenProject`, not
   `clickedProject`), and give each word one meaning: a "prompt" is an LLM's, so asking the user is a user-input prompt
   (`IUserInputPromptInfraService`).
-- **No users before 0.1.0.** Until 0.1.0 ships, the author is the only user. Be brave: rename command IDs, setting keys
-  and storage keys, change stored data without hand-written migrations, and leave no compatibility shims or deprecation
-  paths. A schema change regenerates the one migration from zero (delete `apps/extension/assets/migrations/`, then
-  `pnpm db:generate --name create_tables`), and the old database is deleted, not migrated.
+- **No users before 0.1.0, but their data stays.** Until 0.1.0 ships, the author is the only user. Be brave: rename
+  command IDs, setting keys and storage keys, and leave no compatibility shims or deprecation paths. Stored data is the
+  exception: every schema change is a new migration (`pnpm db:generate --name <change>`) that runs on the user's
+  database when the app updates, and no database is deleted. `DDD.md`'s Tables and migrations has the rules a column and
+  a migration follow.
 
 ## Architecture
 
@@ -46,7 +51,9 @@ change that moves where code goes. Each file's suffix names its role (`.entity.t
 and so on), and `@pkg/eslint` (`packages/eslint`) checks each layer's imports, the names each role requires, and where
 types and interfaces live. Code imports through one alias per folder under a layer (`@entities/`, `@interfaces/`,
 `@infraServices/` and so on, listed in `apps/extension/tsconfig.json`), never through a relative path, and by name,
-never with `import * as`. Enforce a new convention with a lint there, not only with prose here.
+never with `import * as`. Every constant outside the domain lives in its feature's `@pkg/constants` file, grouped in a
+labelled object with the constants it belongs with, and holds no logic: a util beside its caller picks between texts
+(see `DDD.md`). Enforce a new convention with a lint there, not only with prose here.
 
 ## Effect
 
@@ -67,6 +74,9 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
   `Effect.withSpan`.
 - **No `?.` and no `??`.** Check the value explicitly, or take a default with `Result.getOrElse` or `UndefinedOr.match`.
   Lint bans both.
+- **Match on tags.** Branch on a tagged value with `Match.valueTags`, or `Match.value` and `Match.exhaustive` for a
+  table of cases, so a new tag without a branch fails the typecheck. Lint bans comparing `_tag`, `switch` and `else`; an
+  `if` that returns early and a ternary stay.
 - **`Result`, never `Option`.** A value that can be missing is a `Result`, or an effect that fails, whose tagged error
   says why it is missing. Turn an `Option` that an Effect API returns into a `Result` right there with
   `Result.fromOption`. Lint bans importing `Option`.
@@ -85,11 +95,16 @@ bare const name. `aggregor/span-name` (`packages/eslint/src/rules/`) checks ever
 Finished spans and Effect logs go to the **Aggregor App** output channel, one trace-level line per span:
 `aggregorApp.openSession > SessionController.openChosenSession > SessionService.openSession > TerminalInfraService.focusSessionTerminal 0.8ms failed: TerminalNotFoundError`.
 Work a layer starts in the background, such as a watcher, nests under that layer's `make` span. F5 starts the extension
-at trace level; elsewhere, pick it with **Developer: Set Log Level...**. VS Code also writes the channel to
+at trace level, with its data in `~/.aggregorDev` (`AGGREGOR_HOME` in `.vscode/launch.json`), apart from the installed
+extension's `~/.aggregor`; elsewhere, pick it with **Developer: Set Log Level...**. VS Code also writes the channel to
 `<logs>/window<n>/exthost/SalmanAfzal.aggregor-app/Aggregor App.log`, so a test run's trace can be read from disk.
 Callbacks VS Code makes per row or per spinner frame (tree items, badges, the spinner) run untraced.
 
 ## Dependencies
+
+`components.md` lists what Aggregor is built from, runs on, and is checked and released with: which part of each it
+uses, why, and what else was weighed. Update it in the same commit as a change that adds, removes or changes how one is
+used.
 
 Every dependency version lives once, in `pnpm-workspace.yaml`'s `catalog:`; each `package.json` names it as `"catalog:"`
 (workspace packages stay `workspace:*`). Change versions only there or with `pnpm add` / `pnpm remove`:
@@ -110,14 +125,16 @@ pnpm format:fix    # Same, writing the changes
 pnpm typecheck     # tsc --noEmit in the apps, the root config files and .claude's scripts; packages are covered through the apps
 pnpm pty:check     # cargo fmt --check and cargo clippy -D warnings on apps/pty, the aggregor-pty binary
 pnpm pty:test      # aggregor-pty's tests, the end-to-end one included
+pnpm test          # The extension's tests (vitest, apps/extension/tests), the migration test among them
 pnpm quality       # lint:check + format:check + typecheck + pty:check, in parallel
 pnpm lint-staged   # Same lint and format checks on staged files only (the husky pre-commit hook)
-pnpm db:generate   # After changing a table model, with --name create_tables: drizzle-kit writes the migration
+pnpm db:generate   # After changing a table model, with --name <change>: drizzle-kit writes its migration
+pnpm db:check      # Fails when a table model changed without its migration; reports only
 pnpm --filter=aggregor-app build:pty  # Builds aggregor-pty for this machine into apps/extension/bin
 pnpm bump          # On an up-to-date dev: pick the next version; pushes chore/bump-v<version> and opens its PR
 ```
 
 To release, run `pnpm bump` (`bump.config.ts`). Merging the bump PR into dev opens the release PR, dev into main
 (`release-pr.yaml`); merging that one publishes to the Marketplace and creates the GitHub release (`release.yaml`): a
-VSIX per platform with its `aggregor-pty`, and a universal one without. The bump sets the same version in the root and
-`apps/extension` `package.json`.
+VSIX per platform, Linux and macOS ones with their `aggregor-pty`, and no universal one. The bump sets the same version
+in the root and `apps/extension` `package.json`.

@@ -4,8 +4,7 @@ import {
 } from "@controllers/sessionAlert.controller.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {
-  DESKTOP_NOTIFICATION_AGGREGOR_ICON,
-  DESKTOP_NOTIFICATION_CLICK_FOCUS_MS,
+  DESKTOP_NOTIFICATION,
   SESSION_ALERT_BLOCKED_HEADLINES,
   SESSION_ALERT_HEADLINES,
   SESSION_ALERT_LABELS,
@@ -76,10 +75,10 @@ const wasDesktopNotificationOpened = Effect.fn("SessionAlertsView.wasDesktopNoti
   windowFocusedAt: WindowFocusedAt
 ) {
   const notificationClosedAt = yield* Clock.currentTimeMillis;
-  const isClickFocus = (focusedAt: number) => focusedAt >= notificationClosedAt - DESKTOP_NOTIFICATION_CLICK_FOCUS_MS;
+  const isClickFocus = (focusedAt: number) => focusedAt >= notificationClosedAt - DESKTOP_NOTIFICATION.CLICK_FOCUS_MS;
   const clickFocuses = Stream.take(Stream.filter(SubscriptionRef.changes(windowFocusedAt), isClickFocus), 1);
   const clickFocusResult = yield* Effect.result(
-    Effect.timeout(Stream.runCollect(clickFocuses), Duration.millis(DESKTOP_NOTIFICATION_CLICK_FOCUS_MS))
+    Effect.timeout(Stream.runCollect(clickFocuses), Duration.millis(DESKTOP_NOTIFICATION.CLICK_FOCUS_MS))
   );
   if (Result.isFailure(clickFocusResult)) return false;
 
@@ -100,7 +99,7 @@ const showOnDesktop = Effect.fn("SessionAlertsView.showOnDesktop")(function* (
 
   yield* notifyOnDesktopForSessionAlertsView({
     agentIconPath: icon,
-    aggregorIconPath: Uri.joinPath(extensionUri, DESKTOP_NOTIFICATION_AGGREGOR_ICON).fsPath,
+    aggregorIconPath: Uri.joinPath(extensionUri, DESKTOP_NOTIFICATION.AGGREGOR_ICON).fsPath,
     headline,
     message: statusMessage === undefined ? "" : statusMessage,
     openLink

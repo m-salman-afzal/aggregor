@@ -8,7 +8,7 @@ import {Effect, Layer} from "effect";
 
 import type {AddSessionRequest} from "@entities/session/session.repository.interface.ts";
 
-const SESSION_PROJECT_JOIN = {
+const sessionProjectJoin = {
   joinCondition: eq(ProjectTableModel.id, SessionTableModel.projectId),
   joinedColumns: {projectPath: ProjectTableModel.path},
   joinedTable: ProjectTableModel
@@ -18,7 +18,7 @@ const SESSION_PROJECT_JOIN = {
 const makeSessionRepository = Effect.fn("SessionRepository.make")(function* () {
   return yield* makeBaseRepository<SessionEntity, AddSessionRequest>({
     entitySchema: SessionEntity,
-    join: SESSION_PROJECT_JOIN,
+    join: sessionProjectJoin,
     tableModel: SessionTableModel
   });
 });

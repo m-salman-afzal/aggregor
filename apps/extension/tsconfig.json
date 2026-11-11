@@ -13,6 +13,7 @@
       "@interfaces/*": ["./src/application/interfaces/*"],
       "@services/*": ["./src/application/services/*"],
       "@dtos/*": ["./src/application/dtos/*"],
+      "@applicationUtils/*": ["./src/application/utils/*"],
       "@config/*": ["./src/infrastructure/config/*"],
       "@models/*": ["./src/infrastructure/database/models/*"],
       "@di/*": ["./src/infrastructure/di/*"],

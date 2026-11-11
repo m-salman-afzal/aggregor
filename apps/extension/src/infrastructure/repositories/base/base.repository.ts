@@ -10,7 +10,7 @@ import {
   selectRows
 } from "@repositories/base/repository.utils.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
-import {and, eq, isNull, sql} from "drizzle-orm";
+import {and, eq, inArray, isNull, sql} from "drizzle-orm";
 import {makeWithDefaults} from "drizzle-orm/effect-sqlite-node";
 import {Array, Context, Effect, Queue, Record, Schema} from "effect";
 import {SecureRandom} from "effect/crypto";
@@ -140,6 +140,25 @@ const softDeleteRow = Effect.fn("BaseRepository.softDeleteRow")(
   Effect.mapError((cause) => DatabaseWriteError.make({cause}))
 );
 
+// One statement, which reads the highest sortId once, so the rows take the sortIds after it in the order given; the
+// change feed then reads them as placed.
+const placeRowsAtEnd = Effect.fn("BaseRepository.placeRowsAtEnd")(
+  function* <Entity>({database, tableModel}: RepositoryTable<Entity>, entityIds: readonly EntityIdValueObject[]) {
+    if (!Array.isReadonlyArrayNonEmpty(entityIds)) return;
+    const highestSortId = sql`(SELECT MAX(${tableModel.sortId}) FROM ${tableModel})`;
+    const placesAfterHighest = sql.join(
+      Array.map(entityIds, (entityId, placeIndex) => sql`WHEN ${entityId} THEN ${placeIndex + 1}`),
+      sql` `
+    );
+    const updatedAt = yield* formatCurrentTimestamp();
+    yield* database
+      .update(tableModel)
+      .set({sortId: sql`${highestSortId} + CASE ${tableModel.id} ${placesAfterHighest} END`, updatedAt})
+      .where(and(inArray(tableModel.id, entityIds), isNull(tableModel.deletedAt)));
+  },
+  Effect.mapError((cause) => DatabaseWriteError.make({cause}))
+);
+
 // Every write notifies the change feed, so this window's own writes show at once.
 export const makeBaseRepository = Effect.fn("BaseRepository.make")(function* <
   Entity extends BaseEntity,
@@ -156,6 +175,7 @@ export const makeBaseRepository = Effect.fn("BaseRepository.make")(function* <
     entityChanges,
     findById: (entityId) => findRowById(repositoryTable, entityId),
     findMany: (filter) => findRows(repositoryTable, filter),
+    placeAtEnd: (entityIds) => notifyChangeFeedAfter(placeRowsAtEnd(repositoryTable, entityIds)),
     softDelete: (entityId) => notifyChangeFeedAfter(softDeleteRow(repositoryTable, entityId)),
     update: (entityId, changes) => notifyChangeFeedAfter(updateRow(repositoryTable, entityId, changes)),
     upsert: (addRequest) => notifyChangeFeedAfter(Effect.provide(upsertRow(repositoryTable, addRequest), randomContext))

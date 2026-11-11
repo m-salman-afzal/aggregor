@@ -5,14 +5,9 @@ import {
   PtyBinaryNotFoundError,
   TmuxUnavailableError
 } from "@interfaces/tmux.infraService.interface.ts";
+import {PLATFORMS} from "@pkg/constants/src/process.constant.ts";
 import {PTY_BINARY} from "@pkg/constants/src/terminal.constant.ts";
-import {
-  AGENT_START_POLL_INTERVAL_MS,
-  AGENT_START_TIMEOUT_MS,
-  MINIMUM_TMUX_VERSION,
-  TMUX_COMMAND,
-  TMUX_CONFIG_FILE
-} from "@pkg/constants/src/tmux.constant.ts";
+import {AGENT_START_WAIT, TMUX} from "@pkg/constants/src/tmux.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
 import {decodeEntityId} from "@valueObjects/entityId.valueObject.ts";
@@ -44,31 +39,28 @@ class SessionAgentNotListedError extends Schema.TaggedError<
   {readonly brand: unique symbol}
 >()("SessionAgentNotListedError", {}) {}
 
-// "tmux 3.8", "tmux 3.3a" or "tmux next-3.6".
-const TMUX_VERSION_NUMBER = /(?<major>\d+)\.(?<minor>\d+)/u;
-
 const runTmuxCommand = Effect.fn("TmuxInfraService.runTmuxCommand")(function* (
   {childProcessSpawner, tmuxSocketPath}: Pick<TmuxDependencies, "childProcessSpawner" | "tmuxSocketPath">,
   tmuxArguments: readonly string[]
 ) {
-  return yield* childProcessSpawner.lines(ChildProcess.make(TMUX_COMMAND, ["-S", tmuxSocketPath, ...tmuxArguments]));
+  return yield* childProcessSpawner.lines(ChildProcess.make(TMUX.COMMAND, ["-S", tmuxSocketPath, ...tmuxArguments]));
 });
 
 // The version tmux reports. A build without a version number, such as "tmux master", is taken as new enough.
 const checkTmuxVersion = Effect.fn("TmuxInfraService.checkTmuxVersion")(function* (
   childProcessSpawner: ChildProcessSpawner["Service"]
 ) {
-  const versionLines = yield* Effect.mapError(childProcessSpawner.lines(ChildProcess.make(TMUX_COMMAND, ["-V"])), () =>
+  const versionLines = yield* Effect.mapError(childProcessSpawner.lines(ChildProcess.make(TMUX.COMMAND, ["-V"])), () =>
     TmuxUnavailableError.make({})
   );
   const [foundVersion = ""] = versionLines;
-  if (!String.startsWith("tmux")(foundVersion)) return yield* TmuxUnavailableError.make({});
-  const versionNumber = Result.fromOption(String.match(TMUX_VERSION_NUMBER)(foundVersion), () => undefined);
+  if (!String.startsWith(TMUX.VERSION_PREFIX)(foundVersion)) return yield* TmuxUnavailableError.make({});
+  const versionNumber = Result.fromOption(String.match(TMUX.VERSION_NUMBER_PATTERN)(foundVersion), () => undefined);
   if (Result.isFailure(versionNumber)) return foundVersion;
   const {major = "0", minor = "0"} = versionNumber.success.groups === undefined ? {} : versionNumber.success.groups;
   const isTooOld =
-    Number(major) < MINIMUM_TMUX_VERSION.MAJOR ||
-    (Number(major) === MINIMUM_TMUX_VERSION.MAJOR && Number(minor) < MINIMUM_TMUX_VERSION.MINOR);
+    Number(major) < TMUX.MINIMUM_VERSION.MAJOR ||
+    (Number(major) === TMUX.MINIMUM_VERSION.MAJOR && Number(minor) < TMUX.MINIMUM_VERSION.MINOR);
   if (isTooOld) return yield* TmuxUnavailableError.make({foundVersion});
 
   return foundVersion;
@@ -138,7 +130,7 @@ const prepareSessionTabCommand = Effect.fn("TmuxInfraService.prepareSessionTabCo
   yield* checkTmuxVersion(tmuxDependencies.childProcessSpawner);
   const ptyBinaryPath = yield* Effect.fromResult(tmuxDependencies.ptyBinaryPath);
   const sessionTabCommand: SessionTabCommand = {
-    command: TMUX_COMMAND,
+    command: TMUX.COMMAND,
     commandArguments: [
       ...(yield* prepareTmuxArguments(tmuxDependencies, sessionTabCommandRequest)),
       "--",
@@ -163,8 +155,8 @@ const confirmSessionAgentListed = Effect.fn("TmuxInfraService.confirmSessionAgen
 const waitForSessionAgentStart = Effect.fn("TmuxInfraService.waitForSessionAgentStart")(
   function* (tmuxDependencies: TmuxDependencies, sessionId: EntityIdValueObject) {
     yield* Effect.retry(confirmSessionAgentListed(tmuxDependencies, sessionId), {
-      schedule: Schedule.spaced(AGENT_START_POLL_INTERVAL_MS),
-      times: AGENT_START_TIMEOUT_MS / AGENT_START_POLL_INTERVAL_MS
+      schedule: Schedule.spaced(AGENT_START_WAIT.POLL_INTERVAL_MS),
+      times: AGENT_START_WAIT.TIMEOUT_MS / AGENT_START_WAIT.POLL_INTERVAL_MS
     });
   },
   Effect.catchTag("SessionAgentNotListedError", () => Effect.void)
@@ -227,12 +219,12 @@ const watchTmuxChangeHints = Effect.fn("TmuxInfraService.watchTmuxChangeHints")(
   );
 });
 
-// Linux and macOS VSIXs carry aggregor-pty; the universal one, for every other platform, does not. A failed check counts
-// as missing, so the user hears why no session starts.
+// Linux and macOS VSIXs carry aggregor-pty; Windows ones do not. A failed check counts as missing, so the user hears why
+// no session starts.
 const findPtyBinaryPath = Effect.fn("TmuxInfraService.findPtyBinaryPath")(function* (ptyBinaryPath: string) {
   const fileSystem = yield* FileSystem;
   const isPtyBinaryFound = yield* Effect.orElseSucceed(fileSystem.exists(ptyBinaryPath), () => false);
-  if (!isPtyBinaryFound) return yield* PtyBinaryNotFoundError.make({isWindows: platform() === "win32"});
+  if (!isPtyBinaryFound) return yield* PtyBinaryNotFoundError.make({isWindows: platform() === PLATFORMS.WINDOWS});
 
   return ptyBinaryPath;
 });
@@ -248,7 +240,7 @@ const makeTmuxDependencies = Effect.fn("TmuxInfraService.makeTmuxDependencies")(
     databaseFilePath: yield* getDatabaseFilePath(),
     ptyBinaryPath: yield* Effect.result(findPtyBinaryPath(ptyBinaryPath)),
     runningSessionIds: yield* SubscriptionRef.make(initialSessionIds),
-    tmuxConfigPath: Uri.joinPath(extensionUri, TMUX_CONFIG_FILE).fsPath,
+    tmuxConfigPath: Uri.joinPath(extensionUri, TMUX.CONFIG_FILE).fsPath,
     tmuxSocketPath,
     window
   };

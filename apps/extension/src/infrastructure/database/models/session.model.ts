@@ -1,6 +1,7 @@
 import {BASE_COLUMNS} from "@models/base.model.ts";
 import {ProjectTableModel} from "@models/project.model.ts";
 import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
+import {SESSION_LIFECYCLES} from "@valueObjects/sessionLifecycle.valueObject.ts";
 import {integer, sqliteTable, text} from "drizzle-orm/sqlite-core";
 
 // aggregor-pty (apps/pty) alone writes the status and title columns and agentSessionId, from the agent's OSC 7501
@@ -11,6 +12,7 @@ export const SessionTableModel = sqliteTable("sessions", {
   agentSessionId: text(),
   customName: text(),
   hasWorked: integer({mode: "boolean"}).notNull().default(false),
+  lifecycle: text().notNull().default(SESSION_LIFECYCLES.ONGOING),
   name: text().notNull(),
   projectId: text()
     .notNull()
