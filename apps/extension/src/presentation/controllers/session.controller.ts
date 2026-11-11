@@ -1,4 +1,5 @@
 import {
+  ArchiveProjectSessionsRequestDtoSchema,
   ArchiveSessionRequestDtoSchema,
   GetSessionListItemRequestDtoSchema,
   ListArchivedProjectSessionIdsRequestDtoSchema,
@@ -18,6 +19,8 @@ import {
 import {decodeVsCodeArgument} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
 import {decodeProjectNodeRequest, decodeSessionNodeRequest} from "@presentationUtils/sessionsTreeNode.utils.ts";
 import {
+  archiveOngoingSessions,
+  archiveProjectSessions,
   archiveSession,
   findViewedSessionId,
   getSessionListItem,
@@ -111,6 +114,19 @@ export const stopChosenArchivedProjectSessionAgents = Effect.fn(
 )(function* (projectNodeId: unknown) {
   const request = yield* decodeProjectNodeRequest(StopArchivedProjectSessionAgentsRequestDtoSchema, projectNodeId);
   yield* stopArchivedProjectSessionAgents(request);
+});
+
+// The Sessions view's project row's … menu passes the row's node id.
+export const archiveChosenProjectSessions = Effect.fn("SessionController.archiveChosenProjectSessions")(function* (
+  projectNodeId: unknown
+) {
+  const request = yield* decodeProjectNodeRequest(ArchiveProjectSessionsRequestDtoSchema, projectNodeId);
+  yield* archiveProjectSessions(request);
+});
+
+// VS Code passes the view title's … menu the focused row, which can be any row, so its arguments are dropped.
+export const archiveAllOngoingSessions = Effect.fn("SessionController.archiveAllOngoingSessions")(function* () {
+  yield* archiveOngoingSessions();
 });
 
 // VS Code passes the view title's … menu the focused row, which can be any row, so its arguments are dropped.

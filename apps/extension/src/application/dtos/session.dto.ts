@@ -56,6 +56,10 @@ export const ArchiveSessionRequestDtoSchema = Schema.Struct({sessionId: EntityId
 
 export type ArchiveSessionRequestDto = typeof ArchiveSessionRequestDtoSchema.Type;
 
+export const ArchiveProjectSessionsRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
+
+export type ArchiveProjectSessionsRequestDto = typeof ArchiveProjectSessionsRequestDtoSchema.Type;
+
 export const UnarchiveSessionRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
 
 export type UnarchiveSessionRequestDto = typeof UnarchiveSessionRequestDtoSchema.Type;

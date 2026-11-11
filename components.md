@@ -14,7 +14,8 @@ there. Update this file in the same commit as a change that adds, removes or cha
   `aggregorApp.*` settings. APIs: `createTreeView` with drag and drop, `registerFileDecorationProvider` for row badges,
   `createTerminal` (`shellPath`, `isTransient`, an editor-tab `location`, `env`, `iconPath`), `createQuickPick`,
   `showInputBox`, `withProgress`, `registerUriHandler` with `env.asExternalUri`, a log `createOutputChannel` for the
-  trace, `workspace.updateWorkspaceFolders`, `openTextDocument` and `applyEdit`, and the `vscode.openFolder` command.
+  trace, `workspace.updateWorkspaceFolders` (only for a window without a saved workspace file), `openTextDocument`,
+  `applyEdit` and `TextDocument.save`, and the `vscode.openFolder` and `workbench.action.reloadWindow` commands.
   `packages/vscode` holds `VsCodeApi`, the one runtime `vscode` import.
 - **Why:** terminals, trees, Source Control and diffs already exist in VS Code, through stable APIs only.
 - **Alternatives:** "Agents run in their own terminal UIs": an ACP client with a webview chat UI; VS Code's chat
@@ -232,7 +233,7 @@ there. Update this file in the same commit as a change that adds, removes or cha
 - **What it is:** Microsoft's parser and editor for JSON with comments, the one VS Code uses.
 - **What we use:** 3.3.1: `parse`, `modify` and `applyEdits` in
   `infrastructure/services/vscode/workspace.infraService.ts`, to sync the shown project's `.vscode/settings.json` with
-  `Aggregor.code-workspace`.
+  `Aggregor.code-workspace` and to rewrite the workspace file's `folders` on a project switch.
 - **Why:** it keeps each file's comments and indentation, and it is the parser VS Code uses.
 - **Alternatives:** "The shown project's own settings sync with Aggregor's workspace file": VS Code's settings API, one
   key at a time, which refuses the keys of extensions that aren't installed.

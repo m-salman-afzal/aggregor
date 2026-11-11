@@ -358,7 +358,7 @@ const updateWaitingCounts = Effect.fn("SessionsView.updateWaitingCounts")(
         waitingCount === 0 ? SESSIONS_VIEW_LABELS.TITLE : SESSIONS_VIEW_LABELS.TITLE_WITH_WAITING_COUNT(waitingCount);
     });
   },
-  (effect) => Effect.ignore(effect)
+  Effect.ignore({log: "Debug", message: "Could not update the Sessions view's badge and name"})
 );
 
 // shortcut: ticks for the view's whole life and reads the working sessions each frame while it is visible. Start and stop
@@ -374,7 +374,7 @@ const advanceSpinnerFrames = Effect.fn("SessionsView.advanceSpinnerFrames")(
       sessionsViewHandles.badgesChangedEmitter.fire(workingBadgeUris);
     });
   },
-  (effect) => Effect.ignore(effect)
+  Effect.ignore({log: "Debug", message: "Could not advance the Sessions view's spinners"})
 );
 
 // Registers the Sessions tree for the lifetime of the runtime; disposing the runtime unregisters it.

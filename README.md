@@ -20,7 +20,8 @@ terminals, tree views, Source Control and diffs.
   anchor folder the extension owns at folder 0 and the project at folder 1, so later switches never touch folder 0,
   which would restart every extension. That first switch reloads the window once, without asking anything: its agents
   keep running, it reopens the session you switched to, and the folders that leave become added projects. The window is
-  then named Aggregor and never asks to be saved.
+  then named Aggregor and never asks to be saved. Later switches rewrite the file's folders, and the project's settings
+  with them, in one write; in the rare case VS Code confirms none of that, the window reloads once to catch up.
 - **Agents.** New Session asks which agent to start, among those whose command is on `PATH`, with your default first;
   each one's **Set as Default** button changes the default, and `aggregorApp.skipAgentPicker` starts the default without
   asking. Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot are built in. `aggregorApp.agents` in your user
@@ -42,14 +43,16 @@ terminals, tree views, Source Control and diffs.
   session's tab; a session you have seen shows no badge, and a grey hollow dot means it has exited. Reported progress
   shows next to the name. The status comes from the agent's own OSC 7501 reports, read by `aggregor-pty`, which runs
   every session's agent; the Linux and macOS builds carry it, and on Windows sessions run in WSL.
-- **Alerts.** A session out of view notifies once it has held a new state for 3 seconds: waiting for you, finished, an
-  error or its agent exiting by default, picked with `aggregorApp.notifyOn`. The focused window shows it with an
-  **Open** button; when VS Code isn't focused it is a system notification instead, with the agent's logo. Clicking it
-  brings VS Code forward, even from another workspace, and opens the session when the window that comes forward is the
-  one that sent it (`notify-send` on Linux; a PowerShell toast from WSL and `osascript` on macOS, both untested). The
-  Sessions icon's badge counts the sessions waiting on you, and hovering it lists them; the Sessions and Archive names
-  end with how many of them each view holds, as in Archive (1).
+- **Alerts.** A session out of view notifies once it has held a new state for 3 seconds: waiting for you, finished or an
+  error by default, picked with `aggregorApp.notifyOn`, which can add its agent exiting. The focused window shows it
+  with an **Open** button; when VS Code isn't focused it is a system notification instead, with the agent's logo.
+  Clicking it brings VS Code forward, even from another workspace, and opens the session when the window that comes
+  forward is the one that sent it (`notify-send` on Linux; a PowerShell toast from WSL and `osascript` on macOS, both
+  untested). The Sessions icon's badge counts the sessions waiting on you, and hovering it lists them; the Sessions and
+  Archive names end with how many of them each view holds, as in Archive (1).
 - **AI commit messages.** A Source Control button writes the commit message for the staged diff.
+- **Trace logging.** `aggregorApp.traceLogging` writes every step Aggregor runs, with the fields of every error it
+  meets, to the **Aggregor App** output channel and its log file, to attach to a bug report.
 
 ## Roadmap
 

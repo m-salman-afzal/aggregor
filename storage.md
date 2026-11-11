@@ -91,10 +91,11 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
   - `copiedProjectSettings.json`: the settings last copied into the workspace file and the project they came from, which
     each sync compares both sides with.
   - `sessionToReopen.json`: the session the window was switching to when it reloaded to open the workspace, with when.
-- **Written by:** `WorkspaceInfraService`: the settings before every project switch, the workspace file and the session
-  to reopen on the first switch, and the workspace file's `settings` and the last copy on each settings sync, through VS
-  Code's own copy of the workspace file; VS Code, the workspace file's folders on later switches, and any setting it or
-  an extension writes at the workspace level.
+- **Written by:** `WorkspaceInfraService`: the anchor folder's settings on every project switch, the workspace file and
+  the session to reopen on the first switch, the workspace file's `folders` with the next project's `settings` in one
+  write on later switches, its `folders` when a project is removed, and its `settings` and the last copy on each
+  settings sync, all through VS Code's own copy of the workspace file, whose unsaved changes it saves when no other
+  writer does; VS Code, any setting it or an extension writes at the workspace level.
 - **Read by:** VS Code, the workspace file as the window's workspace and the anchor folder as its folder 0, which its
   own settings hide from Explorer; `WorkspaceInfraService`, the session to reopen when the window starts, and the
   workspace file's `settings` and the last copy on each settings sync.

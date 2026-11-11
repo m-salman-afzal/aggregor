@@ -26,6 +26,7 @@ step where it was first decided and carries its later changes inline, with their
 - **Decision:** what we picked.
 - **Why:** the reason it won.
 - **Limits:** what it still doesn't cover, when that matters.
+- **Explainer:** a link to the page that shows how it works, as of the date it was made, when one was made.
 ```
 
 ## Before M1: the extension's foundation (2026-05 to 2026-10-01)
@@ -1671,6 +1672,7 @@ nothing. Not checked: the WSL toast and macOS.
   session too. A desktop notification waiting keeps a `notify-send` process until it is clicked or dismissed, and
   Ubuntu's AppArmor profile for `notify-send` keeps VS Code from stopping it, so it outlives a reload. The WSL toast and
   macOS notification are untested.
+- **Replaced by:** worktrees 0's "An agent exiting doesn't alert by default" (2026-11-11), for `notifyOn`'s default.
 
 #### The CLIs a session runs are agents, one word everywhere (2026-11-10)
 
@@ -1975,6 +1977,8 @@ database in the headless VS Code.
   - Before a release with a migration, the build runs against a copy of a real database (`AGGREGOR_DATABASE_FILE`).
 - **Why:** an update must never cost the user their sessions. The test needs no data written for each migration, so
   every future migration is checked from every earlier one, which also covers a user who skipped updates.
+- **Explainer:** [How Aggregor Migrates](https://claude.ai/artifact/SYxmCSR49KKUD5uvqQuEVt), each step of a migration
+  run linked to its code (2026-11-10).
 
 #### One column per dimension (2026-11-10)
 
@@ -2270,3 +2274,179 @@ stopped it. Not exercised: the mid-turn wording, and a project's Stop Agents, wh
   `SESSIONS_VIEW_LABELS` and `ARCHIVE_VIEW_LABELS`, matching the manifest's.
 - **Why:** the count sits on the view that holds the sessions, readable and shown when the view is collapsed, and the
   badge still shows from any other tab.
+
+### worktrees: sessions in git worktrees
+
+Planned on 2026-11-11. Step 0 archives many sessions at once and stops alerting on an agent's exit by default, before
+worktrees make archiving the way a session's work is cleaned up. The steps after it get their decision lists when they
+start; the outline is worktree mode, a session in the project root or in a new git worktree, offered only in git
+projects (#105); then archiving that removes the session's worktree and keeps a branch that isn't merged.
+
+### worktrees 0: archiving many sessions at once (`stack/worktrees/0/feat/archive-all-sessions`)
+
+**Agreed (2026-11-11), before its code:** both changes in one step, with worktree code from step 1; `exited` out of
+`notifyOn`'s default; Archive Sessions and Archive All Sessions in the Sessions view's menus; one question every time;
+the sessions archived in their order before any agent stops; two commands beside the stop ones.
+
+Built (2026-11-11) as agreed, except that a project with one session archives it as its row's Archive does (below).
+
+**Verified (2026-11-11):** in the headless VS Code, the menus: Archive Sessions under Stop Agents on the Sessions view's
+project rows only, and Archive All Sessions under Stop All Agents in its title … menu. A project's four sessions, one
+agent running: the question named one agent, Escape archived none, and Enter kept the agent running in tmux, archived
+all four in their order and closed the tab. A project's lone exited session archived with no question. Archive All
+Sessions over five sessions, two agents running: Stop Agents stopped both, closed their tabs and left the kept agent
+running; their exits held 3 seconds and raised no alert, skipped by the `notifyOn` default. Two exited sessions asked
+"Archive 2 sessions?" and archived on Enter. Not exercised: the mid-turn wording.
+
+#### A project's sessions, or all of them, archive at once (2026-11-11)
+
+- **Problem:** archiving is one session at a time, from its row, so clearing a project or the whole list means one menu
+  and one question per session.
+- **Options:**
+  - Unarchive Sessions and Unarchive All Sessions in the Archive view's menus too: left until they are missed.
+  - Asking nothing when no agent runs, as a session row's Archive does: one click here moves many sessions.
+  - Building it with the first worktree step: a bigger PR for two unrelated changes.
+- **Decision:**
+  - ⤓ Archive Sessions in a Sessions view project row's … menu archives the project's sessions, and ⤓ Archive All
+    Sessions in the view's title … menu archives every session the view lists, the ones Stop All Agents covers. Each
+    sits under its Stop Agents item; the Archive view has neither.
+  - One question for them all, every time. With agents running, it asks whether to keep them running, first so that
+    Enter keeps them, or to stop them, worded for one agent or several and for turns cut short; with none, whether to
+    archive the sessions. Cancel or Escape archives none.
+  - A project with one session archives it as its row's Archive does, asking only while its agent runs, rather than
+    asking "Archive 1 sessions?".
+  - Every session is archived, in its order and placed at the end of the Archive together, before any agent stops, so a
+    failed write stops none for nothing; every tab closes, and a kept agent runs on in tmux. A session row's Archive
+    runs the same code with one session.
+  - `aggregorApp.archiveProjectSessions` and `aggregorApp.archiveOngoingSessions`, hidden from the Command Palette;
+    `archiveProjectSessions` and `archiveOngoingSessions` in `session.service.ts` over
+    `archiveSessionsAskingAboutAgents`; `makeArchiveSessionsQuestion` in `sessionQuestion.utils.ts`, whose keep and stop
+    answers the row's Archive question now shares.
+- **Why:** a batch archives from where it is listed, as its agents stop, and one click that moves many sessions always
+  asks.
+- **Limits:** a session removed while the question is open leaves the sessions after it unarchived, their tabs open and
+  no agent stopped.
+
+#### An agent exiting doesn't alert by default (2026-11-11)
+
+- **Replaces:** harness-foundation 6's `notifyOn` default in "Sessions out of view notify, and the view's badge counts
+  those waiting on you" (blocked, done, error, exited, idle).
+- **Problem:** an agent exits mostly because the user stopped it, and Stop Agents, Stop All Agents and archiving with
+  Stop Agents raised one exited alert per agent (m3 2's "Agents stop from the session, project and view menus").
+- **Decision:** `aggregorApp.notifyOn` defaults to blocked, done, error and idle; `exited` stays a choice in the
+  setting. A user who set the setting keeps their own list.
+- **Why:** the user asked for it, and an exit the user caused is no news.
+
+#### Explainers are linked from the decision they explain (2026-11-11)
+
+- **Problem:** the pages made to show how something works (a migration run, the layers, the Effect rules) were found
+  again only by searching past sessions.
+- **Options:** `components.md`, which lists dependencies, not mechanisms; `DDD.md`, which says what holds now, so a page
+  drawn on one day would go stale there.
+- **Decision:** an **Explainer:** field on a decision's entry links the page that shows how it works, dated. Only m3 0's
+  "Every schema change is a migration on the user's database" has one so far.
+- **Why:** an entry is dated and never rewritten, so a page drawn on that day stays true to it.
+- **Limits:** the pages are private artifacts, so the links open only for the user, though the repo is public.
+
+**Added to this step (2026-11-11), on the user's report that switching projects stopped changing the folders, Source
+Control and `.vscode/settings.json`:** agreed: the folder swap writes the workspace file, a project's removal too, and a
+failed save no longer leaves a dirty buffer, all in this branch, verified on every edge case. The user also asked for a
+setting that turns on full tracing, error details instead of silent catches, and a skill that reads a trace and files
+the issue; those were built on the agent's defaults, the entries below.
+
+**Verified (2026-11-11):** in the headless VS Code, with Peacock and Prettier installed in its profile and four projects
+(one with `formatOnSave`, `codeActionsOnSave` and a Peacock color, one with another color, one whose settings file
+doesn't parse, one with none): the first switch reloaded into Aggregor's workspace; each later switch rewrote the file's
+folders and settings in one save and VS Code confirmed it in about 100 ms, with Explorer, Source Control, the Peacock
+colors, the copy and the anchor's terminal folder following; 12 switches 300 ms apart and 18 switches 50 ms apart ended
+on the last session clicked, with no warning and no settings key in another project's file. A project whose settings
+don't parse swapped its folder and logged why. With the workspace file open and edited in an editor, a switch waited 2
+seconds, saved the edit and went on; reverted, switching went on as before. Removing the shown project left only the
+anchor folder, and the next switch brought a project back. The original failure, reproduced: a helper extension's
+`updateWorkspaceFolders` while the file was read-only left VS Code's folder edit unsaved and the extension host refusing
+every later change, believing in a project VS Code didn't show; a switch to the project VS Code did show saved the stale
+edit, timed out, took the project out and back in, and the host accepted folder changes again. With the file read-only,
+a switch failed after its retries with the file's path and VS Code's own Overwrite prompt; made writable, the next
+switch saved the stale edit and went on. At the channel's Info level with trace logging off the log stayed empty;
+turning the setting on wrote `[info] [trace]` span lines at once, and off stopped them. Not exercised: the reload
+fallback, which needs VS Code to confirm no change at all; removing a project from an unsaved workspace, the unchanged
+`updateWorkspaceFolders` path; a workspace the user saved with the anchor at folder 0.
+
+#### A project switch writes the workspace file's folders, with the project's settings (2026-11-11)
+
+- **Replaces:** harness-foundation 7's "Later switches swap folder 1, which VS Code writes into the file" in "Aggregor's
+  workspace is a file Aggregor writes", and the copy before the swap in "The shown project's own settings sync with
+  Aggregor's workspace file".
+- **Problem:** the user's window stopped following the sessions: VS Code showed one project, while every switch failed
+  at once with `WorkspaceFoldersUpdateRejectedError`. VS Code 1.145.3's extension host keeps each
+  `updateWorkspaceFolders` change unconfirmed until VS Code reports its folders changed or refuses it; while one is
+  unconfirmed it refuses every later call and reports the unconfirmed folders as the workspace's. VS Code's folder write
+  edits the workspace file's buffer, saves it without checking the save, and rereads the file: when the save doesn't
+  land, nothing changes, nothing is reported, and the host stays wedged until the window reloads. Aggregor then synced
+  the wrong project's settings into the file on every change, and Source Control never heard of a folder change.
+- **Options:** keeping `updateWorkspaceFolders` and reloading the window whenever it is refused or times out, a reload
+  each time; only telling the user to reload.
+- **Decision:** a switch in a saved workspace with the anchor at folder 0 writes the file's `folders` (the anchor
+  folder's entry as written, then the project) and, in Aggregor's workspace, the project's `settings`, in one edit and
+  save through VS Code's copy, then waits up to 5 seconds for the folders to change. VS Code rereads the file and
+  reports it, which also clears an unconfirmed change another extension or VS Code left behind. An edit that leaves the
+  file's folders as they were waits for nothing. When the wait times out, the project goes out of the file and back in,
+  two changes VS Code sees whatever it shows, and when that times out too the window reloads with the session to reopen.
+  The copy is written before the file, and the anchor folder's settings after a swap, so a failed switch leaves both
+  with the project still shown. Removing a project rewrites the file's folders the same way; a window without a saved
+  workspace file still uses `updateWorkspaceFolders`.
+- **Why:** VS Code reports a change it reads from the file as it does any edit of the file, so no change waits on a
+  confirmation that may never come; and Peacock finds the new color in the same write as the folder.
+- **Limits:** the file's folders are written as absolute paths. A project whose settings can't be read comes in with the
+  last project's settings, as before. When VS Code left its own folder change unconfirmed and the extension host
+  believes in that project, viewing that very project changes nothing, since the host counts it as shown, until another
+  project is viewed.
+
+#### A settings file with unsaved changes waits; the workspace file's are saved (2026-11-11)
+
+- **Problem:** a write whose edit applied but whose save failed left the edit unsaved in VS Code's copy, and from then
+  VS Code refused every settings write ("the file has unsaved changes"), Aggregor's syncs and switches included; the
+  user's window showed this for 40 seconds. Another writer's save in flight also made Aggregor's write give up at once.
+- **Options:** writing the files straight to disk, which makes a writer whose edit is in VS Code's copy fail with "File
+  Modified Since"; reverting VS Code's copy, which no API does outside an editor.
+- **Decision:** a save that VS Code reports failed is tried again, 8 times 250 ms apart, which saves the edit or finds
+  another writer's save already did; a file with unsaved changes is checked again as often. A project's own settings
+  file still unsaved after that is left alone, as an editor's changes are. The window's workspace file still unsaved is
+  saved, with a warning, since its unsaved changes are a write VS Code or an extension failed to save. The errors say
+  which step failed: `SettingsFileNotOpenedError`, `SettingsFileEditRejectedError`, `SettingsFileNotSavedError`.
+- **Why:** transient save failures pass on their own, and Aggregor's workspace file belongs to Aggregor, so saving what
+  another writer left there unblocks every writer.
+- **Limits:** a save that keeps failing, as with a read-only file, still leaves the edit unsaved, with VS Code's own
+  Overwrite prompt; a user's unsaved edit of the workspace file in an editor is saved after 2 seconds.
+
+#### Trace logging is a setting, and a trace carries each error's fields (2026-11-11)
+
+- **Problem:** the user's log held five warnings and no spans: the installed extension writes span lines at trace level,
+  which the output channel hides unless the user finds **Developer: Set Log Level...**, and a failure line named only
+  the error's tag, so the cause had to be inferred.
+- **Options:** writing spans at Info always, which fills the log of every user; a trace file of Aggregor's own in
+  `~/.aggregor`, a second log to rotate; replacing each handled `Effect.void` with a log line, which the failed span
+  already records.
+- **Decision:** `aggregorApp.traceLogging` (off by default) writes every line the channel's level would hide again at
+  Info, led by its level (`[info] [trace] …`), and follows the setting live; the channel's level still works alone. A
+  span line ends with each failure's fields, its cause included
+  (`failed: SettingsFileNotSavedError settingsFilePath=…`), and with what the span was annotated with; a logged cause
+  leads with the same fields before its stack. `showOnlyProjectFolder` annotates the project and the folders the
+  extension host sees, and `saveWorkspaceFileFolders` the file's folders before and after. A failure a caller handles
+  stays visible on the span that failed, so the catches that return `Effect.void` stay; the five `Effect.ignore` calls
+  that logged nothing now log at Debug or Warn. The headless test window takes `AGGREGOR_VERIFY_LOG_LEVEL` for the
+  channel's level.
+- **Why:** a user can turn on the full trace from Settings and reproduce, and a trace says what failed and with which
+  values, so the cause is read, not guessed.
+- **Limits:** with the setting on, a switch writes several hundred lines; Effect's SQL spans add their query text.
+
+#### The trace skill reads a trace and files its issue (2026-11-11)
+
+- **Problem:** finding a cause meant knowing where VS Code keeps each window's log, how to read span lines, and which of
+  VS Code's own logs and Aggregor's files to compare them with.
+- **Options:** shipping the skill inside the extension, for any user's agent, before 0.1.0 has users.
+- **Decision:** `.claude/skills/trace` finds the window's `Aggregor App.log`, asks for trace logging and a repro when it
+  holds no spans, reads the first failure from the span lines, checks VS Code's `renderer.log`, `exthost.log` and other
+  extensions' logs and Aggregor's stored files, and files the issue through the issue skill, with times in UTC and other
+  projects' names left out.
+- **Why:** the steps that found this bug become repeatable, and the issue arrives with its evidence.

@@ -30,6 +30,19 @@ export const OUTPUT_CHANNEL_LOG_METHODS = {
   Warn: "warn"
 } as const;
 
+// The trace logging setting writes every line the Aggregor App channel's log level would hide, at Info, led by its own
+// level; a value it prints spans one line.
+export const TRACE_LOGGING = {
+  FORCED_LINE: (logMethod: string, logLine: string) => `[${logMethod}] ${logLine}`,
+  LINE_BREAK_PATTERN: /\s*\n\s*/gu,
+  SETTING: "traceLogging",
+  TYPE_MARKER_PREFIX: "~",
+  VALUE_DEPTH: 3
+} as const;
+
+// The trace logging setting's full id, which its changes name.
+export const TRACE_LOGGING_SETTING_ID = `${SETTINGS_SECTION}.${TRACE_LOGGING.SETTING}`;
+
 export const APP_ERRORS = {
   INVALID_COMMAND_ARGUMENTS: (commandId: string) => `${commandId} got unexpected arguments.`
 } as const;

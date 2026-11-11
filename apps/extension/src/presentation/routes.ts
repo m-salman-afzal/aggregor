@@ -7,6 +7,8 @@ import {
   removeChosenProject
 } from "@controllers/project.controller.ts";
 import {
+  archiveAllOngoingSessions,
+  archiveChosenProjectSessions,
   archiveChosenSession,
   moveChosenSessionDown,
   moveChosenSessionUp,
@@ -50,6 +52,12 @@ export const RoutesLayer = Layer.effectDiscard(
     registerCommand(PROJECT_COMMANDS.MOVE_UP, moveChosenProjectUp, presentProjectCommandError),
     registerCommand(PROJECT_COMMANDS.REMOVE, removeChosenProject, presentProjectCommandError),
     registerCommand(SESSION_COMMANDS.ARCHIVE, archiveChosenSession, presentSessionCommandError),
+    registerCommand(SESSION_COMMANDS.ARCHIVE_ONGOING, archiveAllOngoingSessions, presentSessionCommandError),
+    registerCommand(
+      SESSION_COMMANDS.ARCHIVE_PROJECT_SESSIONS,
+      archiveChosenProjectSessions,
+      presentSessionCommandError
+    ),
     registerCommand(SESSION_COMMANDS.MOVE_DOWN, moveChosenSessionDown, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.MOVE_UP, moveChosenSessionUp, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.NEW_ASKING_FOR_PROJECT, newSessionAskingForProject, presentSessionCommandError),
