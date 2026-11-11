@@ -2450,3 +2450,28 @@ fallback, which needs VS Code to confirm no change at all; removing a project fr
   extensions' logs and Aggregor's stored files, and files the issue through the issue skill, with times in UTC and other
   projects' names left out.
 - **Why:** the steps that found this bug become repeatable, and the issue arrives with its evidence.
+
+### Outside a stack: after 0.0.9
+
+#### An edit keeps the indentation of the file's top-level properties (2026-11-11)
+
+- **Problem:** on 0.0.9 the user's `Aggregor.code-workspace` grew to 32 MB, nearly all spaces. VS Code's memory rose,
+  the window froze, saves failed with "File Modified Since" and the Overwrite prompt, and the file, cut short mid-write,
+  could no longer be read, so every switch failed, reload or not. The first switch writes the file as one line of JSON,
+  and a later edit leaves `{"folders":[` on its first line, so the file's first indented line is a folder entry, two
+  levels deep. An edit took that line's indentation as one level and re-indented the value it wrote with it, doubling
+  the indentation each time; 0.0.9 writes both `folders` and `settings` on every switch, so about 20 switches made 32
+  MB.
+- **Options:** always indenting with 4 spaces, which re-indents a project's own settings file the user indents
+  otherwise; the smallest indentation in the file, which a block comment can set and which keeps a bloated file as it
+  is.
+- **Decision:** an edit takes the indentation of the first top-level property that starts its own line, found with
+  `jsonc-parser`'s `parseTree`, else 4 spaces; the first switch writes the workspace file indented with 4 spaces.
+- **Why:** a top-level property is one level deep in any file, whatever its first line holds; and a file the old edit
+  bloated, whose properties share their lines with `{"folders":[` and `],"settings":{`, gets 4 spaces back on the next
+  switch, which rewrites both values.
+- **Verified (2026-11-11):** in the headless VS Code, four projects switched 20 times kept each one's file size, 293 to
+  2,183 bytes; a 123 KB file planted with the old doubling came back to 2,170 bytes on the next switch and stayed there
+  over 12 more.
+- **Limits:** a workspace file that can't be read, as the user's cut-short one, still fails every switch until it is
+  rewritten.

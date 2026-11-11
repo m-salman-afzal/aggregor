@@ -25,14 +25,15 @@ export const ANCHOR_FOLDER_SETTINGS = {
 // A workspace with several folders reads a folder's settings file only for settings scoped to a resource, so the shown
 // project's settings are synced with the workspace file, where every setting applies. There a relative path or a folder
 // variable would name the anchor folder, so the copy names the project instead. The last copy, beside the workspace
-// file, tells an edit on one side from one on the other. An edit keeps the file's own indentation: the first indented
-// line's, else the default.
+// file, tells an edit on one side from one on the other. An edit keeps the file's own indentation: that of the first
+// top-level property starting a line, else the default.
 export const PROJECT_SETTINGS_SYNC = {
   COPIED_SETTINGS_FILE_NAME: "copiedProjectSettings.json",
   CURRENT_FOLDER: "./",
   DEFAULT_INDENTATION: "    ",
   EMPTY_SETTINGS_TEXT: "{}\n",
-  INDENTATION_PATTERN: /^(?<indentation>[\t ]+)\S/mu,
+  // Matched against the text before a property: the spaces or tabs it starts its line with.
+  INDENTATION_PATTERN: /\n(?<indentation>[\t ]+)$/u,
   PARENT_FOLDER: "..",
   RELATIVE_PATH_PREFIXES: ["./", "../"],
   TAB: "\t",

@@ -77,6 +77,10 @@ Read only, never write: `~/.aggregor` for the installed extension, `~/.aggregorD
 - `anchor/Aggregor/.vscode/settings.json`: the anchor folder's settings, its terminal folder set to the shown project.
 - `anchor/sessionToReopen.json`: the session a reload reopens, when one is pending.
 - `data/aggregor.db`: projects and sessions, in SQLite; open it with `?mode=ro`.
+- VS Code's local history keeps a copy of each save of a file up to 256 KB:
+  `grep -l 'Aggregor.code-workspace' ~/.config/Code/User/History/*/entries.json` finds the folder, and its
+  `entries.json` lists each copy with its time and source (`Workspace Edit` is an extension's edit). Their sizes and
+  diffs show how a file came to its state.
 
 Compare what they hold with what the trace says happened, and with what the user saw.
 
