@@ -219,7 +219,6 @@
             "blocked",
             "done",
             "error",
-            "exited",
             "idle"
           ],
           "markdownDescription": "The states a session out of view notifies about, once it has held one for 3 seconds: inside VS Code when its window is focused, else as a system notification."
@@ -265,6 +264,11 @@
         {
           "command": "aggregorApp.stopOngoingSessionAgents",
           "group": "1_agents@1",
+          "when": "view == aggregorApp.sessions"
+        },
+        {
+          "command": "aggregorApp.archiveOngoingSessions",
+          "group": "1_agents@2",
           "when": "view == aggregorApp.sessions"
         },
         {
@@ -347,6 +351,11 @@
           "when": "view == aggregorApp.sessions"
         },
         {
+          "command": "aggregorApp.archiveProjectSessions",
+          "group": "2_agents@2",
+          "when": "view == aggregorApp.sessions"
+        },
+        {
           "command": "aggregorApp.stopArchivedProjectSessionAgents",
           "group": "2_agents@1",
           "when": "view == aggregorApp.archive"
@@ -368,6 +377,14 @@
         },
         {
           "command": "aggregorApp.unarchiveSession",
+          "when": "false"
+        },
+        {
+          "command": "aggregorApp.archiveProjectSessions",
+          "when": "false"
+        },
+        {
+          "command": "aggregorApp.archiveOngoingSessions",
           "when": "false"
         },
         {
@@ -455,7 +472,7 @@
       },
       {
         "view": "aggregorApp.archive",
-        "contents": "Sessions you are done with move here when you archive them from their row's … menu, out of the Sessions list."
+        "contents": "Sessions you are done with move here when you archive them from a … menu in the Sessions list: a session's, a project's or the view's."
       }
     ],
     "commands": [
@@ -519,6 +536,14 @@
       {
         "title": "⤒\u2003Unarchive",
         "command": "aggregorApp.unarchiveSession"
+      },
+      {
+        "title": "⤓\u2003Archive Sessions",
+        "command": "aggregorApp.archiveProjectSessions"
+      },
+      {
+        "title": "⤓\u2003Archive All Sessions",
+        "command": "aggregorApp.archiveOngoingSessions"
       },
       {
         "title": "■\u2003Stop Agent",

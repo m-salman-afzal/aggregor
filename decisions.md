@@ -26,6 +26,7 @@ step where it was first decided and carries its later changes inline, with their
 - **Decision:** what we picked.
 - **Why:** the reason it won.
 - **Limits:** what it still doesn't cover, when that matters.
+- **Explainer:** a link to the page that shows how it works, as of the date it was made, when one was made.
 ```
 
 ## Before M1: the extension's foundation (2026-05 to 2026-10-01)
@@ -1671,6 +1672,7 @@ nothing. Not checked: the WSL toast and macOS.
   session too. A desktop notification waiting keeps a `notify-send` process until it is clicked or dismissed, and
   Ubuntu's AppArmor profile for `notify-send` keeps VS Code from stopping it, so it outlives a reload. The WSL toast and
   macOS notification are untested.
+- **Replaced by:** worktrees 0's "An agent exiting doesn't alert by default" (2026-11-11), for `notifyOn`'s default.
 
 #### The CLIs a session runs are agents, one word everywhere (2026-11-10)
 
@@ -1975,6 +1977,8 @@ database in the headless VS Code.
   - Before a release with a migration, the build runs against a copy of a real database (`AGGREGOR_DATABASE_FILE`).
 - **Why:** an update must never cost the user their sessions. The test needs no data written for each migration, so
   every future migration is checked from every earlier one, which also covers a user who skipped updates.
+- **Explainer:** [How Aggregor Migrates](https://claude.ai/artifact/SYxmCSR49KKUD5uvqQuEVt), each step of a migration
+  run linked to its code (2026-11-10).
 
 #### One column per dimension (2026-11-10)
 
@@ -2270,3 +2274,76 @@ stopped it. Not exercised: the mid-turn wording, and a project's Stop Agents, wh
   `SESSIONS_VIEW_LABELS` and `ARCHIVE_VIEW_LABELS`, matching the manifest's.
 - **Why:** the count sits on the view that holds the sessions, readable and shown when the view is collapsed, and the
   badge still shows from any other tab.
+
+### worktrees: sessions in git worktrees
+
+Planned on 2026-11-11. Step 0 archives many sessions at once and stops alerting on an agent's exit by default, before
+worktrees make archiving the way a session's work is cleaned up. The steps after it get their decision lists when they
+start; the outline is worktree mode, a session in the project root or in a new git worktree, offered only in git
+projects (#105); then archiving that removes the session's worktree and keeps a branch that isn't merged.
+
+### worktrees 0: archiving many sessions at once (`stack/worktrees/0/feat/archive-all-sessions`)
+
+**Agreed (2026-11-11), before its code:** both changes in one step, with worktree code from step 1; `exited` out of
+`notifyOn`'s default; Archive Sessions and Archive All Sessions in the Sessions view's menus; one question every time;
+the sessions archived in their order before any agent stops; two commands beside the stop ones.
+
+Built (2026-11-11) as agreed, except that a project with one session archives it as its row's Archive does (below).
+
+**Verified (2026-11-11):** in the headless VS Code, the menus: Archive Sessions under Stop Agents on the Sessions view's
+project rows only, and Archive All Sessions under Stop All Agents in its title … menu. A project's four sessions, one
+agent running: the question named one agent, Escape archived none, and Enter kept the agent running in tmux, archived
+all four in their order and closed the tab. A project's lone exited session archived with no question. Archive All
+Sessions over five sessions, two agents running: Stop Agents stopped both, closed their tabs and left the kept agent
+running; their exits held 3 seconds and raised no alert, skipped by the `notifyOn` default. Two exited sessions asked
+"Archive 2 sessions?" and archived on Enter. Not exercised: the mid-turn wording.
+
+#### A project's sessions, or all of them, archive at once (2026-11-11)
+
+- **Problem:** archiving is one session at a time, from its row, so clearing a project or the whole list means one menu
+  and one question per session.
+- **Options:**
+  - Unarchive Sessions and Unarchive All Sessions in the Archive view's menus too: left until they are missed.
+  - Asking nothing when no agent runs, as a session row's Archive does: one click here moves many sessions.
+  - Building it with the first worktree step: a bigger PR for two unrelated changes.
+- **Decision:**
+  - ⤓ Archive Sessions in a Sessions view project row's … menu archives the project's sessions, and ⤓ Archive All
+    Sessions in the view's title … menu archives every session the view lists, the ones Stop All Agents covers. Each
+    sits under its Stop Agents item; the Archive view has neither.
+  - One question for them all, every time. With agents running, it asks whether to keep them running, first so that
+    Enter keeps them, or to stop them, worded for one agent or several and for turns cut short; with none, whether to
+    archive the sessions. Cancel or Escape archives none.
+  - A project with one session archives it as its row's Archive does, asking only while its agent runs, rather than
+    asking "Archive 1 sessions?".
+  - Every session is archived, in its order and placed at the end of the Archive together, before any agent stops, so a
+    failed write stops none for nothing; every tab closes, and a kept agent runs on in tmux. A session row's Archive
+    runs the same code with one session.
+  - `aggregorApp.archiveProjectSessions` and `aggregorApp.archiveOngoingSessions`, hidden from the Command Palette;
+    `archiveProjectSessions` and `archiveOngoingSessions` in `session.service.ts` over
+    `archiveSessionsAskingAboutAgents`; `makeArchiveSessionsQuestion` in `sessionQuestion.utils.ts`, whose keep and stop
+    answers the row's Archive question now shares.
+- **Why:** a batch archives from where it is listed, as its agents stop, and one click that moves many sessions always
+  asks.
+- **Limits:** a session removed while the question is open leaves the sessions after it unarchived, their tabs open and
+  no agent stopped.
+
+#### An agent exiting doesn't alert by default (2026-11-11)
+
+- **Replaces:** harness-foundation 6's `notifyOn` default in "Sessions out of view notify, and the view's badge counts
+  those waiting on you" (blocked, done, error, exited, idle).
+- **Problem:** an agent exits mostly because the user stopped it, and Stop Agents, Stop All Agents and archiving with
+  Stop Agents raised one exited alert per agent (m3 2's "Agents stop from the session, project and view menus").
+- **Decision:** `aggregorApp.notifyOn` defaults to blocked, done, error and idle; `exited` stays a choice in the
+  setting. A user who set the setting keeps their own list.
+- **Why:** the user asked for it, and an exit the user caused is no news.
+
+#### Explainers are linked from the decision they explain (2026-11-11)
+
+- **Problem:** the pages made to show how something works (a migration run, the layers, the Effect rules) were found
+  again only by searching past sessions.
+- **Options:** `components.md`, which lists dependencies, not mechanisms; `DDD.md`, which says what holds now, so a page
+  drawn on one day would go stale there.
+- **Decision:** an **Explainer:** field on a decision's entry links the page that shows how it works, dated. Only m3 0's
+  "Every schema change is a migration on the user's database" has one so far.
+- **Why:** an entry is dated and never rewritten, so a page drawn on that day stays true to it.
+- **Limits:** the pages are private artifacts, so the links open only for the user, though the repo is public.

@@ -42,13 +42,13 @@ terminals, tree views, Source Control and diffs.
   session's tab; a session you have seen shows no badge, and a grey hollow dot means it has exited. Reported progress
   shows next to the name. The status comes from the agent's own OSC 7501 reports, read by `aggregor-pty`, which runs
   every session's agent; the Linux and macOS builds carry it, and on Windows sessions run in WSL.
-- **Alerts.** A session out of view notifies once it has held a new state for 3 seconds: waiting for you, finished, an
-  error or its agent exiting by default, picked with `aggregorApp.notifyOn`. The focused window shows it with an
-  **Open** button; when VS Code isn't focused it is a system notification instead, with the agent's logo. Clicking it
-  brings VS Code forward, even from another workspace, and opens the session when the window that comes forward is the
-  one that sent it (`notify-send` on Linux; a PowerShell toast from WSL and `osascript` on macOS, both untested). The
-  Sessions icon's badge counts the sessions waiting on you, and hovering it lists them; the Sessions and Archive names
-  end with how many of them each view holds, as in Archive (1).
+- **Alerts.** A session out of view notifies once it has held a new state for 3 seconds: waiting for you, finished or an
+  error by default, picked with `aggregorApp.notifyOn`, which can add its agent exiting. The focused window shows it
+  with an **Open** button; when VS Code isn't focused it is a system notification instead, with the agent's logo.
+  Clicking it brings VS Code forward, even from another workspace, and opens the session when the window that comes
+  forward is the one that sent it (`notify-send` on Linux; a PowerShell toast from WSL and `osascript` on macOS, both
+  untested). The Sessions icon's badge counts the sessions waiting on you, and hovering it lists them; the Sessions and
+  Archive names end with how many of them each view holds, as in Archive (1).
 - **AI commit messages.** A Source Control button writes the commit message for the staged diff.
 
 ## Roadmap
