@@ -238,8 +238,8 @@ apps/extension/src/
                                            listArchivedProjectSessionIds, listProjectsWithArchivedSessions,
                                            listWorkingSessionIds,
                                            watchSessionListChanges, watchViewedSessionIds, findViewedSessionId,
-                                           listSessionsWaitingOnUser (the view's badge); startSessionTitleSync,
-                                           startSessionTabNameSync, startViewedAtSync
+                                           listSessionsWaitingOnUser (the badge and each view's count);
+                                           startSessionTitleSync, startSessionTabNameSync, startViewedAtSync
       sessionAlert.service.ts              watchSessionAlerts: the states sessions out of view hold for 3 seconds,
                                            as notifyOn picks them; notifyOnDesktop
       project.service.ts                   listProjects, getProjectListItem, findProjectListItem, pickProject,
@@ -342,10 +342,11 @@ apps/extension/src/
     utils/sessionsTreeNode.utils.ts        the Sessions and Archive trees' node ids, and decoding a row's node id
                                            into a request DTO
     views/sessions/                        SessionsView: the tree and badge providers, tree items, spinner, redraws,
-                                           drag and drop, the session in front kept selected, and the view's badge
+                                           drag and drop, the session in front kept selected, the view's badge, and
+                                           the count of its sessions waiting on the user in its name
     views/archive/                         ArchiveView: the archived sessions' tree under their projects, drawn
                                            with the Sessions view's tree items; their badges are the Sessions
-                                           view's
+                                           view's; the count of its sessions waiting on the user in its name
     views/sessionAlerts/                   SessionAlertsView: shows each alert in the focused window or hands it to
                                            the system, and handles the session links desktop notifications open
   extension.ts                             activate

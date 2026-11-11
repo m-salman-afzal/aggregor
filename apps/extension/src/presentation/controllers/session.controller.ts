@@ -221,6 +221,12 @@ export const getSessionListItemForArchiveView = Effect.fn("SessionController.get
   }
 );
 
+export const listSessionsWaitingOnUserForArchiveView = Effect.fn(
+  "SessionController.listSessionsWaitingOnUserForArchiveView"
+)(function* () {
+  return yield* listSessionsWaitingOnUser();
+});
+
 export const watchSessionListChangesForArchiveView = Effect.fn(
   "SessionController.watchSessionListChangesForArchiveView"
 )(function* () {

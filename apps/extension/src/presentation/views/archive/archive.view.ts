@@ -3,9 +3,10 @@ import {
   getSessionListItemForArchiveView,
   listProjectSessionIdsForArchiveView,
   listProjectsForArchiveView,
+  listSessionsWaitingOnUserForArchiveView,
   watchSessionListChangesForArchiveView
 } from "@controllers/session.controller.ts";
-import {ARCHIVE_VIEW} from "@pkg/constants/src/archiveView.constant.ts";
+import {ARCHIVE_VIEW, ARCHIVE_VIEW_LABELS} from "@pkg/constants/src/archiveView.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {acquireScopedDisposable} from "@pkg/vscode/src/vscode.utils.ts";
 import {
@@ -13,11 +14,15 @@ import {
   makeSessionNodeId,
   readSessionsTreeNodeId
 } from "@presentationUtils/sessionsTreeNode.utils.ts";
-import {createProjectTreeItem, createSessionTreeItem} from "@views/sessions/sessions.utils.ts";
+import {
+  countViewSessionsWaitingOnUser,
+  createProjectTreeItem,
+  createSessionTreeItem
+} from "@views/sessions/sessions.utils.ts";
 import {Effect, Layer, Match, Stream} from "effect";
 
 import type {SessionListChangeDto} from "@dtos/session.dto.ts";
-import type {EventEmitter} from "vscode";
+import type {EventEmitter, TreeView} from "vscode";
 
 // The Archive tree: the sessions the user is done with, under their projects, drawn as the Sessions tree draws them.
 // Its nodes are the Sessions tree's ids (see sessionsTreeNode.utils.ts), read again through the controllers on every
@@ -87,7 +92,7 @@ const registerTreeView = Effect.fn("ArchiveView.registerTreeView")(function* () 
   const runPromiseUntraced = <A, E>(effect: Effect.Effect<A, E, ArchiveViewServices>) =>
     Effect.runPromiseWith(archiveViewContext)(Effect.withTracerEnabled(effect, false));
   const treeChangedEmitter = yield* acquireScopedDisposable(() => new EventEmitter<string | undefined>());
-  yield* acquireScopedDisposable(() =>
+  const archiveTreeView = yield* acquireScopedDisposable(() =>
     window.createTreeView<string>(ARCHIVE_VIEW.ID, {
       treeDataProvider: {
         getChildren: (parentNodeId) =>
@@ -98,7 +103,7 @@ const registerTreeView = Effect.fn("ArchiveView.registerTreeView")(function* () 
     })
   );
 
-  return treeChangedEmitter;
+  return {archiveTreeView, treeChangedEmitter};
 });
 
 // A session's own change redraws its row. Anything else redraws the whole tree: a project's row comes and goes with its
@@ -118,14 +123,29 @@ const redrawChangedNodes = Effect.fn("ArchiveView.redrawChangedNodes")(function*
   });
 });
 
+// The count in the view's name: the archived sessions waiting on the user. A failed read leaves it as it was.
+const updateWaitingCount = Effect.fn("ArchiveView.updateWaitingCount")(
+  function* (archiveTreeView: TreeView<string>) {
+    const sessionsWaitingOnUser = yield* listSessionsWaitingOnUserForArchiveView();
+    const waitingCount = yield* countViewSessionsWaitingOnUser(sessionsWaitingOnUser, true);
+
+    yield* Effect.sync(() => {
+      archiveTreeView.title =
+        waitingCount === 0 ? ARCHIVE_VIEW_LABELS.TITLE : ARCHIVE_VIEW_LABELS.TITLE_WITH_WAITING_COUNT(waitingCount);
+    });
+  },
+  (effect) => Effect.ignore(effect)
+);
+
 // Registers the Archive tree for the lifetime of the runtime; disposing the runtime unregisters it.
 const makeArchiveView = Effect.fn("ArchiveView.make")(function* () {
-  const treeChangedEmitter = yield* registerTreeView();
+  const {archiveTreeView, treeChangedEmitter} = yield* registerTreeView();
   const sessionListChanges = yield* watchSessionListChangesForArchiveView();
+  yield* updateWaitingCount(archiveTreeView);
 
   yield* Effect.forkScoped(
     Stream.runForEach(sessionListChanges, (sessionListChange) =>
-      redrawChangedNodes(treeChangedEmitter, sessionListChange)
+      Effect.andThen(redrawChangedNodes(treeChangedEmitter, sessionListChange), updateWaitingCount(archiveTreeView))
     )
   );
 });

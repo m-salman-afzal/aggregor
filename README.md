@@ -47,7 +47,8 @@ terminals, tree views, Source Control and diffs.
   **Open** button; when VS Code isn't focused it is a system notification instead, with the agent's logo. Clicking it
   brings VS Code forward, even from another workspace, and opens the session when the window that comes forward is the
   one that sent it (`notify-send` on Linux; a PowerShell toast from WSL and `osascript` on macOS, both untested). The
-  Sessions icon's badge counts the sessions waiting on you, and hovering it lists them.
+  Sessions icon's badge counts the sessions waiting on you, and hovering it lists them; the Sessions and Archive names
+  end with how many of them each view holds, as in Archive (1).
 - **AI commit messages.** A Source Control button writes the commit message for the staged diff.
 
 ## Roadmap

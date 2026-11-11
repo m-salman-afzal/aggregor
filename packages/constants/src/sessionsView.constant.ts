@@ -5,6 +5,12 @@ export const SESSIONS_VIEW = {
   ID: "aggregorApp.sessions"
 } as const;
 
+// The view's name, as the manifest gives it, and with the number of its sessions waiting on the user.
+export const SESSIONS_VIEW_LABELS = {
+  TITLE: "Sessions",
+  TITLE_WITH_WAITING_COUNT: (waitingCount: number) => `Sessions (${waitingCount})`
+} as const;
+
 // A tree node's id is its kind's prefix, then the project's path or the session's id. VS Code finds the node to redraw
 // by its id, and passes the id to the row's menu commands.
 export const SESSIONS_VIEW_NODE_ID_PREFIXES = {
