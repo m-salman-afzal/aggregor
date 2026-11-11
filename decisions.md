@@ -2347,3 +2347,106 @@ running; their exits held 3 seconds and raised no alert, skipped by the `notifyO
   "Every schema change is a migration on the user's database" has one so far.
 - **Why:** an entry is dated and never rewritten, so a page drawn on that day stays true to it.
 - **Limits:** the pages are private artifacts, so the links open only for the user, though the repo is public.
+
+**Added to this step (2026-11-11), on the user's report that switching projects stopped changing the folders, Source
+Control and `.vscode/settings.json`:** agreed: the folder swap writes the workspace file, a project's removal too, and a
+failed save no longer leaves a dirty buffer, all in this branch, verified on every edge case. The user also asked for a
+setting that turns on full tracing, error details instead of silent catches, and a skill that reads a trace and files
+the issue; those were built on the agent's defaults, the entries below.
+
+**Verified (2026-11-11):** in the headless VS Code, with Peacock and Prettier installed in its profile and four projects
+(one with `formatOnSave`, `codeActionsOnSave` and a Peacock color, one with another color, one whose settings file
+doesn't parse, one with none): the first switch reloaded into Aggregor's workspace; each later switch rewrote the file's
+folders and settings in one save and VS Code confirmed it in about 100 ms, with Explorer, Source Control, the Peacock
+colors, the copy and the anchor's terminal folder following; 12 switches 300 ms apart and 18 switches 50 ms apart ended
+on the last session clicked, with no warning and no settings key in another project's file. A project whose settings
+don't parse swapped its folder and logged why. With the workspace file open and edited in an editor, a switch waited 2
+seconds, saved the edit and went on; reverted, switching went on as before. Removing the shown project left only the
+anchor folder, and the next switch brought a project back. The original failure, reproduced: a helper extension's
+`updateWorkspaceFolders` while the file was read-only left VS Code's folder edit unsaved and the extension host refusing
+every later change, believing in a project VS Code didn't show; a switch to the project VS Code did show saved the stale
+edit, timed out, took the project out and back in, and the host accepted folder changes again. With the file read-only,
+a switch failed after its retries with the file's path and VS Code's own Overwrite prompt; made writable, the next
+switch saved the stale edit and went on. At the channel's Info level with trace logging off the log stayed empty;
+turning the setting on wrote `[info] [trace]` span lines at once, and off stopped them. Not exercised: the reload
+fallback, which needs VS Code to confirm no change at all; removing a project from an unsaved workspace, the unchanged
+`updateWorkspaceFolders` path; a workspace the user saved with the anchor at folder 0.
+
+#### A project switch writes the workspace file's folders, with the project's settings (2026-11-11)
+
+- **Replaces:** harness-foundation 7's "Later switches swap folder 1, which VS Code writes into the file" in "Aggregor's
+  workspace is a file Aggregor writes", and the copy before the swap in "The shown project's own settings sync with
+  Aggregor's workspace file".
+- **Problem:** the user's window stopped following the sessions: VS Code showed one project, while every switch failed
+  at once with `WorkspaceFoldersUpdateRejectedError`. VS Code 1.145.3's extension host keeps each
+  `updateWorkspaceFolders` change unconfirmed until VS Code reports its folders changed or refuses it; while one is
+  unconfirmed it refuses every later call and reports the unconfirmed folders as the workspace's. VS Code's folder write
+  edits the workspace file's buffer, saves it without checking the save, and rereads the file: when the save doesn't
+  land, nothing changes, nothing is reported, and the host stays wedged until the window reloads. Aggregor then synced
+  the wrong project's settings into the file on every change, and Source Control never heard of a folder change.
+- **Options:** keeping `updateWorkspaceFolders` and reloading the window whenever it is refused or times out, a reload
+  each time; only telling the user to reload.
+- **Decision:** a switch in a saved workspace with the anchor at folder 0 writes the file's `folders` (the anchor
+  folder's entry as written, then the project) and, in Aggregor's workspace, the project's `settings`, in one edit and
+  save through VS Code's copy, then waits up to 5 seconds for the folders to change. VS Code rereads the file and
+  reports it, which also clears an unconfirmed change another extension or VS Code left behind. An edit that leaves the
+  file's folders as they were waits for nothing. When the wait times out, the project goes out of the file and back in,
+  two changes VS Code sees whatever it shows, and when that times out too the window reloads with the session to reopen.
+  The copy is written before the file, and the anchor folder's settings after a swap, so a failed switch leaves both
+  with the project still shown. Removing a project rewrites the file's folders the same way; a window without a saved
+  workspace file still uses `updateWorkspaceFolders`.
+- **Why:** VS Code reports a change it reads from the file as it does any edit of the file, so no change waits on a
+  confirmation that may never come; and Peacock finds the new color in the same write as the folder.
+- **Limits:** the file's folders are written as absolute paths. A project whose settings can't be read comes in with the
+  last project's settings, as before. When VS Code left its own folder change unconfirmed and the extension host
+  believes in that project, viewing that very project changes nothing, since the host counts it as shown, until another
+  project is viewed.
+
+#### A settings file with unsaved changes waits; the workspace file's are saved (2026-11-11)
+
+- **Problem:** a write whose edit applied but whose save failed left the edit unsaved in VS Code's copy, and from then
+  VS Code refused every settings write ("the file has unsaved changes"), Aggregor's syncs and switches included; the
+  user's window showed this for 40 seconds. Another writer's save in flight also made Aggregor's write give up at once.
+- **Options:** writing the files straight to disk, which makes a writer whose edit is in VS Code's copy fail with "File
+  Modified Since"; reverting VS Code's copy, which no API does outside an editor.
+- **Decision:** a save that VS Code reports failed is tried again, 8 times 250 ms apart, which saves the edit or finds
+  another writer's save already did; a file with unsaved changes is checked again as often. A project's own settings
+  file still unsaved after that is left alone, as an editor's changes are. The window's workspace file still unsaved is
+  saved, with a warning, since its unsaved changes are a write VS Code or an extension failed to save. The errors say
+  which step failed: `SettingsFileNotOpenedError`, `SettingsFileEditRejectedError`, `SettingsFileNotSavedError`.
+- **Why:** transient save failures pass on their own, and Aggregor's workspace file belongs to Aggregor, so saving what
+  another writer left there unblocks every writer.
+- **Limits:** a save that keeps failing, as with a read-only file, still leaves the edit unsaved, with VS Code's own
+  Overwrite prompt; a user's unsaved edit of the workspace file in an editor is saved after 2 seconds.
+
+#### Trace logging is a setting, and a trace carries each error's fields (2026-11-11)
+
+- **Problem:** the user's log held five warnings and no spans: the installed extension writes span lines at trace level,
+  which the output channel hides unless the user finds **Developer: Set Log Level...**, and a failure line named only
+  the error's tag, so the cause had to be inferred.
+- **Options:** writing spans at Info always, which fills the log of every user; a trace file of Aggregor's own in
+  `~/.aggregor`, a second log to rotate; replacing each handled `Effect.void` with a log line, which the failed span
+  already records.
+- **Decision:** `aggregorApp.traceLogging` (off by default) writes every line the channel's level would hide again at
+  Info, led by its level (`[info] [trace] …`), and follows the setting live; the channel's level still works alone. A
+  span line ends with each failure's fields, its cause included
+  (`failed: SettingsFileNotSavedError settingsFilePath=…`), and with what the span was annotated with; a logged cause
+  leads with the same fields before its stack. `showOnlyProjectFolder` annotates the project and the folders the
+  extension host sees, and `saveWorkspaceFileFolders` the file's folders before and after. A failure a caller handles
+  stays visible on the span that failed, so the catches that return `Effect.void` stay; the five `Effect.ignore` calls
+  that logged nothing now log at Debug or Warn. The headless test window takes `AGGREGOR_VERIFY_LOG_LEVEL` for the
+  channel's level.
+- **Why:** a user can turn on the full trace from Settings and reproduce, and a trace says what failed and with which
+  values, so the cause is read, not guessed.
+- **Limits:** with the setting on, a switch writes several hundred lines; Effect's SQL spans add their query text.
+
+#### The trace skill reads a trace and files its issue (2026-11-11)
+
+- **Problem:** finding a cause meant knowing where VS Code keeps each window's log, how to read span lines, and which of
+  VS Code's own logs and Aggregor's files to compare them with.
+- **Options:** shipping the skill inside the extension, for any user's agent, before 0.1.0 has users.
+- **Decision:** `.claude/skills/trace` finds the window's `Aggregor App.log`, asks for trace logging and a repro when it
+  holds no spans, reads the first failure from the span lines, checks VS Code's `renderer.log`, `exthost.log` and other
+  extensions' logs and Aggregor's stored files, and files the issue through the issue skill, with times in UTC and other
+  projects' names left out.
+- **Why:** the steps that found this bug become repeatable, and the issue arrives with its evidence.

@@ -52,8 +52,20 @@ export const SESSION_TO_REOPEN = {
   LIFETIME_MS: 60_000
 } as const;
 
-// A change to folder 0 restarts the extension host, and the update never hears back.
-export const WORKSPACE_FOLDERS_UPDATE_TIMEOUT = "5 seconds";
+// A project switch rewrites the workspace file's folders, and VS Code reloads them from it and tells the extension host;
+// a change to folder 0 restarts the extension host instead, which never hears back.
+export const WORKSPACE_FOLDERS_CHANGE = {
+  FILE_KEY: "folders",
+  TIMEOUT: "5 seconds"
+} as const;
+
+// Another writer's save in flight leaves a settings file unsaved for a moment, and VS Code reports a save as failed when
+// another writer's edit lands while it runs, so opening one saved and saving it are tried again this often, this many
+// times.
+export const SETTINGS_FILE_WRITE_RETRY = {
+  INTERVAL_MS: 250,
+  TIMES: 8
+} as const;
 
 // Extensions that work in one workspace folder and take folder 0, the anchor folder, until told otherwise, with the
 // command that tells them.

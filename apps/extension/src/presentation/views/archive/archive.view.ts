@@ -134,7 +134,7 @@ const updateWaitingCount = Effect.fn("ArchiveView.updateWaitingCount")(
         waitingCount === 0 ? ARCHIVE_VIEW_LABELS.TITLE : ARCHIVE_VIEW_LABELS.TITLE_WITH_WAITING_COUNT(waitingCount);
     });
   },
-  (effect) => Effect.ignore(effect)
+  Effect.ignore({log: "Debug", message: "Could not update the Archive view's name"})
 );
 
 // Registers the Archive tree for the lifetime of the runtime; disposing the runtime unregisters it.

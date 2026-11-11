@@ -222,6 +222,11 @@
             "idle"
           ],
           "markdownDescription": "The states a session out of view notifies about, once it has held one for 3 seconds: inside VS Code when its window is focused, else as a system notification."
+        },
+        "aggregorApp.traceLogging": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Log every step Aggregor runs, with the fields of each error it meets, even one it handles, to the **Aggregor App** output channel and its log file, whatever log level the channel is set to (unless **Off**). Turn it on to report a problem, reproduce it, and attach the log; the `trace` skill in Aggregor's repository reads it and files the issue."
         }
       }
     },

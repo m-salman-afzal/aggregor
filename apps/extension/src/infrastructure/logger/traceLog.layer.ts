@@ -1,12 +1,46 @@
-import {APP_NAME, OUTPUT_CHANNEL_LOG_METHODS} from "@pkg/constants/src/app.constant.ts";
+import {
+  APP_NAME,
+  OUTPUT_CHANNEL_LOG_METHODS,
+  SETTINGS_SECTION,
+  TRACE_LOGGING,
+  TRACE_LOGGING_SETTING_ID
+} from "@pkg/constants/src/app.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {acquireScopedDisposable} from "@pkg/vscode/src/vscode.utils.ts";
-import {Array, Cause, Effect, Exit, Layer, Logger, Match, Predicate, References, Result, Tracer} from "effect";
-import {format} from "node:util";
+import {acquireScopedDisposable, streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
+import {
+  Array,
+  Cause,
+  Effect,
+  Exit,
+  Layer,
+  Logger,
+  Match,
+  Predicate,
+  Record,
+  Ref,
+  References,
+  Result,
+  Stream,
+  String,
+  Tracer
+} from "effect";
+import {format, inspect} from "node:util";
 
-import type {LogOutputChannel} from "vscode";
+import type {LogLevel, LogOutputChannel} from "vscode";
 
-// The formatters run while a span ends, so they stay plain functions: a span of their own would end inside the tracer.
+// The VS Code log call a line goes out through.
+type OutputChannelLogMethod = (typeof OUTPUT_CHANNEL_LOG_METHODS)[keyof typeof OUTPUT_CHANNEL_LOG_METHODS];
+
+// What the trace log writes with: the output channel, the VS Code log level of each of its log calls, and whether the
+// user turned trace logging on.
+interface TraceLogDependencies {
+  readonly isTraceLoggingOn: Ref.Ref<boolean>;
+  readonly logMethodLevels: Readonly<Record<OutputChannelLogMethod, LogLevel>>;
+  readonly outputChannel: LogOutputChannel;
+}
+
+// The formatters and the line writer run while a span ends, so they stay plain functions: a span of their own would end
+// inside the tracer.
 
 // "aggregorApp.openSession > SessionController.openChosenSession > SessionService.openSession": the span's name after
 // its ancestors'.
@@ -24,11 +58,39 @@ const formatSpanPath = (span: Tracer.AnySpan): string =>
       )
   });
 
+// One line for any value: an error's name and message, anything else as Node prints it.
+// eslint-disable-next-line no-restricted-syntax -- runs while a span ends
+const formatTraceValue = (traceValue: unknown) =>
+  traceValue instanceof Error
+    ? `${traceValue.name}: ${traceValue.message}`
+    : String.replace(TRACE_LOGGING.LINE_BREAK_PATTERN, " ")(inspect(traceValue, {depth: TRACE_LOGGING.VALUE_DEPTH}));
+
+// "SettingsFileNotSavedError settingsFilePath=/home/user/.aggregor/anchor/Aggregor.code-workspace": a tagged error with
+// each of its fields, its cause too, which an error keeps out of its own keys.
+// eslint-disable-next-line no-restricted-syntax -- runs while a span ends
+const formatFailedError = (failedError: unknown) => {
+  if (!Predicate.hasProperty(failedError, "_tag")) return formatTraceValue(failedError);
+  // Effect's own errors carry a type marker key, such as "~effect/Cause/TimeoutError", which says nothing more.
+  const errorFields: Readonly<Record<string, unknown>> = Record.filter(
+    Record.remove({...failedError}, "_tag"),
+    (_fieldValue, fieldName) => !String.startsWith(TRACE_LOGGING.TYPE_MARKER_PREFIX)(fieldName)
+  );
+  const fieldsWithCause = Predicate.hasProperty(failedError, "cause")
+    ? {...errorFields, cause: failedError.cause}
+    : errorFields;
+  const fieldTexts = Array.map(
+    Record.toEntries(fieldsWithCause),
+    ([fieldName, fieldValue]) => `${fieldName}=${formatTraceValue(fieldValue)}`
+  );
+
+  return Array.join([format(failedError._tag), ...fieldTexts], " ");
+};
+
 // eslint-disable-next-line no-restricted-syntax -- runs while a span ends
 const formatFailureReason = (reason: Cause.Reason<unknown>) =>
   Match.valueTags(reason, {
-    Die: () => "defect",
-    Fail: ({error}) => (Predicate.hasProperty(error, "_tag") ? String(error._tag) : format(error)),
+    Die: ({defect}) => `defect ${formatTraceValue(defect)}`,
+    Fail: ({error}) => formatFailedError(error),
     Interrupt: () => "interrupted"
   });
 
@@ -36,8 +98,36 @@ const formatFailureReason = (reason: Cause.Reason<unknown>) =>
 const formatSpanOutcome = (exit: Exit.Exit<unknown, unknown>) =>
   Exit.isSuccess(exit) ? "ok" : `failed: ${Array.join(Array.map(exit.cause.reasons, formatFailureReason), ", ")}`;
 
-// Writes one trace-level line per finished span: its path, how long it took, and how it ended.
-const makeSpanLineTracer = Effect.fn("TraceLog.makeSpanLineTracer")(function* (outputChannel: LogOutputChannel) {
+// What the span was annotated with, such as the project a switch brings in.
+// eslint-disable-next-line no-restricted-syntax -- runs while a span ends
+const formatSpanAttributes = (span: Tracer.Span) =>
+  Array.join(
+    Array.map(
+      [...span.attributes],
+      ([attributeName, attributeValue]) => ` ${attributeName}=${formatTraceValue(attributeValue)}`
+    ),
+    ""
+  );
+
+// The line goes out at its own level, which the channel drops below the level the user picked. With trace logging on, a
+// line the channel would drop goes out again at Info, so it is written whatever that level is, unless it is Off.
+// eslint-disable-next-line no-restricted-syntax -- runs while a span ends
+const writeTraceLogLine = (
+  {isTraceLoggingOn, logMethodLevels, outputChannel}: TraceLogDependencies,
+  logMethod: OutputChannelLogMethod,
+  logLine: string
+) => {
+  outputChannel[logMethod](logLine);
+  if (!Ref.getUnsafe(isTraceLoggingOn) || outputChannel.logLevel <= logMethodLevels[logMethod]) return;
+
+  outputChannel.info(TRACE_LOGGING.FORCED_LINE(logMethod, logLine));
+};
+
+// Writes one trace-level line per finished span: its path, how long it took, how it ended, with each failure's fields,
+// and what it was annotated with.
+const makeSpanLineTracer = Effect.fn("TraceLog.makeSpanLineTracer")(function* (
+  traceLogDependencies: TraceLogDependencies
+) {
   return Tracer.make({
     span(spanOptions) {
       const span = new Tracer.NativeSpan(spanOptions);
@@ -48,7 +138,11 @@ const makeSpanLineTracer = Effect.fn("TraceLog.makeSpanLineTracer")(function* (o
         if (!span.sampled) return;
 
         const durationMilliseconds = (Number(endTime - span.startTime) / 1_000_000).toFixed(1);
-        outputChannel.trace(`${formatSpanPath(span)} ${durationMilliseconds}ms ${formatSpanOutcome(exit)}`);
+        writeTraceLogLine(
+          traceLogDependencies,
+          OUTPUT_CHANNEL_LOG_METHODS.Trace,
+          `${formatSpanPath(span)} ${durationMilliseconds}ms ${formatSpanOutcome(exit)}${formatSpanAttributes(span)}`
+        );
       };
 
       return span;
@@ -56,29 +150,68 @@ const makeSpanLineTracer = Effect.fn("TraceLog.makeSpanLineTracer")(function* (o
   });
 });
 
-// Effect's log calls, at the matching VS Code log level; the channel drops lines below the level the user picked.
+// Effect's log calls, at the matching VS Code log level; a cause leads with each failure's fields, then its stack.
 const makeOutputChannelLogger = Effect.fn("TraceLog.makeOutputChannelLogger")(function* (
-  outputChannel: LogOutputChannel
+  traceLogDependencies: TraceLogDependencies
 ) {
   return Logger.make(({cause, logLevel, message}) => {
     const messageParts: readonly unknown[] = Array.isArray(message) ? message : [message];
-    const logLine = Array.join(
-      [format(...messageParts), ...(cause.reasons.length > 0 ? [Cause.pretty(cause)] : [])],
-      "\n"
-    );
+    const causeLines =
+      cause.reasons.length > 0
+        ? [Array.join(Array.map(cause.reasons, formatFailureReason), ", "), Cause.pretty(cause)]
+        : [];
+    const logLine = Array.join([format(...messageParts), ...causeLines], "\n");
 
     // "All" and "None" are thresholds for filtering, never the level of a log call.
     if (logLevel === "All" || logLevel === "None") return;
 
-    outputChannel[OUTPUT_CHANNEL_LOG_METHODS[logLevel]](logLine);
+    writeTraceLogLine(traceLogDependencies, OUTPUT_CHANNEL_LOG_METHODS[logLevel], logLine);
   });
 });
 
+const readTraceLoggingSetting = Effect.fn("TraceLog.readTraceLoggingSetting")(function* ({
+  getConfiguration
+}: Pick<VsCodeApi["Service"], "getConfiguration">) {
+  const configuredSettings = yield* getConfiguration(SETTINGS_SECTION);
+
+  return configuredSettings.get(TRACE_LOGGING.SETTING) === true;
+});
+
+// Trace logging follows its setting while the window runs.
+const watchTraceLoggingSetting = Effect.fn("TraceLog.watchTraceLoggingSetting")(function* (
+  vsCodeApi: Pick<VsCodeApi["Service"], "getConfiguration" | "workspace">,
+  isTraceLoggingOn: Ref.Ref<boolean>
+) {
+  const configChanges = yield* streamVsCodeEvent(vsCodeApi.workspace.onDidChangeConfiguration);
+  const traceLoggingChanges = Stream.filter(configChanges, (configChange) =>
+    configChange.affectsConfiguration(TRACE_LOGGING_SETTING_ID)
+  );
+
+  yield* Stream.runForEach(traceLoggingChanges, () =>
+    Effect.flatMap(readTraceLoggingSetting(vsCodeApi), (isOn) => Ref.set(isTraceLoggingOn, isOn))
+  );
+});
+
 const makeTraceLog = Effect.fn("TraceLog.make")(function* () {
-  const {window} = yield* VsCodeApi;
+  const vsCodeApi = yield* VsCodeApi;
+  const {LogLevel, window} = vsCodeApi;
   const outputChannel = yield* acquireScopedDisposable(() => window.createOutputChannel(APP_NAME, {log: true}));
-  const outputChannelLogger = yield* makeOutputChannelLogger(outputChannel);
-  const spanLineTracer = yield* makeSpanLineTracer(outputChannel);
+  const isTraceLoggingOnAtStart = yield* readTraceLoggingSetting(vsCodeApi);
+  const isTraceLoggingOn = yield* Ref.make(isTraceLoggingOnAtStart);
+  const traceLogDependencies: TraceLogDependencies = {
+    isTraceLoggingOn,
+    logMethodLevels: {
+      debug: LogLevel.Debug,
+      error: LogLevel.Error,
+      info: LogLevel.Info,
+      trace: LogLevel.Trace,
+      warn: LogLevel.Warning
+    },
+    outputChannel
+  };
+  const outputChannelLogger = yield* makeOutputChannelLogger(traceLogDependencies);
+  const spanLineTracer = yield* makeSpanLineTracer(traceLogDependencies);
+  yield* Effect.forkScoped(watchTraceLoggingSetting(vsCodeApi, isTraceLoggingOn));
 
   return Layer.mergeAll(
     Logger.layer([outputChannelLogger]),

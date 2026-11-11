@@ -20,7 +20,8 @@ terminals, tree views, Source Control and diffs.
   anchor folder the extension owns at folder 0 and the project at folder 1, so later switches never touch folder 0,
   which would restart every extension. That first switch reloads the window once, without asking anything: its agents
   keep running, it reopens the session you switched to, and the folders that leave become added projects. The window is
-  then named Aggregor and never asks to be saved.
+  then named Aggregor and never asks to be saved. Later switches rewrite the file's folders, and the project's settings
+  with them, in one write; in the rare case VS Code confirms none of that, the window reloads once to catch up.
 - **Agents.** New Session asks which agent to start, among those whose command is on `PATH`, with your default first;
   each one's **Set as Default** button changes the default, and `aggregorApp.skipAgentPicker` starts the default without
   asking. Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot are built in. `aggregorApp.agents` in your user
@@ -50,6 +51,8 @@ terminals, tree views, Source Control and diffs.
   untested). The Sessions icon's badge counts the sessions waiting on you, and hovering it lists them; the Sessions and
   Archive names end with how many of them each view holds, as in Archive (1).
 - **AI commit messages.** A Source Control button writes the commit message for the staged diff.
+- **Trace logging.** `aggregorApp.traceLogging` writes every step Aggregor runs, with the fields of every error it
+  meets, to the **Aggregor App** output channel and its log file, to attach to a bug report.
 
 ## Roadmap
 

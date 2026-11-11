@@ -40,6 +40,9 @@ const USER_DATA_DIRECTORY_ARGUMENTS = [
 const REPOSITORY_ROOT = path.resolve(import.meta.dirname, "../../..");
 const EXTENSION_DIRECTORY = path.join(REPOSITORY_ROOT, "apps", "extension");
 const CONFIGURED_WORKSPACE = process.env.AGGREGOR_VERIFY_WORKSPACE;
+// The Aggregor App channel's log level; info shows what a user's window logs, with the traceLogging setting off.
+const CONFIGURED_LOG_LEVEL = process.env.AGGREGOR_VERIFY_LOG_LEVEL;
+const EXTENSION_LOG_LEVEL = CONFIGURED_LOG_LEVEL === undefined ? "trace" : CONFIGURED_LOG_LEVEL;
 const DEFAULT_WORKSPACE =
   CONFIGURED_WORKSPACE === undefined ? path.join(operatingSystem.homedir(), "side", "jsTester") : CONFIGURED_WORKSPACE;
 // Variables of the session the agent runs in; see createLaunchEnvironment.
@@ -53,7 +56,7 @@ const LAUNCH_SCRIPT = `
 mutter --headless --no-x11 --wayland-display="$WAYLAND_DISPLAY" --virtual-monitor 1600x1000 > "$1" 2>&1 &
 for _ in $(seq 1 50); do [ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ] && break; sleep 0.1; done
 code --ozone-platform=wayland --password-store=basic --user-data-dir "$2" --extensions-dir "$3" \\
-  --extensionDevelopmentPath="$4" --log SalmanAfzal.aggregor-app:trace --remote-debugging-port="$5" \\
+  --extensionDevelopmentPath="$4" --log "SalmanAfzal.aggregor-app:\${11}" --remote-debugging-port="$5" \\
   --disable-workspace-trust --skip-welcome --new-window "$6"
 while [ "$SECONDS" -lt "$7" ] && { [ -z "$8" ] || kill -0 "$8" 2>/dev/null; }; do sleep 5; done
 exec "\${10}" "$9" stop --watchdog
@@ -179,7 +182,8 @@ const launchVsCode = (workspacePath: string, claudeProcessId: null | number) => 
     String(MAX_LIFETIME_SECONDS),
     claudeProcessId === null ? "" : String(claudeProcessId),
     import.meta.filename,
-    process.execPath
+    process.execPath,
+    EXTENSION_LOG_LEVEL
   ];
   spawn("dbus-run-session", ["--", "bash", "-c", LAUNCH_SCRIPT, "verify-in-vscode", ...launchArguments], {
     detached: true,

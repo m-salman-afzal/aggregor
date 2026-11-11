@@ -92,13 +92,17 @@ Every command runs as a root span named by its command ID, and each `Effect.fn` 
 named `<owner>.<const>`: the owner comes from the file name (`session.service.ts` is `SessionService`'s), a helper file
 belongs to the one owner in its folder, a layer's `make<Owner>` is `<Owner>.make`, and a file with no owner gives the
 bare const name. `aggregor/span-name` (`packages/eslint/src/rules/`) checks every name, and `pnpm lint:fix` corrects it.
-Finished spans and Effect logs go to the **Aggregor App** output channel, one trace-level line per span:
-`aggregorApp.openSession > SessionController.openChosenSession > SessionService.openSession > TerminalInfraService.focusSessionTerminal 0.8ms failed: TerminalNotFoundError`.
-Work a layer starts in the background, such as a watcher, nests under that layer's `make` span. F5 starts the extension
-at trace level, with its data in `~/.aggregorDev` (`AGGREGOR_HOME` in `.vscode/launch.json`), apart from the installed
-extension's `~/.aggregor`; elsewhere, pick it with **Developer: Set Log Level...**. VS Code also writes the channel to
-`<logs>/window<n>/exthost/SalmanAfzal.aggregor-app/Aggregor App.log`, so a test run's trace can be read from disk.
-Callbacks VS Code makes per row or per spinner frame (tree items, badges, the spinner) run untraced.
+Finished spans and Effect logs go to the **Aggregor App** output channel, one trace-level line per span, with each
+failure's fields and what the span was annotated with (`Effect.annotateCurrentSpan`):
+`aggregorApp.openSession > SessionController.openChosenSession > SessionService.openSession > TerminalInfraService.focusSessionTerminal 0.8ms failed: TerminalNotFoundError sessionId=…`.
+A failure a caller handles still shows on the span that failed, so annotate a span with what its outcome depends on
+rather than logging it. Work a layer starts in the background, such as a watcher, nests under that layer's `make` span.
+F5 starts the extension at trace level, with its data in `~/.aggregorDev` (`AGGREGOR_HOME` in `.vscode/launch.json`),
+apart from the installed extension's `~/.aggregor`; elsewhere, the `aggregorApp.traceLogging` setting writes every line
+at Info, led by its own level, or pick the level with **Developer: Set Log Level...**. VS Code also writes the channel
+to `<logs>/window<n>/exthost/SalmanAfzal.aggregor-app/Aggregor App.log`, so a run's trace can be read from disk; the
+`trace` skill (`.claude/skills/trace`) reads it to find a problem's cause and files the issue. Callbacks VS Code makes
+per row or per spinner frame (tree items, badges, the spinner) run untraced.
 
 ## Dependencies
 
