@@ -1,6 +1,5 @@
 import {Effect, Schema} from "effect";
 
-// What VS Code passed a command or a view's callback is not what its menu entry or view sends.
 export class InvalidVsCodeArgumentError extends Schema.TaggedError<
   InvalidVsCodeArgumentError,
   {readonly brand: unique symbol}

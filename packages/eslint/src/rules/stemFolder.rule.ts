@@ -3,10 +3,6 @@ import {basename, dirname, relative, sep} from "node:path";
 
 import type {Rule} from "eslint";
 
-// aggregor/stem-folder: files that share their first dotted part (sessions.view.ts, sessions.view.type.ts;
-// sessionRow.tsx, sessionRow.hook.ts) sit in a folder of that name.
-
-// The folder this file belongs in, when it isn't there already.
 const getExpectedStemFolder = (filePath: string, repositoryRootPath: string) => {
   const [stem] = basename(filePath).split(".");
   if (stem === undefined) return undefined;

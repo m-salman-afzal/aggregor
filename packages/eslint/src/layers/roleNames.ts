@@ -1,4 +1,3 @@
-// Each file suffix names a role, and the file's main names carry it.
 export const ROLE_NAMES = {
   "**/*.dto.ts": [
     {format: ["PascalCase"], selector: ["typeAlias", "interface"], suffix: ["Dto"]},

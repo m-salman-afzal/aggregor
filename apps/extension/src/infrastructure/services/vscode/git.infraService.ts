@@ -14,7 +14,6 @@ import {Effect, Layer, Result, Schema} from "effect";
 import type {API, GitExtension, Repository} from "@pkg/typings/src/git.js";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
-// What the git functions share: VS Code's commands, extensions and Uri.
 type GitDependencies = Pick<VsCodeApi["Service"], "commands" | "extensions" | "Uri">;
 
 class GitRepositoryOpenFailedError extends Schema.TaggedError<
@@ -28,8 +27,7 @@ const getGitApi = Effect.fn("GitInfraService.getGitApi")(function* (gitDependenc
       GitExtensionUnavailableError.make()
     )
   );
-  // We can activate before git does (an open Sessions view activates us at startup), and git has no exports until it
-  // is active. activate() returns them, at once when git is already active.
+  // An open Sessions view can activate us before git, which has no exports until it is active; activate() returns them.
   const gitExports = yield* Effect.tryPromise({
     catch: () => GitExtensionUnavailableError.make(),
     try: () => gitExtension.activate()
@@ -115,16 +113,6 @@ const commit = Effect.fn("GitInfraService.commit")(function* (
   });
 });
 
-// Stage All finds the repository that contains the path it is given.
-const stageAll = Effect.fn("GitInfraService.stageAll")(function* (
-  gitDependencies: GitDependencies,
-  projectPath: ProjectPathValueObject
-) {
-  yield* Effect.promise(() =>
-    gitDependencies.commands.executeCommand(GIT_EXTENSION.STAGE_ALL_COMMAND, gitDependencies.Uri.file(projectPath))
-  );
-});
-
 const openAndLoadRepository = Effect.fn("GitInfraService.openAndLoadRepository")(function* (
   gitDependencies: GitDependencies,
   gitApi: API,
@@ -143,8 +131,7 @@ const openAndLoadRepository = Effect.fn("GitInfraService.openAndLoadRepository")
   });
 });
 
-// Opens the project's repository and waits for its first status, so Source Control can show its changes at once. One
-// already open, or inside an open one, is left alone.
+// Waits for the repository's first status, so Source Control can show its changes at once.
 const openInSourceControl = Effect.fn("GitInfraService.openInSourceControl")(
   function* (gitDependencies: GitDependencies, projectPath: ProjectPathValueObject) {
     const gitApi = yield* getGitApi(gitDependencies);
@@ -164,8 +151,7 @@ const makeGitInfraService = Effect.fn("GitInfraService.make")(function* () {
     getStagedDiff: (projectPath: ProjectPathValueObject) => getStagedDiff(gitDependencies, projectPath),
     openInSourceControl: (projectPath: ProjectPathValueObject) => openInSourceControl(gitDependencies, projectPath),
     setCommitMessageInput: (projectPath: ProjectPathValueObject, commitMessage: string) =>
-      setCommitMessageInput(gitDependencies, projectPath, commitMessage),
-    stageAll: (projectPath: ProjectPathValueObject) => stageAll(gitDependencies, projectPath)
+      setCommitMessageInput(gitDependencies, projectPath, commitMessage)
   };
 });
 

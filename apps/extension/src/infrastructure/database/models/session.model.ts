@@ -4,8 +4,7 @@ import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
 import {SESSION_LIFECYCLES} from "@valueObjects/sessionLifecycle.valueObject.ts";
 import {integer, sqliteTable, text} from "drizzle-orm/sqlite-core";
 
-// aggregor-pty (apps/pty) alone writes the status and title columns and agentSessionId, from the agent's OSC 7501
-// reports and window title; the extension writes the rest.
+// aggregor-pty alone writes the status and title columns and agentSessionId; the extension writes the rest.
 export const SessionTableModel = sqliteTable("sessions", {
   ...BASE_COLUMNS,
   agentId: text().notNull(),

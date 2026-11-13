@@ -10,12 +10,6 @@ import {basename} from "node:path";
 
 import type {Rule} from "eslint";
 
-// aggregor/building-block: a component, hook, context, provider, store, layout, use case or icon file holds that one
-// block, exported by name as its file's name says (sessionRow.tsx exports SessionRow, sessionRow.hook.ts useSessionRow),
-// takes its input as one `props: <Block>Props`, and holds nothing but the block and that type: helpers, constants and
-// other types go to sibling files (the folder-structure skill's "One building block per file"). A store also keeps its
-// state and the functions that change it.
-
 interface BlockFile {
   readonly expectedName: string;
   readonly fileName: string;
@@ -52,7 +46,6 @@ const IMPORT_STATEMENTS = new Set(["ImportDeclaration", "TSImportEqualsDeclarati
 const PASCAL_CASE_NAME = /^[A-Z][\dA-Za-z]*$/u;
 const HOOK_NAME = /^use[A-Z]/u;
 const PROPS_PARAMETER_NAME = "props";
-// What a block's name adds to its file's stem: use and Store for a store, Context for a context, and so on.
 const BLOCK_NAME_AFFIXES = /^use(?=[A-Z])|(?:Context|Icon|Layout|Provider|Store)$/gu;
 
 const isTopLevelNode = (value: unknown): value is TopLevelNode =>
@@ -90,7 +83,6 @@ const getDeclaredNames = (declaration: TopLevelNode) => {
   return declaration.id === undefined || declaration.id === null ? [] : [declaration.id.name];
 };
 
-// The names an export statement exports, each a value or a type.
 const listExports = (statement: TopLevelNode): ExportedName[] => {
   const declaration = statement.declaration;
   if (declaration !== undefined && declaration !== null) {
@@ -111,7 +103,6 @@ const listExports = (statement: TopLevelNode): ExportedName[] => {
   );
 };
 
-// A top-level function named like another block of the file's role: a second component, or a second hook.
 const isSecondBlockName = (name: string, blockFile: BlockFile) =>
   name !== blockFile.expectedName &&
   (RENDERING_ROLES.has(blockFile.role) ? PASCAL_CASE_NAME.test(name) : HOOK_NAME.test(name));
@@ -135,7 +126,6 @@ const listFunctionNames = (statement: TopLevelNode) => {
   );
 };
 
-// Where a second block of the role goes: its own file of the same role.
 const suggestFileName = (blockName: string, role: string) => {
   const stemName = blockName.replaceAll(BLOCK_NAME_AFFIXES, "");
   const stem = `${stemName.charAt(0).toLowerCase()}${stemName.slice(1)}`;
@@ -179,7 +169,6 @@ const findSecondBlockReports = (statements: readonly TopLevelNode[], blockFile: 
     .filter((name) => isSecondBlockName(name, blockFile))
     .map((name) => ({data: {name, suggestion: suggestFileName(name, blockFile.role)}, messageId: "secondBlock"}));
 
-// The sibling file a declaration that isn't the block belongs in, by what it is.
 const suggestSiblingFile = (declaration: TopLevelNode, blockFile: BlockFile) => {
   if (TYPE_DECLARATIONS.has(declaration.type)) return `${blockFile.stem}.type.ts`;
   if (listFunctionNames(declaration).length > 0) return `${blockFile.stem}.utils.ts`;
@@ -187,8 +176,6 @@ const suggestSiblingFile = (declaration: TopLevelNode, blockFile: BlockFile) => 
   return `${blockFile.stem}.constant.ts`;
 };
 
-// What sits in the file beside the block and its Props type. A store keeps its state and the functions that change it,
-// so only its other types are reported there; exported names and second blocks have reports of their own.
 const findExtraDeclarationReports = (statements: readonly TopLevelNode[], blockFile: BlockFile): BlockReport[] =>
   statements
     .filter((statement) => !IMPORT_STATEMENTS.has(statement.type) && statement.type !== "ExportNamedDeclaration")
@@ -225,7 +212,6 @@ const findBlockFunction = (statements: readonly TopLevelNode[], blockFile: Block
     })
     .at(0);
 
-// A block takes nothing, or one `props` typed with its own Props type.
 const findPropertiesReports = (statements: readonly TopLevelNode[], blockFile: BlockFile): BlockReport[] => {
   const blockFunction = findBlockFunction(statements, blockFile);
   if (blockFunction === undefined || blockFunction.params === undefined || blockFunction.params.length === 0) return [];

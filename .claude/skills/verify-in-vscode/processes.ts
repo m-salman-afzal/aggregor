@@ -1,4 +1,3 @@
-// Reads the Linux process table under /proc, for vscode.ts.
 import fileSystem from "node:fs";
 
 interface ProcessParent {
@@ -24,14 +23,12 @@ const readParentProcessId = (processId: number) => {
   return Number(parentProcessId);
 };
 
-// The process itself, then its parent and so on up to init; a process that has exited ends the chain.
 const listAncestorProcessIds = (processId: number): readonly number[] =>
   processId > 1 ? [processId, ...listAncestorProcessIds(readParentProcessId(processId))] : [];
 
 export const isClaudeProcess = (processId: number) => readProcessFile(processId, "comm").trim() === "claude";
 
-// The Claude Code process this script runs under: the Bash tool exports CLAUDE_PID; hooks find it among their
-// ancestors.
+// The Bash tool exports CLAUDE_PID; hooks find the Claude Code process among their ancestors.
 export const findClaudeProcessId = () => {
   const exportedProcessId = Number(process.env.CLAUDE_PID);
   if (exportedProcessId > 0 && isClaudeProcess(exportedProcessId)) return exportedProcessId;
@@ -56,7 +53,7 @@ const addDescendantProcessIds = (
   );
 };
 
-// The matching processes and everything below them; never this script or the processes it runs under.
+// Never this script or the processes it runs under.
 export const findProcessTree = (isRootProcess: (processId: number) => boolean) => {
   const ownAncestorProcessIds = new Set(listAncestorProcessIds(process.pid));
   const processIds = fileSystem

@@ -21,8 +21,6 @@ import type {SessionTabCommand} from "@interfaces/terminal.infraService.interfac
 import type {SessionTabCommandRequest} from "@interfaces/tmux.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 
-// What the tmux functions share: how to run tmux, what an agent runs under (aggregor-pty, when this build has it, and
-// the database it writes to), and the sessions tmux was last seen running.
 interface TmuxDependencies {
   readonly childProcessSpawner: ChildProcessSpawner["Service"];
   readonly databaseFilePath: string;
@@ -33,7 +31,6 @@ interface TmuxDependencies {
   readonly window: VsCodeApi["Service"]["window"];
 }
 
-// tmux doesn't list the session's tmux session yet.
 class SessionAgentNotListedError extends Schema.TaggedError<
   SessionAgentNotListedError,
   {readonly brand: unique symbol}
@@ -48,7 +45,7 @@ const runTmuxCommand = Effect.fn("TmuxInfraService.runTmuxCommand")(function* (
   );
 });
 
-// The version tmux reports. A build without a version number, such as "tmux master", is taken as new enough.
+// A build without a version number, such as "tmux master", is taken as new enough.
 const checkTmuxVersion = Effect.fn("TmuxInfraService.checkTmuxVersion")(function* (
   childProcessSpawner: ChildProcessSpawner["Service"]
 ) {
@@ -96,7 +93,7 @@ const refreshRunningSessionIds = Effect.fn("TmuxInfraService.refreshRunningSessi
   );
 });
 
-// -A attaches to the session's tmux session when it runs, and otherwise starts it with the agent's variables.
+// -A attaches to the session's tmux session when it runs, and otherwise starts it.
 const prepareTmuxArguments = Effect.fn("TmuxInfraService.prepareTmuxArguments")(function* (
   tmuxDependencies: TmuxDependencies,
   sessionTabCommandRequest: SessionTabCommandRequest
@@ -123,7 +120,6 @@ const prepareTmuxArguments = Effect.fn("TmuxInfraService.prepareTmuxArguments")(
   ];
 });
 
-// aggregor-pty runs the agent and records its status on the session's row.
 const preparePtyArguments = Effect.fn("TmuxInfraService.preparePtyArguments")(function* (
   tmuxDependencies: TmuxDependencies,
   ptyBinaryPath: string,
@@ -142,8 +138,7 @@ const preparePtyArguments = Effect.fn("TmuxInfraService.preparePtyArguments")(fu
   ];
 });
 
-// The tab runs tmux itself, so it is attached from the moment the agent starts: tmux answers an agent's question about
-// the terminal's colours only through an attached client.
+// The tab runs tmux itself: tmux answers an agent's query about the terminal's colours only through an attached client.
 const prepareSessionTabCommand = Effect.fn("TmuxInfraService.prepareSessionTabCommand")(function* (
   tmuxDependencies: TmuxDependencies,
   sessionTabCommandRequest: SessionTabCommandRequest
@@ -172,7 +167,7 @@ const confirmSessionAgentListed = Effect.fn("TmuxInfraService.confirmSessionAgen
   return runningSessionIds;
 });
 
-// The tab starts the session's tmux session a moment after it opens. One that never shows up has its tab say why.
+// The tab starts the session's tmux session a moment after it opens.
 const waitForSessionAgentStart = Effect.fn("TmuxInfraService.waitForSessionAgentStart")(
   function* (tmuxDependencies: TmuxDependencies, sessionId: EntityIdValueObject) {
     yield* Effect.retry(confirmSessionAgentListed(tmuxDependencies, sessionId), {
@@ -208,7 +203,7 @@ const stopSessionAgent = Effect.fn("TmuxInfraService.stopSessionAgent")(function
   );
 });
 
-// Compares each set of running agents with the one before; the first set counts every agent as started.
+// The first set counts every agent as started.
 const watchStartedOrStoppedSessionIds = Effect.fn("TmuxInfraService.watchStartedOrStoppedSessionIds")(function* (
   runningSessionIds: TmuxDependencies["runningSessionIds"]
 ) {
@@ -226,8 +221,7 @@ const watchStartedOrStoppedSessionIds = Effect.fn("TmuxInfraService.watchStarted
   );
 });
 
-// An agent can end, or tmux be killed, while the window is away, so coming back reads tmux's list again. A terminal
-// closing does too: a tab whose tmux session ended closes with it.
+// An agent can end, or tmux be killed, while the window is away; a tab whose tmux session ended closes with it.
 const watchTmuxChangeHints = Effect.fn("TmuxInfraService.watchTmuxChangeHints")(function* (
   tmuxDependencies: TmuxDependencies
 ) {
@@ -243,8 +237,7 @@ const watchTmuxChangeHints = Effect.fn("TmuxInfraService.watchTmuxChangeHints")(
   );
 });
 
-// Linux and macOS VSIXs carry aggregor-pty; Windows ones do not. A failed check counts as missing, so the user hears why
-// no session starts.
+// Windows VSIXs carry no aggregor-pty; a failed check counts as missing, so the user hears why no session starts.
 const findPtyBinaryPath = Effect.fn("TmuxInfraService.findPtyBinaryPath")(function* (ptyBinaryPath: string) {
   const fileSystem = yield* FileSystem;
   const isPtyBinaryFound = yield* Effect.orElseSucceed(fileSystem.exists(ptyBinaryPath), () => false);

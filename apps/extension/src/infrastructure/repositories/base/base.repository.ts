@@ -141,8 +141,7 @@ const softDeleteRow = Effect.fn("BaseRepository.softDeleteRow")(
   Effect.mapError((cause) => DatabaseWriteError.make({cause}))
 );
 
-// One statement, which reads the highest sortId once, so the rows take the sortIds after it in the order given; the
-// change feed then reads them as placed.
+// One statement reads the highest sortId once, so the rows take the sortIds after it in the order given.
 const placeRowsAtEnd = Effect.fn("BaseRepository.placeRowsAtEnd")(
   function* <Entity>(repositoryTable: RepositoryTable<Entity>, entityIds: readonly EntityIdValueObject[]) {
     if (!Array.isReadonlyArrayNonEmpty(entityIds)) return;

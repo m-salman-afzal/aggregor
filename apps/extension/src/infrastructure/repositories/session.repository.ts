@@ -14,7 +14,6 @@ const sessionProjectJoin = {
   joinedTable: ProjectTableModel
 };
 
-// Sessions with their project's path.
 const makeSessionRepository = Effect.fn("SessionRepository.make")(function* () {
   return yield* makeBaseRepository<SessionEntity, AddSessionRequest>({
     entitySchema: SessionEntity,

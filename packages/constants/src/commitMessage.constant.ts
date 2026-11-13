@@ -8,12 +8,7 @@ export const COMMIT_MESSAGE_CONTEXT_KEYS = {
 } as const;
 
 export const COMMIT_MESSAGE_LABELS = {
-  GENERATING: "Generating commit message...",
-  STAGE_ALL: "Stage All & Generate"
-} as const;
-
-export const COMMIT_MESSAGE_NOTICES = {
-  NOTHING_STAGED: "Nothing is staged."
+  GENERATING: "Generating commit message..."
 } as const;
 
 export const COMMIT_MESSAGE_ERRORS = {
@@ -26,6 +21,6 @@ export const COMMIT_MESSAGE_ERRORS = {
   GIT_EXTENSION_UNAVAILABLE: "The built-in Git extension was not found.",
   GIT_REPOSITORY_UNAVAILABLE: "No Git repository found for this source control.",
   INVALID_SETTINGS: (reason: string) => `Invalid settings: ${reason}`,
-  NOTHING_STAGED: "Nothing is staged, even after staging everything.",
+  NOTHING_STAGED: "Nothing is staged. Stage the changes to commit in Source Control, then generate the message.",
   SOURCE_CONTROL_ROOT_NOT_FOUND: "This source control has no root folder."
 } as const;

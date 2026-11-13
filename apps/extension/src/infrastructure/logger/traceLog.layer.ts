@@ -28,22 +28,17 @@ import {format, inspect} from "node:util";
 
 import type {LogLevel, LogOutputChannel} from "vscode";
 
-// The VS Code log call a line goes out through.
 type OutputChannelLogMethod = (typeof OUTPUT_CHANNEL_LOG_METHODS)[keyof typeof OUTPUT_CHANNEL_LOG_METHODS];
 
-// What the trace log writes with: the output channel, the VS Code log level of each of its log calls, and whether the
-// user turned trace logging on.
 interface TraceLogDependencies {
   readonly isTraceLoggingOn: Ref.Ref<boolean>;
   readonly logMethodLevels: Readonly<Record<OutputChannelLogMethod, LogLevel>>;
   readonly outputChannel: LogOutputChannel;
 }
 
-// The formatters and the line writer run while a span ends, so they stay plain functions: a span of their own would end
-// inside the tracer.
+// The formatters run while a span ends, so they stay plain functions: a span of their own would end inside the tracer.
 
-// "aggregorApp.openSession > SessionController.openChosenSession > SessionService.openSession": the span's name after
-// its ancestors'.
+// "aggregorApp.openSession > SessionController.openChosenSession": the span's name after its ancestors'.
 // eslint-disable-next-line no-restricted-syntax -- runs while a span ends
 const formatSpanPath = (span: Tracer.AnySpan): string =>
   Match.valueTags(span, {
@@ -65,8 +60,7 @@ const formatTraceValue = (traceValue: unknown) =>
     ? `${traceValue.name}: ${traceValue.message}`
     : String.replace(TRACE_LOGGING.LINE_BREAK_PATTERN, " ")(inspect(traceValue, {depth: TRACE_LOGGING.VALUE_DEPTH}));
 
-// "SettingsFileNotSavedError settingsFilePath=/home/user/.aggregor/anchor/Aggregor.code-workspace": a tagged error with
-// each of its fields, its cause too, which an error keeps out of its own keys.
+// "SettingsFileNotSavedError settingsFilePath=…": each field, and the cause, which an error keeps out of its own keys.
 // eslint-disable-next-line no-restricted-syntax -- runs while a span ends
 const formatFailedError = (failedError: unknown) => {
   if (!Predicate.hasProperty(failedError, "_tag")) return formatTraceValue(failedError);
@@ -109,8 +103,7 @@ const formatSpanAttributes = (span: Tracer.Span) =>
     ""
   );
 
-// The line goes out at its own level, which the channel drops below the level the user picked. With trace logging on, a
-// line the channel would drop goes out again at Info, so it is written whatever that level is, unless it is Off.
+// With trace logging on, a line the channel would drop for its level goes out again at Info, unless the level is Off.
 // eslint-disable-next-line no-restricted-syntax -- runs while a span ends
 const writeTraceLogLine = (
   traceLogDependencies: TraceLogDependencies,
@@ -127,8 +120,6 @@ const writeTraceLogLine = (
   traceLogDependencies.outputChannel.info(TRACE_LOGGING.FORCED_LINE(logMethod, logLine));
 };
 
-// Writes one trace-level line per finished span: its path, how long it took, how it ended, with each failure's fields,
-// and what it was annotated with.
 const makeSpanLineTracer = Effect.fn("TraceLog.makeSpanLineTracer")(function* (
   traceLogDependencies: TraceLogDependencies
 ) {
@@ -154,7 +145,6 @@ const makeSpanLineTracer = Effect.fn("TraceLog.makeSpanLineTracer")(function* (
   });
 });
 
-// Effect's log calls, at the matching VS Code log level; a cause leads with each failure's fields, then its stack.
 const makeOutputChannelLogger = Effect.fn("TraceLog.makeOutputChannelLogger")(function* (
   traceLogDependencies: TraceLogDependencies
 ) {
@@ -181,7 +171,6 @@ const readTraceLoggingSetting = Effect.fn("TraceLog.readTraceLoggingSetting")(fu
   return configuredSettings.get(TRACE_LOGGING.SETTING) === true;
 });
 
-// Trace logging follows its setting while the window runs.
 const watchTraceLoggingSetting = Effect.fn("TraceLog.watchTraceLoggingSetting")(function* (
   vsCodeApi: Pick<VsCodeApi["Service"], "getConfiguration" | "workspace">,
   isTraceLoggingOn: Ref.Ref<boolean>
@@ -225,5 +214,4 @@ const makeTraceLog = Effect.fn("TraceLog.make")(function* () {
   );
 });
 
-// Spans and logs go to the "Aggregor App" output channel, which VS Code also writes to a log file on disk.
 export const TraceLogLayer = Layer.unwrap(makeTraceLog());

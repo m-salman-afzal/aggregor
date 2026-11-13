@@ -1,9 +1,4 @@
 import {
-  makeArchiveQuestion,
-  makeArchiveSessionsQuestion,
-  makeStopAgentsQuestion
-} from "@applicationUtils/sessionQuestion.utils.ts";
-import {
   getDefaultSessionName,
   getSessionStatus,
   getSessionTitleToSave,
@@ -16,19 +11,14 @@ import {
   canMoveUpInOrder,
   findEntityIdsToPlaceAtEnd
 } from "@domainServices/sortOrder.domainService.ts";
-import {AgentListItemDtoSchema} from "@dtos/agent.dto.ts";
-import {SessionListChangeDtoSchema, SessionListItemDtoSchema} from "@dtos/session.dto.ts";
-import {AgentNotFoundError, IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
+import {ProjectSessionsDtoSchema, SessionListChangeDtoSchema, SessionListItemDtoSchema} from "@dtos/session.dto.ts";
+import {IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
-import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
-import {IShellCommandInfraService} from "@interfaces/shellCommand.infraService.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
-import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import {AGENT_LABELS, AGENT_PICK_TAGS} from "@pkg/constants/src/agent.constant.ts";
-import {SESSION_LABELS, SESSION_NOTICES} from "@pkg/constants/src/session.constant.ts";
+import {findAgentToStart} from "@services/agent.service.ts";
 import {
   addEntity,
   findEntities,
@@ -37,13 +27,12 @@ import {
   removeEntity,
   updateEntity
 } from "@services/base.service.ts";
-import {findOrAddProject, findProjectListItem, listProjects, pickProject} from "@services/project.service.ts";
-import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
+import {findOrAddProject, findProjectListItem, listProjects} from "@services/project.service.ts";
 import {ENTITY_CHANGE_KINDS} from "@valueObjects/entityChangeKind.valueObject.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {SESSION_LIFECYCLES} from "@valueObjects/sessionLifecycle.valueObject.ts";
 import {SESSION_STATUSES} from "@valueObjects/sessionStatus.valueObject.ts";
-import {Array, DateTime, Effect, Match, Predicate, Result, Schema, Stream, String, SubscriptionRef} from "effect";
+import {Array, DateTime, Effect, Predicate, Result, Schema, Stream, String, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
@@ -51,10 +40,8 @@ import type {
   ArchiveProjectSessionsRequestDto,
   ArchiveSessionRequestDto,
   GetSessionListItemRequestDto,
-  ListArchivedProjectSessionIdsRequestDto,
-  ListProjectSessionIdsRequestDto,
+  ListProjectSessionsRequestDto,
   MoveSessionDownRequestDto,
-  MoveSessionToPlaceOfRequestDto,
   MoveSessionUpRequestDto,
   NewSessionRequestDto,
   OpenSessionRequestDto,
@@ -69,25 +56,14 @@ import type {
 import type {AgentEntity} from "@entities/agent/agent.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
-import type {QuestionRequest} from "@interfaces/userInputPrompt.infraService.interface.ts";
-import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {SessionLifecycleValueObject} from "@valueObjects/sessionLifecycle.valueObject.ts";
-
-// None of the agents' commands is on PATH.
-export class NoAgentInstalledError extends Schema.TaggedError<NoAgentInstalledError, {readonly brand: unique symbol}>()(
-  "NoAgentInstalledError",
-  {searchedCommands: Schema.Array(Schema.String)}
-) {}
 
 export class SessionNotFoundError extends Schema.TaggedError<SessionNotFoundError, {readonly brand: unique symbol}>()(
   "SessionNotFoundError",
   {sessionId: EntityIdValueObjectSchema}
 ) {}
-
-// The session use cases: starting, opening, renaming, moving, archiving and removing a session, stopping agents, the
-// lists the Sessions and Archive views show, and the work that keeps each session's name and viewedAt current.
 
 export const findSession = Effect.fn("SessionService.findSession")(
   function* (sessionId: EntityIdValueObject) {
@@ -116,8 +92,6 @@ const findSessionAgent = Effect.fn("SessionService.findSessionAgent")(function* 
   return yield* IAgentRepository.use((agentRepository) => agentRepository.findById(session.agentId));
 });
 
-// The tab attaches to the agent's tmux session, or starts the agent in one when it isn't running, and shows the
-// session's name, as its row does.
 const openSessionTab = Effect.fn("SessionService.openSessionTab")(function* (session: SessionEntity) {
   const tmuxInfraService = yield* ITmuxInfraService;
   const sessionAgent = yield* findSessionAgent(session);
@@ -149,120 +123,10 @@ const launchNewSession = Effect.fn("SessionService.launchNewSession")(
     )
 );
 
-// The agents whose command is on PATH; the others can't start.
-const listInstalledAgents = Effect.fn("SessionService.listInstalledAgents")(function* () {
-  const agents = yield* IAgentRepository.use((agentRepository) => agentRepository.findAll);
-  const agentCommands = Array.map(agents, (agent) => agent.command);
-  const installedCommands = yield* IShellCommandInfraService.use((shellCommandInfraService) =>
-    shellCommandInfraService.listInstalledCommands(agentCommands)
-  );
-  const installedAgents = Array.filter(agents, (agent) => installedCommands.has(agent.command));
-  if (installedAgents.length === 0) return yield* NoAgentInstalledError.make({searchedCommands: agentCommands});
-
-  return installedAgents;
-});
-
-// The default first, as the picker shows them.
-const toAgentListItems = Effect.fn("SessionService.toAgentListItems")(function* (
-  installedAgents: readonly AgentEntity[],
-  defaultAgentId: AgentIdValueObject
-) {
-  const agentListItems = Array.map(installedAgents, (installedAgent) =>
-    AgentListItemDtoSchema.make({
-      agentId: installedAgent.id,
-      command: installedAgent.command,
-      icon: installedAgent.icon,
-      isDefault: installedAgent.id === defaultAgentId,
-      name: installedAgent.name
-    })
-  );
-
-  return [
-    ...Array.filter(agentListItems, (agentListItem) => agentListItem.isDefault),
-    ...Array.filter(agentListItems, (agentListItem) => !agentListItem.isDefault)
-  ];
-});
-
-const findInstalledAgent = Effect.fn("SessionService.findInstalledAgent")(function* (
-  installedAgents: readonly AgentEntity[],
-  agentId: AgentIdValueObject
-) {
-  return yield* Effect.fromResult(
-    Result.fromOption(
-      Array.findFirst(installedAgents, (installedAgent) => installedAgent.id === agentId),
-      () => AgentNotFoundError.make({agentId})
-    )
-  );
-});
-
-// Choosing another default saves it to the user's settings and shows the list again, reordered.
-const pickAgent = Effect.fn("SessionService.pickAgent")(function* (
-  installedAgents: readonly AgentEntity[],
-  savedDefaultAgentId: AgentIdValueObject
-) {
-  let defaultAgentId = savedDefaultAgentId;
-  for (;;) {
-    const agentListItems = yield* toAgentListItems(installedAgents, defaultAgentId);
-    const agentPick = yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
-      userInputPromptInfraService.pickAgent(agentListItems, AGENT_LABELS.PICK)
-    );
-    const pickedAgent = yield* Match.valueTags(agentPick, {
-      [AGENT_PICK_TAGS.AGENT_PICKED]: (agentPicked) => findInstalledAgent(installedAgents, agentPicked.agentId),
-      [AGENT_PICK_TAGS.DEFAULT_AGENT_CHOSEN]: (defaultAgentChosen) =>
-        Effect.as(
-          ISettingsConfig.use((settingsConfig) => settingsConfig.saveDefaultAgentId(defaultAgentChosen.agentId)),
-          undefined
-        )
-    });
-    if (pickedAgent !== undefined) return pickedAgent;
-    defaultAgentId = agentPick.agentId;
-  }
-});
-
-// The only installed agent starts straight away, and so does the default when the user asked to skip the picker. A
-// default that isn't installed leaves the choice to the picker.
-const chooseAgent = Effect.fn("SessionService.chooseAgent")(function* () {
-  const sessionSettings = yield* ISettingsConfig.use((settingsConfig) => settingsConfig.readSessionSettings);
-  const installedAgents = yield* listInstalledAgents();
-  const [onlyInstalledAgent] = installedAgents;
-  if (installedAgents.length === 1 && onlyInstalledAgent !== undefined) return onlyInstalledAgent;
-  const defaultAgentResult = yield* Effect.result(findInstalledAgent(installedAgents, sessionSettings.defaultAgentId));
-  if (sessionSettings.skipAgentPicker && Result.isSuccess(defaultAgentResult)) return defaultAgentResult.success;
-
-  return yield* pickAgent(installedAgents, sessionSettings.defaultAgentId);
-});
-
-// The project first, then the agent.
-const startSession = Effect.fn("SessionService.startSession")(function* (
-  chosenProjectPath: ProjectPathValueObject | undefined
-) {
-  const sessionProject =
-    chosenProjectPath === undefined
-      ? yield* pickProject(SESSION_LABELS.PICK_PROJECT)
-      : yield* findProjectListItem(chosenProjectPath);
-  const sessionAgent = yield* chooseAgent();
-
-  const addedSession = yield* addSession(sessionProject, sessionAgent);
-  yield* launchNewSession(addedSession);
-});
-
-// A session without a tab in this window gets one, attached to its agent when tmux still runs it, else starting it
-// again.
 const reopenSession = Effect.fn("SessionService.reopenSession")(function* (sessionId: EntityIdValueObject) {
   const session = yield* findSession(sessionId);
 
   yield* openSessionTab(session);
-});
-
-const confirmRunningSessionRemoval = Effect.fn("SessionService.confirmRunningSessionRemoval")(function* (
-  session: SessionEntity
-) {
-  yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
-    userInputPromptInfraService.askQuestion({
-      answers: [{consequence: SESSION_NOTICES.REMOVE_STOPPING_AGENT, label: SESSION_LABELS.CONFIRM_REMOVE}],
-      question: SESSION_NOTICES.CONFIRM_REMOVE_RUNNING(session.displayName)
-    })
-  );
 });
 
 // A tab that closed meanwhile has nothing left to close.
@@ -281,69 +145,24 @@ const stopAgentAndCloseTab = Effect.fn("SessionService.stopAgentAndCloseTab")(fu
   yield* closeSessionTab(sessionId);
 });
 
-// Confirm while the agent runs, then forget the session, then end its tmux session and close its tab, so a failed write
-// never kills the agent for nothing.
+// The session is forgotten before its agent stops, so a failed write never kills the agent for nothing.
 const removeSessionAndStopAgent = Effect.fn("SessionService.removeSessionAndStopAgent")(function* (
   session: SessionEntity
 ) {
-  const runningSessionIds = yield* ITmuxInfraService.use(
-    (tmuxInfraService) => tmuxInfraService.refreshRunningSessionIds
-  );
-  if (runningSessionIds.has(session.id)) yield* confirmRunningSessionRemoval(session);
-
   yield* removeEntity(ISessionRepository, session.id);
   yield* stopAgentAndCloseTab(session.id);
 });
 
-// The sessions whose agent tmux runs now, and those of them in the middle of a turn: working, or waiting on a
-// permission, a question or a sign-in.
-const findRunningAgentSessions = Effect.fn("SessionService.findRunningAgentSessions")(function* (
-  sessions: readonly SessionEntity[]
-) {
+const stopRunningAgents = Effect.fn("SessionService.stopRunningAgents")(function* (sessions: readonly SessionEntity[]) {
   const runningSessionIds = yield* ITmuxInfraService.use(
     (tmuxInfraService) => tmuxInfraService.refreshRunningSessionIds
   );
   const runningAgentSessions = Array.filter(sessions, (session) => runningSessionIds.has(session.id));
-  const turnRunningSessions = yield* Effect.filter(runningAgentSessions, (runningAgentSession) =>
-    Effect.flatMap(getSessionStatus(runningAgentSession, {isAgentRunning: true, isInView: false}), isSessionTurnRunning)
-  );
 
-  return {runningAgentSessions, turnRunningSessions};
+  yield* Effect.forEach(runningAgentSessions, (runningAgentSession) => stopAgentAndCloseTab(runningAgentSession.id));
 });
 
-// Asks each time, saying how many agents stop and how many of them are cut short mid-turn; with none running, there is
-// nothing to ask.
-const stopRunningAgentsAsking = Effect.fn("SessionService.stopRunningAgentsAsking")(function* (
-  sessions: readonly SessionEntity[]
-) {
-  const runningAgents = yield* findRunningAgentSessions(sessions);
-  if (!Array.isReadonlyArrayNonEmpty(runningAgents.runningAgentSessions)) return;
-  const stopAgentsQuestion = yield* makeStopAgentsQuestion(
-    Array.map(runningAgents.runningAgentSessions, (runningAgentSession) => runningAgentSession.displayName),
-    runningAgents.turnRunningSessions.length
-  );
-
-  yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
-    userInputPromptInfraService.askQuestion(stopAgentsQuestion)
-  );
-  yield* Effect.forEach(runningAgents.runningAgentSessions, (runningAgentSession) =>
-    stopAgentAndCloseTab(runningAgentSession.id)
-  );
-});
-
-// True when the user chooses to stop the agents.
-const askToStopAgentsOnArchive = Effect.fn("SessionService.askToStopAgentsOnArchive")(function* (
-  archiveQuestion: QuestionRequest
-) {
-  const pickedAnswer = yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
-    userInputPromptInfraService.askQuestion(archiveQuestion)
-  );
-
-  return pickedAnswer === SESSION_LABELS.STOP_AGENT || pickedAnswer === SESSION_LABELS.STOP_AGENTS;
-});
-
-// The sessions go to the end of the order, in the order given, so they land last among their project's sessions in
-// their new view, and the change feed reads them as placed, which redraws their projects in both views.
+// Placing them at the end makes the change feed read them as placed, which redraws their projects in both views.
 const moveSessionsToLifecycle = Effect.fn("SessionService.moveSessionsToLifecycle")(function* (
   sessionIds: readonly EntityIdValueObject[],
   lifecycle: SessionLifecycleValueObject
@@ -352,77 +171,27 @@ const moveSessionsToLifecycle = Effect.fn("SessionService.moveSessionsToLifecycl
   yield* placeEntitiesAtEnd(ISessionRepository, sessionIds);
 });
 
-// Archived first, then the chosen agents stop, so a failed write never stops one for nothing. Every tab closes; a kept
-// agent runs on in tmux and finishes its turn.
-const archiveSessionsStoppingAgents = Effect.fn("SessionService.archiveSessionsStoppingAgents")(function* (
-  sessionIds: readonly EntityIdValueObject[],
-  agentSessionIdsToStop: readonly EntityIdValueObject[]
+// Each agent runs on in tmux and finishes its turn; only its tab closes.
+const archiveSessionsKeepingAgents = Effect.fn("SessionService.archiveSessionsKeepingAgents")(function* (
+  sessions: readonly SessionEntity[]
 ) {
+  const sessionIds = Array.map(sessions, (session) => session.id);
   yield* moveSessionsToLifecycle(sessionIds, SESSION_LIFECYCLES.ARCHIVED);
-  yield* Effect.forEach(agentSessionIdsToStop, (agentSessionId) =>
-    ITmuxInfraService.use((tmuxInfraService) => tmuxInfraService.stopSessionAgent(agentSessionId))
-  );
   yield* Effect.forEach(sessionIds, (sessionId) => closeSessionTab(sessionId));
 });
 
-// A running agent asks whether to keep it; with none running, it asks nothing.
-const archiveSessionAskingAboutAgent = Effect.fn("SessionService.archiveSessionAskingAboutAgent")(function* (
-  session: SessionEntity
-) {
-  const runningAgents = yield* findRunningAgentSessions([session]);
-  if (runningAgents.runningAgentSessions.length === 0) {
-    yield* archiveSessionsStoppingAgents([session.id], []);
-
-    return;
-  }
-  const archiveQuestion = yield* makeArchiveQuestion(session.displayName, runningAgents.turnRunningSessions.length);
-  const shouldStopAgent = yield* askToStopAgentsOnArchive(archiveQuestion);
-
-  yield* archiveSessionsStoppingAgents([session.id], shouldStopAgent ? [session.id] : []);
-});
-
-// One question for them all, every time, so every running agent is kept or stopped alike. A lone session archives as its
-// row's Archive does.
-const archiveSessionsAskingAboutAgents = Effect.fn("SessionService.archiveSessionsAskingAboutAgents")(function* (
-  sessions: readonly SessionEntity[]
-) {
-  const [firstSession, ...otherSessions] = sessions;
-  if (firstSession === undefined) return;
-  if (otherSessions.length === 0) {
-    yield* archiveSessionAskingAboutAgent(firstSession);
-
-    return;
-  }
-  const runningAgents = yield* findRunningAgentSessions(sessions);
-  const archiveSessionsQuestion = yield* makeArchiveSessionsQuestion(
-    sessions.length,
-    runningAgents.runningAgentSessions.length,
-    runningAgents.turnRunningSessions.length
-  );
-  const shouldStopAgents = yield* askToStopAgentsOnArchive(archiveSessionsQuestion);
-
-  yield* archiveSessionsStoppingAgents(
-    Array.map(sessions, (session) => session.id),
-    shouldStopAgents
-      ? Array.map(runningAgents.runningAgentSessions, (runningAgentSession) => runningAgentSession.id)
-      : []
-  );
-});
-
-// Starts a session in the request's project; without one, the user picks a project. A project no longer listed starts
-// none.
+// A project no longer listed starts nothing.
 export const newSession = Effect.fn("SessionService.newSession")(
   function* (request: NewSessionRequestDto) {
-    yield* startSession(request.projectPath);
+    const sessionProject = yield* findProjectListItem(request.projectPath);
+    const sessionAgent = yield* findAgentToStart(request.agentId);
+    const addedSession = yield* addSession(sessionProject, sessionAgent);
+
+    yield* launchNewSession(addedSession);
   },
-  Effect.catchTags({
-    AgentPickCancelledError: () => Effect.void,
-    ProjectNotListedError: () => Effect.void,
-    ProjectPickCancelledError: () => Effect.void
-  })
+  Effect.catchTag("ProjectNotListedError", () => Effect.void)
 );
 
-// Focuses the session's tab, or opens one when the tab is gone, attached to its agent or to its agent started again.
 export const openSession = Effect.fn("SessionService.openSession")(
   function* (request: OpenSessionRequestDto) {
     yield* ITerminalInfraService.use((terminalInfraService) =>
@@ -432,33 +201,25 @@ export const openSession = Effect.fn("SessionService.openSession")(
   (effect, request) => Effect.catchTag(effect, "TerminalNotFoundError", () => reopenSession(request.sessionId))
 );
 
-// The agent's transcript on disk is left alone. A session already removed has nothing left to do.
+// The agent's transcript on disk is left alone.
 export const removeSession = Effect.fn("SessionService.removeSession")(
   function* (request: RemoveSessionRequestDto) {
     const session = yield* findSession(request.sessionId);
     yield* removeSessionAndStopAgent(session);
   },
-  Effect.catchTags({QuestionCancelledError: () => Effect.void, SessionNotFoundError: () => Effect.void})
+  Effect.catchTag("SessionNotFoundError", () => Effect.void)
 );
 
-// The row and the agent's conversation stay, and the session opens from the Archive as any other does. A session
-// already archived, or removed meanwhile, is left alone.
 export const archiveSession = Effect.fn("SessionService.archiveSession")(
   function* (request: ArchiveSessionRequestDto) {
     const session = yield* findSession(request.sessionId);
     if (session.lifecycle === SESSION_LIFECYCLES.ARCHIVED) return;
 
-    yield* archiveSessionAskingAboutAgent(session);
+    yield* archiveSessionsKeepingAgents([session]);
   },
-  Effect.catchTags({
-    EntityNotFoundError: () => Effect.void,
-    QuestionCancelledError: () => Effect.void,
-    SessionNotFoundError: () => Effect.void
-  })
+  Effect.catchTags({EntityNotFoundError: () => Effect.void, SessionNotFoundError: () => Effect.void})
 );
 
-// The session goes back to the end of its project's sessions as it is, its agent running or not. A session that isn't
-// archived, or was removed meanwhile, is left alone.
 export const unarchiveSession = Effect.fn("SessionService.unarchiveSession")(
   function* (request: UnarchiveSessionRequestDto) {
     const session = yield* findSession(request.sessionId);
@@ -469,27 +230,17 @@ export const unarchiveSession = Effect.fn("SessionService.unarchiveSession")(
   Effect.catchTags({EntityNotFoundError: () => Effect.void, SessionNotFoundError: () => Effect.void})
 );
 
-// The user's name for the session wins over the agent's title in the row and the tab, which the tab name sync follows. An
-// empty name hands both back to the agent.
 export const renameSession = Effect.fn("SessionService.renameSession")(
   function* (request: RenameSessionRequestDto) {
-    const session = yield* findSession(request.sessionId);
-    const enteredName = yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
-      userInputPromptInfraService.askForText(SESSION_LABELS.RENAME, session.displayName)
-    );
-    const trimmedName = String.trim(enteredName);
-    const customName = trimmedName === "" ? undefined : trimmedName;
+    const trimmedName = String.trim(request.customName);
 
-    yield* updateEntity(ISessionRepository, session.id, {customName});
+    yield* updateEntity(ISessionRepository, request.sessionId, {
+      customName: trimmedName === "" ? undefined : trimmedName
+    });
   },
-  Effect.catchTags({
-    EntityNotFoundError: () => Effect.void,
-    InputCancelledError: () => Effect.void,
-    SessionNotFoundError: () => Effect.void
-  })
+  Effect.catchTag("EntityNotFoundError", () => Effect.void)
 );
 
-// The session's place among its project's sessions in its view, ongoing or archived, in their order.
 const findSessionPlaceInProject = Effect.fn("SessionService.findSessionPlaceInProject")(function* (
   sessionId: EntityIdValueObject
 ) {
@@ -503,7 +254,6 @@ const findSessionPlaceInProject = Effect.fn("SessionService.findSessionPlaceInPr
   return {projectSessionIds, sessionIndex: projectSessionIds.indexOf(sessionId)};
 });
 
-// The first session stays where it is. A session removed meanwhile is left alone.
 export const moveSessionUp = Effect.fn("SessionService.moveSessionUp")(
   function* (request: MoveSessionUpRequestDto) {
     const sessionPlace = yield* findSessionPlaceInProject(request.sessionId);
@@ -517,7 +267,6 @@ export const moveSessionUp = Effect.fn("SessionService.moveSessionUp")(
   Effect.catchTag("SessionNotFoundError", () => Effect.void)
 );
 
-// The last session stays where it is. A session removed meanwhile is left alone.
 export const moveSessionDown = Effect.fn("SessionService.moveSessionDown")(
   function* (request: MoveSessionDownRequestDto) {
     const sessionPlace = yield* findSessionPlaceInProject(request.sessionId);
@@ -531,23 +280,6 @@ export const moveSessionDown = Effect.fn("SessionService.moveSessionDown")(
   Effect.catchTag("SessionNotFoundError", () => Effect.void)
 );
 
-// A session moves only among its project's sessions, so the place of another project's session moves nothing.
-export const moveSessionToPlaceOf = Effect.fn("SessionService.moveSessionToPlaceOf")(
-  function* (request: MoveSessionToPlaceOfRequestDto) {
-    const sessionPlace = yield* findSessionPlaceInProject(request.sessionId);
-    const placeIndex = sessionPlace.projectSessionIds.indexOf(request.placeOfSessionId);
-    const sessionIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(
-      sessionPlace.projectSessionIds,
-      sessionPlace.sessionIndex,
-      placeIndex
-    );
-    yield* placeEntitiesAtEnd(ISessionRepository, sessionIdsToPlaceAtEnd);
-  },
-  Effect.catchTag("SessionNotFoundError", () => Effect.void)
-);
-
-// Which ways the session can move among its project's sessions in its view, read from sessions in their order that
-// include them.
 const findSessionMoves = Effect.fn("SessionService.findSessionMoves")(function* (
   session: SessionEntity,
   orderedSessions: readonly SessionEntity[]
@@ -564,7 +296,6 @@ const findSessionMoves = Effect.fn("SessionService.findSessionMoves")(function* 
   };
 });
 
-// A session whose agent is gone from the settings has no agent name or icon.
 const findSessionAgentFields = Effect.fn("SessionService.findSessionAgentFields")(function* (session: SessionEntity) {
   const agentResult = yield* Effect.result(findSessionAgent(session));
 
@@ -574,7 +305,6 @@ const findSessionAgentFields = Effect.fn("SessionService.findSessionAgentFields"
   });
 });
 
-// The kind of wait and the progress go only with a running turn, and the message only with a running agent.
 const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function* (
   session: SessionEntity,
   orderedSessions: readonly SessionEntity[]
@@ -614,7 +344,7 @@ export const getSessionListItem = Effect.fn("SessionService.getSessionListItem")
   return yield* toSessionListItem(session, projectSessions);
 });
 
-// In their order. A workspace folder without a session has no project row yet.
+// A workspace folder without a session has no project row yet.
 const findProjectSessions = Effect.fn("SessionService.findProjectSessions")(function* (
   projectPath: ProjectPathValueObject,
   lifecycle: SessionLifecycleValueObject
@@ -625,16 +355,6 @@ const findProjectSessions = Effect.fn("SessionService.findProjectSessions")(func
   return yield* findEntities(ISessionRepository, {lifecycle, projectId: storedProject.id});
 });
 
-const findProjectSessionIds = Effect.fn("SessionService.findProjectSessionIds")(function* (
-  projectPath: ProjectPathValueObject,
-  lifecycle: SessionLifecycleValueObject
-) {
-  const projectSessions = yield* findProjectSessions(projectPath, lifecycle);
-
-  return Array.map(projectSessions, (projectSession) => projectSession.id);
-});
-
-// The sessions a view lists: those of its lifecycle in the listed projects.
 const findListedSessions = Effect.fn("SessionService.findListedSessions")(function* (
   lifecycle: SessionLifecycleValueObject
 ) {
@@ -645,117 +365,106 @@ const findListedSessions = Effect.fn("SessionService.findListedSessions")(functi
   return Array.filter(sessions, (session) => listedProjectPaths.has(session.projectPath));
 });
 
-// The Sessions view's: the project's sessions that aren't archived.
-export const listProjectSessionIds = Effect.fn("SessionService.listProjectSessionIds")(function* (
-  request: ListProjectSessionIdsRequestDto
+export const listProjectSessions = Effect.fn("SessionService.listProjectSessions")(function* (
+  request: ListProjectSessionsRequestDto
 ) {
-  return yield* findProjectSessionIds(request.projectPath, SESSION_LIFECYCLES.ONGOING);
+  const projectSessions = yield* findProjectSessions(request.projectPath, SESSION_LIFECYCLES.ONGOING);
+
+  return yield* Effect.forEach(projectSessions, (projectSession) => toSessionListItem(projectSession, projectSessions));
 });
 
-// The Archive view's: the project's archived sessions, in their order, which puts the last one archived last.
-export const listArchivedProjectSessionIds = Effect.fn("SessionService.listArchivedProjectSessionIds")(function* (
-  request: ListArchivedProjectSessionIdsRequestDto
+const toProjectSessions = Effect.fn("SessionService.toProjectSessions")(function* (
+  projectListItem: ProjectListItemDto,
+  lifecycleSessions: readonly SessionEntity[]
 ) {
-  return yield* findProjectSessionIds(request.projectPath, SESSION_LIFECYCLES.ARCHIVED);
+  const projectSessions = Array.filter(
+    lifecycleSessions,
+    (lifecycleSession) => lifecycleSession.projectPath === projectListItem.path
+  );
+
+  return ProjectSessionsDtoSchema.make({
+    projectListItem,
+    sessionListItems: yield* Effect.forEach(projectSessions, (projectSession) =>
+      toSessionListItem(projectSession, projectSessions)
+    )
+  });
 });
 
-// The Archive view's projects: the listed projects with an archived session, in the list's order. A project no longer
-// listed hides its archived sessions, as it does its others.
+const listProjectsWithLifecycleSessions = Effect.fn("SessionService.listProjectsWithLifecycleSessions")(function* (
+  lifecycle: SessionLifecycleValueObject
+) {
+  const projectListItems = yield* listProjects();
+  const lifecycleSessions = yield* findEntities(ISessionRepository, {lifecycle});
+
+  return yield* Effect.forEach(projectListItems, (projectListItem) =>
+    toProjectSessions(projectListItem, lifecycleSessions)
+  );
+});
+
+export const listProjectsWithSessions = Effect.fn("SessionService.listProjectsWithSessions")(function* () {
+  return yield* listProjectsWithLifecycleSessions(SESSION_LIFECYCLES.ONGOING);
+});
+
+// A project no longer listed hides its archived sessions, as it does its others.
 export const listProjectsWithArchivedSessions = Effect.fn("SessionService.listProjectsWithArchivedSessions")(
   function* () {
-    const archivedSessions = yield* findEntities(ISessionRepository, {lifecycle: SESSION_LIFECYCLES.ARCHIVED});
-    const archivedSessionProjectPaths = new Set(
-      Array.map(archivedSessions, (archivedSession) => archivedSession.projectPath)
-    );
-    const projectListItems = yield* listProjects();
+    const projectsWithArchivedSessions = yield* listProjectsWithLifecycleSessions(SESSION_LIFECYCLES.ARCHIVED);
 
-    return Array.filter(projectListItems, (projectListItem) => archivedSessionProjectPaths.has(projectListItem.path));
+    return Array.filter(
+      projectsWithArchivedSessions,
+      (projectWithArchivedSessions) => projectWithArchivedSessions.sessionListItems.length > 0
+    );
   }
 );
 
-// The Sessions view's project row: the project's sessions that aren't archived. A session removed meanwhile leaves those
-// after it where they are.
 export const archiveProjectSessions = Effect.fn("SessionService.archiveProjectSessions")(
   function* (request: ArchiveProjectSessionsRequestDto) {
     const projectSessions = yield* findProjectSessions(request.projectPath, SESSION_LIFECYCLES.ONGOING);
-    yield* archiveSessionsAskingAboutAgents(projectSessions);
+    yield* archiveSessionsKeepingAgents(projectSessions);
   },
-  Effect.catchTags({EntityNotFoundError: () => Effect.void, QuestionCancelledError: () => Effect.void})
+  Effect.catchTag("EntityNotFoundError", () => Effect.void)
 );
 
-// The Sessions view's title: every session it lists. A session removed meanwhile leaves those after it where they are.
 export const archiveOngoingSessions = Effect.fn("SessionService.archiveOngoingSessions")(
   function* () {
     const listedSessions = yield* findListedSessions(SESSION_LIFECYCLES.ONGOING);
-    yield* archiveSessionsAskingAboutAgents(listedSessions);
+    yield* archiveSessionsKeepingAgents(listedSessions);
   },
-  Effect.catchTags({EntityNotFoundError: () => Effect.void, QuestionCancelledError: () => Effect.void})
+  Effect.catchTag("EntityNotFoundError", () => Effect.void)
 );
 
-// The session row's Stop Agent, in either view. A session removed meanwhile is left alone.
 export const stopSessionAgent = Effect.fn("SessionService.stopSessionAgent")(
   function* (request: StopSessionAgentRequestDto) {
     const session = yield* findSession(request.sessionId);
-    yield* stopRunningAgentsAsking([session]);
+    yield* stopRunningAgents([session]);
   },
-  Effect.catchTags({QuestionCancelledError: () => Effect.void, SessionNotFoundError: () => Effect.void})
+  Effect.catchTag("SessionNotFoundError", () => Effect.void)
 );
 
-// The Sessions view's project row: the agents of the project's sessions that aren't archived.
-export const stopProjectSessionAgents = Effect.fn("SessionService.stopProjectSessionAgents")(
-  function* (request: StopProjectSessionAgentsRequestDto) {
-    const projectSessions = yield* findProjectSessions(request.projectPath, SESSION_LIFECYCLES.ONGOING);
-    yield* stopRunningAgentsAsking(projectSessions);
-  },
-  Effect.catchTag("QuestionCancelledError", () => Effect.void)
-);
-
-// The Archive view's project row: the agents of the project's archived sessions.
-export const stopArchivedProjectSessionAgents = Effect.fn("SessionService.stopArchivedProjectSessionAgents")(
-  function* (request: StopArchivedProjectSessionAgentsRequestDto) {
-    const projectSessions = yield* findProjectSessions(request.projectPath, SESSION_LIFECYCLES.ARCHIVED);
-    yield* stopRunningAgentsAsking(projectSessions);
-  },
-  Effect.catchTag("QuestionCancelledError", () => Effect.void)
-);
-
-// The Sessions view's title: the agents of every session it lists.
-export const stopOngoingSessionAgents = Effect.fn("SessionService.stopOngoingSessionAgents")(
-  function* () {
-    const listedSessions = yield* findListedSessions(SESSION_LIFECYCLES.ONGOING);
-    yield* stopRunningAgentsAsking(listedSessions);
-  },
-  Effect.catchTag("QuestionCancelledError", () => Effect.void)
-);
-
-// The Archive view's title: the agents of every archived session it lists.
-export const stopArchivedSessionAgents = Effect.fn("SessionService.stopArchivedSessionAgents")(
-  function* () {
-    const listedSessions = yield* findListedSessions(SESSION_LIFECYCLES.ARCHIVED);
-    yield* stopRunningAgentsAsking(listedSessions);
-  },
-  Effect.catchTag("QuestionCancelledError", () => Effect.void)
-);
-
-// The sessions the list shows as working, for the spinner.
-export const listWorkingSessionIds = Effect.fn("SessionService.listWorkingSessionIds")(function* () {
-  const storedSessions = yield* findEntities(ISessionRepository, {});
-  const reportedWorkingSessions = Array.filter(
-    storedSessions,
-    (storedSession) => storedSession.status === AGENT_STATUSES.WORKING
-  );
-  const sessionListItems = yield* Effect.forEach(reportedWorkingSessions, (reportedWorkingSession) =>
-    toSessionListItem(reportedWorkingSession, storedSessions)
-  );
-  const workingSessionListItems = Array.filter(
-    sessionListItems,
-    (sessionListItem) => sessionListItem.status === SESSION_STATUSES.WORKING
-  );
-
-  return Array.map(workingSessionListItems, (workingSessionListItem) => workingSessionListItem.sessionId);
+export const stopProjectSessionAgents = Effect.fn("SessionService.stopProjectSessionAgents")(function* (
+  request: StopProjectSessionAgentsRequestDto
+) {
+  const projectSessions = yield* findProjectSessions(request.projectPath, SESSION_LIFECYCLES.ONGOING);
+  yield* stopRunningAgents(projectSessions);
 });
 
-// The sessions waiting on the user, for the view's badge: asking something, failed, or with a finished turn unseen.
+export const stopArchivedProjectSessionAgents = Effect.fn("SessionService.stopArchivedProjectSessionAgents")(function* (
+  request: StopArchivedProjectSessionAgentsRequestDto
+) {
+  const projectSessions = yield* findProjectSessions(request.projectPath, SESSION_LIFECYCLES.ARCHIVED);
+  yield* stopRunningAgents(projectSessions);
+});
+
+export const stopOngoingSessionAgents = Effect.fn("SessionService.stopOngoingSessionAgents")(function* () {
+  const listedSessions = yield* findListedSessions(SESSION_LIFECYCLES.ONGOING);
+  yield* stopRunningAgents(listedSessions);
+});
+
+export const stopArchivedSessionAgents = Effect.fn("SessionService.stopArchivedSessionAgents")(function* () {
+  const listedSessions = yield* findListedSessions(SESSION_LIFECYCLES.ARCHIVED);
+  yield* stopRunningAgents(listedSessions);
+});
+
 export const listSessionsWaitingOnUser = Effect.fn("SessionService.listSessionsWaitingOnUser")(function* () {
   const storedSessions = yield* findEntities(ISessionRepository, {});
   const sessionListItems = yield* Effect.forEach(storedSessions, (storedSession) =>
@@ -765,9 +474,7 @@ export const listSessionsWaitingOnUser = Effect.fn("SessionService.listSessionsW
   return yield* Effect.filter(sessionListItems, (sessionListItem) => isSessionWaitingOnUser(sessionListItem.status));
 });
 
-// A session placed (added, or moved) or removed changes its project's sessions; any other write to it, or its agent
-// starting or stopping, changes the session. A project added or removed, or a workspace folder, changes the project list. Coming into or
-// leaving view writes viewedAt, so it arrives as a write.
+// Coming into or leaving view writes viewedAt, so it arrives as a write.
 export const watchSessionListChanges = Effect.fn("SessionService.watchSessionListChanges")(function* () {
   const projectRepository = yield* IProjectRepository;
   const sessionRepository = yield* ISessionRepository;
@@ -791,8 +498,6 @@ export const watchSessionListChanges = Effect.fn("SessionService.watchSessionLis
   return Stream.mergeAll(sessionListChangeSources, {concurrency: "unbounded"});
 });
 
-// The session whose tab is in front of the user, each time another one comes to the front. No session in front (another
-// tab, or the window unfocused) emits nothing.
 export const watchViewedSessionIds = Effect.fn("SessionService.watchViewedSessionIds")(function* () {
   const terminalInfraService = yield* ITerminalInfraService;
 
@@ -802,7 +507,6 @@ export const watchViewedSessionIds = Effect.fn("SessionService.watchViewedSessio
   );
 });
 
-// The session whose tab is in front of the user, or NoViewedSessionError when none is.
 export const findViewedSessionId = Effect.fn("SessionService.findViewedSessionId")(function* () {
   const terminalInfraService = yield* ITerminalInfraService;
   const viewedSessionIdResult = yield* SubscriptionRef.get(terminalInfraService.viewedSessionId);
@@ -826,8 +530,7 @@ const saveSessionTitle = Effect.fn("SessionService.saveSessionTitle")(
   Effect.catch((writeError) => Effect.logWarning("Could not save the session's title", writeError))
 );
 
-// For the window's whole life, each session's name follows its agent's latest title. The check runs on every write to a
-// session, so it is untraced; only a save shows in the trace.
+// The check runs on every write to a session, so it is untraced; only a save shows in the trace.
 export const startSessionTitleSync = Effect.fn("SessionService.startSessionTitleSync")(function* () {
   const sessionRepository = yield* ISessionRepository;
   const writtenSessions = Stream.map(
@@ -852,8 +555,7 @@ export const startSessionTitleSync = Effect.fn("SessionService.startSessionTitle
   );
 });
 
-// The written session, or the one whose tab came to the front. Nothing shows the failure: no command started this, so it
-// is logged; a removed session has no tab to name.
+// No command started this, so a failure is logged; a removed session has no tab to name.
 const nameSessionTab = Effect.fn("SessionService.nameSessionTab")(
   function* (writtenOrActivatedSession: EntityIdValueObject | SessionEntity) {
     const session = Predicate.isString(writtenOrActivatedSession)
@@ -868,9 +570,7 @@ const nameSessionTab = Effect.fn("SessionService.nameSessionTab")(
   Effect.catch((readError) => Effect.logWarning("Could not name the session's tab", readError))
 );
 
-// For the window's whole life, each session's tab shows the name its row shows. VS Code renames only the active
-// terminal, so the tab follows a new name at once when it is in front, else when it next comes to the front. The check
-// runs on every write to a session, so it is untraced; only a rename shows in the trace.
+// VS Code renames only the active terminal, so a tab out of front takes a new name when it next comes to the front.
 export const startSessionTabNameSync = Effect.fn("SessionService.startSessionTabNameSync")(function* () {
   const sessionRepository = yield* ISessionRepository;
   const terminalInfraService = yield* ITerminalInfraService;
@@ -890,7 +590,7 @@ export const startSessionTabNameSync = Effect.fn("SessionService.startSessionTab
   );
 });
 
-// Nothing shows the failure: no command started this, so it is logged. A removed session has nothing to record.
+// No command started this, so a failure is logged.
 const recordViewedAt = Effect.fn("SessionService.recordViewedAt")(
   function* (sessionId: EntityIdValueObject) {
     const viewedAt = yield* DateTime.now;
@@ -900,8 +600,7 @@ const recordViewedAt = Effect.fn("SessionService.recordViewedAt")(
   Effect.catch((writeError) => Effect.logWarning("Could not record when the session was in view", writeError))
 );
 
-// The session that comes into view and the one that leaves it get viewedAt, so a turn that ended before then counts as
-// seen, in every window and after an extension restart.
+// Both sessions get viewedAt, so a turn that ended before then counts as seen, in every window and after a restart.
 export const startViewedAtSync = Effect.fn("SessionService.startViewedAtSync")(function* () {
   const terminalInfraService = yield* ITerminalInfraService;
   const enteringAndLeavingSessionIds = Stream.mapAccum(

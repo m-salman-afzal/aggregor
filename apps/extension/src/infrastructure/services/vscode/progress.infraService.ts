@@ -3,7 +3,6 @@ import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {runWithProgressIndicator, setWhenClauseContextKey} from "@pkg/vscode/src/vscode.utils.ts";
 import {Effect, Layer} from "effect";
 
-// What Source Control's progress shows, and the context key that stays true while it does.
 interface SourceControlProgress {
   readonly busyContextKey: string;
   readonly progressTitle: string;

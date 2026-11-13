@@ -11,7 +11,6 @@ import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 
 import type {CommitMessageRequest} from "@interfaces/commitCli.infraService.interface.ts";
 
-// Runs the command in a shell in the project, with the staged diff on stdin.
 const runCommitCommand = Effect.fn("CommitCliInfraService.runCommitCommand")(
   function* (childProcessSpawner: ChildProcessSpawner["Service"], commitMessageRequest: CommitMessageRequest) {
     const commitCommandProcess = yield* childProcessSpawner.spawn(

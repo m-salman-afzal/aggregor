@@ -6,6 +6,13 @@ How the extension is bundled, checked and packaged.
 
 - **Decision:** Vite builds the extension into one `dist/extension.js`; vsce packages it with `--no-dependencies`.
   Because it ships as one bundle, `presentation/` lives inside `src`.
+- **Solution:** two Vite builds. The extension's bundles `src/extension.ts`, with effect and `@pkg/*` inside and
+  `vscode` and Node's built-ins left out. The webview's runs second, since the first empties `dist`, and bundles
+  `apps/webview/src/main.tsx` into `dist/webview/webview.js` and `webview.css`, under fixed names; it imports the
+  extension's files for types only, so none of the extension's code enters it. At run time the Sessions view writes the
+  page that loads those two files, and on F5 the same page loads them from Vite's dev server instead. Explainer:
+  [Aggregor Bundling](https://claude.ai/artifact/T1G1bsVFRu3A1jX3q9igtp), a 30-second film of the two builds, the page
+  the extension writes, F5's dev server and what the VSIX carries.
 
 ## pnpm workspace with pinned Node and pnpm
 

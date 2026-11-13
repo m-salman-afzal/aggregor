@@ -48,7 +48,8 @@ Alternatives considered with why it was dropped. Leave a field out rather than g
 - [status/pty.md](status/pty.md): The binary that runs each agent and records its status.
 - [status/statusDisplay.md](status/statusDisplay.md): How a session's status shows on its row.
 - [alerts.md](alerts.md): How a session out of view gets the user's attention: notifications and badge counts.
-- [sessionsView/treeView.md](sessionsView/treeView.md): The Sessions and Archive views' rows, menus and buttons.
+- [sessionsView/menus.md](sessionsView/menus.md): The Sessions view's title buttons and menus, its rows' buttons and
+  menus, and the questions commands ask.
 - [sessionsView/webview.md](sessionsView/webview.md): The Sessions view drawn in a webview of our own.
 - [commitMessage.md](commitMessage.md): The Source Control button that writes a commit message.
 - [tracing.md](tracing.md): Span names, the trace log, and the skill that reads it.

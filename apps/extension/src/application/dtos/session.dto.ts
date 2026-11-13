@@ -1,15 +1,13 @@
+import {ProjectListItemDtoSchema} from "@dtos/project.dto.ts";
 import {AgentIconValueObjectSchema} from "@valueObjects/agentIcon.valueObject.ts";
+import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {SessionStatusValueObjectSchema} from "@valueObjects/sessionStatus.valueObject.ts";
 import {StatusKindValueObjectSchema} from "@valueObjects/statusKind.valueObject.ts";
 import {Schema} from "effect";
 
-// What crosses between presentation and the session use cases.
-
-// A session as the list shows it. The kind of wait and the progress are present only while the agent is at its turn,
-// and the message only while the agent runs. No agent name or icon means its agent is gone from the settings. It moves only among its
-// project's sessions in its own view: Sessions, or Archive once archived.
+// The wait kind and progress exist only at the agent's turn; no agent name or icon means it left the settings.
 export const SessionListItemDtoSchema = Schema.Struct({
   agentName: Schema.optional(Schema.String),
   canMoveDown: Schema.Boolean,
@@ -30,8 +28,13 @@ export const SessionListItemDtoSchema = Schema.Struct({
 
 export type SessionListItemDto = typeof SessionListItemDtoSchema.Type;
 
-// What changed in the list of projects and their sessions: the projects, which sessions one project has, or one
-// session.
+export const ProjectSessionsDtoSchema = Schema.Struct({
+  projectListItem: ProjectListItemDtoSchema,
+  sessionListItems: Schema.Array(SessionListItemDtoSchema)
+});
+
+export type ProjectSessionsDto = typeof ProjectSessionsDtoSchema.Type;
+
 export const SessionListChangeDtoSchema = Schema.TaggedUnion({
   ProjectListChanged: {},
   ProjectSessionsChanged: {projectPath: ProjectPathValueObjectSchema},
@@ -40,8 +43,11 @@ export const SessionListChangeDtoSchema = Schema.TaggedUnion({
 
 export type SessionListChangeDto = typeof SessionListChangeDtoSchema.Type;
 
-// Without a project, the user picks one.
-export const NewSessionRequestDtoSchema = Schema.Struct({projectPath: Schema.optional(ProjectPathValueObjectSchema)});
+// Without an agent, the default one starts, or the only one installed.
+export const NewSessionRequestDtoSchema = Schema.Struct({
+  agentId: Schema.optional(AgentIdValueObjectSchema),
+  projectPath: ProjectPathValueObjectSchema
+});
 
 export type NewSessionRequestDto = typeof NewSessionRequestDtoSchema.Type;
 
@@ -79,7 +85,11 @@ export const StopArchivedProjectSessionAgentsRequestDtoSchema = Schema.Struct({
 
 export type StopArchivedProjectSessionAgentsRequestDto = typeof StopArchivedProjectSessionAgentsRequestDtoSchema.Type;
 
-export const RenameSessionRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
+// An empty name hands the row and the tab back to the agent's title.
+export const RenameSessionRequestDtoSchema = Schema.Struct({
+  customName: Schema.String,
+  sessionId: EntityIdValueObjectSchema
+});
 
 export type RenameSessionRequestDto = typeof RenameSessionRequestDtoSchema.Type;
 
@@ -91,24 +101,10 @@ export const MoveSessionDownRequestDtoSchema = Schema.Struct({sessionId: EntityI
 
 export type MoveSessionDownRequestDto = typeof MoveSessionDownRequestDtoSchema.Type;
 
-// The session takes the place of the other session of its project.
-export const MoveSessionToPlaceOfRequestDtoSchema = Schema.Struct({
-  placeOfSessionId: EntityIdValueObjectSchema,
-  sessionId: EntityIdValueObjectSchema
-});
-
-export type MoveSessionToPlaceOfRequestDto = typeof MoveSessionToPlaceOfRequestDtoSchema.Type;
-
 export const GetSessionListItemRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
 
 export type GetSessionListItemRequestDto = typeof GetSessionListItemRequestDtoSchema.Type;
 
-export const ListProjectSessionIdsRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
+export const ListProjectSessionsRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
 
-export type ListProjectSessionIdsRequestDto = typeof ListProjectSessionIdsRequestDtoSchema.Type;
-
-export const ListArchivedProjectSessionIdsRequestDtoSchema = Schema.Struct({
-  projectPath: ProjectPathValueObjectSchema
-});
-
-export type ListArchivedProjectSessionIdsRequestDto = typeof ListArchivedProjectSessionIdsRequestDtoSchema.Type;
+export type ListProjectSessionsRequestDto = typeof ListProjectSessionsRequestDtoSchema.Type;

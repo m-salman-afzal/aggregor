@@ -1,16 +1,15 @@
-import {runCommandOnHost} from "@/modules/sessions/sessions.service.ts";
+import {getAccentName, makeAppearanceCss} from "@/modules/sessions/sessions.utils.ts";
 import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.store.ts";
-import {PROJECT_COMMANDS} from "@pkg/constants/src/project.constant.ts";
 
 export const useSessions = () => {
+  const appearance = useSessionsStore({selectFromState: (sessionsState) => sessionsState.appearance});
   const isDrawn = useSessionsStore({selectFromState: (sessionsState) => sessionsState.isDrawn});
-  const projectRows = useSessionsStore({selectFromState: (sessionsState) => sessionsState.projectRows});
+  const styleNonce = useSessionsStore({selectFromState: (sessionsState) => sessionsState.styleNonce});
 
   return {
-    addProject: () => {
-      runCommandOnHost(PROJECT_COMMANDS.ADD);
-    },
+    accentName: appearance === undefined ? undefined : getAccentName(appearance.accentColor),
+    appearanceCss: appearance === undefined ? "" : makeAppearanceCss(appearance.fontSize, appearance.accentColor),
     isDrawn,
-    projectRows
+    styleNonce
   };
 };

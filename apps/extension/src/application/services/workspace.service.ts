@@ -9,8 +9,7 @@ import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
-// The window's own folders about to make way for the shown project become added projects, so they stay listed. Added
-// projects are left alone: adding one again would move it to the end of the list.
+// Added projects are left alone: adding one again would move it to the end of the list.
 const keepWorkspaceFoldersListed = Effect.fn("WorkspaceService.keepWorkspaceFoldersListed")(function* (
   projectListItems: readonly ProjectListItemDto[],
   shownProjectPath: ProjectPathValueObject
@@ -26,8 +25,6 @@ const keepWorkspaceFoldersListed = Effect.fn("WorkspaceService.keepWorkspaceFold
   );
 });
 
-// The session's project becomes the workspace's only project folder. A session whose project is no longer listed
-// changes nothing.
 const showSessionProject = Effect.fn("WorkspaceService.showSessionProject")(
   function* (sessionId: EntityIdValueObject) {
     const session = yield* findSession(sessionId);
@@ -35,8 +32,7 @@ const showSessionProject = Effect.fn("WorkspaceService.showSessionProject")(
     if (!Array.some(projectListItems, (projectListItem) => projectListItem.path === session.projectPath)) return;
 
     yield* keepWorkspaceFoldersListed(projectListItems, session.projectPath);
-    // Opened before the swap closes the old one, Source Control goes straight from one repository to the other instead
-    // of showing that the workspace has none.
+    // Opened before the swap closes the old one, so Source Control never shows a workspace with no repository.
     yield* IGitInfraService.use((gitInfraService) => gitInfraService.openInSourceControl(session.projectPath));
     yield* IWorkspaceInfraService.use((workspaceInfraService) =>
       workspaceInfraService.showOnlyProjectFolder(session.projectPath, session.id)
@@ -44,13 +40,11 @@ const showSessionProject = Effect.fn("WorkspaceService.showSessionProject")(
   },
   // A tab left running by a removed session has no project to show.
   Effect.catchTag("SessionNotFoundError", () => Effect.void),
-  // Folders that could not be kept listed stay in the workspace; no command started this, so it is logged.
+  // No command started this, so a failure is logged.
   Effect.catch((databaseError) => Effect.logWarning("Could not keep the workspace's folders listed", databaseError))
 );
 
-// Like VS Code's Agents window, the workspace follows the session in view: its project is the one project folder, so
-// Explorer, search, file watching and Source Control cover it alone. With no session in view the project stays, so
-// opening one of its files keeps it.
+// Like VS Code's Agents window, the workspace follows the session in view; with none in view the project stays.
 export const startShownProjectSync = Effect.fn("WorkspaceService.startShownProjectSync")(function* () {
   const terminalInfraService = yield* ITerminalInfraService;
 
@@ -61,8 +55,7 @@ export const startShownProjectSync = Effect.fn("WorkspaceService.startShownProje
   );
 });
 
-// Opening Aggregor's workspace reloaded the window, which closed the session's tab; the window opens it again. Nothing
-// shows a failure, since no command started this, so it is logged.
+// Opening Aggregor's workspace reloaded the window, which closed the session's tab.
 const reopenSessionAfterReload = Effect.fn("WorkspaceService.reopenSessionAfterReload")(
   function* () {
     const sessionId = yield* IWorkspaceInfraService.use(

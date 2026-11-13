@@ -1,26 +1,20 @@
 import {SETTINGS_SECTION} from "@pkg/constants/src/app.constant.ts";
 
-// The settings under aggregorApp that pick and define the agents.
 export const AGENT_SETTINGS = {
   AGENTS: "agents",
   DEFAULT_AGENT: "defaultAgent",
   SKIP_AGENT_PICKER: "skipAgentPicker"
 } as const;
 
-// The agents setting's full id, which its changes and the Open Settings button of a failure it causes name.
 export const AGENTS_SETTING_ID = `${SETTINGS_SECTION}.${AGENT_SETTINGS.AGENTS}`;
 
-// An agent's icon is an SVG or PNG file, and an entry naming anything else is left out; an entry without one shows
-// Aggregor's logo, inside the extension.
 export const AGENT_ICON = {
   DEFAULT: "assets/agents/aggregor.svg",
   FILE_PATTERN: /\.(?:png|svg)$/iu
 } as const;
 
-// What the user did in the agent picker: picked an agent to start, or asked for one to become the default.
-export const AGENT_PICK_TAGS = {
-  AGENT_PICKED: "AgentPicked",
-  DEFAULT_AGENT_CHOSEN: "DefaultAgentChosen"
+export const AGENT_COMMANDS = {
+  SET_DEFAULT: "aggregorApp.setDefaultAgent"
 } as const;
 
 export const AGENT_LABELS = {

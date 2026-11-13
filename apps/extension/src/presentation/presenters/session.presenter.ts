@@ -21,7 +21,6 @@ import type {
   unarchiveSession
 } from "@services/session.service.ts";
 
-// Every failure the session commands' use cases return.
 type SessionCommandError = Effect.Error<
   ReturnType<
     | typeof archiveOngoingSessions
@@ -41,7 +40,6 @@ type SessionCommandError = Effect.Error<
   >
 >;
 
-// The message a failed session command shows the user, and the setting or page that fixes it, when one does.
 export const presentSessionCommandError = Effect.fn("SessionPresenter.presentSessionCommandError")(function* (
   sessionCommandError: SessionCommandError
 ) {
@@ -55,7 +53,6 @@ export const presentSessionCommandError = Effect.fn("SessionPresenter.presentSes
       message: AGENT_ERRORS.NONE_INSTALLED(Array.join(error.searchedCommands, ", ")),
       settingToOpen: AGENTS_SETTING_ID
     }),
-    NoProjectError: () => ({message: SESSION_ERRORS.PROJECT_REQUIRED}),
     PtyBinaryNotFoundError: (error) => ({
       message: error.isWindows ? SESSION_ERRORS.PTY_BINARY_NOT_FOUND_ON_WINDOWS : SESSION_ERRORS.PTY_BINARY_NOT_FOUND
     }),

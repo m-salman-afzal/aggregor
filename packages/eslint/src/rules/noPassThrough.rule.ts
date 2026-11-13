@@ -1,9 +1,5 @@
 import type {Rule, Scope} from "eslint";
 
-// aggregor/no-pass-through: no file re-exports what another file declares (the folder-structure skill's "No
-// pass-through re-exports"); each consumer imports a symbol from where it lives.
-
-// The module an imported name came from, as the import names it.
 const findImportSource = (scope: Scope.Scope, localName: string) => {
   const variable = scope.set.get(localName);
   const importDefinition =

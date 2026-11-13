@@ -3,10 +3,6 @@ import {dirname, relative, sep} from "node:path";
 
 import type {Rule} from "eslint";
 
-// aggregor/module-boundary: a feature module imports from itself, its parent modules, core and packages only, and core
-// imports no feature module, so deleting a module's folder breaks nothing but the file that mounts it (the
-// folder-structure skill's "Imports between modules" and its delete test).
-
 const APP_ALIAS = "@/";
 
 // The modules a path sits in, outermost first: src/modules/sessions/modules/archive/... is sessions, then archive.

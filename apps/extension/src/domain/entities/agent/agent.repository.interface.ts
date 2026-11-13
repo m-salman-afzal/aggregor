@@ -11,7 +11,6 @@ export class AgentNotFoundError extends Schema.TaggedError<AgentNotFoundError, {
   {agentId: AgentIdValueObjectSchema}
 ) {}
 
-// The agents aggregorApp.agents defines, the built-ins included; an edit applies at once.
 export class IAgentRepository extends Context.Service<
   IAgentRepository,
   {

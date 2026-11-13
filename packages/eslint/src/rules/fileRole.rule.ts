@@ -11,9 +11,6 @@ import {basename, dirname, relative, sep} from "node:path";
 
 import type {Rule} from "eslint";
 
-// aggregor/file-role: a front-end file is named <name>.<role>.ts, or <name>.tsx for a component, camelCase in every
-// dotted part and folder, with no index files (the folder-structure skill's "A file's suffix names its role").
-
 type FileNameReport = Readonly<{data: Record<string, string>; messageId: string}>;
 
 const ROLE_NAMES = Object.keys(FILE_ROLES).join(", ");

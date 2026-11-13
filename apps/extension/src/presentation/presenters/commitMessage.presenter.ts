@@ -3,10 +3,8 @@ import {Effect, Match} from "effect";
 
 import type {generateCommitMessage} from "@services/commitMessage.service.ts";
 
-// Every failure the commit message use case returns.
 type CommitMessageCommandError = Effect.Error<ReturnType<typeof generateCommitMessage>>;
 
-// The message a failed Generate Commit Message shows the user.
 export const presentCommitMessageCommandError = Effect.fn("CommitMessagePresenter.presentCommitMessageCommandError")(
   function* (commitMessageCommandError: CommitMessageCommandError) {
     return Match.valueTags(commitMessageCommandError, {

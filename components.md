@@ -10,13 +10,13 @@ heading there. Update this file in the same commit as a change that adds, remove
 
 - **What it is:** the editor the extension runs in, through its extension API.
 - **What we use:** `engines.vscode` `^1.145.0`, `extensionKind: ["workspace"]` (in a WSL or remote window the extension,
-  tmux and the agents run there), the Aggregor activity-bar container with the Sessions and Archive views, menus and
-  `aggregorApp.*` settings. APIs: `createTreeView` with drag and drop, `registerFileDecorationProvider` for row badges,
-  `createTerminal` (`shellPath`, `isTransient`, an editor-tab `location`, `env`, `iconPath`), `createQuickPick`,
-  `showInputBox`, `withProgress`, `registerUriHandler` with `env.asExternalUri`, a log `createOutputChannel` for the
-  trace, `workspace.updateWorkspaceFolders` (only for a window without a saved workspace file), `openTextDocument`,
-  `applyEdit` and `TextDocument.save`, and the `vscode.openFolder` and `workbench.action.reloadWindow` commands.
-  `packages/vscode` holds `VsCodeApi`, the one runtime `vscode` import.
+  tmux and the agents run there), the Aggregor activity-bar container with the Sessions webview view, menus and
+  `aggregorApp.*` settings. APIs: `registerWebviewViewProvider`, `createTerminal` (`shellPath`, `isTransient`, an
+  editor-tab `location`, `env`, `iconPath`), `createQuickPick`, `showInputBox`, `withProgress`, `registerUriHandler`
+  with `env.asExternalUri`, a log `createOutputChannel` for the trace, `workspace.updateWorkspaceFolders` (only for a
+  window without a saved workspace file), `openTextDocument`, `applyEdit` and `TextDocument.save`, and the
+  `vscode.openFolder` and `workbench.action.reloadWindow` commands. `packages/vscode` holds `VsCodeApi`, the one runtime
+  `vscode` import.
 - **Why:** terminals, trees, Source Control and diffs already exist in VS Code, through stable APIs only.
 - **Alternatives:** "Agents run in their own terminal UIs": an ACP client with a webview chat UI; VS Code's chat
   sessions API, a proposed API. "Every session's agent runs in tmux": tabs drawn as `Pseudoterminal`s over one tmux
@@ -156,9 +156,9 @@ heading there. Update this file in the same commit as a change that adds, remove
 
 - **What it is:** VS Code's built-in Git extension, `vscode.git`, and its API.
 - **What we use:** `activate()`, then `getAPI(1)`: `getRepository`, `state.indexChanges`, `diff(true)` for the staged
-  diff, `inputBox.value`, `commit` and `status()`, plus the `git.stageAll` command
-  (`infrastructure/services/vscode/git.infraService.ts`). Its types are `packages/typings/src/git.d.ts`, fetched by
-  `pnpm --filter=@pkg/typings sync:git-types`. Agents get its credential helper through tmux's `update-environment`.
+  diff, `inputBox.value`, `commit` and `status()` (`infrastructure/services/vscode/git.infraService.ts`). Its types are
+  `packages/typings/src/git.d.ts`, fetched by `pnpm --filter=@pkg/typings sync:git-types`. Agents get its credential
+  helper through tmux's `update-environment`.
 - **Why:** "Review agent edits with git": Source Control and its diffs already exist.
 - **Alternatives:** Not weighed in `decisions/`.
   - Other options: the `git` CLI, simple-git, or isomorphic-git.
@@ -256,7 +256,7 @@ the theme and the base components.
 ### Base UI
 
 - **What it is:** unstyled, accessible React primitives from the makers of Radix and Material UI.
-- **What we use:** `@base-ui/react` 1.9.0, under shadcn's button and collapsible.
+- **What we use:** `@base-ui/react` 1.9.0, under shadcn's button, collapsible, menus, dialog and input.
 - **Why:** "The webview is React with shadcn on Base UI": maintained, where Radix isn't anymore.
 - **Alternatives:** that decision: Radix primitives under shadcn.
 
@@ -264,10 +264,10 @@ the theme and the base components.
 
 - **What it is:** components copied into the app by a CLI, styled with Tailwind, over a headless library.
 - **What we use:** the CLI (`npx shadcn@4.23.0 add`, run on `packages/ui`) with `packages/ui/components.json`: the
-  `base-nova` style on Base UI, its components in `packages/ui/src/components/base` (button, collapsible), which lint
-  skips so the CLI can update them; `class-variance-authority` 0.7.1 for the button's variants, and `cn` 0.5.2, shadcn's
-  class-name merge, which the webview's own components use too. The theme's tokens read VS Code's theme variables
-  (`packages/ui/src/theme.css`).
+  `base-nova` style on Base UI, its components in `packages/ui/src/components/base` (button, collapsible, dropdown menu,
+  context menu, dialog, input), which lint skips so the CLI can update them; `class-variance-authority` 0.7.1 for the
+  button's variants, and `cn` 0.5.2, shadcn's class-name merge, which the webview's own components use too. The theme's
+  tokens read VS Code's theme variables (`packages/ui/src/theme.css`).
 - **Why:** "The webview is React with shadcn on Base UI".
 - **Alternatives:** that decision.
 
@@ -284,7 +284,8 @@ the theme and the base components.
 ### lucide-react
 
 - **What it is:** an icon set as React components.
-- **What we use:** 1.71.0: the status icons, the chevron and the missing-agent warning; shadcn's icon library.
+- **What we use:** 1.71.0: the status icons, the chevron, the missing-agent warning and the menus' icons; shadcn's icon
+  library, which `@pkg/ui`'s menus use too.
 - **Why:** "The webview is React with shadcn on Base UI".
 - **Alternatives:** Not weighed in `decisions/`.
   - Other options: VS Code's codicons font.

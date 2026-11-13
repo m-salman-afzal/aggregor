@@ -2,12 +2,22 @@
 
 What things are called, and when a comment is worth it.
 
-## Comments are rare and say only what the code does now
+## A comment is one line, and only for what the code hides
 
-- **Problem:** comments restated what well-named code already says, and described history and options not taken.
-- **Decision:** a comment only where the code can't say why at a glance, such as a platform limit or a hidden
-  constraint, in one line; no history, no library defaults we override, no options we didn't take. History and options
-  go here instead. The naming rules make code readable on its own, so comments stay a rarity.
+- **Problem:** comments restated what well-named code already says, and described history and options not taken. A rule
+  in prose alone didn't hold: file headers, a line above every type, member and constant, and step-by-step narration
+  kept coming back.
+- **Decision:** a comment only for a hidden side effect or a behaviour a reader can't see in the code, such as a
+  platform limit, a workaround or a constraint from outside the file, in one line; nothing that says what a file, type,
+  function or line is or does, no history, no library defaults we override, no options we didn't take. History and
+  options go here instead. The naming rules make code readable on its own, so comments stay a rarity, and one line
+  leaves no room to narrate.
+- **Solution:** `aggregor/one-line-comment` (`packages/eslint/src/rules/`), on every TypeScript file, reports a block
+  comment that spans lines and line comments on consecutive lines. A directive a tool reads (`eslint-disable`, `@ts-`, a
+  triple-slash reference) is not counted, so a one-line reason may sit above one. It can't judge whether a line is
+  obvious; that stays with review. CSS and Rust are not linted.
+- **Alternatives considered:** prose only, which drifted; a cap on comments per file, which punishes the files with real
+  platform quirks.
 
 ## "Project", not "repo"
 
@@ -17,9 +27,9 @@ What things are called, and when a comment is worth it.
 ## Names say what a thing is to the user
 
 - **Problem:** `IPromptInfraService` read like an LLM prompt, and `clickedProject` named the gesture, not the thing.
-- **Decision:** `IUserInputPromptInfraService` (`userInputPrompt.infraService.ts`), whose `askForText` takes a
-  `question`; "prompt" is kept for LLM prompts. `chosenProject` and `chosenSession` for what a command acts on, chosen
-  from its row or the picker: `newSessionInChosenProject` (also the command ID), `openChosenSession`,
+- **Decision:** `IUserInputPromptInfraService` (`userInputPrompt.infraService.ts`), and the webview's `UserInput` and
+  `userInputDialog/`; "prompt" is kept for LLM prompts. `chosenProject` and `chosenSession` for what a command acts on,
+  chosen from its row or the picker: `newSessionInChosenProject` (also the command ID), `openChosenSession`,
   `renameChosenSession`, `removeChosenSession` and `removeChosenProject`, with the raw argument named `projectRow` or
   `sessionRow`. `prepareColumns` became `replaceUndefinedWithNull`, and `writeRowLast` `writeRowAtEnd`. Lint's
   abbreviation rule suggests "chosen" for "clicked", and `AGENTS.md`'s naming rule says it. A name a person reads

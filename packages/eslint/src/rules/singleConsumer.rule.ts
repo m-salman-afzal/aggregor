@@ -13,17 +13,10 @@ import {basename, dirname, join, relative, sep} from "node:path";
 
 import type {Rule} from "eslint";
 
-// aggregor/single-consumer: code starts as deep in the tree as it can and moves up only on a second consumer (the
-// folder-structure skill's promotion ladder). It flags a file nothing imports, a .type.ts only one file imports, a core
-// file only one feature module imports, and a file whose importers all sit in one unit below its level.
-//
-// shortcut: it reads every file's imports from the app's src, and ESLint's cache doesn't know a file's report depends on
-// other files, so a cached run can miss a change elsewhere; CI's uncached run catches it. Move to a project-wide check if
-// that ever bites.
+// shortcut: ESLint's cache doesn't know a report depends on other files' imports, so a cached run can miss a move; CI runs uncached.
 
 type ConsumerReport = Readonly<{data: Record<string, string>; messageId: string}>;
 
-// Who imports each file, by absolute path.
 interface ImportGraph {
   readonly builtAt: number;
   readonly importersByFile: ReadonlyMap<string, ReadonlySet<string>>;
@@ -85,8 +78,6 @@ const getTopModuleName = (sourceRootPath: string, filePath: string) => {
   return firstFolder === MODULES_FOLDER ? moduleName : undefined;
 };
 
-// The one unit below the file's level that holds every importer, looking through a kind's folder (components/) to the
-// unit inside it.
 const findConsumingUnit = (levelPath: string, importerPaths: readonly string[]) => {
   const importerParts = importerPaths.map((importerPath) => relative(levelPath, importerPath).split(sep));
   const sharedPart = (partIndex: number) => {
@@ -143,8 +134,7 @@ const findLocalReport = (
   };
 };
 
-// A building block's file holds only the block and its Props type, so its other types sit in a .type.ts even with one
-// consumer.
+// A block's file holds only the block and its Props type, so its other types sit in a .type.ts even with one consumer.
 const isBlockFile = (filePath: string) => {
   const role = parseFileName(basename(filePath)).role;
   const roleInfo = role === undefined ? undefined : FILE_ROLES[role];

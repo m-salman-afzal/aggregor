@@ -16,7 +16,6 @@ export const readAbsolutePathVariable = Effect.fn("readAbsolutePathVariable")(fu
   return yield* Config.withDefault(Config.schema(absolutePathSchema, variableName), defaultPath);
 });
 
-// Where Aggregor keeps its files: data/ holds the database and aggregor-pty's log, anchor/ the window's anchor folder.
 export const getAggregorFolderPath = Effect.fn("getAggregorFolderPath")(function* () {
   const path = yield* Path;
 

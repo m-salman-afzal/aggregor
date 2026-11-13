@@ -23,7 +23,7 @@ so they can keep working.
   launch also closes itself once the Claude session that started it is gone, or after 20 minutes. The backstops are for
   accidents; stopping is still your job.
 - Run `start` and `stop` with the Bash sandbox disabled: the sandbox swallows the signals that stop processes and keeps
-  VS Code from starting. `eval`, `webview-eval`, `log` and `screenshot` work inside it.
+  VS Code from starting. `eval`, `webview-eval`, `webview-hover`, `log` and `screenshot` work inside it.
 - Linux only, with `mutter`, `dbus-run-session` and `code` installed (stock Ubuntu GNOME has all three). On another OS,
   say so instead of verifying.
 
@@ -37,6 +37,7 @@ From the repo root, as `node .claude/skills/verify-in-vscode/vscode.ts <command>
 | `log`                         | Prints the trace log's path again.                                                                                        |
 | `eval '<expression>'`         | Runs JavaScript in the VS Code window and prints the result as JSON. Return plain data, not DOM nodes.                    |
 | `webview-eval '<expression>'` | The same in the Sessions view's webview page, with `document` and `window` its own. The view must have been in sight.     |
+| `webview-hover <x,y>`         | Turns the webview's hover styles on and moves the mouse to that point of the window, in CSS pixels; then `screenshot`.    |
 | `screenshot <png path>`       | Saves a screenshot. Pass an absolute path in your scratchpad, never inside the repo; then read the image.                 |
 | `stop`                        | Closes VS Code, the Claude sessions started in its terminals, mutter and the private D-Bus session.                       |
 
@@ -58,32 +59,35 @@ database.
    `grep` the log for the command ID, a `failed:` outcome, or a `[warning]`/`[error]` line. That alone settles most
    checks.
 2. **Drive the window over CDP** for anything the user would see or click. Useful expressions:
-   - Open the Aggregor container, whose Sessions and Archive views are its panes, which also loads the Sessions view's
-     webview. Clicking its activity-bar item toggles it, so click only when it is not already open; a badge's count can
-     follow the name in its label:
+   - Open the Aggregor container, whose one pane is the Sessions view, which also loads its webview. Clicking its
+     activity-bar item toggles it, so click only when it is not already open; a badge's count can follow the name in its
+     label:
      `(() => { const item = [...document.querySelectorAll(".activitybar .action-label")].find((element) => (element.getAttribute("aria-label") || "").startsWith("Aggregor")); if (!item.closest(".action-item").classList.contains("checked")) item.click(); return "open"; })()`
-   - Expand the Archive view, which starts collapsed:
-     `(() => { const header = [...document.querySelectorAll(".pane-header")].find((element) => element.getAttribute("aria-label") === "Archive Section"); if (header.getAttribute("aria-expanded") !== "true") header.click(); return "expanded"; })()`
-   - The Sessions view is a webview, a page of its own: read and click it with `webview-eval`. Its text, projects and
-     sessions with each session's second line: `document.body.innerText` The row of the session in front is the one with
-     `aria-current="true"`; open a session by clicking its row, whose button's text starts with its title:
+   - The Sessions view is a webview, a page of its own: read and click it with `webview-eval`. It holds two lists,
+     Sessions and Archive, each under a header that folds it; the Archive starts folded. Its text, lists, projects and
+     sessions with each session's second line: `document.body.innerText`. The row of the session in front is the one
+     with `aria-current="true"`; open a session by clicking its row, whose button's text starts with its title:
      `(() => { [...document.querySelectorAll("li button")].find((button) => button.innerText.startsWith("jsTester #1")).click(); return "clicked"; })()`
-   - List the Archive tree's rows with their status:
-     `[...document.querySelectorAll(".monaco-list-row")].map((row) => row.getAttribute("aria-label")).filter(Boolean)`
-   - Click a title or inline button by its label, such as `New Session...` or `New Session`:
-     `[...document.querySelectorAll(".action-label")].find((element) => element.getAttribute("aria-label") === "New Session...").click()`
-   - Open an Archive row's … menu, then pick an item from it; both need the mouse events, which a bare `click()` doesn't
-     send. Each item's title starts with its glyph and an em space (`"⤓\u2003Archive"`, `"■\u2003Stop Agent"`):
-     `(() => { const row = [...document.querySelectorAll(".monaco-list-row")].find((element) => (element.getAttribute("aria-label") || "").startsWith("jsTester #1,")); const more = row.querySelector('.action-label[aria-label="More Actions..."]'); for (const type of ["mousedown", "mouseup", "click"]) more.dispatchEvent(new MouseEvent(type, {bubbles: true})); return "opened"; })()`
-     `(() => { const item = [...document.querySelectorAll(".monaco-menu .action-label")].findLast((element) => element.textContent === "⤓\u2003Archive"); for (const type of ["mousedown", "mouseup", "click"]) item.dispatchEvent(new MouseEvent(type, {bubbles: true})); return "picked"; })()`
-   - A view's title … menu ignores those synthetic events, and VS Code draws every menu in a shadow root, which
-     `querySelectorAll` doesn't reach. Focus the view's header, read the … button's `getBoundingClientRect()`, click it
-     with CDP's `Input.dispatchMouseEvent` (`mouseMoved`, `mousePressed`, `mouseReleased` at that point, in CSS pixels,
-     on the page `http://127.0.0.1:9447/json` lists), and read the menu from a screenshot.
-   - A question a command asks (`askQuestion`) is a quick pick: read
-     `document.querySelector(".quick-input-widget .quick-input-title").textContent` and its rows' `aria-label`s, and
-     answer with a real key over CDP: `Input.dispatchKeyEvent` with `rawKeyDown` then `keyUp` for `Enter` (key code 13)
-     or `Escape` (27). A synthetic Enter `KeyboardEvent` is ignored.
+   - Unfold the Archive, or fold any list or project, by clicking its header:
+     `(() => { [...document.querySelectorAll("[data-slot=collapsible-trigger]")].find((button) => button.textContent.startsWith("Archive")).click(); return "toggled"; })()`
+   - Open a row's … menu (a session's, a project's or a list's header's), then pick an item; a bare `click()` works on
+     both, though the buttons only show on hover. The menu's items are `[data-slot=dropdown-menu-item]`:
+     `(() => { const row = [...document.querySelectorAll("li")].find((element) => element.textContent.includes("jsTester #1")); row.querySelector('button[aria-label="More Actions…"]').click(); return "opened"; })()`
+     `(() => { [...document.querySelectorAll("[data-slot=dropdown-menu-item]")].find((item) => item.textContent === "Archive").click(); return "picked"; })()`
+   - Right-click a row for the same menu: dispatch a `contextmenu` `MouseEvent` (`bubbles`, `button: 2`, `clientX` and
+     `clientY` inside the row) on its button, then pick an item as above.
+   - The Sessions list's header holds New Session…, Add Project and Open Settings as buttons, by their `aria-label`:
+     `(() => { document.querySelector('button[aria-label="New Session…"]').click(); return "clicked"; })()`
+   - What a command asks (a question, Rename, the project and agent pickers) is a dialog in the webview, not a quick
+     pick: read it with `document.querySelector("[data-slot=dialog-content]")?.innerText`, click a choice's button by
+     its text, or Cancel; fill a text prompt and submit it:
+     `(() => { const input = document.querySelector("[data-slot=dialog-content] input"); input.value = "New name"; input.form.requestSubmit(); return "submitted"; })()`
+   - Hover styles don't show by themselves: the headless window has no pointer, so `(hover: hover)` is false and
+     Tailwind's `hover:` classes never apply, while the buttons that show on hover are always shown. `webview-hover x,y`
+     turns the hover styles on until the page reloads and moves the mouse to that point of the window; read an element's
+     place with `getBoundingClientRect()` in `webview-eval` and add the webview frame's own (`iframe.webview` in
+     `eval`), then take a `screenshot`, whose pixels are the window's CSS pixels times its `devicePixelRatio` (about
+     1.09). A row's buttons take a bare `click()` either way.
    - Read the notifications:
      `[...document.querySelectorAll(".notification-list-item")].map((element) => element.textContent)`
 3. **Check the stored data** when a change touches it: stop VS Code first, then read or seed

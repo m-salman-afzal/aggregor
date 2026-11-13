@@ -1,9 +1,6 @@
 import {existsSync, readdirSync} from "node:fs";
 import {basename, dirname, join, relative, sep} from "node:path";
 
-// What the folder-structure rules (.claude/skills/folder-structure) know about a front end's files: the role each file's
-// suffix names, the folder each kind of file gathers in, and where the app's src begins.
-
 export interface ParsedFileName {
   readonly extension: string;
   readonly role: string | undefined;
@@ -12,13 +9,9 @@ export interface ParsedFileName {
 }
 
 interface FileRole {
-  // The extension the role's files take: a hook, store, context or cog holds no JSX, and the rest render.
   readonly extension: "ts" | "tsx";
-  // The folder a level's second file of the role moves into, with the first.
   readonly kindFolder: string;
-  // The name of the one block a building block's file exports, from its stem in PascalCase; cogs hold many.
   readonly makeBlockName?: (pascalCaseStem: string) => string;
-  // What the role holds, in a message.
   readonly title: string;
 }
 
@@ -38,7 +31,7 @@ export const FILE_ROLES: Readonly<Record<string, FileRole>> = {
   utils: {extension: "ts", kindFolder: "utils", title: "utils file"}
 };
 
-// The role a level's main file plays, most specific first, when several files carry the folder's name.
+// Most specific first, when several files carry the folder's name.
 const MAIN_FILE_ROLE_ORDER = ["useCase", "layout", "provider", "component", "icon", "context", "store", "hook"];
 const KIND_FOLDER_ROLES = new Map(Object.entries(FILE_ROLES).map(([role, roleInfo]) => [roleInfo.kindFolder, role]));
 const CAMEL_CASE_NAME = /^[a-z][\dA-Za-z]*$/u;
@@ -79,7 +72,6 @@ export const parseFileName = (fileName: string): ParsedFileName => {
 
 export const getKindFolderRole = (folderName: string) => KIND_FOLDER_ROLES.get(folderName);
 
-// The app's src: the deepest folder named src above the file.
 export const findSourceRoot = (filePath: string) => {
   const pathParts = filePath.split(sep);
   const sourceIndex = pathParts.lastIndexOf("src");
@@ -96,7 +88,6 @@ export const isFixedFolder = (folderPath: string, sourceRootPath: string) =>
 export const listFolderEntries = (folderPath: string) =>
   readdirSync(folderPath, {withFileTypes: true}).filter((entry) => !entry.name.startsWith("."));
 
-// A unit folder's main file: the building block named after the folder, its most specific role first.
 export const findMainFileName = (folderPath: string) => {
   const folderName = basename(folderPath);
   const mainFileNames = MAIN_FILE_ROLE_ORDER.map((role) => {
@@ -110,7 +101,6 @@ export const findMainFileName = (folderPath: string) => {
   return mainFileNames.find((fileName) => fileName !== undefined);
 };
 
-// The role a level's entry plays: a file's own, or a unit folder's main file's.
 export const getEntryRole = (folderPath: string, entryName: string, isFolder: boolean) => {
   if (!isFolder) return SOURCE_FILE_EXTENSION.test(entryName) ? parseFileName(entryName).role : undefined;
   const mainFileName = findMainFileName(join(folderPath, entryName));
@@ -118,7 +108,6 @@ export const getEntryRole = (folderPath: string, entryName: string, isFolder: bo
   return mainFileName === undefined ? undefined : parseFileName(mainFileName).role;
 };
 
-// A path as messages show it: from the app's src, with forward slashes.
 export const showPath = (absolutePath: string, sourceRootPath: string) =>
   `src/${relative(sourceRootPath, absolutePath).split(sep).join("/")}`.replace(TRAILING_SLASH, "");
 

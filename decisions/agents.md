@@ -49,19 +49,20 @@ Which CLIs a session can run, and how a session picks one.
 - **Problem:** with five built-in agents, starting a session has to say which, and offering one that isn't installed
   only fails in its terminal.
 - **Decision:**
-  - The project row's "New Claude Session" became "New Session"; the title bar's "New Session..." asks for the project
-    first, then the agent. Command ids didn't change.
+  - The project row's "New Claude Session" became "New Session"; the list's "New Session..." asks for the project first,
+    then the agent.
   - The picker lists the agents whose command is on `PATH` (plus `PATHEXT` on Windows), looked up in the extension host
     each time through `IShellCommandInfraService.listInstalledCommands`, so a new install shows without a reload. Each
-    row is an `AgentListItemDto`: icon, name, the command as the description, the default first and marked.
-  - A row's **Set as Default** button ends the pick; the use case saves `aggregorApp.defaultAgent` to user settings
-    through `ISettingsConfig.saveDefaultAgentId` and shows the picker again, reordered.
-  - One agent installed, or `aggregorApp.skipAgentPicker` on with the default installed, starts it without the picker;
-    none installed fails with `NoAgentInstalledError`, naming the commands searched for, with **Open Settings**.
+    row is an `AgentListItemDto` from `listAgents`: icon, name, the command as the description, the default first and
+    marked. The view sends the list to the webview when it draws, and again when an agent setting changes.
+  - A row's **Set as Default** button runs `setDefaultAgent`, which saves `aggregorApp.defaultAgent` to user settings
+    through `ISettingsConfig.saveDefaultAgentId`; the open picker reorders at once.
+  - The webview picks: one agent installed, or `aggregorApp.skipAgentPicker` on with the default installed, starts the
+    session without the picker. `newSession` takes the agent, or none for the default or the only one installed; none
+    installed fails with `NoAgentInstalledError`, naming the commands searched for, with **Open Settings**.
 
-  The use case decides and the picker only shows; whether a command is installed is a fact about the machine, not the
-  configuration.
+  Which agents are installed is the backend's fact about the machine; whether to ask is the front end's.
 
 - **Alternatives considered:** `AgentRepository.findAll` leaving out uninstalled agents, which mixes what is configured
-  with what is on this machine. Saving the default from inside the picker while it stays open, which puts the decision
-  in infrastructure. Error messages without a way to the setting.
+  with what is on this machine. The use case picking, with the picker shown through a port, built first (see "The
+  webview asks the user" in sessionsView/menus.md). Error messages without a way to the setting.
