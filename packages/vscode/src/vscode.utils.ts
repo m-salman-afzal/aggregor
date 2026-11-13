@@ -28,9 +28,11 @@ export const setWhenClauseContextKey = Effect.fn("setWhenClauseContextKey")(func
   contextKey: string,
   contextValue: unknown
 ) {
-  const {commands} = yield* VsCodeApi;
+  const vsCodeApi = yield* VsCodeApi;
 
-  yield* Effect.promise(() => commands.executeCommand(VS_CODE_COMMANDS.SET_CONTEXT, contextKey, contextValue));
+  yield* Effect.promise(() =>
+    vsCodeApi.commands.executeCommand(VS_CODE_COMMANDS.SET_CONTEXT, contextKey, contextValue)
+  );
 });
 
 // Shows VS Code's progress indicator while the effect runs; the effect's failure comes back out once the progress ends.
@@ -38,11 +40,11 @@ export const runWithProgressIndicator = Effect.fn("runWithProgressIndicator")(fu
   progressOptions: ProgressOptions,
   effectToRun: Effect.Effect<A, E, R>
 ) {
-  const {window} = yield* VsCodeApi;
+  const vsCodeApi = yield* VsCodeApi;
   const effectContext = yield* Effect.context<R>();
   const runPromise = Effect.runPromiseWith(effectContext);
   const effectResult = yield* Effect.promise(() =>
-    window.withProgress(progressOptions, () => runPromise(Effect.result(effectToRun)))
+    vsCodeApi.window.withProgress(progressOptions, () => runPromise(Effect.result(effectToRun)))
   );
 
   return yield* Effect.fromResult(effectResult);
@@ -50,10 +52,13 @@ export const runWithProgressIndicator = Effect.fn("runWithProgressIndicator")(fu
 
 // Opens the Settings editor at every Aggregor setting.
 export const openAggregorSettingsInSettingsEditor = Effect.fn("openAggregorSettingsInSettingsEditor")(function* () {
-  const {commands, extensionId} = yield* VsCodeApi;
+  const vsCodeApi = yield* VsCodeApi;
 
   yield* Effect.promise(() =>
-    commands.executeCommand(VS_CODE_COMMANDS.OPEN_SETTINGS, `${SETTINGS_EDITOR_EXTENSION_FILTER}${extensionId}`)
+    vsCodeApi.commands.executeCommand(
+      VS_CODE_COMMANDS.OPEN_SETTINGS,
+      `${SETTINGS_EDITOR_EXTENSION_FILTER}${vsCodeApi.extensionId}`
+    )
   );
 });
 
@@ -61,27 +66,28 @@ export const openAggregorSettingsInSettingsEditor = Effect.fn("openAggregorSetti
 // setting, an Open Settings button opens the Settings editor at it; with a page, a button named for it opens it.
 export const showErrorNotificationWithoutWaiting = Effect.fn("showErrorNotificationWithoutWaiting")(function* (
   errorMessage: string,
-  {
-    pageToOpen,
-    settingToOpen
-  }: {
+  errorButtons: {
     readonly pageToOpen?: {readonly label: string; readonly url: string} | undefined;
     readonly settingToOpen?: string | undefined;
   } = {}
 ) {
-  const {commands, env, Uri, window} = yield* VsCodeApi;
-  const settingButtons = settingToOpen === undefined ? [] : [APP_LABELS.OPEN_SETTINGS];
-  const pageButtons = pageToOpen === undefined ? [] : [pageToOpen.label];
+  const vsCodeApi = yield* VsCodeApi;
+  const settingButtons = errorButtons.settingToOpen === undefined ? [] : [APP_LABELS.OPEN_SETTINGS];
+  const pageButtons = errorButtons.pageToOpen === undefined ? [] : [errorButtons.pageToOpen.label];
   const showErrorMessageAndWaitForButton = Effect.promise(() =>
-    window.showErrorMessage(`${APP_NAME}: ${errorMessage}`, ...settingButtons, ...pageButtons)
+    vsCodeApi.window.showErrorMessage(`${APP_NAME}: ${errorMessage}`, ...settingButtons, ...pageButtons)
   );
+
+  const pageToOpen = errorButtons.pageToOpen;
 
   yield* Effect.forkDetach(
     Effect.flatMap(showErrorMessageAndWaitForButton, (chosenButton) => {
-      if (chosenButton === APP_LABELS.OPEN_SETTINGS && settingToOpen !== undefined)
-        return Effect.promise(() => commands.executeCommand(VS_CODE_COMMANDS.OPEN_SETTINGS, settingToOpen));
+      if (chosenButton === APP_LABELS.OPEN_SETTINGS && errorButtons.settingToOpen !== undefined)
+        return Effect.promise(() =>
+          vsCodeApi.commands.executeCommand(VS_CODE_COMMANDS.OPEN_SETTINGS, errorButtons.settingToOpen)
+        );
       if (pageToOpen !== undefined && chosenButton === pageToOpen.label)
-        return Effect.promise(() => env.openExternal(Uri.parse(pageToOpen.url)));
+        return Effect.promise(() => vsCodeApi.env.openExternal(vsCodeApi.Uri.parse(pageToOpen.url)));
 
       return Effect.void;
     })

@@ -29,17 +29,16 @@ const makeVsCodeDesktopEntryHint = Effect.fn("DesktopNotificationInfraService.ma
 
 // The agent's logo shows in the notification's body, and Aggregor's in its header when GNOME doesn't know the sender is
 // VS Code. A button can't bring VS Code forward, only a click on the notification itself can, so there is none.
-const makeNotifySendArguments = Effect.fn("DesktopNotificationInfraService.makeNotifySendArguments")(function* ({
-  agentIconPath,
-  aggregorIconPath,
-  headline,
-  message
-}: DesktopNotificationRequest) {
+const makeNotifySendArguments = Effect.fn("DesktopNotificationInfraService.makeNotifySendArguments")(function* (
+  desktopNotificationRequest: DesktopNotificationRequest
+) {
   return [
-    ...["--app-name", APP_NAME, "--app-icon", aggregorIconPath, "--wait"],
+    ...["--app-name", APP_NAME, "--app-icon", desktopNotificationRequest.aggregorIconPath, "--wait"],
     ...(yield* makeVsCodeDesktopEntryHint()),
-    ...(agentIconPath === undefined ? [] : ["--hint", `string:image-path:${agentIconPath}`]),
-    ...["--", headline, message]
+    ...(desktopNotificationRequest.agentIconPath === undefined
+      ? []
+      : ["--hint", `string:image-path:${desktopNotificationRequest.agentIconPath}`]),
+    ...["--", desktopNotificationRequest.headline, desktopNotificationRequest.message]
   ];
 });
 
@@ -63,23 +62,27 @@ const notifyWithNotifySend = Effect.fn("DesktopNotificationInfraService.notifyWi
 // osascript's notifications can't carry a button, so this one only tells.
 const notifyWithOsascript = Effect.fn("DesktopNotificationInfraService.notifyWithOsascript")(function* (
   childProcessSpawner: ChildProcessSpawner["Service"],
-  {headline, message}: DesktopNotificationRequest
+  desktopNotificationRequest: DesktopNotificationRequest
 ) {
-  const {COMMAND, SCRIPT_LINES} = DESKTOP_NOTIFIERS.OSASCRIPT;
-  const scriptArguments = Array.flatMap(SCRIPT_LINES, (scriptLine) => ["-e", scriptLine]);
+  const scriptArguments = Array.flatMap(DESKTOP_NOTIFIERS.OSASCRIPT.SCRIPT_LINES, (scriptLine) => ["-e", scriptLine]);
 
-  yield* childProcessSpawner.exitCode(ChildProcess.make(COMMAND, [...scriptArguments, headline, message]));
+  yield* childProcessSpawner.exitCode(
+    ChildProcess.make(DESKTOP_NOTIFIERS.OSASCRIPT.COMMAND, [
+      ...scriptArguments,
+      desktopNotificationRequest.headline,
+      desktopNotificationRequest.message
+    ])
+  );
 });
 
 // A toast whose click opens the link through Windows, whose VS Code hands it to the WSL window. The texts travel as
 // base64, so no quote in them can break the script.
-const makeWindowsToastScript = Effect.fn("DesktopNotificationInfraService.makeWindowsToastScript")(function* ({
-  headline,
-  message,
-  openLink
-}: DesktopNotificationRequest) {
-  const [encodedHeadline, encodedMessage, encodedLink] = Array.map([headline, message, openLink], (text) =>
-    Buffer.from(text, "utf8").toString("base64")
+const makeWindowsToastScript = Effect.fn("DesktopNotificationInfraService.makeWindowsToastScript")(function* (
+  desktopNotificationRequest: DesktopNotificationRequest
+) {
+  const [encodedHeadline, encodedMessage, encodedLink] = Array.map(
+    [desktopNotificationRequest.headline, desktopNotificationRequest.message, desktopNotificationRequest.openLink],
+    (text) => Buffer.from(text, "utf8").toString("base64")
   );
 
   return Array.join(

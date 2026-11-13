@@ -52,10 +52,10 @@ const showSessionProject = Effect.fn("WorkspaceService.showSessionProject")(
 // Explorer, search, file watching and Source Control cover it alone. With no session in view the project stays, so
 // opening one of its files keeps it.
 export const startShownProjectSync = Effect.fn("WorkspaceService.startShownProjectSync")(function* () {
-  const {viewedSessionId} = yield* ITerminalInfraService;
+  const terminalInfraService = yield* ITerminalInfraService;
 
   yield* Effect.forkScoped(
-    Stream.runForEach(SubscriptionRef.changes(viewedSessionId), (viewedSessionIdResult) =>
+    Stream.runForEach(SubscriptionRef.changes(terminalInfraService.viewedSessionId), (viewedSessionIdResult) =>
       Result.match(viewedSessionIdResult, {onFailure: () => Effect.void, onSuccess: showSessionProject})
     )
   );

@@ -22,8 +22,8 @@ const problemMatcherPlugin: Plugin = {
 
 const externalNode = /^node:/u;
 
-export default defineConfig(({mode}) => {
-  const production = mode === "production";
+export default defineConfig((configEnvironment) => {
+  const production = configEnvironment.mode === "production";
 
   return {
     build: {

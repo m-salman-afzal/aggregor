@@ -5,6 +5,7 @@ import path from "node:path";
 interface CdpTarget {
   readonly title: string;
   readonly type: string;
+  readonly url: string;
   readonly webSocketDebuggerUrl: string;
 }
 
@@ -17,6 +18,7 @@ const isCdpTarget = (value: unknown): value is CdpTarget =>
   isRecord(value) &&
   typeof value.title === "string" &&
   typeof value.type === "string" &&
+  typeof value.url === "string" &&
   typeof value.webSocketDebuggerUrl === "string";
 
 export const listCdpTargets = async (): Promise<readonly CdpTarget[]> => {
@@ -34,11 +36,31 @@ export const listCdpTargets = async (): Promise<readonly CdpTarget[]> => {
 export const findWorkbenchPage = async () =>
   (await listCdpTargets()).find((target) => target.type === "page" && target.title.includes("Visual Studio Code"));
 
-const sendCdpCommand = async (method: string, parameters: Readonly<Record<string, unknown>>) => {
-  const workbenchPage = await findWorkbenchPage();
-  if (workbenchPage === undefined) throw new Error("No headless VS Code is running; run `start` first.");
+// The Sessions view's webview, the extension's only one: a frame of its own, apart from the window's page, whose page
+// shows the view in an inner frame. VS Code loads it only once the view has been in sight.
+const findSessionsWebviewFrame = async () =>
+  (await listCdpTargets()).find(
+    (target) =>
+      target.type === "iframe" &&
+      target.url.startsWith("vscode-webview://") &&
+      target.url.includes("extensionId=SalmanAfzal.aggregor-app")
+  );
 
-  const socket = new WebSocket(workbenchPage.webSocketDebuggerUrl);
+const sendCdpCommand = async (
+  method: string,
+  parameters: Readonly<Record<string, unknown>>,
+  findTarget: () => Promise<CdpTarget | undefined> = findWorkbenchPage
+) => {
+  const cdpTarget = await findTarget();
+  if (cdpTarget === undefined) {
+    throw new Error(
+      findTarget === findWorkbenchPage
+        ? "No headless VS Code is running; run `start` first."
+        : "The Sessions view's webview isn't loaded; open the Aggregor container first."
+    );
+  }
+
+  const socket = new WebSocket(cdpTarget.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => {
     socket.addEventListener("open", resolve);
     socket.addEventListener("error", reject);
@@ -56,25 +78,39 @@ const sendCdpCommand = async (method: string, parameters: Readonly<Record<string
   return isRecord(reply.result) ? reply.result : {};
 };
 
-export const evaluate = async (expression: string) => {
-  const {exceptionDetails, result} = await sendCdpCommand("Runtime.evaluate", {
-    awaitPromise: true,
-    expression,
-    returnByValue: true
-  });
-  if (isRecord(exceptionDetails)) {
+const evaluateIn = async (expression: string, findTarget?: () => Promise<CdpTarget | undefined>) => {
+  const evaluation = await sendCdpCommand(
+    "Runtime.evaluate",
+    {awaitPromise: true, expression, returnByValue: true},
+    findTarget
+  );
+  if (isRecord(evaluation.exceptionDetails)) {
+    const exceptionDetails = evaluation.exceptionDetails;
     const exception = isRecord(exceptionDetails.exception) ? exceptionDetails.exception : {};
     throw new Error(String(exception.description === undefined ? exceptionDetails.text : exception.description));
   }
 
-  process.stdout.write(`${JSON.stringify(isRecord(result) ? result.value : undefined)}\n`);
+  process.stdout.write(`${JSON.stringify(isRecord(evaluation.result) ? evaluation.result.value : undefined)}\n`);
+};
+
+export const evaluate = async (expression: string) => {
+  await evaluateIn(expression);
+};
+
+// Runs the expression against the view's own page, as `document` and `window`.
+export const evaluateInSessionsWebview = async (expression: string) => {
+  const activeFrame = 'document.querySelector("iframe#active-frame")';
+  await evaluateIn(
+    `((document, window) => (${expression}))(${activeFrame}.contentDocument, ${activeFrame}.contentWindow)`,
+    findSessionsWebviewFrame
+  );
 };
 
 export const screenshot = async (screenshotPath: string) => {
   if (!path.isAbsolute(screenshotPath)) throw new Error("Pass an absolute path for the screenshot.");
 
-  const {data} = await sendCdpCommand("Page.captureScreenshot", {format: "png"});
-  if (typeof data !== "string") throw new Error("Page.captureScreenshot returned no image.");
-  fileSystem.writeFileSync(screenshotPath, Buffer.from(data, "base64"));
+  const capture = await sendCdpCommand("Page.captureScreenshot", {format: "png"});
+  if (typeof capture.data !== "string") throw new Error("Page.captureScreenshot returned no image.");
+  fileSystem.writeFileSync(screenshotPath, Buffer.from(capture.data, "base64"));
   process.stdout.write(`${screenshotPath}\n`);
 };

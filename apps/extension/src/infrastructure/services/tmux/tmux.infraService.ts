@@ -40,10 +40,12 @@ class SessionAgentNotListedError extends Schema.TaggedError<
 >()("SessionAgentNotListedError", {}) {}
 
 const runTmuxCommand = Effect.fn("TmuxInfraService.runTmuxCommand")(function* (
-  {childProcessSpawner, tmuxSocketPath}: Pick<TmuxDependencies, "childProcessSpawner" | "tmuxSocketPath">,
+  tmuxDependencies: Pick<TmuxDependencies, "childProcessSpawner" | "tmuxSocketPath">,
   tmuxArguments: readonly string[]
 ) {
-  return yield* childProcessSpawner.lines(ChildProcess.make(TMUX.COMMAND, ["-S", tmuxSocketPath, ...tmuxArguments]));
+  return yield* tmuxDependencies.childProcessSpawner.lines(
+    ChildProcess.make(TMUX.COMMAND, ["-S", tmuxDependencies.tmuxSocketPath, ...tmuxArguments])
+  );
 });
 
 // The version tmux reports. A build without a version number, such as "tmux master", is taken as new enough.
@@ -57,10 +59,12 @@ const checkTmuxVersion = Effect.fn("TmuxInfraService.checkTmuxVersion")(function
   if (!String.startsWith(TMUX.VERSION_PREFIX)(foundVersion)) return yield* TmuxUnavailableError.make({});
   const versionNumber = Result.fromOption(String.match(TMUX.VERSION_NUMBER_PATTERN)(foundVersion), () => undefined);
   if (Result.isFailure(versionNumber)) return foundVersion;
-  const {major = "0", minor = "0"} = versionNumber.success.groups === undefined ? {} : versionNumber.success.groups;
+  const versionParts = versionNumber.success.groups === undefined ? {} : versionNumber.success.groups;
+  const majorVersion = Number(versionParts.major === undefined ? "0" : versionParts.major);
+  const minorVersion = Number(versionParts.minor === undefined ? "0" : versionParts.minor);
   const isTooOld =
-    Number(major) < TMUX.MINIMUM_VERSION.MAJOR ||
-    (Number(major) === TMUX.MINIMUM_VERSION.MAJOR && Number(minor) < TMUX.MINIMUM_VERSION.MINOR);
+    majorVersion < TMUX.MINIMUM_VERSION.MAJOR ||
+    (majorVersion === TMUX.MINIMUM_VERSION.MAJOR && minorVersion < TMUX.MINIMUM_VERSION.MINOR);
   if (isTooOld) return yield* TmuxUnavailableError.make({foundVersion});
 
   return foundVersion;
@@ -94,30 +98,47 @@ const refreshRunningSessionIds = Effect.fn("TmuxInfraService.refreshRunningSessi
 
 // -A attaches to the session's tmux session when it runs, and otherwise starts it with the agent's variables.
 const prepareTmuxArguments = Effect.fn("TmuxInfraService.prepareTmuxArguments")(function* (
-  {tmuxConfigPath, tmuxSocketPath}: TmuxDependencies,
-  {launchPlan, projectPath, sessionId}: SessionTabCommandRequest
+  tmuxDependencies: TmuxDependencies,
+  sessionTabCommandRequest: SessionTabCommandRequest
 ) {
-  const environmentFlags = Array.flatMap(Record.toEntries(launchPlan.environmentVariables), ([name, value]) => [
-    "-e",
-    `${name}=${value}`
-  ]);
+  const environmentFlags = Array.flatMap(
+    Record.toEntries(sessionTabCommandRequest.launchPlan.environmentVariables),
+    ([name, value]) => ["-e", `${name}=${value}`]
+  );
 
   return [
-    ...["-S", tmuxSocketPath, "-f", tmuxConfigPath, "-u", "new-session", "-A", "-s", sessionId],
+    ...[
+      "-S",
+      tmuxDependencies.tmuxSocketPath,
+      "-f",
+      tmuxDependencies.tmuxConfigPath,
+      "-u",
+      "new-session",
+      "-A",
+      "-s",
+      sessionTabCommandRequest.sessionId
+    ],
     ...environmentFlags,
-    ...["-c", projectPath]
+    ...["-c", sessionTabCommandRequest.projectPath]
   ];
 });
 
 // aggregor-pty runs the agent and records its status on the session's row.
 const preparePtyArguments = Effect.fn("TmuxInfraService.preparePtyArguments")(function* (
-  {databaseFilePath}: TmuxDependencies,
+  tmuxDependencies: TmuxDependencies,
   ptyBinaryPath: string,
-  {launchPlan, sessionId}: SessionTabCommandRequest
+  sessionTabCommandRequest: SessionTabCommandRequest
 ) {
   return [
-    ...[ptyBinaryPath, "--database", databaseFilePath, "--session", sessionId, "--"],
-    ...[launchPlan.command, ...launchPlan.commandArguments]
+    ...[
+      ptyBinaryPath,
+      "--database",
+      tmuxDependencies.databaseFilePath,
+      "--session",
+      sessionTabCommandRequest.sessionId,
+      "--"
+    ],
+    ...[sessionTabCommandRequest.launchPlan.command, ...sessionTabCommandRequest.launchPlan.commandArguments]
   ];
 });
 
@@ -210,9 +231,8 @@ const watchStartedOrStoppedSessionIds = Effect.fn("TmuxInfraService.watchStarted
 const watchTmuxChangeHints = Effect.fn("TmuxInfraService.watchTmuxChangeHints")(function* (
   tmuxDependencies: TmuxDependencies
 ) {
-  const {window} = tmuxDependencies;
-  const windowStateChanges = yield* streamVsCodeEvent(window.onDidChangeWindowState);
-  const closedTerminals = yield* streamVsCodeEvent(window.onDidCloseTerminal);
+  const windowStateChanges = yield* streamVsCodeEvent(tmuxDependencies.window.onDidChangeWindowState);
+  const closedTerminals = yield* streamVsCodeEvent(tmuxDependencies.window.onDidCloseTerminal);
   const tmuxChangeHints = Stream.merge(
     Stream.filter(windowStateChanges, (windowState) => windowState.focused),
     closedTerminals
@@ -234,9 +254,9 @@ const findPtyBinaryPath = Effect.fn("TmuxInfraService.findPtyBinaryPath")(functi
 });
 
 const makeTmuxDependencies = Effect.fn("TmuxInfraService.makeTmuxDependencies")(function* () {
-  const {extensionUri, Uri, window} = yield* VsCodeApi;
+  const vsCodeApi = yield* VsCodeApi;
   const childProcessSpawner = yield* ChildProcessSpawner;
-  const ptyBinaryPath = Uri.joinPath(extensionUri, PTY_BINARY).fsPath;
+  const ptyBinaryPath = vsCodeApi.Uri.joinPath(vsCodeApi.extensionUri, PTY_BINARY).fsPath;
   const tmuxSocketPath = yield* getTmuxSocketPath();
   const initialSessionIds = yield* readRunningSessionIds({childProcessSpawner, tmuxSocketPath});
   const tmuxDependencies: TmuxDependencies = {
@@ -244,9 +264,9 @@ const makeTmuxDependencies = Effect.fn("TmuxInfraService.makeTmuxDependencies")(
     databaseFilePath: yield* getDatabaseFilePath(),
     ptyBinaryPath: yield* Effect.result(findPtyBinaryPath(ptyBinaryPath)),
     runningSessionIds: yield* SubscriptionRef.make(initialSessionIds),
-    tmuxConfigPath: Uri.joinPath(extensionUri, TMUX.CONFIG_FILE).fsPath,
+    tmuxConfigPath: vsCodeApi.Uri.joinPath(vsCodeApi.extensionUri, TMUX.CONFIG_FILE).fsPath,
     tmuxSocketPath,
-    window
+    window: vsCodeApi.window
   };
 
   return tmuxDependencies;
@@ -255,10 +275,9 @@ const makeTmuxDependencies = Effect.fn("TmuxInfraService.makeTmuxDependencies")(
 // A server already running keeps the config it started with, so this window's tmux.conf is read into it again.
 const makeTmuxInfraService = Effect.fn("TmuxInfraService.make")(function* () {
   const tmuxDependencies = yield* makeTmuxDependencies();
-  const {runningSessionIds, tmuxConfigPath} = tmuxDependencies;
-  const initialSessionIds = yield* SubscriptionRef.get(runningSessionIds);
+  const initialSessionIds = yield* SubscriptionRef.get(tmuxDependencies.runningSessionIds);
   if (initialSessionIds.size > 0)
-    yield* Effect.ignore(runTmuxCommand(tmuxDependencies, ["source-file", tmuxConfigPath]), {
+    yield* Effect.ignore(runTmuxCommand(tmuxDependencies, ["source-file", tmuxDependencies.tmuxConfigPath]), {
       log: "Warn",
       message: "Could not read this window's tmux.conf into the running tmux server"
     });
@@ -268,8 +287,8 @@ const makeTmuxInfraService = Effect.fn("TmuxInfraService.make")(function* () {
     prepareSessionTabCommand: (sessionTabCommandRequest: SessionTabCommandRequest) =>
       prepareSessionTabCommand(tmuxDependencies, sessionTabCommandRequest),
     refreshRunningSessionIds: refreshRunningSessionIds(tmuxDependencies),
-    runningSessionIds,
-    startedOrStoppedSessionIds: yield* watchStartedOrStoppedSessionIds(runningSessionIds),
+    runningSessionIds: tmuxDependencies.runningSessionIds,
+    startedOrStoppedSessionIds: yield* watchStartedOrStoppedSessionIds(tmuxDependencies.runningSessionIds),
     stopSessionAgent: (sessionId: EntityIdValueObject) => stopSessionAgent(tmuxDependencies, sessionId),
     waitForSessionAgentStart: (sessionId: EntityIdValueObject) => waitForSessionAgentStart(tmuxDependencies, sessionId)
   };

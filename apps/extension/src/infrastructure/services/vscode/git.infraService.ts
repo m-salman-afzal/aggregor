@@ -22,9 +22,9 @@ class GitRepositoryOpenFailedError extends Schema.TaggedError<
   {readonly brand: unique symbol}
 >()("GitRepositoryOpenFailedError", {cause: Schema.Unknown}) {}
 
-const getGitApi = Effect.fn("GitInfraService.getGitApi")(function* ({extensions}: GitDependencies) {
+const getGitApi = Effect.fn("GitInfraService.getGitApi")(function* (gitDependencies: GitDependencies) {
   const gitExtension = yield* Effect.fromResult(
-    Result.fromNullishOr(extensions.getExtension<GitExtension>(GIT_EXTENSION.ID), () =>
+    Result.fromNullishOr(gitDependencies.extensions.getExtension<GitExtension>(GIT_EXTENSION.ID), () =>
       GitExtensionUnavailableError.make()
     )
   );
@@ -120,9 +120,9 @@ const stageAll = Effect.fn("GitInfraService.stageAll")(function* (
   gitDependencies: GitDependencies,
   projectPath: ProjectPathValueObject
 ) {
-  const {commands, Uri} = gitDependencies;
-
-  yield* Effect.promise(() => commands.executeCommand(GIT_EXTENSION.STAGE_ALL_COMMAND, Uri.file(projectPath)));
+  yield* Effect.promise(() =>
+    gitDependencies.commands.executeCommand(GIT_EXTENSION.STAGE_ALL_COMMAND, gitDependencies.Uri.file(projectPath))
+  );
 });
 
 const openAndLoadRepository = Effect.fn("GitInfraService.openAndLoadRepository")(function* (

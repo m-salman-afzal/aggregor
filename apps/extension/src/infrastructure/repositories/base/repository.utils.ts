@@ -26,10 +26,10 @@ export const encodeStoredColumns = Effect.fn("BaseRepository.encodeStoredColumns
 });
 
 export const findUniqueColumns = Effect.fn("BaseRepository.findUniqueColumns")(function* (tableModel: BaseTableModel) {
-  const {columns, uniqueConstraints} = getTableConfig(tableModel);
+  const tableConfig = getTableConfig(tableModel);
   const uniqueColumns = [
-    ...Array.filter(columns, (column) => column.isUnique),
-    ...Array.flatMap(uniqueConstraints, (uniqueConstraint) => uniqueConstraint.columns)
+    ...Array.filter(tableConfig.columns, (column) => column.isUnique),
+    ...Array.flatMap(tableConfig.uniqueConstraints, (uniqueConstraint) => uniqueConstraint.columns)
   ];
 
   return Array.isReadonlyArrayNonEmpty(uniqueColumns) ? uniqueColumns : [tableModel.id];
@@ -70,16 +70,19 @@ export const watchDataVersionChanges = Effect.fn("BaseRepository.watchDataVersio
 });
 
 export const selectRows = Effect.fn("BaseRepository.selectRows")(function* <Entity>(
-  {database, join, tableModel}: RepositoryTable<Entity>,
+  repositoryTable: RepositoryTable<Entity>,
   rowCondition: SQL | undefined,
   orderColumn: SQLiteColumn
 ) {
-  const joinedColumns = join === undefined ? {} : join.joinedColumns;
-  const selectedRows = database
-    .select({...getColumns(tableModel), ...joinedColumns})
-    .from(tableModel)
+  const joinedColumns = repositoryTable.join === undefined ? {} : repositoryTable.join.joinedColumns;
+  const selectedRows = repositoryTable.database
+    .select({...getColumns(repositoryTable.tableModel), ...joinedColumns})
+    .from(repositoryTable.tableModel)
     .$dynamic();
-  const joinedRows = join === undefined ? selectedRows : selectedRows.innerJoin(join.joinedTable, join.joinCondition);
+  const joinedRows =
+    repositoryTable.join === undefined
+      ? selectedRows
+      : selectedRows.innerJoin(repositoryTable.join.joinedTable, repositoryTable.join.joinCondition);
 
   return yield* joinedRows.where(rowCondition).orderBy(orderColumn);
 });

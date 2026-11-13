@@ -58,8 +58,8 @@ terminals, tree views, Source Control and diffs.
 
 Each item is one small PR, stacked on the previous one. Releases wait for the end of a milestone.
 
-[decisions.md](decisions.md) follows this roadmap milestone by milestone: each stack's plan, and each step's decisions,
-with what was turned down and why.
+[decisions/](decisions/README.md) holds why each feature works as it does, by feature: the problem, the decision, the
+solution and what was turned down.
 
 ### M1: local Claude sessions
 
@@ -79,6 +79,8 @@ with what was turned down and why.
 ### M3: worktrees and review
 
 - [x] Archive sessions you are done with, in an Archive view under Sessions
+- [ ] Sessions sidebar as a webview of our own design: one view with a dropdown per list (Sessions, Archive, later SSH
+      and snoozed), rows of up to three lines, menus, drag and drop and keyboard
 - [ ] Worktree mode: start a session in the project root or in a new git worktree; archiving removes the worktree and
       keeps an unmerged branch
 - [ ] Changed files under each session, opening git's diff with per-hunk staging
@@ -105,10 +107,15 @@ with what was turned down and why.
   - `pnpm --filter=aggregor-app build:tmux` builds it for this machine into `apps/extension/bin`, like `build:pty`; it
     needs a C compiler.
   - The VSIX carries the licence notices of tmux (ISC), libevent (BSD-3) and ncurses (MIT-style).
-  - Reverses harness-foundation 5's "no bundled tmux" in `decisions.md`, whose objection was that macOS has no fully
-    static build.
+  - Reverses "no bundled tmux" in `decisions/sessions/terminals.md`, whose objection was that macOS has no fully static
+    build.
   - Risk: an update that bumps tmux while an older server still runs on the socket; check that the client-server
     protocol version is unchanged before each bump.
+
+### M6: tray
+
+- [ ] A tray icon that lists the sessions with their status, alerts, and opens a session in VS Code, also while VS Code
+      is closed; how the backend runs without VS Code is decided when the milestone starts, within `DDD.md`'s layers
 
 ### If the users asked
 
@@ -127,6 +134,10 @@ with what was turned down and why.
     timing can misfire as it does now.
 
 - [ ] sub agents view in the sidebar (need to research on how is that possible for each kind of agent)
+
+- [ ] A terminal client, light like neovim: the sessions in a side pane and the chosen agent in the main one, for
+      working without VS Code. A tmux layout in Aggregor's tmux server can do it, as opensessions, tmux-agent-sidebar
+      and agent-deck do.
 
 ### Later
 

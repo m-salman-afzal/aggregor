@@ -19,8 +19,17 @@ const showCommandError = Effect.fn("RegisterCommandMiddleware.showCommandError")
   presentCommandError: (commandError: CommandError) => Effect.Effect<PresentedCommandError>
 ) {
   yield* Effect.logError(`Command ${commandId} failed`, commandError);
-  const {message, pageToOpen, settingToOpen} = yield* presentCommandError(commandError);
-  yield* showErrorNotificationWithoutWaiting(message, {pageToOpen, settingToOpen});
+  const presentedCommandError = yield* presentCommandError(commandError);
+  yield* showErrorNotificationWithoutWaiting(presentedCommandError.message, presentedCommandError);
+});
+
+// Arguments that do not decode point at a broken menu entry.
+const showInvalidArguments = Effect.fn("RegisterCommandMiddleware.showInvalidArguments")(function* (
+  commandId: string,
+  invalidArgument: unknown
+) {
+  yield* Effect.logError(`Command ${commandId} got unexpected arguments`, invalidArgument);
+  yield* showErrorNotificationWithoutWaiting(APP_ERRORS.INVALID_COMMAND_ARGUMENTS(commandId));
 });
 
 // Registered for the surrounding scope's lifetime. Each run is a root span named by the command ID. The presenter must
@@ -36,7 +45,7 @@ export const registerCommand = Effect.fn("RegisterCommandMiddleware.registerComm
   ) => Effect.Effect<unknown, InvalidVsCodeArgumentError | NoInfer<CommandError>, R>,
   presentCommandError: (commandError: CommandError) => Effect.Effect<PresentedCommandError>
 ) {
-  const {commands} = yield* VsCodeApi;
+  const vsCodeApi = yield* VsCodeApi;
   const commandContext = yield* Effect.context<R | VsCodeApi>();
   const runPromise = Effect.runPromiseWith(commandContext);
   // eslint-disable-next-line aggregor/span-name -- a command's root span is named by its command ID
@@ -45,16 +54,15 @@ export const registerCommand = Effect.fn("RegisterCommandMiddleware.registerComm
       return yield* controller(...commandArguments);
     },
     Effect.catchTag("InvalidVsCodeArgumentError", (invalidArgument) =>
-      Effect.andThen(
-        Effect.logError(`Command ${commandId} got unexpected arguments`, invalidArgument),
-        showErrorNotificationWithoutWaiting(APP_ERRORS.INVALID_COMMAND_ARGUMENTS(commandId))
-      )
+      showInvalidArguments(commandId, invalidArgument)
     ),
     Effect.catch((commandError) => showCommandError(commandId, commandError, presentCommandError)),
     Effect.tapCause((cause) => Effect.logError(`Command ${commandId} crashed`, cause))
   );
 
   yield* acquireScopedDisposable(() =>
-    commands.registerCommand(commandId, (...commandArguments: unknown[]) => runPromise(runCommand(commandArguments)))
+    vsCodeApi.commands.registerCommand(commandId, (...commandArguments: unknown[]) =>
+      runPromise(runCommand(commandArguments))
+    )
   );
 });

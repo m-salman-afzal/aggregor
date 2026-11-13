@@ -6,6 +6,7 @@
     "./*": "./*"
   },
   "scripts": {
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -22,6 +23,7 @@
     "eslint-plugin-pnpm": "catalog:",
     "eslint-plugin-prettier": "catalog:",
     "eslint-plugin-promise": "catalog:",
+    "eslint-plugin-react-hooks": "catalog:",
     "eslint-plugin-unicorn": "catalog:",
     "globals": "catalog:",
     "prettier": "catalog:",
@@ -30,6 +32,7 @@
   },
   "devDependencies": {
     "@types/eslint-plugin-promise": "catalog:",
-    "@types/node": "catalog:"
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
   }
 }

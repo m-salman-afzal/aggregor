@@ -5,7 +5,7 @@ import fileSystem from "node:fs";
 import operatingSystem from "node:os";
 import path from "node:path";
 
-import {CDP_PORT, evaluate, findWorkbenchPage, listCdpTargets, screenshot} from "./cdp.ts";
+import {CDP_PORT, evaluate, evaluateInSessionsWebview, findWorkbenchPage, listCdpTargets, screenshot} from "./cdp.ts";
 import {findClaudeProcessId, findProcessTree, isClaudeProcess, readProcessFile, sendSignal} from "./processes.ts";
 
 // What start leaves for the other commands and for the hooks: whose launch it is and where its trace log went.
@@ -206,6 +206,11 @@ const start = async (workspaceArgument: string | undefined) => {
     cwd: EXTENSION_DIRECTORY,
     stdio: ["ignore", "ignore", "inherit"]
   });
+  // After the extension's build, which empties dist, where the webview's build lands.
+  execFileSync("pnpm", ["--filter=aggregor-webview", "build"], {
+    cwd: REPOSITORY_ROOT,
+    stdio: ["ignore", "ignore", "inherit"]
+  });
 
   fileSystem.mkdirSync(RUNTIME_DIRECTORY, {mode: 0o700, recursive: true});
   const startedAt = Date.now();
@@ -238,9 +243,10 @@ const stop = async (mode: string | undefined) => {
   const state = readState();
   if (mode === "--hook") {
     if (state === null) return;
-    const {ownerProcessId} = state;
     const isOwnedByLiveOtherSession =
-      ownerProcessId !== null && ownerProcessId !== findClaudeProcessId() && isClaudeProcess(ownerProcessId);
+      state.ownerProcessId !== null &&
+      state.ownerProcessId !== findClaudeProcessId() &&
+      isClaudeProcess(state.ownerProcessId);
     if (isOwnedByLiveOtherSession) return;
   }
 
@@ -258,7 +264,8 @@ const COMMANDS: Readonly<Record<string, (commandArgument?: string) => Promise<vo
   log: printTraceLogPath,
   screenshot: requireArgument(screenshot),
   start,
-  stop
+  stop,
+  "webview-eval": requireArgument(evaluateInSessionsWebview)
 };
 
 const [commandName = "", commandArgument] = process.argv.slice(2);

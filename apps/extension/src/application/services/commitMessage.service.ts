@@ -23,15 +23,15 @@ export class SourceControlRootNotFoundError extends Schema.TaggedError<
 const writeCommitMessage = Effect.fn("CommitMessageService.writeCommitMessage")(function* (
   projectPath: ProjectPathValueObject
 ) {
-  const {autoCommit, commitCommand} = yield* ISettingsConfig.use((settingsConfig) => settingsConfig.readSettings);
+  const settings = yield* ISettingsConfig.use((settingsConfig) => settingsConfig.readSettings);
   const gitInfraService = yield* IGitInfraService;
   const stagedDiff = yield* gitInfraService.getStagedDiff(projectPath);
   const commitMessage = yield* ICommitCliInfraService.use((commitCliInfraService) =>
-    commitCliInfraService.generateCommitMessage({commitCommand, projectPath, stagedDiff})
+    commitCliInfraService.generateCommitMessage({commitCommand: settings.commitCommand, projectPath, stagedDiff})
   );
 
   yield* gitInfraService.setCommitMessageInput(projectPath, commitMessage);
-  if (autoCommit) yield* gitInfraService.commit(projectPath, commitMessage);
+  if (settings.autoCommit) yield* gitInfraService.commit(projectPath, commitMessage);
 });
 
 const writeCommitMessageShowingProgress = Effect.fn("CommitMessageService.writeCommitMessageShowingProgress")(

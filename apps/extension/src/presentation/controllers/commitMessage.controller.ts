@@ -12,9 +12,9 @@ const SourceControlArgumentSchema = Schema.Struct({
 export const generateCommitMessageForSourceControl = Effect.fn(
   "CommitMessageController.generateCommitMessageForSourceControl"
 )(function* (sourceControlArgument: unknown) {
-  const {rootUri} = yield* decodeVsCodeArgument(SourceControlArgumentSchema, sourceControlArgument);
+  const vsCodeArgument = yield* decodeVsCodeArgument(SourceControlArgumentSchema, sourceControlArgument);
   const request = yield* decodeVsCodeArgument(GenerateCommitMessageRequestDtoSchema, {
-    projectPath: rootUri === undefined ? undefined : rootUri.fsPath
+    projectPath: vsCodeArgument.rootUri === undefined ? undefined : vsCodeArgument.rootUri.fsPath
   });
   yield* generateCommitMessage(request);
 });

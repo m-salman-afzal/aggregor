@@ -46,26 +46,23 @@ export const presentSessionCommandError = Effect.fn("SessionPresenter.presentSes
   sessionCommandError: SessionCommandError
 ) {
   return Match.valueTags(sessionCommandError, {
-    AgentNotFoundError: ({agentId}) => ({
-      message: AGENT_ERRORS.NOT_FOUND(agentId),
-      settingToOpen: AGENTS_SETTING_ID
-    }),
-    AgentSessionIdNotFoundError: ({agentName}) => ({message: SESSION_ERRORS.AGENT_SESSION_ID_NOT_FOUND(agentName)}),
+    AgentNotFoundError: (error) => ({message: AGENT_ERRORS.NOT_FOUND(error.agentId), settingToOpen: AGENTS_SETTING_ID}),
+    AgentSessionIdNotFoundError: (error) => ({message: SESSION_ERRORS.AGENT_SESSION_ID_NOT_FOUND(error.agentName)}),
     DatabaseReadError: () => ({message: DATABASE_ERRORS.READ_FAILED}),
     DatabaseWriteError: () => ({message: DATABASE_ERRORS.WRITE_FAILED}),
-    InvalidSettingsError: ({reason}) => ({message: SESSION_ERRORS.INVALID_SETTINGS(reason)}),
-    NoAgentInstalledError: ({searchedCommands}) => ({
-      message: AGENT_ERRORS.NONE_INSTALLED(Array.join(searchedCommands, ", ")),
+    InvalidSettingsError: (error) => ({message: SESSION_ERRORS.INVALID_SETTINGS(error.reason)}),
+    NoAgentInstalledError: (error) => ({
+      message: AGENT_ERRORS.NONE_INSTALLED(Array.join(error.searchedCommands, ", ")),
       settingToOpen: AGENTS_SETTING_ID
     }),
     NoProjectError: () => ({message: SESSION_ERRORS.PROJECT_REQUIRED}),
-    PtyBinaryNotFoundError: ({isWindows}) => ({
-      message: isWindows ? SESSION_ERRORS.PTY_BINARY_NOT_FOUND_ON_WINDOWS : SESSION_ERRORS.PTY_BINARY_NOT_FOUND
+    PtyBinaryNotFoundError: (error) => ({
+      message: error.isWindows ? SESSION_ERRORS.PTY_BINARY_NOT_FOUND_ON_WINDOWS : SESSION_ERRORS.PTY_BINARY_NOT_FOUND
     }),
     SessionNotFoundError: () => ({message: SESSION_ERRORS.NOT_FOUND}),
     TerminalLaunchFailedError: () => ({message: SESSION_ERRORS.LAUNCH_FAILED}),
-    TmuxUnavailableError: ({foundVersion}) => ({
-      message: foundVersion === undefined ? TMUX_ERRORS.NOT_INSTALLED : TMUX_ERRORS.TOO_OLD(foundVersion),
+    TmuxUnavailableError: (error) => ({
+      message: error.foundVersion === undefined ? TMUX_ERRORS.NOT_INSTALLED : TMUX_ERRORS.TOO_OLD(error.foundVersion),
       pageToOpen: {label: TMUX_LABELS.INSTALL, url: TMUX.INSTALL_PAGE}
     })
   });

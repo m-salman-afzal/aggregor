@@ -19,8 +19,7 @@ class UntrackedTerminalError extends Schema.TaggedError<UntrackedTerminalError, 
 // The session id a tab is opened with, which VS Code keeps for the tab's whole life, through an extension restart too.
 const identifySessionTerminal = Effect.fn("TerminalInfraService.identifySessionTerminal")(
   function* (terminal: Terminal) {
-    const {creationOptions} = terminal;
-    const environmentVariables = "env" in creationOptions ? creationOptions.env : undefined;
+    const environmentVariables = "env" in terminal.creationOptions ? terminal.creationOptions.env : undefined;
     const sessionIdValue = environmentVariables === undefined ? undefined : environmentVariables[SESSION_ID_ENV];
 
     return yield* Effect.fromResult(decodeEntityId(sessionIdValue));
@@ -71,14 +70,18 @@ const renameActiveTerminal = Effect.fn("TerminalInfraService.renameActiveTermina
 // VS Code renames only the active terminal, so a tab in the background keeps its name until it comes to the front. A
 // rename shows in the trace; the check before it runs on every write to a session, untraced.
 export const nameActiveSessionTab = Effect.fn("TerminalInfraService.nameActiveSessionTab")(function* (
-  {commands, sessionTerminals, window}: TerminalDependencies,
+  terminalDependencies: TerminalDependencies,
   sessionId: EntityIdValueObject,
   tabName: string
 ) {
-  const openTerminals = yield* SubscriptionRef.get(sessionTerminals);
+  const openTerminals = yield* SubscriptionRef.get(terminalDependencies.sessionTerminals);
   const sessionTerminal = openTerminals.get(sessionId);
-  if (sessionTerminal === undefined || window.activeTerminal !== sessionTerminal || sessionTerminal.name === tabName)
+  if (
+    sessionTerminal === undefined ||
+    terminalDependencies.window.activeTerminal !== sessionTerminal ||
+    sessionTerminal.name === tabName
+  )
     return;
 
-  yield* Effect.withTracerEnabled(renameActiveTerminal(commands, tabName), true);
+  yield* Effect.withTracerEnabled(renameActiveTerminal(terminalDependencies.commands, tabName), true);
 });

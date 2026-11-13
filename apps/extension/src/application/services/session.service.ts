@@ -27,7 +27,7 @@ import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import {AGENT_LABELS} from "@pkg/constants/src/agent.constant.ts";
+import {AGENT_LABELS, AGENT_PICK_TAGS} from "@pkg/constants/src/agent.constant.ts";
 import {SESSION_LABELS, SESSION_NOTICES} from "@pkg/constants/src/session.constant.ts";
 import {
   addEntity,
@@ -89,8 +89,6 @@ export class SessionNotFoundError extends Schema.TaggedError<SessionNotFoundErro
 // The session use cases: starting, opening, renaming, moving, archiving and removing a session, stopping agents, the
 // lists the Sessions and Archive views show, and the work that keeps each session's name and viewedAt current.
 
-const {ProjectListChanged, ProjectSessionsChanged, SessionChanged} = SessionListChangeDtoSchema.cases;
-
 export const findSession = Effect.fn("SessionService.findSession")(
   function* (sessionId: EntityIdValueObject) {
     return yield* findEntityById(ISessionRepository, sessionId);
@@ -121,10 +119,10 @@ const findSessionAgent = Effect.fn("SessionService.findSessionAgent")(function* 
 // The tab attaches to the agent's tmux session, or starts the agent in one when it isn't running, and shows the
 // session's name, as its row does.
 const openSessionTab = Effect.fn("SessionService.openSessionTab")(function* (session: SessionEntity) {
-  const {prepareSessionTabCommand, waitForSessionAgentStart} = yield* ITmuxInfraService;
+  const tmuxInfraService = yield* ITmuxInfraService;
   const sessionAgent = yield* findSessionAgent(session);
   const launchPlan = yield* prepareLaunchPlan(sessionAgent, session);
-  const tabCommand = yield* prepareSessionTabCommand({
+  const tabCommand = yield* tmuxInfraService.prepareSessionTabCommand({
     launchPlan,
     projectPath: session.projectPath,
     sessionId: session.id
@@ -134,7 +132,7 @@ const openSessionTab = Effect.fn("SessionService.openSessionTab")(function* (ses
   yield* ITerminalInfraService.use((terminalInfraService) =>
     terminalInfraService.openSessionTerminal(session, sessionTabRequest)
   );
-  yield* waitForSessionAgentStart(session.id);
+  yield* tmuxInfraService.waitForSessionAgentStart(session.id);
 });
 
 // A new session whose tab fails to open is removed again, with any agent it started, so no dead row stays behind.
@@ -209,10 +207,10 @@ const pickAgent = Effect.fn("SessionService.pickAgent")(function* (
       userInputPromptInfraService.pickAgent(agentListItems, AGENT_LABELS.PICK)
     );
     const pickedAgent = yield* Match.valueTags(agentPick, {
-      AgentPicked: ({agentId}) => findInstalledAgent(installedAgents, agentId),
-      DefaultAgentChosen: ({agentId}) =>
+      [AGENT_PICK_TAGS.AGENT_PICKED]: (agentPicked) => findInstalledAgent(installedAgents, agentPicked.agentId),
+      [AGENT_PICK_TAGS.DEFAULT_AGENT_CHOSEN]: (defaultAgentChosen) =>
         Effect.as(
-          ISettingsConfig.use((settingsConfig) => settingsConfig.saveDefaultAgentId(agentId)),
+          ISettingsConfig.use((settingsConfig) => settingsConfig.saveDefaultAgentId(defaultAgentChosen.agentId)),
           undefined
         )
     });
@@ -224,16 +222,14 @@ const pickAgent = Effect.fn("SessionService.pickAgent")(function* (
 // The only installed agent starts straight away, and so does the default when the user asked to skip the picker. A
 // default that isn't installed leaves the choice to the picker.
 const chooseAgent = Effect.fn("SessionService.chooseAgent")(function* () {
-  const {defaultAgentId, skipAgentPicker} = yield* ISettingsConfig.use(
-    (settingsConfig) => settingsConfig.readSessionSettings
-  );
+  const sessionSettings = yield* ISettingsConfig.use((settingsConfig) => settingsConfig.readSessionSettings);
   const installedAgents = yield* listInstalledAgents();
   const [onlyInstalledAgent] = installedAgents;
   if (installedAgents.length === 1 && onlyInstalledAgent !== undefined) return onlyInstalledAgent;
-  const defaultAgentResult = yield* Effect.result(findInstalledAgent(installedAgents, defaultAgentId));
-  if (skipAgentPicker && Result.isSuccess(defaultAgentResult)) return defaultAgentResult.success;
+  const defaultAgentResult = yield* Effect.result(findInstalledAgent(installedAgents, sessionSettings.defaultAgentId));
+  if (sessionSettings.skipAgentPicker && Result.isSuccess(defaultAgentResult)) return defaultAgentResult.success;
 
-  return yield* pickAgent(installedAgents, defaultAgentId);
+  return yield* pickAgent(installedAgents, sessionSettings.defaultAgentId);
 });
 
 // The project first, then the agent.
@@ -320,17 +316,19 @@ const findRunningAgentSessions = Effect.fn("SessionService.findRunningAgentSessi
 const stopRunningAgentsAsking = Effect.fn("SessionService.stopRunningAgentsAsking")(function* (
   sessions: readonly SessionEntity[]
 ) {
-  const {runningAgentSessions, turnRunningSessions} = yield* findRunningAgentSessions(sessions);
-  if (!Array.isReadonlyArrayNonEmpty(runningAgentSessions)) return;
+  const runningAgents = yield* findRunningAgentSessions(sessions);
+  if (!Array.isReadonlyArrayNonEmpty(runningAgents.runningAgentSessions)) return;
   const stopAgentsQuestion = yield* makeStopAgentsQuestion(
-    Array.map(runningAgentSessions, (runningAgentSession) => runningAgentSession.displayName),
-    turnRunningSessions.length
+    Array.map(runningAgents.runningAgentSessions, (runningAgentSession) => runningAgentSession.displayName),
+    runningAgents.turnRunningSessions.length
   );
 
   yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
     userInputPromptInfraService.askQuestion(stopAgentsQuestion)
   );
-  yield* Effect.forEach(runningAgentSessions, (runningAgentSession) => stopAgentAndCloseTab(runningAgentSession.id));
+  yield* Effect.forEach(runningAgents.runningAgentSessions, (runningAgentSession) =>
+    stopAgentAndCloseTab(runningAgentSession.id)
+  );
 });
 
 // True when the user chooses to stop the agents.
@@ -371,13 +369,13 @@ const archiveSessionsStoppingAgents = Effect.fn("SessionService.archiveSessionsS
 const archiveSessionAskingAboutAgent = Effect.fn("SessionService.archiveSessionAskingAboutAgent")(function* (
   session: SessionEntity
 ) {
-  const {runningAgentSessions, turnRunningSessions} = yield* findRunningAgentSessions([session]);
-  if (runningAgentSessions.length === 0) {
+  const runningAgents = yield* findRunningAgentSessions([session]);
+  if (runningAgents.runningAgentSessions.length === 0) {
     yield* archiveSessionsStoppingAgents([session.id], []);
 
     return;
   }
-  const archiveQuestion = yield* makeArchiveQuestion(session.displayName, turnRunningSessions.length);
+  const archiveQuestion = yield* makeArchiveQuestion(session.displayName, runningAgents.turnRunningSessions.length);
   const shouldStopAgent = yield* askToStopAgentsOnArchive(archiveQuestion);
 
   yield* archiveSessionsStoppingAgents([session.id], shouldStopAgent ? [session.id] : []);
@@ -395,17 +393,19 @@ const archiveSessionsAskingAboutAgents = Effect.fn("SessionService.archiveSessio
 
     return;
   }
-  const {runningAgentSessions, turnRunningSessions} = yield* findRunningAgentSessions(sessions);
+  const runningAgents = yield* findRunningAgentSessions(sessions);
   const archiveSessionsQuestion = yield* makeArchiveSessionsQuestion(
     sessions.length,
-    runningAgentSessions.length,
-    turnRunningSessions.length
+    runningAgents.runningAgentSessions.length,
+    runningAgents.turnRunningSessions.length
   );
   const shouldStopAgents = yield* askToStopAgentsOnArchive(archiveSessionsQuestion);
 
   yield* archiveSessionsStoppingAgents(
     Array.map(sessions, (session) => session.id),
-    shouldStopAgents ? Array.map(runningAgentSessions, (runningAgentSession) => runningAgentSession.id) : []
+    shouldStopAgents
+      ? Array.map(runningAgents.runningAgentSessions, (runningAgentSession) => runningAgentSession.id)
+      : []
   );
 });
 
@@ -506,8 +506,12 @@ const findSessionPlaceInProject = Effect.fn("SessionService.findSessionPlaceInPr
 // The first session stays where it is. A session removed meanwhile is left alone.
 export const moveSessionUp = Effect.fn("SessionService.moveSessionUp")(
   function* (request: MoveSessionUpRequestDto) {
-    const {projectSessionIds, sessionIndex} = yield* findSessionPlaceInProject(request.sessionId);
-    const sessionIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(projectSessionIds, sessionIndex, sessionIndex - 1);
+    const sessionPlace = yield* findSessionPlaceInProject(request.sessionId);
+    const sessionIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(
+      sessionPlace.projectSessionIds,
+      sessionPlace.sessionIndex,
+      sessionPlace.sessionIndex - 1
+    );
     yield* placeEntitiesAtEnd(ISessionRepository, sessionIdsToPlaceAtEnd);
   },
   Effect.catchTag("SessionNotFoundError", () => Effect.void)
@@ -516,8 +520,12 @@ export const moveSessionUp = Effect.fn("SessionService.moveSessionUp")(
 // The last session stays where it is. A session removed meanwhile is left alone.
 export const moveSessionDown = Effect.fn("SessionService.moveSessionDown")(
   function* (request: MoveSessionDownRequestDto) {
-    const {projectSessionIds, sessionIndex} = yield* findSessionPlaceInProject(request.sessionId);
-    const sessionIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(projectSessionIds, sessionIndex, sessionIndex + 1);
+    const sessionPlace = yield* findSessionPlaceInProject(request.sessionId);
+    const sessionIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(
+      sessionPlace.projectSessionIds,
+      sessionPlace.sessionIndex,
+      sessionPlace.sessionIndex + 1
+    );
     yield* placeEntitiesAtEnd(ISessionRepository, sessionIdsToPlaceAtEnd);
   },
   Effect.catchTag("SessionNotFoundError", () => Effect.void)
@@ -526,9 +534,13 @@ export const moveSessionDown = Effect.fn("SessionService.moveSessionDown")(
 // A session moves only among its project's sessions, so the place of another project's session moves nothing.
 export const moveSessionToPlaceOf = Effect.fn("SessionService.moveSessionToPlaceOf")(
   function* (request: MoveSessionToPlaceOfRequestDto) {
-    const {projectSessionIds, sessionIndex} = yield* findSessionPlaceInProject(request.sessionId);
-    const placeIndex = projectSessionIds.indexOf(request.placeOfSessionId);
-    const sessionIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(projectSessionIds, sessionIndex, placeIndex);
+    const sessionPlace = yield* findSessionPlaceInProject(request.sessionId);
+    const placeIndex = sessionPlace.projectSessionIds.indexOf(request.placeOfSessionId);
+    const sessionIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(
+      sessionPlace.projectSessionIds,
+      sessionPlace.sessionIndex,
+      placeIndex
+    );
     yield* placeEntitiesAtEnd(ISessionRepository, sessionIdsToPlaceAtEnd);
   },
   Effect.catchTag("SessionNotFoundError", () => Effect.void)
@@ -552,11 +564,14 @@ const findSessionMoves = Effect.fn("SessionService.findSessionMoves")(function* 
   };
 });
 
-// A session whose agent is gone from the settings has no icon.
-const findSessionAgentIcon = Effect.fn("SessionService.findSessionAgentIcon")(function* (session: SessionEntity) {
+// A session whose agent is gone from the settings has no agent name or icon.
+const findSessionAgentFields = Effect.fn("SessionService.findSessionAgentFields")(function* (session: SessionEntity) {
   const agentResult = yield* Effect.result(findSessionAgent(session));
 
-  return Result.getOrUndefined(Result.map(agentResult, (sessionAgent) => sessionAgent.icon));
+  return Result.match(agentResult, {
+    onFailure: () => ({}),
+    onSuccess: (sessionAgent) => ({agentName: sessionAgent.name, icon: sessionAgent.icon})
+  });
 });
 
 // The kind of wait and the progress go only with a running turn, and the message only with a running agent.
@@ -564,19 +579,19 @@ const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function
   session: SessionEntity,
   orderedSessions: readonly SessionEntity[]
 ) {
-  const {viewedSessionId} = yield* ITerminalInfraService;
+  const terminalInfraService = yield* ITerminalInfraService;
   const tmuxInfraService = yield* ITmuxInfraService;
   const path = yield* Path;
   const runningSessionIds = yield* SubscriptionRef.get(tmuxInfraService.runningSessionIds);
-  const viewedSessionIdResult = yield* SubscriptionRef.get(viewedSessionId);
+  const viewedSessionIdResult = yield* SubscriptionRef.get(terminalInfraService.viewedSessionId);
   const isInView = Result.getOrUndefined(viewedSessionIdResult) === session.id;
   const status = yield* getSessionStatus(session, {isAgentRunning: runningSessionIds.has(session.id), isInView});
   const isTurnRunning = yield* isSessionTurnRunning(status);
 
   return SessionListItemDtoSchema.make({
     ...(yield* findSessionMoves(session, orderedSessions)),
+    ...(yield* findSessionAgentFields(session)),
     displayName: session.displayName,
-    icon: yield* findSessionAgentIcon(session),
     isAgentRunning: runningSessionIds.has(session.id),
     isArchived: session.lifecycle === SESSION_LIFECYCLES.ARCHIVED,
     name: session.name,
@@ -756,16 +771,21 @@ export const listSessionsWaitingOnUser = Effect.fn("SessionService.listSessionsW
 export const watchSessionListChanges = Effect.fn("SessionService.watchSessionListChanges")(function* () {
   const projectRepository = yield* IProjectRepository;
   const sessionRepository = yield* ISessionRepository;
-  const {startedOrStoppedSessionIds} = yield* ITmuxInfraService;
-  const {workspaceFolderChanges} = yield* IWorkspaceInfraService;
+  const tmuxInfraService = yield* ITmuxInfraService;
+  const workspaceInfraService = yield* IWorkspaceInfraService;
   const sessionListChangeSources: readonly Stream.Stream<SessionListChangeDto>[] = [
-    Stream.as(Stream.merge(projectRepository.entityChanges, workspaceFolderChanges), ProjectListChanged.make({})),
-    Stream.map(sessionRepository.entityChanges, ({entity, kind}) =>
-      kind === ENTITY_CHANGE_KINDS.UPDATED
-        ? SessionChanged.make({sessionId: entity.id})
-        : ProjectSessionsChanged.make({projectPath: entity.projectPath})
+    Stream.as(
+      Stream.merge(projectRepository.entityChanges, workspaceInfraService.workspaceFolderChanges),
+      SessionListChangeDtoSchema.cases.ProjectListChanged.make({})
     ),
-    Stream.map(startedOrStoppedSessionIds, (sessionId) => SessionChanged.make({sessionId}))
+    Stream.map(sessionRepository.entityChanges, (sessionChange) =>
+      sessionChange.kind === ENTITY_CHANGE_KINDS.UPDATED
+        ? SessionListChangeDtoSchema.cases.SessionChanged.make({sessionId: sessionChange.entity.id})
+        : SessionListChangeDtoSchema.cases.ProjectSessionsChanged.make({projectPath: sessionChange.entity.projectPath})
+    ),
+    Stream.map(tmuxInfraService.startedOrStoppedSessionIds, (sessionId) =>
+      SessionListChangeDtoSchema.cases.SessionChanged.make({sessionId})
+    )
   ];
 
   return Stream.mergeAll(sessionListChangeSources, {concurrency: "unbounded"});
@@ -774,15 +794,18 @@ export const watchSessionListChanges = Effect.fn("SessionService.watchSessionLis
 // The session whose tab is in front of the user, each time another one comes to the front. No session in front (another
 // tab, or the window unfocused) emits nothing.
 export const watchViewedSessionIds = Effect.fn("SessionService.watchViewedSessionIds")(function* () {
-  const {viewedSessionId} = yield* ITerminalInfraService;
+  const terminalInfraService = yield* ITerminalInfraService;
 
-  return Stream.filterMap(SubscriptionRef.changes(viewedSessionId), (viewedSessionIdResult) => viewedSessionIdResult);
+  return Stream.filterMap(
+    SubscriptionRef.changes(terminalInfraService.viewedSessionId),
+    (viewedSessionIdResult) => viewedSessionIdResult
+  );
 });
 
 // The session whose tab is in front of the user, or NoViewedSessionError when none is.
 export const findViewedSessionId = Effect.fn("SessionService.findViewedSessionId")(function* () {
-  const {viewedSessionId} = yield* ITerminalInfraService;
-  const viewedSessionIdResult = yield* SubscriptionRef.get(viewedSessionId);
+  const terminalInfraService = yield* ITerminalInfraService;
+  const viewedSessionIdResult = yield* SubscriptionRef.get(terminalInfraService.viewedSessionId);
 
   return yield* Effect.fromResult(viewedSessionIdResult);
 });
@@ -806,10 +829,13 @@ const saveSessionTitle = Effect.fn("SessionService.saveSessionTitle")(
 // For the window's whole life, each session's name follows its agent's latest title. The check runs on every write to a
 // session, so it is untraced; only a save shows in the trace.
 export const startSessionTitleSync = Effect.fn("SessionService.startSessionTitleSync")(function* () {
-  const {entityChanges} = yield* ISessionRepository;
+  const sessionRepository = yield* ISessionRepository;
   const writtenSessions = Stream.map(
-    Stream.filter(entityChanges, ({kind}) => kind !== ENTITY_CHANGE_KINDS.REMOVED),
-    ({entity}) => entity
+    Stream.filter(
+      sessionRepository.entityChanges,
+      (sessionChange) => sessionChange.kind !== ENTITY_CHANGE_KINDS.REMOVED
+    ),
+    (sessionChange) => sessionChange.entity
   );
 
   yield* Effect.forkScoped(
@@ -846,13 +872,16 @@ const nameSessionTab = Effect.fn("SessionService.nameSessionTab")(
 // terminal, so the tab follows a new name at once when it is in front, else when it next comes to the front. The check
 // runs on every write to a session, so it is untraced; only a rename shows in the trace.
 export const startSessionTabNameSync = Effect.fn("SessionService.startSessionTabNameSync")(function* () {
-  const {entityChanges} = yield* ISessionRepository;
-  const {activatedSessionIds} = yield* ITerminalInfraService;
+  const sessionRepository = yield* ISessionRepository;
+  const terminalInfraService = yield* ITerminalInfraService;
   const writtenSessions = Stream.map(
-    Stream.filter(entityChanges, ({kind}) => kind !== ENTITY_CHANGE_KINDS.REMOVED),
-    ({entity}) => entity
+    Stream.filter(
+      sessionRepository.entityChanges,
+      (sessionChange) => sessionChange.kind !== ENTITY_CHANGE_KINDS.REMOVED
+    ),
+    (sessionChange) => sessionChange.entity
   );
-  const writtenOrActivatedSessions = Stream.merge(writtenSessions, activatedSessionIds);
+  const writtenOrActivatedSessions = Stream.merge(writtenSessions, terminalInfraService.activatedSessionIds);
 
   yield* Effect.forkScoped(
     Stream.runForEach(writtenOrActivatedSessions, (writtenOrActivatedSession) =>
@@ -874,9 +903,9 @@ const recordViewedAt = Effect.fn("SessionService.recordViewedAt")(
 // The session that comes into view and the one that leaves it get viewedAt, so a turn that ended before then counts as
 // seen, in every window and after an extension restart.
 export const startViewedAtSync = Effect.fn("SessionService.startViewedAtSync")(function* () {
-  const {viewedSessionId} = yield* ITerminalInfraService;
+  const terminalInfraService = yield* ITerminalInfraService;
   const enteringAndLeavingSessionIds = Stream.mapAccum(
-    SubscriptionRef.changes(viewedSessionId),
+    SubscriptionRef.changes(terminalInfraService.viewedSessionId),
     (): EntityIdValueObject | undefined => undefined,
     (leavingSessionId, viewedSessionIdResult) => {
       const enteringSessionId = Result.getOrUndefined(viewedSessionIdResult);

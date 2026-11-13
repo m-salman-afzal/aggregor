@@ -6,13 +6,43 @@ const EXPORTED_TAGGED_ERROR_CLASS =
   "ExportNamedDeclaration[declaration.superClass.callee.callee.object.name='Schema']" +
   "[declaration.superClass.callee.callee.property.name='TaggedError']";
 
-export const SYNTAX_BANS = [
+// Effect code's own bans: a missing value is a Result or UndefinedOr rather than ?. and ??, and a tag is matched with
+// Match rather than switch or a _tag comparison. A front end without Effect, apps/webview, leaves them out.
+export const EFFECT_SYNTAX_BANS = [
   {message: "No optional chaining: check the value explicitly.", selector: "ChainExpression"},
   {
     message: "No ??: check the value explicitly, or take a default with Result.getOrElse or UndefinedOr.match.",
     selector: "LogicalExpression[operator='??']"
   },
   {message: "No ??=: check the value explicitly.", selector: "AssignmentExpression[operator='??=']"},
+  // Match fails the typecheck when a new tag has no branch; a comparison lets it fall through unnoticed.
+  {
+    message: "Match on a tag with Match.valueTags, or Match.tag and Match.exhaustive, instead of comparing _tag.",
+    selector: "BinaryExpression[operator=/^[!=]==$/] > MemberExpression[property.name='_tag']"
+  },
+  {message: "Use Match instead of switch: it checks that every case has a branch.", selector: "SwitchStatement"}
+];
+
+export const OBJECT_DESTRUCTURING_BAN = {
+  message:
+    "No object destructuring: name the object and read each value as `object.key` where it is used (`props.sessionRow`, " +
+    "`sessionListItem.status`), so a reader deep in a long function sees where every value comes from. Give a " +
+    "parameter or a call's result a name of its own instead of a pattern. Array destructuring, such as " +
+    "`const [value, setValue] = useState()`, stays.",
+  selector: "ObjectPattern"
+};
+
+// A tag written by hand is a constant's value, so the sender, the type and every match read the same one name.
+export const TAG_LITERAL_BAN = {
+  message:
+    "A `_tag` is never a string written in place: put it in its feature's constants as a labelled object " +
+    "(`SESSIONS_VIEW_MESSAGE_TAGS.PROJECTS_DRAWN`), write the value as that constant, the type as " +
+    "`typeof SESSIONS_VIEW_MESSAGE_TAGS.PROJECTS_DRAWN`, and a match's key as `[SESSIONS_VIEW_MESSAGE_TAGS.PROJECTS_DRAWN]`, " +
+    "so the sender, the type and every match name one value and a rename changes them all.",
+  selector: "Property[key.name='_tag'] > Literal.value, TSPropertySignature[key.name='_tag'] TSLiteralType"
+};
+
+export const GENERAL_SYNTAX_BANS = [
   // Where types sit is aggregor/type-placement's (rules/typePlacement.rule.ts): it needs to know what each type is
   // built from.
   // Errors sit at the top of the file that raises them, or of the interface whose signatures name them.
@@ -27,14 +57,12 @@ export const SYNTAX_BANS = [
   },
   {message: "End an error class's name in Error.", selector: `${TAGGED_ERROR_CLASS}:not([id.name=/Error$/])`},
   {message: "Import by name: list what the file takes from the module.", selector: "ImportNamespaceSpecifier"},
-  // Match fails the typecheck when a new tag has no branch; a comparison lets it fall through unnoticed.
-  {
-    message: "Match on a tag with Match.valueTags, or Match.tag and Match.exhaustive, instead of comparing _tag.",
-    selector: "BinaryExpression[operator=/^[!=]==$/] > MemberExpression[property.name='_tag']"
-  },
-  {message: "Use Match instead of switch: it checks that every case has a branch.", selector: "SwitchStatement"},
-  {message: "No else: return early from the if instead.", selector: "IfStatement[alternate]"}
+  {message: "No else: return early from the if instead.", selector: "IfStatement[alternate]"},
+  OBJECT_DESTRUCTURING_BAN,
+  TAG_LITERAL_BAN
 ];
+
+export const SYNTAX_BANS = [...EFFECT_SYNTAX_BANS, ...GENERAL_SYNTAX_BANS];
 
 // A constant is a value: a literal, or a text with holes, an arrow whose whole body is one template literal. Picking
 // between texts, or working a value out, happens in a util beside the code that uses it.

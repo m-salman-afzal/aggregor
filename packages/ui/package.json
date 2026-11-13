@@ -1,0 +1,20 @@
+{
+  "name": "@pkg/ui",
+  "private": true,
+  "description": "The webview's design system: its theme from VS Code's colours, and shadcn's components on Base UI.",
+  "type": "module",
+  "exports": {
+    "./*": "./*"
+  },
+  "dependencies": {
+    "@base-ui/react": "catalog:",
+    "@pkg/tsconfigs": "workspace:*",
+    "class-variance-authority": "catalog:",
+    "cn": "catalog:",
+    "react": "catalog:",
+    "tailwindcss": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:"
+  }
+}

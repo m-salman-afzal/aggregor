@@ -32,8 +32,8 @@ const AlertSettingsSchema = Schema.Struct({
 });
 
 const readSettings = Effect.fn("SettingsConfig.readSettings")(
-  function* ({getConfiguration}: SettingsDependencies) {
-    const configuredSettings = yield* getConfiguration(SETTINGS_SECTION);
+  function* (settingsDependencies: SettingsDependencies) {
+    const configuredSettings = yield* settingsDependencies.getConfiguration(SETTINGS_SECTION);
 
     return yield* Schema.decodeUnknownEffect(SettingsSchema)(configuredSettings);
   },
@@ -41,11 +41,13 @@ const readSettings = Effect.fn("SettingsConfig.readSettings")(
 );
 
 const readSessionSettings = Effect.fn("SettingsConfig.readSessionSettings")(
-  function* ({getConfiguration}: SettingsDependencies) {
-    const configuredSettings = yield* getConfiguration(SETTINGS_SECTION);
-    const {defaultAgent, skipAgentPicker} =
-      yield* Schema.decodeUnknownEffect(SessionSettingsSchema)(configuredSettings);
-    const sessionSettings: SessionSettings = {defaultAgentId: defaultAgent, skipAgentPicker};
+  function* (settingsDependencies: SettingsDependencies) {
+    const configuredSettings = yield* settingsDependencies.getConfiguration(SETTINGS_SECTION);
+    const decodedSessionSettings = yield* Schema.decodeUnknownEffect(SessionSettingsSchema)(configuredSettings);
+    const sessionSettings: SessionSettings = {
+      defaultAgentId: decodedSessionSettings.defaultAgent,
+      skipAgentPicker: decodedSessionSettings.skipAgentPicker
+    };
 
     return sessionSettings;
   },
@@ -53,10 +55,10 @@ const readSessionSettings = Effect.fn("SettingsConfig.readSessionSettings")(
 );
 
 const readAlertSettings = Effect.fn("SettingsConfig.readAlertSettings")(
-  function* ({getConfiguration}: SettingsDependencies) {
-    const configuredSettings = yield* getConfiguration(SETTINGS_SECTION);
-    const {notifyOn} = yield* Schema.decodeUnknownEffect(AlertSettingsSchema)(configuredSettings);
-    const alertSettings: AlertSettings = {notifyOnStatuses: notifyOn};
+  function* (settingsDependencies: SettingsDependencies) {
+    const configuredSettings = yield* settingsDependencies.getConfiguration(SETTINGS_SECTION);
+    const decodedAlertSettings = yield* Schema.decodeUnknownEffect(AlertSettingsSchema)(configuredSettings);
+    const alertSettings: AlertSettings = {notifyOnStatuses: decodedAlertSettings.notifyOn};
 
     return alertSettings;
   },
@@ -65,20 +67,23 @@ const readAlertSettings = Effect.fn("SettingsConfig.readAlertSettings")(
 
 // A failed write only costs the reorder, so it is logged.
 const saveDefaultAgentId = Effect.fn("SettingsConfig.saveDefaultAgentId")(
-  function* ({ConfigurationTarget, getConfiguration}: SettingsDependencies, agentId: AgentIdValueObject) {
-    const config = yield* getConfiguration(SETTINGS_SECTION);
+  function* (settingsDependencies: SettingsDependencies, agentId: AgentIdValueObject) {
+    const config = yield* settingsDependencies.getConfiguration(SETTINGS_SECTION);
 
     yield* Effect.tryPromise({
       catch: (cause) => DefaultAgentSaveFailedError.make({cause}),
-      try: () => config.update(AGENT_SETTINGS.DEFAULT_AGENT, agentId, ConfigurationTarget.Global)
+      try: () => config.update(AGENT_SETTINGS.DEFAULT_AGENT, agentId, settingsDependencies.ConfigurationTarget.Global)
     });
   },
   Effect.catch((writeError) => Effect.logWarning("Could not save the default agent", writeError))
 );
 
 const makeSettingsConfig = Effect.fn("SettingsConfig.make")(function* () {
-  const {ConfigurationTarget, getConfiguration} = yield* VsCodeApi;
-  const settingsDependencies: SettingsDependencies = {ConfigurationTarget, getConfiguration};
+  const vsCodeApi = yield* VsCodeApi;
+  const settingsDependencies: SettingsDependencies = {
+    ConfigurationTarget: vsCodeApi.ConfigurationTarget,
+    getConfiguration: vsCodeApi.getConfiguration
+  };
 
   return {
     readAlertSettings: readAlertSettings(settingsDependencies),
