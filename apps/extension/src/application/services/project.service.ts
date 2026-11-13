@@ -177,9 +177,13 @@ const listAddedProjectOrder = Effect.fn("ProjectService.listAddedProjectOrder")(
 
 // The first added project stays where it is.
 export const moveProjectUp = Effect.fn("ProjectService.moveProjectUp")(function* (request: MoveProjectUpRequestDto) {
-  const {addedProjectIds, addedProjectPaths} = yield* listAddedProjectOrder();
-  const projectIndex = addedProjectPaths.indexOf(request.projectPath);
-  const projectIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(addedProjectIds, projectIndex, projectIndex - 1);
+  const addedProjectOrder = yield* listAddedProjectOrder();
+  const projectIndex = addedProjectOrder.addedProjectPaths.indexOf(request.projectPath);
+  const projectIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(
+    addedProjectOrder.addedProjectIds,
+    projectIndex,
+    projectIndex - 1
+  );
   yield* placeEntitiesAtEnd(IProjectRepository, projectIdsToPlaceAtEnd);
 });
 
@@ -187,9 +191,13 @@ export const moveProjectUp = Effect.fn("ProjectService.moveProjectUp")(function*
 export const moveProjectDown = Effect.fn("ProjectService.moveProjectDown")(function* (
   request: MoveProjectDownRequestDto
 ) {
-  const {addedProjectIds, addedProjectPaths} = yield* listAddedProjectOrder();
-  const projectIndex = addedProjectPaths.indexOf(request.projectPath);
-  const projectIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(addedProjectIds, projectIndex, projectIndex + 1);
+  const addedProjectOrder = yield* listAddedProjectOrder();
+  const projectIndex = addedProjectOrder.addedProjectPaths.indexOf(request.projectPath);
+  const projectIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(
+    addedProjectOrder.addedProjectIds,
+    projectIndex,
+    projectIndex + 1
+  );
   yield* placeEntitiesAtEnd(IProjectRepository, projectIdsToPlaceAtEnd);
 });
 
@@ -197,10 +205,14 @@ export const moveProjectDown = Effect.fn("ProjectService.moveProjectDown")(funct
 export const moveProjectToPlaceOf = Effect.fn("ProjectService.moveProjectToPlaceOf")(function* (
   request: MoveProjectToPlaceOfRequestDto
 ) {
-  const {addedProjectIds, addedProjectPaths} = yield* listAddedProjectOrder();
-  const projectIndex = addedProjectPaths.indexOf(request.projectPath);
-  const placeIndex = addedProjectPaths.indexOf(request.placeOfProjectPath);
-  const projectIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(addedProjectIds, projectIndex, placeIndex);
+  const addedProjectOrder = yield* listAddedProjectOrder();
+  const projectIndex = addedProjectOrder.addedProjectPaths.indexOf(request.projectPath);
+  const placeIndex = addedProjectOrder.addedProjectPaths.indexOf(request.placeOfProjectPath);
+  const projectIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(
+    addedProjectOrder.addedProjectIds,
+    projectIndex,
+    placeIndex
+  );
   yield* placeEntitiesAtEnd(IProjectRepository, projectIdsToPlaceAtEnd);
 });
 

@@ -3,10 +3,10 @@
 What the extension stores, where, and why. Add an entry whenever something new is stored, and keep every entry to what
 is stored now.
 
-Everything but one user setting lives in the Aggregor folder, `~/.aggregor` (or `$AGGREGOR_HOME`), which only its owner
-can read. Every window and every VS Code profile shares it, and it survives reloads, restarts and extension updates. The
-build F5 runs keeps its own, `~/.aggregorDev`, and `$AGGREGOR_DATABASE_FILE` puts the database elsewhere, with
-`aggregor-pty.log` beside it.
+Everything but one user setting and the Sessions view's webview state lives in the Aggregor folder, `~/.aggregor` (or
+`$AGGREGOR_HOME`), which only its owner can read. Every window and every VS Code profile shares it, and it survives
+reloads, restarts and extension updates. The build F5 runs keeps its own, `~/.aggregorDev`, and
+`$AGGREGOR_DATABASE_FILE` puts the database elsewhere, with `aggregor-pty.log` beside it.
 
 ## `data/aggregor.db`
 
@@ -117,3 +117,15 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
   into the user's `settings.json`.
 - **Read by:** `SessionService`, through `ISettingsConfig.readSessionSettings`, each time New Session runs.
 - **Cleaned up:** by the user, like any setting.
+
+## The Sessions view's webview state
+
+- **Holds:** the node ids of the projects the user folded away in the Sessions view, and the id of the last session in
+  front, whose row stays marked.
+- **Written by:** `apps/webview`'s `sessions.store.ts`, through `sessions.service.ts` and the webview API's `setState`,
+  each time a project folds or unfolds or another session comes to the front.
+- **Read by:** the webview's `sessions.store.ts`, with `getState`, when its page loads, which it does again each time VS
+  Code shows the view after hiding it.
+- **Why:** VS Code keeps a webview's state for it, so the view looks as it was left when its page reloads, without a
+  table or a message to the extension; the extension says which session is in front only while the window has focus.
+- **Cleaned up:** by VS Code, with the view's state.

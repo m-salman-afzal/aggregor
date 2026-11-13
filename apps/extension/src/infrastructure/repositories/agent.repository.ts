@@ -31,29 +31,30 @@ const AgentSettingSchema = Schema.Struct({
 
 // A relative icon is inside the extension's folder.
 const toAgentIcon = Effect.fn("AgentRepository.toAgentIcon")(function* (
-  {extensionPath, path}: AgentSettingsSource,
+  agentSettingsSource: AgentSettingsSource,
   icon: string | undefined
 ) {
   const iconPath = icon === undefined ? AGENT_ICON.DEFAULT : icon;
 
-  return path.isAbsolute(iconPath) ? iconPath : path.join(extensionPath, iconPath);
+  return agentSettingsSource.path.isAbsolute(iconPath)
+    ? iconPath
+    : agentSettingsSource.path.join(agentSettingsSource.extensionPath, iconPath);
 });
 
 const toAgent = Effect.fn("AgentRepository.toAgent")(
   function* (agentSettingsSource: AgentSettingsSource, [agentKey, agentSetting]: readonly [string, unknown]) {
-    const {args, command, env, icon, name, resumeArgs} =
-      yield* Schema.decodeUnknownEffect(AgentSettingSchema)(agentSetting);
-    const agentArguments = args === undefined ? [] : args;
-    const agentIcon = yield* toAgentIcon(agentSettingsSource, icon);
+    const agentSettingFields = yield* Schema.decodeUnknownEffect(AgentSettingSchema)(agentSetting);
+    const agentArguments = agentSettingFields.args === undefined ? [] : agentSettingFields.args;
+    const agentIcon = yield* toAgentIcon(agentSettingsSource, agentSettingFields.icon);
 
     return yield* Schema.decodeEffect(AgentEntity)({
       args: agentArguments,
-      command: command === undefined ? agentKey : command,
-      environmentVariables: env === undefined ? {} : env,
+      command: agentSettingFields.command === undefined ? agentKey : agentSettingFields.command,
+      environmentVariables: agentSettingFields.env === undefined ? {} : agentSettingFields.env,
       icon: agentIcon,
       id: agentKey,
-      name: name === undefined ? agentKey : name,
-      resumeArgs: resumeArgs === undefined ? agentArguments : resumeArgs
+      name: agentSettingFields.name === undefined ? agentKey : agentSettingFields.name,
+      resumeArgs: agentSettingFields.resumeArgs === undefined ? agentArguments : agentSettingFields.resumeArgs
     });
   },
   (effect, _agentSettingsSource, [agentKey]) =>
@@ -106,12 +107,12 @@ const findAgentById = Effect.fn("AgentRepository.findAgentById")(function* (
 });
 
 const makeAgentRepository = Effect.fn("AgentRepository.make")(function* () {
-  const {extensionUri, getConfiguration, workspace} = yield* VsCodeApi;
+  const vsCodeApi = yield* VsCodeApi;
   const agentSettingsSource: AgentSettingsSource = {
-    extensionPath: extensionUri.fsPath,
-    getConfiguration,
+    extensionPath: vsCodeApi.extensionUri.fsPath,
+    getConfiguration: vsCodeApi.getConfiguration,
     path: yield* Path,
-    workspace
+    workspace: vsCodeApi.workspace
   };
   const initialAgents = yield* readAgents(agentSettingsSource);
   const agents = yield* Ref.make<readonly AgentEntity[]>(initialAgents);

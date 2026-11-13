@@ -1,0 +1,22 @@
+{
+  "extends": "@pkg/tsconfigs/tsconfig.base.json",
+  "display": "UI",
+
+  "compilerOptions": {
+    // base
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+
+    // building: the webview's build bundles these files, and its typecheck covers them
+    "composite": false,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo",
+
+    // shadcn's CLI reads its aliases' paths from here
+    "paths": {
+      "@pkg/ui/*": ["./*"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

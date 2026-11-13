@@ -10,13 +10,13 @@
     "vscode": "^1.145.0"
   },
   "scripts": {
-    "vscode:prepublish": "vite build --mode production",
+    "vscode:prepublish": "vite build --mode production && pnpm --filter=aggregor-webview build",
     "build:pty": "pnpm --filter=aggregor-pty build && mkdir -p bin && cp -f ../pty/target/release/aggregor-pty bin/",
-    "compile": "pnpm run typecheck && pnpm --workspace-root run lint:check && pnpm run build:pty && vite build",
+    "compile": "pnpm run typecheck && pnpm --workspace-root run lint:check && pnpm run build:pty && vite build && pnpm --filter=aggregor-webview build",
     "watch": "npm-run-all --parallel watch:*",
     "watch:vite": "vite build --watch --mode development",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "pnpm run typecheck && pnpm --workspace-root run lint:check && pnpm run build:pty && vite build --mode production",
+    "package": "pnpm run typecheck && pnpm --workspace-root run lint:check && pnpm run build:pty && vite build --mode production && pnpm --filter=aggregor-webview build",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:check": "migrationsCopy=$(mktemp --directory) && cp --recursive assets/migrations/. \"$migrationsCopy\" && drizzle-kit generate --dialect sqlite --schema './src/infrastructure/database/models/*.model.ts' --out \"$migrationsCopy\" && { diff --recursive assets/migrations \"$migrationsCopy\" || { echo 'A model changed without its migration: run pnpm db:generate --name <change>'; false; }; }; checkResult=$?; rm --recursive --force \"$migrationsCopy\"; exit $checkResult",
@@ -291,17 +291,12 @@
         {
           "submenu": "aggregorApp.sessionActions",
           "group": "inline",
-          "when": "view =~ /^aggregorApp\\.(sessions|archive)$/ && viewItem =~ /^session/"
-        },
-        {
-          "command": "aggregorApp.newSessionInChosenProject",
-          "group": "inline@1",
-          "when": "view == aggregorApp.sessions && viewItem =~ /^(project|addedProject)/"
+          "when": "view == aggregorApp.archive && viewItem =~ /^session/"
         },
         {
           "submenu": "aggregorApp.projectActions",
           "group": "inline@2",
-          "when": "view =~ /^aggregorApp\\.(sessions|archive)$/ && viewItem =~ /^(project|addedProject)/"
+          "when": "view == aggregorApp.archive && viewItem =~ /^(project|addedProject)/"
         }
       ],
       "aggregorApp.sessionActions": [
@@ -325,11 +320,6 @@
           "group": "3_session@1"
         },
         {
-          "command": "aggregorApp.archiveSession",
-          "group": "3_session@2",
-          "when": "view == aggregorApp.sessions"
-        },
-        {
           "command": "aggregorApp.unarchiveSession",
           "group": "3_session@2",
           "when": "view == aggregorApp.archive"
@@ -341,34 +331,9 @@
       ],
       "aggregorApp.projectActions": [
         {
-          "command": "aggregorApp.moveProjectUp",
-          "group": "1_order@1",
-          "when": "view == aggregorApp.sessions && viewItem =~ /canMoveUp/"
-        },
-        {
-          "command": "aggregorApp.moveProjectDown",
-          "group": "1_order@2",
-          "when": "view == aggregorApp.sessions && viewItem =~ /canMoveDown/"
-        },
-        {
-          "command": "aggregorApp.stopProjectSessionAgents",
-          "group": "2_agents@1",
-          "when": "view == aggregorApp.sessions"
-        },
-        {
-          "command": "aggregorApp.archiveProjectSessions",
-          "group": "2_agents@2",
-          "when": "view == aggregorApp.sessions"
-        },
-        {
           "command": "aggregorApp.stopArchivedProjectSessionAgents",
           "group": "2_agents@1",
           "when": "view == aggregorApp.archive"
-        },
-        {
-          "command": "aggregorApp.removeProject",
-          "group": "3_project@1",
-          "when": "view == aggregorApp.sessions && viewItem =~ /^addedProject/"
         }
       ],
       "commandPalette": [
@@ -459,6 +424,7 @@
       "aggregorApp": [
         {
           "id": "aggregorApp.sessions",
+          "type": "webview",
           "name": "Sessions",
           "icon": "./assets/aggregorLightIcon.svg"
         },
@@ -471,10 +437,6 @@
       ]
     },
     "viewsWelcome": [
-      {
-        "view": "aggregorApp.sessions",
-        "contents": "No projects yet.\n[Add Project](command:aggregorApp.addProject)"
-      },
       {
         "view": "aggregorApp.archive",
         "contents": "Sessions you are done with move here when you archive them from a … menu in the Sessions list: a session's, a project's or the view's."

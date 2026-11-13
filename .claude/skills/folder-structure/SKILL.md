@@ -33,8 +33,9 @@ rules file), that layout wins, and this skill fills in only what it leaves open.
    import apps.
 5. **camelCase all the way, and a file's suffix names its role.** `sessionRow.tsx` is a component, `sessionRow.hook.ts`
    its hook, `sessionRow.constant.ts` its constants.
-6. **One building block per file.** A file holds one component, hook, context, provider, store, layout, use case or
-   icon. Constants, types, utils, services and schemas are small cogs, so one file holds as many as its owner needs.
+6. **One building block per file, and nothing else.** A file holds one component, hook, context, provider, store,
+   layout, use case or icon, with its `<Block>Props` type, and nothing more. Constants, types, utils, services and
+   schemas are small cogs, so one file holds as many as its owner needs.
 7. **Flat until there are two.** A unit is one file until it has files of its own, and then they share a folder named
    after it. A level holds one file of a kind next to its main file, and a second one of that kind gives the kind its
    folder (`hooks/`, `components/`).
@@ -118,8 +119,10 @@ more than it should.
 
 A level usually has one file of each, named after its main file, and cogs promoted to that level join it.
 
-A file holds only its role, plus the types that only it uses. There are no `index.ts` files: a unit is never a folder
-holding an `index`.
+A cog file holds only its role, plus the types that only it uses. A building block's file holds the block and its
+`<Block>Props` type and nothing else: its helpers go to `<stem>.utils.ts`, its constants to `<stem>.constant.ts` and its
+other types to `<stem>.type.ts`, beside it, so the block reads at a glance. A store also keeps its state and the
+functions that change it. There are no `index.ts` files: a unit is never a folder holding an `index`.
 
 ### A unit's files share its folder
 
@@ -159,6 +162,17 @@ settingsBar/
 These rules apply inside modules and packages. The layout's fixed folders always exist, even with one thing in them:
 `apps/`, `packages/`, each app and package, `src/modules/` and each module.
 
+Stores are the exception: a store always sits in its level's `stores/` folder, even alone, so state is found in one
+place. Once it has helpers or types, they share a folder named after it:
+
+```text
+stores/
+└── sessions/
+    ├── sessions.store.ts    # useSessionsStore, its state and what changes it
+    ├── sessions.utils.ts    # Pure helpers: reducers, row replacements
+    └── sessions.type.ts
+```
+
 Both rules run in reverse too. A folder left with one file goes flat again, so the tree never holds a folder it doesn't
 need. Reading it from the top shows what is shared (higher up) and what is private (deeper down), without opening a
 file.
@@ -167,29 +181,39 @@ file.
 
 A component with state, effects, handlers or queries keeps them in its hook, `<component>.hook.ts`. The hook sits next
 to it, or in its `hooks/` folder once it has two. The component calls the hook and renders what it returns. A hook file
-holds no JSX.
+holds no JSX. A hook's effects (`useEffect`, `useLayoutEffect`) come last, right before its return: they run after the
+draw that reads everything above them.
 
-### A type stays with its only consumer
+### A block takes `props`
 
-A type used by exactly one file is declared at the top of that file, right after the imports. That covers its props,
-params, response shape and local helper types:
+A component is an arrow function, never a `function`. A component, hook, context or other block takes its input as one
+parameter, `props`, typed `<Block>Props` (a hook's is `Use<Name>Props`), and reads it as `props.title`. No object is
+destructured, here or anywhere: name the object and read `object.key` where the value is used, so a reader deep in a
+long function sees where it comes from. Arrays from hooks stay destructured (`const [value, setValue] = useState()`).
 
 ```tsx
 // deckPreview.tsx
 interface DeckPreviewProps {
-  thumbnailUrl: string | null;
-  title: string;
+  readonly thumbnailUrl: string | null;
+  readonly title: string;
 }
 
-export const DeckPreview = ({thumbnailUrl, title}: DeckPreviewProps) => {
-  // ...
+export const DeckPreview = (props: DeckPreviewProps) => {
+  const deckPreviewView = useDeckPreview(props);
+
+  return <img alt={props.title} onClick={deckPreviewView.openDeck} src={deckPreviewView.thumbnailSource} />;
 };
 ```
 
+### A type stays with its only consumer
+
+A block's `<Block>Props` is declared at the top of its file, right after the imports, unexported. A cog's types that
+only it uses sit at its top the same way: params, response shape and local helper types. Any other type a block uses
+goes to `<stem>.type.ts` beside it, even with one consumer, since the block's file holds nothing else.
+
 A type moves to a `.type.ts` once a second file imports it, and that file sits next to the file that declares the code.
-For example, `deckPreview.tsx` and `deckPreview.hook.ts` both use the props type, so it goes in
-`deckPreview/deckPreview.type.ts`. When the component and its hook each need a different type, each type stays in its
-own file.
+For example, `deckPreview.tsx` and `deckPreview.hook.ts` both use a `DeckShape`, so it goes in
+`deckPreview/deckPreview.type.ts`.
 
 ## camelCase names
 
@@ -215,7 +239,6 @@ rename such a file for consistency, and prefer the tool's default lookup over cu
 src/modules/assetManagement/
 ├── assetManagement.tsx             # The entry, while one page mounts the module
 ├── assetManagement.constant.ts     # Constants shared across the module
-├── assetManagement.store.ts
 ├── assetManagement.service.ts
 ├── upload.hook.ts                  # The module's only shared hook, so no hooks/
 ├── components/
@@ -224,6 +247,8 @@ src/modules/assetManagement/
 │       ├── settingsBar.tsx
 │       └── settingsBar.hook.ts
 ├── modules/                        # Sub-modules, once the feature has distinct areas
+├── stores/
+│   └── assetManagement.store.ts    # A store sits in stores/ even alone
 └── useCases/                       # Replaces the entry once a second page mounts the module
 ```
 
@@ -369,6 +394,9 @@ Where the repo runs ESLint, most of these rules can be linted instead of left to
   feature module, a module importing another module, and a package importing an app.
 - **Folders:** a small custom rule can check that a unit's files share its folder, and that a kind's folder holds two or
   more files.
+- **Blocks:** a custom rule can check that a block's file holds the block and its `<Block>Props` and nothing else, and
+  that the block takes one `props: <Block>Props`. `no-restricted-syntax` bans `ObjectPattern` (destructuring), a
+  `function` component, and any statement after a hook's first effect other than another effect or the return.
 
 Add a lint for a rule when the team agrees to it, rather than leaving the rule in prose alone.
 
@@ -379,6 +407,10 @@ Flag any of these:
 - [ ] A name that isn't camelCase in every dotted part, other than one a framework, library or URL fixes.
 - [ ] A `.ts` file without a role suffix, or a file holding code of another role.
 - [ ] Two components, hooks, contexts, providers, stores, layouts, use cases or icons in one file.
+- [ ] A helper, constant or type other than its `<Block>Props` in a block's file.
+- [ ] A block whose input isn't one `props: <Block>Props`, a `function` component, or a destructured object.
+- [ ] A hook statement after its first effect, other than another effect or the return.
+- [ ] A store outside its level's `stores/` folder.
 - [ ] An `index.ts(x)` file, or a folder that holds a single file, other than the fixed ones.
 - [ ] A kind's folder with one file in it, or two files of one kind sitting loose at one level.
 - [ ] A unit's own files spread outside its folder.
@@ -388,6 +420,6 @@ Flag any of these:
 - [ ] Feature logic in the routing tree instead of a use case.
 - [ ] Code placed in `core` or a package with only one consumer.
 - [ ] The same code in two modules, where it should have been promoted to the level they share.
-- [ ] A type in a `.type.ts` that only one file uses.
+- [ ] A type in a `.type.ts` that only one cog file uses.
 - [ ] A component holding its own logic instead of calling its hook.
 - [ ] A file that only re-exports a symbol from elsewhere.

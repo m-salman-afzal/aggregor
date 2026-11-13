@@ -187,7 +187,7 @@ export const listProjectSessionIdsForSessionsView = Effect.fn("SessionController
   }
 );
 
-export const listWorkingSessionIdsForSessionsView = Effect.fn("SessionController.listWorkingSessionIdsForSessionsView")(
+export const listWorkingSessionIdsForArchiveView = Effect.fn("SessionController.listWorkingSessionIdsForArchiveView")(
   function* () {
     return yield* listWorkingSessionIds();
   }

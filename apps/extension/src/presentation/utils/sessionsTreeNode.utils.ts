@@ -1,4 +1,4 @@
-import {SESSIONS_VIEW_NODE_ID_PREFIXES} from "@pkg/constants/src/sessionsView.constant.ts";
+import {SESSIONS_VIEW_NODE_ID_PREFIXES, SESSIONS_VIEW_NODE_TAGS} from "@pkg/constants/src/sessionsView.constant.ts";
 import {decodeVsCodeArgument, InvalidVsCodeArgumentError} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
 import {Effect, Match, Schema, String} from "effect";
 
@@ -14,12 +14,12 @@ export const makeSessionNodeId = Effect.fn("makeSessionNodeId")(function* (sessi
 export const readSessionsTreeNodeId = Effect.fn("readSessionsTreeNodeId")(function* (nodeId: string) {
   if (String.startsWith(SESSIONS_VIEW_NODE_ID_PREFIXES.PROJECT)(nodeId))
     return {
-      _tag: "ProjectNode",
+      _tag: SESSIONS_VIEW_NODE_TAGS.PROJECT,
       projectPath: String.slice(SESSIONS_VIEW_NODE_ID_PREFIXES.PROJECT.length)(nodeId)
     } as const;
   if (String.startsWith(SESSIONS_VIEW_NODE_ID_PREFIXES.SESSION)(nodeId))
     return {
-      _tag: "SessionNode",
+      _tag: SESSIONS_VIEW_NODE_TAGS.SESSION,
       sessionId: String.slice(SESSIONS_VIEW_NODE_ID_PREFIXES.SESSION.length)(nodeId)
     } as const;
 
@@ -33,8 +33,8 @@ export const decodeProjectNodeRequest = Effect.fn("decodeProjectNodeRequest")(fu
   const projectNodeId = yield* decodeVsCodeArgument(Schema.String, projectNodeIdArgument);
   const projectNode = yield* readSessionsTreeNodeId(projectNodeId);
   const projectPath = yield* Match.valueTags(projectNode, {
-    ProjectNode: (chosenProjectNode) => Effect.succeed(chosenProjectNode.projectPath),
-    SessionNode: () => Effect.fail(InvalidVsCodeArgumentError.make({cause: projectNodeId}))
+    [SESSIONS_VIEW_NODE_TAGS.PROJECT]: (chosenProjectNode) => Effect.succeed(chosenProjectNode.projectPath),
+    [SESSIONS_VIEW_NODE_TAGS.SESSION]: () => Effect.fail(InvalidVsCodeArgumentError.make({cause: projectNodeId}))
   });
 
   return yield* decodeVsCodeArgument(requestSchema, {projectPath});
@@ -47,8 +47,8 @@ export const decodeSessionNodeRequest = Effect.fn("decodeSessionNodeRequest")(fu
   const sessionNodeId = yield* decodeVsCodeArgument(Schema.String, sessionNodeIdArgument);
   const sessionNode = yield* readSessionsTreeNodeId(sessionNodeId);
   const sessionId = yield* Match.valueTags(sessionNode, {
-    ProjectNode: () => Effect.fail(InvalidVsCodeArgumentError.make({cause: sessionNodeId})),
-    SessionNode: (chosenSessionNode) => Effect.succeed(chosenSessionNode.sessionId)
+    [SESSIONS_VIEW_NODE_TAGS.PROJECT]: () => Effect.fail(InvalidVsCodeArgumentError.make({cause: sessionNodeId})),
+    [SESSIONS_VIEW_NODE_TAGS.SESSION]: (chosenSessionNode) => Effect.succeed(chosenSessionNode.sessionId)
   });
 
   return yield* decodeVsCodeArgument(requestSchema, {sessionId});

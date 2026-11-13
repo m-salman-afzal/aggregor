@@ -25,8 +25,8 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
 - **Controller:** takes the FE's input, validates it, makes the request DTO and calls one application service. Nothing
   else.
 - **Presenter:** turns what a use case returns into what the user sees: here, a failure into its message.
-- **View:** draws response DTOs with VS Code's APIs. It has its own things (tree items, node ids, badges) and decides
-  nothing about the data.
+- **View:** draws response DTOs with VS Code's APIs, or sends them to a webview that draws them. It has its own things
+  (tree items, node ids, badges, the webview's messages) and decides nothing about the data.
 
 ## Layers
 
@@ -37,7 +37,7 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
 │                 helpers, decodeVsCodeArgument                            │
 └─────────▲──────────────── shared by FE and infra ────────────▲───────────┘
 ┌─ presentation (FE) ┴───────────────────────┐                 │
-│ views       draw DTOs: tree items, badges  │                 │
+│ views       draw DTOs: trees, webviews     │                 │
 │ controllers input → request DTO → service  │                 │
 │ presenters  failure → message              │                 │
 │ routes, middlewares, utils                 │                 │
@@ -76,7 +76,10 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
   - **Views** import `@controllers`, their own files, `@presentationUtils`, `@pkg/*`, and `@dtos` for types only.
   - **Routes, middlewares and helpers** import `@controllers`, `@middlewares`, `@presenters`, `@presentationUtils` and
     `@pkg/*`.
-- `presentation/` lives inside `src`, because the extension ships as one bundle.
+- `presentation/` lives inside `src`, because the extension ships as one bundle. The Sessions view's webview is the
+  exception: `apps/webview` draws it, in VS Code's page, apart from the extension, and follows the folder-structure
+  skill instead of these layers. It imports only the view's `.view.type.ts` and DTOs, for types only (lint rejects a
+  value import), `@pkg/constants`, and its design system, `@pkg/ui`; its build lands in the extension's `dist/webview`.
 
 Each folder directly under a layer has one import alias in `apps/extension/tsconfig.json`:
 
@@ -150,7 +153,8 @@ file suffix.
   `TerminalInfraService`); a file with no owner gives the bare const name (`acquireScopedDisposable`). A command's root
   span is its command ID.
 - The aggregor plugin (`packages/eslint/src/rules/`, one file per rule) checks the span names, the `.type.ts` placement,
-  the stem folders and where constants live, and fixes span names.
+  the stem folders and where constants live, and fixes span names; for `apps/webview`, it also checks the
+  folder-structure skill's rules (`packages/eslint/src/folderStructure/`).
 - A constant lives in `@pkg/constants/src/<feature>.constant.ts`: ids, labels and texts, and also file and folder names,
   environment variables, external commands, VS Code's and other extensions' ids, timings and patterns. Constants that
   describe one thing share an object with a label per value (`TMUX.SOCKET_FILE_NAME`, `SESSIONS_VIEW.ID`). The domain,
@@ -175,8 +179,11 @@ packages/
                                            archiveView, terminal, tmux, vscode (VS Code's own command ids),
                                            workspace
   eslint/src/                              the repo's ESLint setup: base/ per file type, layers/ the DDD layering
-                                           checks, rules/ the aggregor plugin (one file per rule), and
-                                           eslint.config.ts composing them
+                                           checks, folderStructure/ apps/webview's checks, rules/ the aggregor
+                                           plugin (one file per rule), and eslint.config.ts composing them
+  ui/src/                                  apps/webview's design system: theme.css (shadcn's tokens and the status
+                                           colours from VS Code's theme) and components/base/, shadcn's components
+                                           on Base UI, which shadcn's CLI writes (components.json)
   vscode/src/
     vscode.api.ts                          VsCodeApi: the only runtime import of vscode, and the extension's id
     vscode.utils.ts                        acquireScopedDisposable, streamVsCodeEvent, setWhenClauseContextKey,
@@ -339,14 +346,15 @@ apps/extension/src/
                                            request DTO and call one service; the views' reads
     presenters/                            session, project, commitMessage: a failed command's message, and the
                                            setting that fixes it; app: none, for commands that cannot fail
-    utils/sessionsTreeNode.utils.ts        the Sessions and Archive trees' node ids, and decoding a row's node id
-                                           into a request DTO
-    views/sessions/                        SessionsView: the tree and badge providers, tree items, spinner, redraws,
-                                           drag and drop, the session in front kept selected, the view's badge, and
-                                           the count of its sessions waiting on the user in its name
-    views/archive/                         ArchiveView: the archived sessions' tree under their projects, drawn
-                                           with the Sessions view's tree items; their badges are the Sessions
-                                           view's; the count of its sessions waiting on the user in its name
+    utils/sessionsTreeNode.utils.ts        the rows' node ids, which their commands take, and decoding a row's node
+                                           id into a request DTO
+    views/sessions/                        SessionsView: the webview view provider and its page, the rows and their
+                                           changes sent to apps/webview, the commands it asks for, the view's badge,
+                                           and the count of its sessions waiting on the user in its name;
+                                           sessions.view.type.ts the messages both ways, which apps/webview imports
+    views/archive/                         ArchiveView: the archived sessions' tree under their projects, its tree
+                                           items, the session badges and their spinner, and the count of its
+                                           sessions waiting on the user in its name
     views/sessionAlerts/                   SessionAlertsView: shows each alert in the focused window or hands it to
                                            the system, and handles the session links desktop notifications open
   extension.ts                             activate
@@ -403,16 +411,21 @@ apps/extension/tests/
   shows the presenter's message; the presenter's type covers every failure its services return, so a new one fails to
   compile until it has a message. A command that only drives VS Code and reads no data, Open Settings, goes straight to
   its `@pkg/vscode` helper, with no controller or service.
-- A view registers VS Code's providers and draws what its controllers return. The Sessions and Archive trees' nodes are
-  ids, `project:<path>` and `session:<id>` (`sessionsTreeNode.utils.ts`): VS Code finds a node to redraw by its id, and
-  every draw reads the node's DTO again through the controllers, so the view keeps no copy and decides nothing about a
-  session. Row menus pass the node id, which the controller decodes into the request DTO.
-- The Sessions view redraws only what changed: `watchSessionListChanges` sends `ProjectListChanged` (the whole tree),
-  `ProjectSessionsChanged` (one project's sessions) or `SessionChanged` (one row and its badge). The Archive view
-  redraws one row for `SessionChanged` and its whole tree for the others, since its project rows come and go with their
-  archived sessions.
-- Text, symbols and colours for a status (`STATUS_LABELS`, `STATUS_BADGES`, `STATUS_KIND_LABELS` in
-  `@pkg/constants/src/sessionsView.constant.ts`) are the view's; the status itself is the backend's.
+- A view registers VS Code's providers and draws what its controllers return. Rows are ids, `project:<path>` and
+  `session:<id>` (`sessionsTreeNode.utils.ts`), which every row command takes and its controller decodes into the
+  request DTO. The Archive tree reads a node's DTO again through the controllers on every draw, since VS Code finds a
+  node to redraw by its id, so it keeps no copy and decides nothing about a session.
+- The Sessions view is a webview: the view reads the rows through its controllers and sends them, with their node ids,
+  to `apps/webview`, which keeps the rows it was sent and draws them. The webview asks the view to run a command on a
+  row, and the view runs it with `executeCommand` when `SESSIONS_WEBVIEW_COMMANDS` lists it, so it takes the menus'
+  path: its route, `registerCommand` and its controller.
+- Each view redraws only what changed: `watchSessionListChanges` sends `ProjectListChanged` (every project),
+  `ProjectSessionsChanged` (one project's sessions) or `SessionChanged` (one session). The Sessions view sends the
+  webview what changed; the Archive view redraws one row for `SessionChanged` and its whole tree for the others, since
+  its project rows come and go with their archived sessions.
+- Text, symbols and colours for a status are the view's: `STATUS_LABELS` and `STATUS_KIND_LABELS` in
+  `@pkg/constants/src/sessionsView.constant.ts` for both views, `STATUS_BADGES` for the Archive tree, and the webview's
+  status icons; the status itself is the backend's.
 
 ## Errors
 

@@ -52,13 +52,15 @@ const isRunnableFile = Effect.fn("ShellCommandInfraService.isRunnableFile")(
 // A command with a folder in it runs as given; a bare name is looked up in each PATH folder.
 const isCommandInstalled = Effect.fn("ShellCommandInfraService.isCommandInstalled")(function* (
   command: string,
-  {commandExtensions, searchFolders}: CommandSearch
+  commandSearch: CommandSearch
 ) {
   const path = yield* Path;
   const candidatePaths = String.includes(path.sep)(command)
     ? [command]
-    : Array.flatMap(searchFolders, (searchFolder) =>
-        Array.map(commandExtensions, (commandExtension) => path.join(searchFolder, `${command}${commandExtension}`))
+    : Array.flatMap(commandSearch.searchFolders, (searchFolder) =>
+        Array.map(commandSearch.commandExtensions, (commandExtension) =>
+          path.join(searchFolder, `${command}${commandExtension}`)
+        )
       );
   const runnableResults = yield* Effect.forEach(candidatePaths, isRunnableFile);
 

@@ -5,8 +5,8 @@ import {SecureRandom} from "effect/crypto";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 
 export const makeEntityId = Effect.fn("EntityIdDomainService.makeEntityId")(function* () {
-  const {uuidV7} = yield* SecureRandom.SecureRandom;
-  const entityUuid = yield* uuidV7();
+  const secureRandom = yield* SecureRandom.SecureRandom;
+  const entityUuid = yield* secureRandom.uuidV7();
 
   return EntityIdValueObjectSchema.make(entityUuid);
 });

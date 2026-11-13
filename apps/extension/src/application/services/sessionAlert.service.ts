@@ -36,8 +36,8 @@ class SessionAlertSkippedError extends Schema.TaggedError<SessionAlertSkippedErr
 
 // The session whose tab is in front of the user in a focused window.
 const isSessionInView = Effect.fn("SessionAlertService.isSessionInView")(function* (sessionId: EntityIdValueObject) {
-  const {viewedSessionId} = yield* ITerminalInfraService;
-  const viewedSessionIdResult = yield* SubscriptionRef.get(viewedSessionId);
+  const terminalInfraService = yield* ITerminalInfraService;
+  const viewedSessionIdResult = yield* SubscriptionRef.get(terminalInfraService.viewedSessionId);
 
   return Result.getOrUndefined(viewedSessionIdResult) === sessionId;
 });
@@ -45,14 +45,14 @@ const isSessionInView = Effect.fn("SessionAlertService.isSessionInView")(functio
 // aggregor-pty moves statusChangedAt only when the state changes, so a session whose status changed since the window
 // started counts, and one that only kept a state it already had doesn't.
 const watchChangedSessions = Effect.fn("SessionAlertService.watchChangedSessions")(function* () {
-  const {entityChanges} = yield* ISessionRepository;
+  const sessionRepository = yield* ISessionRepository;
   const alertsStartedAt = yield* DateTime.now;
 
-  return Stream.filterMap(entityChanges, ({entity, kind}) =>
-    kind !== ENTITY_CHANGE_KINDS.REMOVED &&
-    entity.statusChangedAt !== undefined &&
-    DateTime.isGreaterThan(entity.statusChangedAt, alertsStartedAt)
-      ? Result.succeed(entity)
+  return Stream.filterMap(sessionRepository.entityChanges, (entityChange) =>
+    entityChange.kind !== ENTITY_CHANGE_KINDS.REMOVED &&
+    entityChange.entity.statusChangedAt !== undefined &&
+    DateTime.isGreaterThan(entityChange.entity.statusChangedAt, alertsStartedAt)
+      ? Result.succeed(entityChange.entity)
       : Result.failVoid
   );
 });
@@ -83,13 +83,16 @@ const holdStatusChanges = Effect.fn("SessionAlertService.holdStatusChanges")(fun
     heldChanges,
     (): SessionEntity | undefined => undefined,
     (previousHeldSession, heldChange): readonly [SessionEntity, readonly HeldStatusChange[]] => {
-      const {session} = heldChange;
       if (previousHeldSession === undefined)
-        return [session, [{...heldChange, previousHeldStatus: undefined}]] as const;
+        return [heldChange.session, [{...heldChange, previousHeldStatus: undefined}]] as const;
       const isRepeat =
-        previousHeldSession.status === session.status && previousHeldSession.statusKind === session.statusKind;
+        previousHeldSession.status === heldChange.session.status &&
+        previousHeldSession.statusKind === heldChange.session.statusKind;
 
-      return [session, isRepeat ? [] : [{...heldChange, previousHeldStatus: previousHeldSession.status}]] as const;
+      return [
+        heldChange.session,
+        isRepeat ? [] : [{...heldChange, previousHeldStatus: previousHeldSession.status}]
+      ] as const;
     }
   );
 });
@@ -97,9 +100,9 @@ const holdStatusChanges = Effect.fn("SessionAlertService.holdStatusChanges")(fun
 // A failed settings read leaves the alert out, and is logged.
 const readNotifyOnStatuses = Effect.fn("SessionAlertService.readNotifyOnStatuses")(
   function* () {
-    const {notifyOnStatuses} = yield* ISettingsConfig.use((settingsConfig) => settingsConfig.readAlertSettings);
+    const alertSettings = yield* ISettingsConfig.use((settingsConfig) => settingsConfig.readAlertSettings);
 
-    return notifyOnStatuses;
+    return alertSettings.notifyOnStatuses;
   },
   Effect.catchTag("InvalidSettingsError", (settingsError) =>
     Effect.andThen(
@@ -110,26 +113,23 @@ const readNotifyOnStatuses = Effect.fn("SessionAlertService.readNotifyOnStatuses
 );
 
 // Out of view means out of view both when the state changed and once it has held.
-const toSessionAlert = Effect.fn("SessionAlertService.toSessionAlert")(function* ({
-  previousHeldStatus,
-  session,
-  wasInView
-}: HeldStatusChange) {
-  if (wasInView || (yield* isSessionInView(session.id))) return yield* SessionAlertSkippedError.make();
-  const alertedStatus = yield* getAlertedStatus(session.status, previousHeldStatus);
+const toSessionAlert = Effect.fn("SessionAlertService.toSessionAlert")(function* (heldStatusChange: HeldStatusChange) {
+  if (heldStatusChange.wasInView || (yield* isSessionInView(heldStatusChange.session.id)))
+    return yield* SessionAlertSkippedError.make();
+  const alertedStatus = yield* getAlertedStatus(heldStatusChange.session.status, heldStatusChange.previousHeldStatus);
   const notifyOnStatuses = yield* readNotifyOnStatuses();
   if (!notifyOnStatuses.includes(alertedStatus)) return yield* SessionAlertSkippedError.make();
   const agentResult = yield* Effect.result(
-    IAgentRepository.use((agentRepository) => agentRepository.findById(session.agentId))
+    IAgentRepository.use((agentRepository) => agentRepository.findById(heldStatusChange.session.agentId))
   );
 
   return SessionAlertDtoSchema.make({
-    displayName: session.displayName,
+    displayName: heldStatusChange.session.displayName,
     icon: Result.getOrUndefined(Result.map(agentResult, (sessionAgent) => sessionAgent.icon)),
-    sessionId: session.id,
+    sessionId: heldStatusChange.session.id,
     status: alertedStatus,
-    statusKind: alertedStatus === AGENT_STATUSES.BLOCKED ? session.statusKind : undefined,
-    statusMessage: session.statusMessage
+    statusKind: alertedStatus === AGENT_STATUSES.BLOCKED ? heldStatusChange.session.statusKind : undefined,
+    statusMessage: heldStatusChange.session.statusMessage
   });
 });
 

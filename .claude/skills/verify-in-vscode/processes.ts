@@ -46,12 +46,12 @@ const addDescendantProcessIds = (
   processParents: readonly ProcessParent[]
 ): ReadonlySet<number> => {
   const descendants = processParents.filter(
-    ({parentProcessId, processId}) => processIds.has(parentProcessId) && !processIds.has(processId)
+    (processParent) => processIds.has(processParent.parentProcessId) && !processIds.has(processParent.processId)
   );
   if (descendants.length === 0) return processIds;
 
   return addDescendantProcessIds(
-    new Set([...processIds, ...descendants.map(({processId}) => processId)]),
+    new Set([...processIds, ...descendants.map((descendant) => descendant.processId)]),
     processParents
   );
 };

@@ -23,7 +23,7 @@ so they can keep working.
   launch also closes itself once the Claude session that started it is gone, or after 20 minutes. The backstops are for
   accidents; stopping is still your job.
 - Run `start` and `stop` with the Bash sandbox disabled: the sandbox swallows the signals that stop processes and keeps
-  VS Code from starting. `eval`, `log` and `screenshot` work inside it.
+  VS Code from starting. `eval`, `webview-eval`, `log` and `screenshot` work inside it.
 - Linux only, with `mutter`, `dbus-run-session` and `code` installed (stock Ubuntu GNOME has all three). On another OS,
   say so instead of verifying.
 
@@ -31,13 +31,14 @@ so they can keep working.
 
 From the repo root, as `node .claude/skills/verify-in-vscode/vscode.ts <command>`:
 
-| Command                 | What it does                                                                                                 |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `start [workspace]`     | Stops any earlier run, builds the extension and `aggregor-pty`, launches it and prints the trace log's path. |
-| `log`                   | Prints the trace log's path again.                                                                           |
-| `eval '<expression>'`   | Runs JavaScript in the VS Code window and prints the result as JSON. Return plain data, not DOM nodes.       |
-| `screenshot <png path>` | Saves a screenshot. Pass an absolute path in your scratchpad, never inside the repo; then read the image.    |
-| `stop`                  | Closes VS Code, the Claude sessions started in its terminals, mutter and the private D-Bus session.          |
+| Command                       | What it does                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `start [workspace]`           | Stops any earlier run, builds the extension, its webview and `aggregor-pty`, launches it and prints the trace log's path. |
+| `log`                         | Prints the trace log's path again.                                                                                        |
+| `eval '<expression>'`         | Runs JavaScript in the VS Code window and prints the result as JSON. Return plain data, not DOM nodes.                    |
+| `webview-eval '<expression>'` | The same in the Sessions view's webview page, with `document` and `window` its own. The view must have been in sight.     |
+| `screenshot <png path>`       | Saves a screenshot. Pass an absolute path in your scratchpad, never inside the repo; then read the image.                 |
+| `stop`                        | Closes VS Code, the Claude sessions started in its terminals, mutter and the private D-Bus session.                       |
 
 `start` again after every code change: a running VS Code never picks up a new build.
 
@@ -57,17 +58,22 @@ database.
    `grep` the log for the command ID, a `failed:` outcome, or a `[warning]`/`[error]` line. That alone settles most
    checks.
 2. **Drive the window over CDP** for anything the user would see or click. Useful expressions:
-   - Open the Aggregor container, whose Sessions and Archive views are its panes. Clicking its activity-bar item toggles
-     it, so click only when it is not already open; a badge's count can follow the name in its label:
+   - Open the Aggregor container, whose Sessions and Archive views are its panes, which also loads the Sessions view's
+     webview. Clicking its activity-bar item toggles it, so click only when it is not already open; a badge's count can
+     follow the name in its label:
      `(() => { const item = [...document.querySelectorAll(".activitybar .action-label")].find((element) => (element.getAttribute("aria-label") || "").startsWith("Aggregor")); if (!item.closest(".action-item").classList.contains("checked")) item.click(); return "open"; })()`
    - Expand the Archive view, which starts collapsed:
      `(() => { const header = [...document.querySelectorAll(".pane-header")].find((element) => element.getAttribute("aria-label") === "Archive Section"); if (header.getAttribute("aria-expanded") !== "true") header.click(); return "expanded"; })()`
-   - List the rows with their status:
+   - The Sessions view is a webview, a page of its own: read and click it with `webview-eval`. Its text, projects and
+     sessions with each session's second line: `document.body.innerText` The row of the session in front is the one with
+     `aria-current="true"`; open a session by clicking its row, whose button's text starts with its title:
+     `(() => { [...document.querySelectorAll("li button")].find((button) => button.innerText.startsWith("jsTester #1")).click(); return "clicked"; })()`
+   - List the Archive tree's rows with their status:
      `[...document.querySelectorAll(".monaco-list-row")].map((row) => row.getAttribute("aria-label")).filter(Boolean)`
    - Click a title or inline button by its label, such as `New Session...` or `New Session`:
      `[...document.querySelectorAll(".action-label")].find((element) => element.getAttribute("aria-label") === "New Session...").click()`
-   - Open a row's … menu, then pick an item from it; both need the mouse events, which a bare `click()` doesn't send.
-     Each item's title starts with its glyph and an em space (`"⤓\u2003Archive"`, `"■\u2003Stop Agent"`):
+   - Open an Archive row's … menu, then pick an item from it; both need the mouse events, which a bare `click()` doesn't
+     send. Each item's title starts with its glyph and an em space (`"⤓\u2003Archive"`, `"■\u2003Stop Agent"`):
      `(() => { const row = [...document.querySelectorAll(".monaco-list-row")].find((element) => (element.getAttribute("aria-label") || "").startsWith("jsTester #1,")); const more = row.querySelector('.action-label[aria-label="More Actions..."]'); for (const type of ["mousedown", "mouseup", "click"]) more.dispatchEvent(new MouseEvent(type, {bubbles: true})); return "opened"; })()`
      `(() => { const item = [...document.querySelectorAll(".monaco-menu .action-label")].findLast((element) => element.textContent === "⤓\u2003Archive"); for (const type of ["mousedown", "mouseup", "click"]) item.dispatchEvent(new MouseEvent(type, {bubbles: true})); return "picked"; })()`
    - A view's title … menu ignores those synthetic events, and VS Code draws every menu in a shadow root, which

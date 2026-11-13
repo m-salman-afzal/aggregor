@@ -60,9 +60,9 @@ const findTypeSourceEntries = (sourceCode: LintedSourceCode, variable: Scope.Var
   if (!isTypeSource && !VALUE_DEFINITION_TYPES.has(definitionType)) return [];
   const sourceStatement = getTopLevelStatement(sourceCode, definition.node);
 
-  return variable.references.flatMap(({identifier}) => {
-    if (identifier.type !== "Identifier") return [];
-    const referringStatement = getTopLevelStatement(sourceCode, identifier);
+  return variable.references.flatMap((reference) => {
+    if (reference.identifier.type !== "Identifier") return [];
+    const referringStatement = getTopLevelStatement(sourceCode, reference.identifier);
     const isFromAnotherType =
       referringStatement !== sourceStatement && TYPE_DECLARATION_TYPES.has(getDeclaredNodeType(referringStatement));
 
@@ -73,16 +73,20 @@ const findTypeSourceEntries = (sourceCode: LintedSourceCode, variable: Scope.Var
 // The types built from the file's values, directly or through another such type.
 const findBuiltTypeStatements = (typeSourceEntries: readonly TypeSourceEntry[]) => {
   const builtTypeStatements = new Set(
-    typeSourceEntries.filter(({isTypeSource}) => !isTypeSource).map(({referringStatement}) => referringStatement)
+    typeSourceEntries
+      .filter((typeSourceEntry) => !typeSourceEntry.isTypeSource)
+      .map((typeSourceEntry) => typeSourceEntry.referringStatement)
   );
-  const isNewlyBuilt = ({isTypeSource, referringStatement, sourceStatement}: TypeSourceEntry) =>
-    isTypeSource && builtTypeStatements.has(sourceStatement) && !builtTypeStatements.has(referringStatement);
+  const isNewlyBuilt = (typeSourceEntry: TypeSourceEntry) =>
+    typeSourceEntry.isTypeSource &&
+    builtTypeStatements.has(typeSourceEntry.sourceStatement) &&
+    !builtTypeStatements.has(typeSourceEntry.referringStatement);
   for (
     let newlyBuiltEntries = typeSourceEntries.filter(isNewlyBuilt);
     newlyBuiltEntries.length > 0;
     newlyBuiltEntries = typeSourceEntries.filter(isNewlyBuilt)
   ) {
-    for (const {referringStatement} of newlyBuiltEntries) builtTypeStatements.add(referringStatement);
+    for (const newlyBuiltEntry of newlyBuiltEntries) builtTypeStatements.add(newlyBuiltEntry.referringStatement);
   }
 
   return builtTypeStatements;
@@ -94,13 +98,13 @@ const findTypeSources = (sourceCode: LintedSourceCode, topLevelVariables: readon
   const builtTypeStatements = findBuiltTypeStatements(typeSourceEntries);
   const typeSources = new Map<SyntaxNode, Map<string, number>>();
   const buildingEntries = typeSourceEntries.filter(
-    ({isTypeSource, sourceStatement}) => !isTypeSource || builtTypeStatements.has(sourceStatement)
+    (typeSourceEntry) => !typeSourceEntry.isTypeSource || builtTypeStatements.has(typeSourceEntry.sourceStatement)
   );
-  for (const {referringStatement, sourceName, sourceStatement} of buildingEntries) {
-    const knownSources = typeSources.get(referringStatement);
+  for (const buildingEntry of buildingEntries) {
+    const knownSources = typeSources.get(buildingEntry.referringStatement);
     const sources = knownSources === undefined ? new Map<string, number>() : knownSources;
-    sources.set(sourceName, getStatementStart(sourceStatement));
-    typeSources.set(referringStatement, sources);
+    sources.set(buildingEntry.sourceName, getStatementStart(buildingEntry.sourceStatement));
+    typeSources.set(buildingEntry.referringStatement, sources);
   }
 
   return typeSources;
@@ -109,16 +113,16 @@ const findTypeSources = (sourceCode: LintedSourceCode, topLevelVariables: readon
 const reportMisplacedType = (
   context: Rule.RuleContext,
   typeStatement: SyntaxNode,
-  {firstValueStart, sources}: TypePlacementFacts
+  typePlacementFacts: TypePlacementFacts
 ) => {
   const typeStart = getStatementStart(typeStatement);
-  if (sources === undefined) {
-    if (firstValueStart !== undefined && firstValueStart < typeStart)
+  if (typePlacementFacts.sources === undefined) {
+    if (typePlacementFacts.firstValueStart !== undefined && typePlacementFacts.firstValueStart < typeStart)
       context.report({messageId: "standaloneTypeBelowValues", node: typeStatement});
 
     return;
   }
-  for (const [sourceName, sourceStart] of sources) {
+  for (const [sourceName, sourceStart] of typePlacementFacts.sources) {
     if (sourceStart > typeStart)
       context.report({data: {sourceName}, messageId: "typeAboveSource", node: typeStatement});
   }
@@ -126,15 +130,13 @@ const reportMisplacedType = (
 
 export const typePlacementRule: Rule.RuleModule = {
   create(context) {
-    const {sourceCode} = context;
-
     return {
       "Program:exit"() {
-        const {globalScope} = sourceCode.scopeManager;
+        const globalScope = context.sourceCode.scopeManager.globalScope;
         if (globalScope === null) return;
-        const topLevelStatements = sourceCode.ast.body;
+        const topLevelStatements = context.sourceCode.ast.body;
         const typeSources = findTypeSources(
-          sourceCode,
+          context.sourceCode,
           [globalScope, ...globalScope.childScopes].flatMap((scope) => scope.variables)
         );
         const firstValueStatement = topLevelStatements.find((statement) =>

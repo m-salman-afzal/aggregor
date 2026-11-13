@@ -21,23 +21,22 @@ import type {Uri} from "vscode";
 // When this window last came into focus from another app or window, in milliseconds; 0 once a click has used it.
 type WindowFocusedAt = SubscriptionRef.SubscriptionRef<number>;
 
-const getSessionAlertHeadline = Effect.fn("SessionAlertsView.getSessionAlertHeadline")(function* ({
-  displayName,
-  status,
-  statusKind
-}: SessionAlertDto) {
+const getSessionAlertHeadline = Effect.fn("SessionAlertsView.getSessionAlertHeadline")(function* (
+  sessionAlert: SessionAlertDto
+) {
   // Only a blocked session's alert carries the kind of wait.
-  if (statusKind !== undefined) return SESSION_ALERT_BLOCKED_HEADLINES[statusKind](displayName);
+  if (sessionAlert.statusKind !== undefined)
+    return SESSION_ALERT_BLOCKED_HEADLINES[sessionAlert.statusKind](sessionAlert.displayName);
 
-  return SESSION_ALERT_HEADLINES[status](displayName);
+  return SESSION_ALERT_HEADLINES[sessionAlert.status](sessionAlert.displayName);
 });
 
 // Opens the session as its row's click does, so a failure shows the same way.
 const openAlertedSession = Effect.fn("SessionAlertsView.openAlertedSession")(function* (sessionId: string) {
-  const {commands} = yield* VsCodeApi;
+  const vsCodeApi = yield* VsCodeApi;
   const sessionNodeId = yield* makeSessionNodeId(sessionId);
 
-  yield* Effect.promise(() => commands.executeCommand(SESSION_COMMANDS.OPEN, sessionNodeId));
+  yield* Effect.promise(() => vsCodeApi.commands.executeCommand(SESSION_COMMANDS.OPEN, sessionNodeId));
 });
 
 // VS Code can't close the notification later, so it can outlive the state it tells about; Open still goes to the
@@ -46,24 +45,25 @@ const showInWindow = Effect.fn("SessionAlertsView.showInWindow")(function* (
   sessionAlert: SessionAlertDto,
   headline: string
 ) {
-  const {window} = yield* VsCodeApi;
-  const {statusMessage} = sessionAlert;
-  const alertText = statusMessage === undefined ? headline : `${headline}: ${statusMessage}`;
-  const pickedAction = yield* Effect.promise(() => window.showInformationMessage(alertText, SESSION_ALERT_LABELS.OPEN));
+  const vsCodeApi = yield* VsCodeApi;
+  const alertText = sessionAlert.statusMessage === undefined ? headline : `${headline}: ${sessionAlert.statusMessage}`;
+  const pickedAction = yield* Effect.promise(() =>
+    vsCodeApi.window.showInformationMessage(alertText, SESSION_ALERT_LABELS.OPEN)
+  );
 
   if (pickedAction === SESSION_ALERT_LABELS.OPEN) yield* openAlertedSession(sessionAlert.sessionId);
 });
 
 // asExternalUri adds this window's id, so the window that sent the notification opens the session and comes forward.
 const makeSessionLink = Effect.fn("SessionAlertsView.makeSessionLink")(function* (sessionId: string) {
-  const {env, extensionId, Uri} = yield* VsCodeApi;
-  const sessionLink = Uri.from({
-    authority: extensionId,
+  const vsCodeApi = yield* VsCodeApi;
+  const sessionLink = vsCodeApi.Uri.from({
+    authority: vsCodeApi.extensionId,
     path: SESSION_LINK.OPEN_SESSION_PATH,
     query: `${SESSION_LINK.SESSION_ID_PARAMETER}=${sessionId}`,
-    scheme: env.uriScheme
+    scheme: vsCodeApi.env.uriScheme
   });
-  const externalSessionLink = yield* Effect.promise(() => env.asExternalUri(sessionLink));
+  const externalSessionLink = yield* Effect.promise(() => vsCodeApi.env.asExternalUri(sessionLink));
 
   return externalSessionLink.toString(true);
 });
@@ -93,15 +93,14 @@ const showOnDesktop = Effect.fn("SessionAlertsView.showOnDesktop")(function* (
   headline: string,
   windowFocusedAt: WindowFocusedAt
 ) {
-  const {extensionUri, Uri} = yield* VsCodeApi;
-  const {icon, statusMessage} = sessionAlert;
+  const vsCodeApi = yield* VsCodeApi;
   const openLink = yield* makeSessionLink(sessionAlert.sessionId);
 
   yield* notifyOnDesktopForSessionAlertsView({
-    agentIconPath: icon,
-    aggregorIconPath: Uri.joinPath(extensionUri, DESKTOP_NOTIFICATION.AGGREGOR_ICON).fsPath,
+    agentIconPath: sessionAlert.icon,
+    aggregorIconPath: vsCodeApi.Uri.joinPath(vsCodeApi.extensionUri, DESKTOP_NOTIFICATION.AGGREGOR_ICON).fsPath,
     headline,
-    message: statusMessage === undefined ? "" : statusMessage,
+    message: sessionAlert.statusMessage === undefined ? "" : sessionAlert.statusMessage,
     openLink
   });
   if (yield* wasDesktopNotificationOpened(windowFocusedAt)) yield* openAlertedSession(sessionAlert.sessionId);
@@ -113,9 +112,9 @@ const showSessionAlert = Effect.fn("SessionAlertsView.showSessionAlert")(functio
   sessionAlert: SessionAlertDto,
   windowFocusedAt: WindowFocusedAt
 ) {
-  const {window} = yield* VsCodeApi;
+  const vsCodeApi = yield* VsCodeApi;
   const headline = yield* getSessionAlertHeadline(sessionAlert);
-  const shownAlert = window.state.focused
+  const shownAlert = vsCodeApi.window.state.focused
     ? showInWindow(sessionAlert, headline)
     : showOnDesktop(sessionAlert, headline, windowFocusedAt);
 
@@ -134,20 +133,20 @@ const openLinkedSession = Effect.fn("SessionAlertsView.openLinkedSession")(funct
 });
 
 const registerSessionLinkHandler = Effect.fn("SessionAlertsView.registerSessionLinkHandler")(function* () {
-  const {window} = yield* VsCodeApi;
+  const vsCodeApi = yield* VsCodeApi;
   const viewContext = yield* Effect.context<VsCodeApi>();
   const runPromise = Effect.runPromiseWith(viewContext);
 
   yield* acquireScopedDisposable(() =>
-    window.registerUriHandler({handleUri: (sessionLink) => runPromise(openLinkedSession(sessionLink))})
+    vsCodeApi.window.registerUriHandler({handleUri: (sessionLink) => runPromise(openLinkedSession(sessionLink))})
   );
 });
 
 // Records each time this window comes into focus; a change of only `active` while focused isn't one.
 const trackWindowFocus = Effect.fn("SessionAlertsView.trackWindowFocus")(function* () {
-  const {window} = yield* VsCodeApi;
+  const vsCodeApi = yield* VsCodeApi;
   const windowFocusedAt = yield* SubscriptionRef.make(0);
-  const windowStateChanges = yield* streamVsCodeEvent(window.onDidChangeWindowState);
+  const windowStateChanges = yield* streamVsCodeEvent(vsCodeApi.window.onDidChangeWindowState);
   const focusChanges = Stream.changesWith(
     Stream.map(windowStateChanges, (windowState) => windowState.focused),
     (wasFocused, isFocused) => wasFocused === isFocused

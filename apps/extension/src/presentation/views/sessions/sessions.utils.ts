@@ -1,79 +1,12 @@
-import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
-import {
-  ROW_ICONS,
-  SESSION_BADGE_URI_SCHEME,
-  SESSION_ROW_LABELS,
-  SESSIONS_VIEW_CONTEXT_VALUES,
-  SPINNER_FRAME_INTERVAL_MS,
-  STATUS_BADGES,
-  STATUS_KIND_LABELS,
-  STATUS_LABELS
-} from "@pkg/constants/src/sessionsView.constant.ts";
+import {SESSIONS_WEBVIEW, SESSIONS_WEBVIEW_HTML} from "@pkg/constants/src/sessionsView.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {makeProjectNodeId, makeSessionNodeId} from "@presentationUtils/sessionsTreeNode.utils.ts";
-import {Array, Clock, Effect} from "effect";
+import {Array, Config, Effect, String} from "effect";
+import {SecureRandom} from "effect/crypto";
 
-import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {SessionListItemDto} from "@dtos/session.dto.ts";
+import type {Uri, Webview} from "vscode";
 
-// How the Sessions tree, and the Archive tree with its rows, draw what their controllers return: project and session
-// rows, and session badges.
-
-// The URI a session row's badge hangs off; the badge provider reads the session id back from its path.
-export const getSessionBadgeUri = Effect.fn("SessionsView.getSessionBadgeUri")(function* (sessionId: string) {
-  const {Uri} = yield* VsCodeApi;
-
-  return Uri.from({path: `/${sessionId}`, scheme: SESSION_BADGE_URI_SCHEME});
-});
-
-// The row's kind, then the ways it can move, then the state words given, which the manifest's menus match.
-const makeRowContextValue = Effect.fn("SessionsView.makeRowContextValue")(function* (
-  rowKind: string,
-  listItem: ProjectListItemDto | SessionListItemDto,
-  stateWords: readonly string[]
-) {
-  const moveWords = [
-    ...(listItem.canMoveUp ? [SESSIONS_VIEW_CONTEXT_VALUES.CAN_MOVE_UP] : []),
-    ...(listItem.canMoveDown ? [SESSIONS_VIEW_CONTEXT_VALUES.CAN_MOVE_DOWN] : [])
-  ];
-
-  return Array.join([rowKind, ...moveWords, ...stateWords], " ");
-});
-
-// A session row also says whether its agent runs, for Stop Agent.
-const makeSessionRowContextValue = Effect.fn("SessionsView.makeSessionRowContextValue")(function* (
-  sessionListItem: SessionListItemDto
-) {
-  return yield* makeRowContextValue(
-    SESSIONS_VIEW_CONTEXT_VALUES.SESSION,
-    sessionListItem,
-    sessionListItem.isAgentRunning ? [SESSIONS_VIEW_CONTEXT_VALUES.AGENT_RUNNING] : []
-  );
-});
-
-// The agent's image; a session whose agent is gone shows a warning.
-const getSessionRowIcon = Effect.fn("SessionsView.getSessionRowIcon")(function* (sessionListItem: SessionListItemDto) {
-  const {ThemeIcon, Uri} = yield* VsCodeApi;
-
-  return sessionListItem.icon === undefined ? new ThemeIcon(ROW_ICONS.MISSING_AGENT) : Uri.file(sessionListItem.icon);
-});
-
-// A blocked session says what it waits for, when its agent says.
-const getStatusLabel = Effect.fn("SessionsView.getStatusLabel")(function* (sessionListItem: SessionListItemDto) {
-  return sessionListItem.statusKind === undefined
-    ? STATUS_LABELS[sessionListItem.status]
-    : STATUS_KIND_LABELS[sessionListItem.statusKind];
-});
-
-// The agent's message, such as the permission it asks for, sits between the name and the folder.
-const makeSessionRowTooltip = Effect.fn("SessionsView.makeSessionRowTooltip")(function* (
-  {name, projectPath, statusMessage}: SessionListItemDto,
-  statusLabel: string
-) {
-  const statusMessageLines = statusMessage === undefined ? [] : [statusMessage];
-
-  return Array.join([SESSION_ROW_LABELS.TOOLTIP_HEADING(name, statusLabel), ...statusMessageLines, projectPath], "\n");
-});
+// How the Sessions view sets up its webview and counts the sessions waiting on the user.
 
 // How many of a view's sessions wait on the user, for the count in its name.
 export const countViewSessionsWaitingOnUser = Effect.fn("SessionsView.countViewSessionsWaitingOnUser")(function* (
@@ -86,59 +19,75 @@ export const countViewSessionsWaitingOnUser = Effect.fn("SessionsView.countViewS
   ).length;
 });
 
-export const createSessionTreeItem = Effect.fn("SessionsView.createSessionTreeItem")(function* (
+// The webview runs scripts and loads files from the extension, its build and the built-in agents' icons among them.
+export const setUpWebviewOptions = Effect.fn("SessionsView.setUpWebviewOptions")(function* (webview: Webview) {
+  const vsCodeApi = yield* VsCodeApi;
+
+  yield* Effect.sync(() => {
+    webview.options = {enableScripts: true, localResourceRoots: [vsCodeApi.extensionUri]};
+  });
+});
+
+// An agent icon outside the extension, set in the agents setting, needs its folder allowed too. VS Code reloads the
+// page when the folders change, and the reloaded page asks to be drawn again, by then with the folder allowed.
+const allowIconFolder = Effect.fn("SessionsView.allowIconFolder")(function* (webview: Webview, iconFileUri: Uri) {
+  const vsCodeApi = yield* VsCodeApi;
+  const iconFolderUri = vsCodeApi.Uri.joinPath(iconFileUri, "..");
+  const allowedFolderUris = webview.options.localResourceRoots === undefined ? [] : webview.options.localResourceRoots;
+  const isAllowed = Array.some(allowedFolderUris, (allowedFolderUri) =>
+    String.startsWith(`${allowedFolderUri.toString()}/`)(`${iconFolderUri.toString()}/`)
+  );
+  if (isAllowed) return;
+
+  yield* Effect.sync(() => {
+    webview.options = {...webview.options, localResourceRoots: [...allowedFolderUris, iconFolderUri]};
+  });
+});
+
+// The agent's icon as the webview loads it; a session whose agent is gone has none.
+export const getAgentIconUri = Effect.fn("SessionsView.getAgentIconUri")(function* (
+  webview: Webview,
   sessionListItem: SessionListItemDto
 ) {
-  const {TreeItem} = yield* VsCodeApi;
-  const statusLabel = yield* getStatusLabel(sessionListItem);
-  const sessionNodeId = yield* makeSessionNodeId(sessionListItem.sessionId);
-  const {displayName, statusProgress} = sessionListItem;
-  const treeItem = new TreeItem(displayName);
-  treeItem.id = sessionNodeId;
-  treeItem.iconPath = yield* getSessionRowIcon(sessionListItem);
-  if (statusProgress !== undefined) treeItem.description = `${statusProgress}%`;
-  treeItem.resourceUri = yield* getSessionBadgeUri(sessionListItem.sessionId);
-  treeItem.tooltip = yield* makeSessionRowTooltip(sessionListItem, statusLabel);
-  treeItem.accessibilityInformation = {
-    label: SESSION_ROW_LABELS.ACCESSIBLE(displayName, sessionListItem.projectName, statusLabel)
-  };
-  treeItem.contextValue = yield* makeSessionRowContextValue(sessionListItem);
-  treeItem.command = {
-    arguments: [sessionNodeId],
-    command: SESSION_COMMANDS.OPEN,
-    title: SESSION_ROW_LABELS.OPEN_SESSION
-  };
+  if (sessionListItem.icon === undefined) return {};
+  const vsCodeApi = yield* VsCodeApi;
+  const iconFileUri = vsCodeApi.Uri.file(sessionListItem.icon);
+  yield* allowIconFolder(webview, iconFileUri);
 
-  return treeItem;
+  return {agentIconUri: webview.asWebviewUri(iconFileUri).toString()};
 });
 
-export const createProjectTreeItem = Effect.fn("SessionsView.createProjectTreeItem")(function* (
-  projectListItem: ProjectListItemDto
-) {
-  const {ThemeIcon, TreeItem, TreeItemCollapsibleState} = yield* VsCodeApi;
-  const treeItem = new TreeItem(projectListItem.name, TreeItemCollapsibleState.Expanded);
-  treeItem.id = yield* makeProjectNodeId(projectListItem.path);
-  treeItem.iconPath = new ThemeIcon(ROW_ICONS.PROJECT);
-  treeItem.tooltip = projectListItem.path;
-  treeItem.contextValue = yield* makeRowContextValue(
-    projectListItem.isAdded ? SESSIONS_VIEW_CONTEXT_VALUES.ADDED_PROJECT : SESSIONS_VIEW_CONTEXT_VALUES.PROJECT,
-    projectListItem,
-    []
+// apps/webview's build, from the extension's dist/webview.
+const makeBuiltPageHtml = Effect.fn("SessionsView.makeBuiltPageHtml")(function* (webview: Webview, nonce: string) {
+  const vsCodeApi = yield* VsCodeApi;
+  const buildFolderUri = vsCodeApi.Uri.joinPath(vsCodeApi.extensionUri, SESSIONS_WEBVIEW.BUILD_FOLDER);
+  const styleUri = webview.asWebviewUri(vsCodeApi.Uri.joinPath(buildFolderUri, SESSIONS_WEBVIEW.STYLE_FILE_NAME));
+  const scriptUri = webview.asWebviewUri(vsCodeApi.Uri.joinPath(buildFolderUri, SESSIONS_WEBVIEW.SCRIPT_FILE_NAME));
+
+  return SESSIONS_WEBVIEW_HTML.BUILT({
+    cspSource: webview.cspSource,
+    nonce,
+    scriptUri: scriptUri.toString(),
+    styleUri: styleUri.toString()
+  });
+});
+
+// The page: from apps/webview's dev server while F5 sets its URL, so edits reload in place, else from the build.
+export const makeWebviewHtml = Effect.fn("SessionsView.makeWebviewHtml")(function* (webview: Webview) {
+  const developmentServerUrl = yield* Config.withDefault(
+    Config.String(SESSIONS_WEBVIEW.DEVELOPMENT_SERVER_URL_VARIABLE),
+    ""
   );
+  const secureRandom = yield* SecureRandom.SecureRandom;
+  const nonce = yield* secureRandom.uuidV4();
+  if (developmentServerUrl === "") return yield* makeBuiltPageHtml(webview, nonce);
 
-  return treeItem;
-});
+  const developmentServerSocketUrl = String.replace(SESSIONS_WEBVIEW.HTTP_SCHEME_PATTERN, "ws")(developmentServerUrl);
 
-// A working session shows the spinner's frame for now.
-export const createStatusBadge = Effect.fn("SessionsView.createStatusBadge")(function* (
-  sessionStatus: SessionListItemDto["status"]
-) {
-  const statusBadge = STATUS_BADGES[sessionStatus];
-  if (statusBadge === undefined) return undefined;
-
-  const {FileDecoration, ThemeColor} = yield* VsCodeApi;
-  const {color, frames} = statusBadge;
-  const frameIndex = Math.floor((yield* Clock.currentTimeMillis) / SPINNER_FRAME_INTERVAL_MS) % frames.length;
-
-  return new FileDecoration(frames[frameIndex], STATUS_LABELS[sessionStatus], new ThemeColor(color));
+  return SESSIONS_WEBVIEW_HTML.DEVELOPMENT_SERVER({
+    cspSource: webview.cspSource,
+    developmentServerSocketUrl,
+    developmentServerUrl,
+    nonce
+  });
 });

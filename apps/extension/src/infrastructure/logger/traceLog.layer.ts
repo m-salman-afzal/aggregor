@@ -89,8 +89,8 @@ const formatFailedError = (failedError: unknown) => {
 // eslint-disable-next-line no-restricted-syntax -- runs while a span ends
 const formatFailureReason = (reason: Cause.Reason<unknown>) =>
   Match.valueTags(reason, {
-    Die: ({defect}) => `defect ${formatTraceValue(defect)}`,
-    Fail: ({error}) => formatFailedError(error),
+    Die: (dieReason) => `defect ${formatTraceValue(dieReason.defect)}`,
+    Fail: (failReason) => formatFailedError(failReason.error),
     Interrupt: () => "interrupted"
   });
 
@@ -113,14 +113,18 @@ const formatSpanAttributes = (span: Tracer.Span) =>
 // line the channel would drop goes out again at Info, so it is written whatever that level is, unless it is Off.
 // eslint-disable-next-line no-restricted-syntax -- runs while a span ends
 const writeTraceLogLine = (
-  {isTraceLoggingOn, logMethodLevels, outputChannel}: TraceLogDependencies,
+  traceLogDependencies: TraceLogDependencies,
   logMethod: OutputChannelLogMethod,
   logLine: string
 ) => {
-  outputChannel[logMethod](logLine);
-  if (!Ref.getUnsafe(isTraceLoggingOn) || outputChannel.logLevel <= logMethodLevels[logMethod]) return;
+  traceLogDependencies.outputChannel[logMethod](logLine);
+  if (
+    !Ref.getUnsafe(traceLogDependencies.isTraceLoggingOn) ||
+    traceLogDependencies.outputChannel.logLevel <= traceLogDependencies.logMethodLevels[logMethod]
+  )
+    return;
 
-  outputChannel.info(TRACE_LOGGING.FORCED_LINE(logMethod, logLine));
+  traceLogDependencies.outputChannel.info(TRACE_LOGGING.FORCED_LINE(logMethod, logLine));
 };
 
 // Writes one trace-level line per finished span: its path, how long it took, how it ended, with each failure's fields,
@@ -154,25 +158,25 @@ const makeSpanLineTracer = Effect.fn("TraceLog.makeSpanLineTracer")(function* (
 const makeOutputChannelLogger = Effect.fn("TraceLog.makeOutputChannelLogger")(function* (
   traceLogDependencies: TraceLogDependencies
 ) {
-  return Logger.make(({cause, logLevel, message}) => {
-    const messageParts: readonly unknown[] = Array.isArray(message) ? message : [message];
+  return Logger.make((logCall) => {
+    const messageParts: readonly unknown[] = Array.isArray(logCall.message) ? logCall.message : [logCall.message];
     const causeLines =
-      cause.reasons.length > 0
-        ? [Array.join(Array.map(cause.reasons, formatFailureReason), ", "), Cause.pretty(cause)]
+      logCall.cause.reasons.length > 0
+        ? [Array.join(Array.map(logCall.cause.reasons, formatFailureReason), ", "), Cause.pretty(logCall.cause)]
         : [];
     const logLine = Array.join([format(...messageParts), ...causeLines], "\n");
 
     // "All" and "None" are thresholds for filtering, never the level of a log call.
-    if (logLevel === "All" || logLevel === "None") return;
+    if (logCall.logLevel === "All" || logCall.logLevel === "None") return;
 
-    writeTraceLogLine(traceLogDependencies, OUTPUT_CHANNEL_LOG_METHODS[logLevel], logLine);
+    writeTraceLogLine(traceLogDependencies, OUTPUT_CHANNEL_LOG_METHODS[logCall.logLevel], logLine);
   });
 });
 
-const readTraceLoggingSetting = Effect.fn("TraceLog.readTraceLoggingSetting")(function* ({
-  getConfiguration
-}: Pick<VsCodeApi["Service"], "getConfiguration">) {
-  const configuredSettings = yield* getConfiguration(SETTINGS_SECTION);
+const readTraceLoggingSetting = Effect.fn("TraceLog.readTraceLoggingSetting")(function* (
+  vsCodeApi: Pick<VsCodeApi["Service"], "getConfiguration">
+) {
+  const configuredSettings = yield* vsCodeApi.getConfiguration(SETTINGS_SECTION);
 
   return configuredSettings.get(TRACE_LOGGING.SETTING) === true;
 });
@@ -194,18 +198,19 @@ const watchTraceLoggingSetting = Effect.fn("TraceLog.watchTraceLoggingSetting")(
 
 const makeTraceLog = Effect.fn("TraceLog.make")(function* () {
   const vsCodeApi = yield* VsCodeApi;
-  const {LogLevel, window} = vsCodeApi;
-  const outputChannel = yield* acquireScopedDisposable(() => window.createOutputChannel(APP_NAME, {log: true}));
+  const outputChannel = yield* acquireScopedDisposable(() =>
+    vsCodeApi.window.createOutputChannel(APP_NAME, {log: true})
+  );
   const isTraceLoggingOnAtStart = yield* readTraceLoggingSetting(vsCodeApi);
   const isTraceLoggingOn = yield* Ref.make(isTraceLoggingOnAtStart);
   const traceLogDependencies: TraceLogDependencies = {
     isTraceLoggingOn,
     logMethodLevels: {
-      debug: LogLevel.Debug,
-      error: LogLevel.Error,
-      info: LogLevel.Info,
-      trace: LogLevel.Trace,
-      warn: LogLevel.Warning
+      debug: vsCodeApi.LogLevel.Debug,
+      error: vsCodeApi.LogLevel.Error,
+      info: vsCodeApi.LogLevel.Info,
+      trace: vsCodeApi.LogLevel.Trace,
+      warn: vsCodeApi.LogLevel.Warning
     },
     outputChannel
   };

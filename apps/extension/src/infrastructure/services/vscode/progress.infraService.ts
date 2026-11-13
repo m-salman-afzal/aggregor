@@ -10,13 +10,17 @@ interface SourceControlProgress {
 }
 
 const withSourceControlProgress = Effect.fn("ProgressInfraService.withSourceControlProgress")(
-  function* <A, E, R>({busyContextKey, progressTitle}: SourceControlProgress, effect: Effect.Effect<A, E, R>) {
-    const {ProgressLocation} = yield* VsCodeApi;
-    yield* setWhenClauseContextKey(busyContextKey, true);
+  function* <A, E, R>(sourceControlProgress: SourceControlProgress, effect: Effect.Effect<A, E, R>) {
+    const vsCodeApi = yield* VsCodeApi;
+    yield* setWhenClauseContextKey(sourceControlProgress.busyContextKey, true);
 
-    return yield* runWithProgressIndicator({location: ProgressLocation.SourceControl, title: progressTitle}, effect);
+    return yield* runWithProgressIndicator(
+      {location: vsCodeApi.ProgressLocation.SourceControl, title: sourceControlProgress.progressTitle},
+      effect
+    );
   },
-  (effect, {busyContextKey}) => Effect.ensuring(effect, setWhenClauseContextKey(busyContextKey, false))
+  (effect, sourceControlProgress) =>
+    Effect.ensuring(effect, setWhenClauseContextKey(sourceControlProgress.busyContextKey, false))
 );
 
 const makeProgressInfraService = Effect.fn("ProgressInfraService.make")(function* () {

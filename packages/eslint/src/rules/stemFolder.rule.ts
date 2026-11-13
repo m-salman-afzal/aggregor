@@ -1,14 +1,13 @@
 import {readdirSync} from "node:fs";
-import {basename, dirname, join, relative, sep} from "node:path";
+import {basename, dirname, relative, sep} from "node:path";
 
 import type {Rule} from "eslint";
 
-// aggregor/stem-folder: files that share their first dotted part (sessions.view.ts, sessions.view.type.ts) sit in a
-// folder of that name.
-const SOURCE_ROOT = "apps/extension/src";
+// aggregor/stem-folder: files that share their first dotted part (sessions.view.ts, sessions.view.type.ts;
+// sessionRow.tsx, sessionRow.hook.ts) sit in a folder of that name.
 
 // The folder this file belongs in, when it isn't there already.
-const getExpectedStemFolder = (filePath: string, sourceRootPath: string) => {
+const getExpectedStemFolder = (filePath: string, repositoryRootPath: string) => {
   const [stem] = basename(filePath).split(".");
   if (stem === undefined) return undefined;
   const folderPath = dirname(filePath);
@@ -19,12 +18,12 @@ const getExpectedStemFolder = (filePath: string, sourceRootPath: string) => {
 
   if (stemSiblings.length < 2) return undefined;
 
-  return `${relative(sourceRootPath, folderPath).split(sep).join("/")}/${stem}/`;
+  return `${relative(repositoryRootPath, folderPath).split(sep).join("/")}/${stem}/`;
 };
 
 export const stemFolderRule: Rule.RuleModule = {
   create(context) {
-    const expectedFolder = getExpectedStemFolder(context.physicalFilename, join(context.cwd, SOURCE_ROOT));
+    const expectedFolder = getExpectedStemFolder(context.physicalFilename, context.cwd);
 
     return {
       Program() {
@@ -37,7 +36,9 @@ export const stemFolderRule: Rule.RuleModule = {
     docs: {description: "Group files that share their first dotted part in a folder of that name."},
     messages: {
       notInStemFolder:
-        "Move this file into {{expectedFolder}}: files sharing their first dotted part sit in a folder of that name."
+        "Another file in this folder shares this file's first dotted part, so they belong to one unit. A unit's files " +
+        "share a folder named after it, so the unit moves or goes in one piece and its files are found together. " +
+        "Move them into {{expectedFolder}}."
     },
     schema: [],
     type: "suggestion"

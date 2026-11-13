@@ -43,10 +43,14 @@ const generateCommitMessage = Effect.fn("CommitCliInfraService.generateCommitMes
   childProcessSpawner: ChildProcessSpawner["Service"],
   commitMessageRequest: CommitMessageRequest
 ) {
-  const {exitCode, stderr, stdout} = yield* runCommitCommand(childProcessSpawner, commitMessageRequest);
-  if (exitCode !== EXIT_CODES.SUCCESSFUL) return yield* CommitCliError.make({exitCode, stderr: String.trim(stderr)});
+  const commitCommandOutput = yield* runCommitCommand(childProcessSpawner, commitMessageRequest);
+  if (commitCommandOutput.exitCode !== EXIT_CODES.SUCCESSFUL)
+    return yield* CommitCliError.make({
+      exitCode: commitCommandOutput.exitCode,
+      stderr: String.trim(commitCommandOutput.stderr)
+    });
 
-  const commitMessage = String.trim(stdout);
+  const commitMessage = String.trim(commitCommandOutput.stdout);
   if (commitMessage.length === 0) return yield* EmptyCommitMessageError.make();
 
   return commitMessage;

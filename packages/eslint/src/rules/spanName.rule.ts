@@ -58,9 +58,11 @@ const describeOwner = (owner: string | undefined) =>
 
 // Effect.fn("name")(function* ...) sits inside the call that applies it; the const holds that outer call.
 const getAssignedConstName = (effectFunctionCall: Rule.Node) => {
-  const {parent} = effectFunctionCall;
-  if (parent === null) return undefined;
-  const holder = parent.type === "CallExpression" && parent.callee === effectFunctionCall ? parent.parent : parent;
+  if (effectFunctionCall.parent === null) return undefined;
+  const holder =
+    effectFunctionCall.parent.type === "CallExpression" && effectFunctionCall.parent.callee === effectFunctionCall
+      ? effectFunctionCall.parent.parent
+      : effectFunctionCall.parent;
   if (holder.type !== "VariableDeclarator" || holder.id.type !== "Identifier") return undefined;
 
   return holder.id.name;

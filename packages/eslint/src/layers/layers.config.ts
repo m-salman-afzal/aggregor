@@ -10,6 +10,7 @@ import {
   ERROR_FILE_BAN,
   EXPORTED_TYPE_BAN,
   NON_TYPE_BAN,
+  OBJECT_DESTRUCTURING_BAN,
   PLAIN_FUNCTION_BAN,
   SERVICE_CLASS_BAN,
   STATUS_LITERAL_BAN,
@@ -118,7 +119,7 @@ export const LAYER_CONFIGS: Config[] = [
   },
   {
     files: ["apps/extension/src/**/*.error.ts"],
-    rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ERROR_FILE_BAN]}
+    rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ERROR_FILE_BAN, OBJECT_DESTRUCTURING_BAN]}
   },
   // A file's errors sit at its top, above its other classes. Blank lines split the sorting, so a type built from the
   // file's classes can sit below them, where aggregor/type-placement puts it.

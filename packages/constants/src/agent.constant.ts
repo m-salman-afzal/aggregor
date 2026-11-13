@@ -17,6 +17,12 @@ export const AGENT_ICON = {
   FILE_PATTERN: /\.(?:png|svg)$/iu
 } as const;
 
+// What the user did in the agent picker: picked an agent to start, or asked for one to become the default.
+export const AGENT_PICK_TAGS = {
+  AGENT_PICKED: "AgentPicked",
+  DEFAULT_AGENT_CHOSEN: "DefaultAgentChosen"
+} as const;
+
 export const AGENT_LABELS = {
   DEFAULT: "default",
   PICK: "Agent for the new session",

@@ -2,14 +2,15 @@ import {Context, Schema} from "effect";
 
 import type {AgentListItemDto} from "@dtos/agent.dto.ts";
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
+import type {AGENT_PICK_TAGS} from "@pkg/constants/src/agent.constant.ts";
 import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Effect} from "effect";
 
 // What the user did in the agent picker: picked an agent to start, or asked for one to become the default.
 export type AgentPick =
-  | {readonly _tag: "AgentPicked"; readonly agentId: AgentIdValueObject}
-  | {readonly _tag: "DefaultAgentChosen"; readonly agentId: AgentIdValueObject};
+  | {readonly _tag: typeof AGENT_PICK_TAGS.AGENT_PICKED; readonly agentId: AgentIdValueObject}
+  | {readonly _tag: typeof AGENT_PICK_TAGS.DEFAULT_AGENT_CHOSEN; readonly agentId: AgentIdValueObject};
 
 // A question with its answers, each with a line on what picking it does.
 export interface QuestionRequest {

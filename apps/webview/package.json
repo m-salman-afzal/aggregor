@@ -1,0 +1,32 @@
+{
+  "name": "aggregor-webview",
+  "private": true,
+  "description": "The Sessions view's webview: React, drawn inside VS Code.",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pkg/constants": "workspace:*",
+    "@pkg/ui": "workspace:*",
+    "cn": "catalog:",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@babel/core": "catalog:",
+    "@pkg/tsconfigs": "workspace:*",
+    "@rolldown/plugin-babel": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@types/vscode-webview": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "babel-plugin-react-compiler": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}

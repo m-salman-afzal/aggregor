@@ -43,16 +43,18 @@ const LatestWriteRowsSchema = Schema.Tuple([
 
 // Where change checks start: after every row written before the window started.
 const readStartingChangeCursor = Effect.fn("BaseRepository.readStartingChangeCursor")(
-  function* <Entity>({database, tableModel}: RepositoryTable<Entity>) {
-    const latestStampsRows = yield* database
-      .select({highestSortId: max(tableModel.sortId), latestUpdatedAt: max(tableModel.updatedAt)})
-      .from(tableModel);
-    const [{highestSortId, latestUpdatedAt}] =
-      yield* Schema.decodeUnknownEffect(LatestWriteRowsSchema)(latestStampsRows);
+  function* <Entity>(repositoryTable: RepositoryTable<Entity>) {
+    const latestStampsRows = yield* repositoryTable.database
+      .select({
+        highestSortId: max(repositoryTable.tableModel.sortId),
+        latestUpdatedAt: max(repositoryTable.tableModel.updatedAt)
+      })
+      .from(repositoryTable.tableModel);
+    const [latestWriteStamps] = yield* Schema.decodeUnknownEffect(LatestWriteRowsSchema)(latestStampsRows);
     const changeCursor: ChangeCursor = {
-      highestSortId: highestSortId === null ? 0 : highestSortId,
+      highestSortId: latestWriteStamps.highestSortId === null ? 0 : latestWriteStamps.highestSortId,
       latestRowsAsJson: new Map(),
-      latestUpdatedAt: latestUpdatedAt === null ? "" : latestUpdatedAt
+      latestUpdatedAt: latestWriteStamps.latestUpdatedAt === null ? "" : latestWriteStamps.latestUpdatedAt
     };
 
     return changeCursor;
@@ -65,12 +67,15 @@ const readRowsWrittenSince = Effect.fn("BaseRepository.readRowsWrittenSince")(fu
   repositoryTable: RepositoryTable<Entity>,
   writtenSince: string
 ) {
-  const {entitySchema, tableModel} = repositoryTable;
-  const storedRows = yield* selectRows(repositoryTable, gte(tableModel.updatedAt, writtenSince), tableModel.updatedAt);
+  const storedRows = yield* selectRows(
+    repositoryTable,
+    gte(repositoryTable.tableModel.updatedAt, writtenSince),
+    repositoryTable.tableModel.updatedAt
+  );
   const changedRowResults = yield* Effect.forEach(storedRows, (storedRow) =>
     Effect.result(
       Effect.zipWith(
-        BaseEntity.fromRow(entitySchema, storedRow),
+        BaseEntity.fromRow(repositoryTable.entitySchema, storedRow),
         Schema.encodeUnknownEffect(StoredRowJsonSchema)(storedRow),
         (entity, storedRowJson): ChangedRow<Entity> => ({
           entity,
@@ -92,8 +97,13 @@ const advanceChangeCursor = Effect.fn("BaseRepository.advanceChangeCursor")(func
   if (lastWrittenRow === undefined) return changeCursor;
   const latestRows = Array.filter(changedRows, (writtenRow) => writtenRow.updatedAt === lastWrittenRow.updatedAt);
   const nextChangeCursor: ChangeCursor = {
-    highestSortId: Math.max(changeCursor.highestSortId, ...Array.map(changedRows, ({entity}) => entity.sortId)),
-    latestRowsAsJson: new Map(Array.map(latestRows, ({entity, storedRowJson}) => [entity.id, storedRowJson] as const)),
+    highestSortId: Math.max(
+      changeCursor.highestSortId,
+      ...Array.map(changedRows, (changedRow) => changedRow.entity.sortId)
+    ),
+    latestRowsAsJson: new Map(
+      Array.map(latestRows, (latestRow) => [latestRow.entity.id, latestRow.storedRowJson] as const)
+    ),
     latestUpdatedAt: lastWrittenRow.updatedAt
   };
 
@@ -118,9 +128,11 @@ const findEntityChanges = Effect.fn("BaseRepository.findEntityChanges")(
     const changedRows = yield* readRowsWrittenSince(repositoryTable, changeCursor.latestUpdatedAt);
     const rowsNotSeenYet = Array.filter(
       changedRows,
-      ({entity, storedRowJson}) => changeCursor.latestRowsAsJson.get(entity.id) !== storedRowJson
+      (changedRow) => changeCursor.latestRowsAsJson.get(changedRow.entity.id) !== changedRow.storedRowJson
     );
-    const entityChanges = yield* Effect.forEach(rowsNotSeenYet, ({entity}) => toEntityChange(changeCursor, entity));
+    const entityChanges = yield* Effect.forEach(rowsNotSeenYet, (rowNotSeenYet) =>
+      toEntityChange(changeCursor, rowNotSeenYet.entity)
+    );
     const nextChangeCursor = yield* advanceChangeCursor(changeCursor, changedRows);
 
     return [nextChangeCursor, entityChanges] as const;

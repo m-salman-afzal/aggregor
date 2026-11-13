@@ -163,10 +163,9 @@ const isFinishedTurnUnseen = Effect.fn("SessionDomainService.isFinishedTurnUnsee
   session: SessionEntity,
   isInView: boolean
 ) {
-  const {statusChangedAt, viewedAt} = session;
-  if (isInView || statusChangedAt === undefined) return false;
+  if (isInView || session.statusChangedAt === undefined) return false;
 
-  return viewedAt === undefined || DateTime.isGreaterThan(statusChangedAt, viewedAt);
+  return session.viewedAt === undefined || DateTime.isGreaterThan(session.statusChangedAt, session.viewedAt);
 });
 
 // Without its process the agent is gone, even one that could not say so, as after a reboot. No report yet, as from an
@@ -174,11 +173,11 @@ const isFinishedTurnUnseen = Effect.fn("SessionDomainService.isFinishedTurnUnsee
 // seen it.
 export const getSessionStatus = Effect.fn("SessionDomainService.getSessionStatus")(function* (
   session: SessionEntity,
-  {isAgentRunning, isInView}: SessionViewingFacts
+  sessionViewingFacts: SessionViewingFacts
 ) {
-  if (!isAgentRunning) return SESSION_STATUSES.EXITED;
+  if (!sessionViewingFacts.isAgentRunning) return SESSION_STATUSES.EXITED;
   if (session.status === AGENT_STATUSES.UNKNOWN) return SESSION_STATUSES.IDLE;
-  if (session.status === AGENT_STATUSES.DONE && !(yield* isFinishedTurnUnseen(session, isInView)))
+  if (session.status === AGENT_STATUSES.DONE && !(yield* isFinishedTurnUnseen(session, sessionViewingFacts.isInView)))
     return SESSION_STATUSES.IDLE;
 
   return session.status;

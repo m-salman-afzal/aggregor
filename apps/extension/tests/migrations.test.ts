@@ -84,10 +84,10 @@ const findSeedSource = Effect.fn("findSeedSource")(function* (
 
 // A value no other row or column holds, so a value that lands in another row or column shows; a foreign key holds the
 // value its referenced column has in the row with the same number.
-const makeSeedValue = Effect.fn("makeSeedValue")(function* ({column, tableName}: SeedSource, rowNumber: number) {
-  return INTEGER_AFFINITY.test(column.type)
-    ? rowNumber * 1000 + column.cid
-    : `${tableName}.${column.name}.${rowNumber}`;
+const makeSeedValue = Effect.fn("makeSeedValue")(function* (seedSource: SeedSource, rowNumber: number) {
+  return INTEGER_AFFINITY.test(seedSource.column.type)
+    ? rowNumber * 1000 + seedSource.column.cid
+    : `${seedSource.tableName}.${seedSource.column.name}.${rowNumber}`;
 });
 
 const isRequiredColumn = (column: TableColumn) => column.pk > 0 || (column.notnull === 1 && column.dflt_value === null);
@@ -142,7 +142,7 @@ const readStoredTables = Effect.fn("readStoredTables")(function* () {
     WHERE type = 'table' AND name NOT LIKE 'sqlite%' AND name != '__drizzle_migrations'
     ORDER BY name`;
 
-  return yield* Effect.forEach(tableNames, ({name}) => readStoredTable(name));
+  return yield* Effect.forEach(tableNames, (tableName) => readStoredTable(tableName.name));
 });
 
 // Rows in id order, as plain objects: node:sqlite returns them without a prototype.
@@ -178,7 +178,9 @@ const expectEveryRowKept = Effect.fn("expectEveryRowKept")(function* (
     return {name: snapshotBefore.name, rows: keptRows};
   });
 
-  expect(keptTables).toStrictEqual(Array.map(snapshotsBefore, ({name, rows}) => ({name, rows})));
+  expect(keptTables).toStrictEqual(
+    Array.map(snapshotsBefore, (snapshotBefore) => ({name: snapshotBefore.name, rows: snapshotBefore.rows}))
+  );
 });
 
 const evaluateColumnDefault = Effect.fn("evaluateColumnDefault")(function* (column: TableColumn) {
@@ -198,7 +200,9 @@ const expectNewColumnsAtDefault = Effect.fn("expectNewColumnsAtDefault")(functio
   snapshotsAfter: readonly TableSnapshot[]
 ) {
   const columnKeysBefore = new Set(
-    snapshotsBefore.flatMap(({columns, name}) => Array.map(columns, (column) => `${name}.${column.name}`))
+    snapshotsBefore.flatMap((snapshotBefore) =>
+      Array.map(snapshotBefore.columns, (column) => `${snapshotBefore.name}.${column.name}`)
+    )
   );
   for (const snapshotAfter of snapshotsAfter)
     for (const column of snapshotAfter.columns.filter(

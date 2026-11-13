@@ -16,7 +16,7 @@ import type {Config} from "eslint/config";
 
 const REPO_ROOT_PATH = resolve(import.meta.dirname, "../../../..");
 
-// Every JavaScript and TypeScript file: the full recommended sets, Prettier, and the repo's own choices on top.
+// Every JavaScript and TypeScript file, React's included: the full recommended sets, Prettier, and the repo's own choices on top.
 export const TYPESCRIPT_CONFIGS: Config[] = defineConfig([
   e18e.configs.recommended,
   // pluginPromise.configs["flat/recommended"],
@@ -30,7 +30,7 @@ export const TYPESCRIPT_CONFIGS: Config[] = defineConfig([
 
       // unicorn.configs.all
     ],
-    files: ["**/*.{js,mjs,cjs,ts,mts,cts}"],
+    files: ["**/*.{js,mjs,cjs,ts,mts,cts,tsx}"],
     languageOptions: {
       globals: globals.node,
       parserOptions: {
@@ -64,6 +64,8 @@ export const TYPESCRIPT_CONFIGS: Config[] = defineConfig([
           varsIgnorePattern: "^_"
         }
       ],
+      // Object destructuring is banned (syntaxBans.ts): a value is read as object.key where it is used.
+      "@typescript-eslint/prefer-destructuring": "off",
       "@typescript-eslint/prefer-nullish-coalescing": "off",
       "@typescript-eslint/prefer-optional-chain": "off",
       "@typescript-eslint/prefer-readonly-parameter-types": "off",
@@ -120,6 +122,7 @@ export const TYPESCRIPT_CONFIGS: Config[] = defineConfig([
           sortBy: "path"
         }
       ],
+      "prefer-destructuring": "off",
       // An Effect.fn body is a generator, and a pure one has nothing to yield.
       "require-yield": "off",
       "sort-imports": "off",

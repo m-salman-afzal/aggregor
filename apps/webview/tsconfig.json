@@ -1,0 +1,27 @@
+{
+  "extends": "@pkg/tsconfigs/tsconfig.base.json",
+  "display": "Webview",
+
+  "compilerOptions": {
+    // base
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["vite/client", "vscode-webview"],
+
+    // building: it reads the extension's message and DTO files too, which a composite project would have to list
+    "composite": false,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo",
+
+    // @/ is this app's src. The rest reach into the extension for the Sessions view's messages and the DTOs they carry,
+    // for types only: lint rejects a value import from them, so no extension code enters the webview's bundle.
+    "paths": {
+      "@/*": ["./src/*"],
+      "@dtos/*": ["../extension/src/application/dtos/*"],
+      "@valueObjects/*": ["../extension/src/domain/valueObjects/*"],
+      "@views/*": ["../extension/src/presentation/views/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts"]
+}

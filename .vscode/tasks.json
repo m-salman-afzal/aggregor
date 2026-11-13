@@ -5,7 +5,7 @@
   "tasks": [
     {
       "label": "watch",
-      "dependsOn": ["npm: watch:tsc", "npm: watch:vite"],
+      "dependsOn": ["npm: watch:tsc", "npm: watch:vite", "npm: dev - apps/webview"],
       "presentation": {
         "reveal": "never"
       },
@@ -32,6 +32,30 @@
       },
       "isBackground": true,
       "label": "npm: watch:vite",
+      "presentation": {
+        "group": "watch",
+        "reveal": "never"
+      }
+    },
+    {
+      "type": "npm",
+      "script": "dev",
+      "path": "apps/webview",
+      "group": "build",
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": {
+          "regexp": "^\\s*✘ \\[ERROR\\] (.*)$",
+          "message": 1
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE v",
+          "endsPattern": "ready in"
+        }
+      },
+      "isBackground": true,
+      "label": "npm: dev - apps/webview",
       "presentation": {
         "group": "watch",
         "reveal": "never"
