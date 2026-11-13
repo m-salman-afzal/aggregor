@@ -7,27 +7,28 @@ import {
   QuestionCancelledError
 } from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {AGENT_LABELS, AGENT_PICK_TAGS} from "@pkg/constants/src/agent.constant.ts";
-import {APP_LABELS, APP_NAME} from "@pkg/constants/src/app.constant.ts";
+import {APP_NAME} from "@pkg/constants/src/app.constant.ts";
 import {PROJECT_LABELS} from "@pkg/constants/src/project.constant.ts";
+import {
+  PROMPT_ACTION_ICONS,
+  PROMPT_ANSWER_TAGS,
+  PROMPT_TAGS,
+  SESSIONS_VIEW
+} from "@pkg/constants/src/sessionsView.constant.ts";
+import {ViewPromptAnswerSchema} from "@pkg/vscode/src/viewPrompt.schema.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
-import {Array, Effect, Layer, Result} from "effect";
+import {Array, Effect, Layer, Match, Result, Schema} from "effect";
 
 import type {AgentListItemDto} from "@dtos/agent.dto.ts";
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {AgentPick, QuestionRequest} from "@interfaces/userInputPrompt.infraService.interface.ts";
-import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
-import type {QuickInputButton, QuickPickItem, window as VsCodeWindow} from "vscode";
-
-// What the agent picker draws with.
-type AgentPickerDependencies = Pick<VsCodeApi["Service"], "ThemeIcon" | "Uri" | "window">;
-
-// An agent's row in the picker, with the agent it stands for.
-interface AgentQuickPickItem extends QuickPickItem {
-  readonly agentId: AgentIdValueObject;
-}
+import type {ViewPrompt, ViewPromptAnswer, ViewPromptChoice} from "@pkg/vscode/src/viewPrompt.type.ts";
+import type {commands as VsCodeCommands, window as VsCodeWindow} from "vscode";
 
 type Window = typeof VsCodeWindow;
+
+type Commands = typeof VsCodeCommands;
 
 const showErrorMessage = Effect.fn("UserInputPromptInfraService.showErrorMessage")(function* (
   window: Window,
@@ -45,114 +46,126 @@ const showInformationMessage = Effect.fn("UserInputPromptInfraService.showInform
   return yield* Effect.promise(() => window.showInformationMessage(`${APP_NAME}: ${message}`, ...actions));
 });
 
-// Cancel, Escape and a click outside the quick pick all cancel.
-const askQuestion = Effect.fn("UserInputPromptInfraService.askQuestion")(function* (
-  window: Window,
-  questionRequest: QuestionRequest
+const showPromptInSessionsView = Effect.fn("UserInputPromptInfraService.showPromptInSessionsView")(function* (
+  commands: Commands,
+  viewPrompt: ViewPrompt
 ) {
-  const answerItems: readonly QuickPickItem[] = [
-    ...Array.map(questionRequest.answers, (answer) => ({detail: answer.consequence, label: answer.label})),
-    {label: APP_LABELS.CANCEL}
-  ];
-  const pickedItem = yield* Effect.promise(() => window.showQuickPick(answerItems, {title: questionRequest.question}));
-  const pickedAnswer = yield* Effect.fromResult(Result.fromNullishOr(pickedItem, () => QuestionCancelledError.make()));
-  if (pickedAnswer.label === APP_LABELS.CANCEL) return yield* QuestionCancelledError.make();
-
-  return pickedAnswer.label;
-});
-
-const askForText = Effect.fn("UserInputPromptInfraService.askForText")(function* (
-  window: Window,
-  question: string,
-  value: string
-) {
-  const enteredText = yield* Effect.promise(() => window.showInputBox({prompt: question, value}));
-
-  return yield* Effect.fromResult(Result.fromNullishOr(enteredText, () => InputCancelledError.make()));
-});
-
-const pickProject = Effect.fn("UserInputPromptInfraService.pickProject")(function* (
-  window: Window,
-  projects: readonly ProjectListItemDto[],
-  placeHolder: string
-) {
-  const pickedItem = yield* Effect.promise(() =>
-    window.showQuickPick(
-      Array.map(projects, (project) => ({description: project.path, label: project.name, project})),
-      {placeHolder}
-    )
-  );
-  const pickedProjectItem = yield* Effect.fromResult(
-    Result.fromNullishOr(pickedItem, () => ProjectPickCancelledError.make())
+  const promptAnswer = yield* Effect.promise(() =>
+    commands.executeCommand(SESSIONS_VIEW.SHOW_PROMPT_COMMAND, viewPrompt)
   );
 
-  return pickedProjectItem.project;
+  return yield* Effect.orElseSucceed(
+    Schema.decodeUnknownEffect(ViewPromptAnswerSchema)(promptAnswer),
+    (): ViewPromptAnswer => ({_tag: PROMPT_ANSWER_TAGS.CANCELLED})
+  );
 });
 
-// The default's row says so and has no button; every other row offers to become the default.
-const toAgentQuickPickItem = Effect.fn("UserInputPromptInfraService.toAgentQuickPickItem")(function* (
-  agentPickerDependencies: AgentPickerDependencies,
-  setAsDefaultButton: QuickInputButton,
-  agentListItem: AgentListItemDto
+const findChosenChoice = Effect.fn("UserInputPromptInfraService.findChosenChoice")(function* <CancelError>(
+  promptAnswer: ViewPromptAnswer,
+  makeCancelError: () => CancelError
 ) {
-  const agentQuickPickItem: AgentQuickPickItem = {
-    agentId: agentListItem.agentId,
-    buttons: agentListItem.isDefault ? [] : [setAsDefaultButton],
-    description: agentListItem.isDefault ? `${agentListItem.command} · ${AGENT_LABELS.DEFAULT}` : agentListItem.command,
-    iconPath: agentPickerDependencies.Uri.file(agentListItem.icon),
-    label: agentListItem.name
-  };
-
-  return agentQuickPickItem;
-});
-
-// Accepting a row picks its agent; its button asks for it to become the default; closing the picker cancels.
-const showAgentQuickPick = Effect.fn("UserInputPromptInfraService.showAgentQuickPick")(function* (
-  window: Window,
-  agentQuickPickItems: readonly AgentQuickPickItem[],
-  placeHolder: string
-) {
-  return yield* Effect.callback<AgentPick, AgentPickCancelledError>((resume) => {
-    const agentQuickPick = window.createQuickPick<AgentQuickPickItem>();
-    agentQuickPick.items = agentQuickPickItems;
-    agentQuickPick.activeItems = agentQuickPickItems.slice(0, 1);
-    agentQuickPick.placeholder = placeHolder;
-    const listeners = [
-      agentQuickPick.onDidAccept(() => {
-        const [pickedItem] = agentQuickPick.selectedItems;
-        if (pickedItem !== undefined)
-          resume(Effect.succeed({_tag: AGENT_PICK_TAGS.AGENT_PICKED, agentId: pickedItem.agentId}));
-      }),
-      agentQuickPick.onDidTriggerItemButton((itemButtonEvent) => {
-        resume(Effect.succeed({_tag: AGENT_PICK_TAGS.DEFAULT_AGENT_CHOSEN, agentId: itemButtonEvent.item.agentId}));
-      }),
-      agentQuickPick.onDidHide(() => {
-        resume(Effect.fail(AgentPickCancelledError.make()));
-      })
-    ];
-    agentQuickPick.show();
-
-    return Effect.sync(() => {
-      for (const listener of listeners) listener.dispose();
-      agentQuickPick.dispose();
-    });
+  return yield* Match.valueTags(promptAnswer, {
+    [PROMPT_ANSWER_TAGS.CANCELLED]: () => Effect.fail(makeCancelError()),
+    [PROMPT_ANSWER_TAGS.CHOSEN]: (chosenChoice) => Effect.succeed(chosenChoice),
+    [PROMPT_ANSWER_TAGS.TEXT_ENTERED]: () => Effect.fail(makeCancelError())
   });
 });
 
+const askQuestion = Effect.fn("UserInputPromptInfraService.askQuestion")(function* (
+  commands: Commands,
+  questionRequest: QuestionRequest
+) {
+  const promptAnswer = yield* showPromptInSessionsView(commands, {
+    _tag: PROMPT_TAGS.QUESTION,
+    answers: Array.map(questionRequest.answers, (answer) => ({
+      answerId: answer.label,
+      consequence: answer.consequence,
+      isDestructive: answer.isDestructive,
+      label: answer.label
+    })),
+    title: questionRequest.question
+  });
+  const chosenChoice = yield* findChosenChoice(promptAnswer, () => QuestionCancelledError.make());
+
+  return chosenChoice.choiceId;
+});
+
+const askForText = Effect.fn("UserInputPromptInfraService.askForText")(function* (
+  commands: Commands,
+  question: string,
+  value: string
+) {
+  const promptAnswer = yield* showPromptInSessionsView(commands, {_tag: PROMPT_TAGS.TEXT, title: question, value});
+
+  return yield* Match.valueTags(promptAnswer, {
+    [PROMPT_ANSWER_TAGS.CANCELLED]: () => Effect.fail(InputCancelledError.make()),
+    [PROMPT_ANSWER_TAGS.CHOSEN]: () => Effect.fail(InputCancelledError.make()),
+    [PROMPT_ANSWER_TAGS.TEXT_ENTERED]: (enteredText) => Effect.succeed(enteredText.text)
+  });
+});
+
+const pickProject = Effect.fn("UserInputPromptInfraService.pickProject")(function* (
+  commands: Commands,
+  projects: readonly ProjectListItemDto[],
+  placeHolder: string
+) {
+  const promptAnswer = yield* showPromptInSessionsView(commands, {
+    _tag: PROMPT_TAGS.CHOICE,
+    choices: Array.map(projects, (project) => ({
+      choiceId: project.path,
+      description: project.path,
+      label: project.name
+    })),
+    title: placeHolder
+  });
+  const chosenChoice = yield* findChosenChoice(promptAnswer, () => ProjectPickCancelledError.make());
+
+  return yield* Effect.fromResult(
+    Result.fromOption(
+      Array.findFirst(projects, (project) => project.path === chosenChoice.choiceId),
+      () => ProjectPickCancelledError.make()
+    )
+  );
+});
+
+const toAgentChoice = Effect.fn("UserInputPromptInfraService.toAgentChoice")(function* (
+  agentListItem: AgentListItemDto
+) {
+  const agentChoice: ViewPromptChoice = {
+    choiceId: agentListItem.agentId,
+    description: agentListItem.command,
+    iconPath: agentListItem.icon,
+    label: agentListItem.name,
+    ...(agentListItem.isDefault
+      ? {badge: AGENT_LABELS.DEFAULT}
+      : {secondaryActionIcon: PROMPT_ACTION_ICONS.STAR, secondaryActionLabel: AGENT_LABELS.SET_AS_DEFAULT})
+  };
+
+  return agentChoice;
+});
+
 const pickAgent = Effect.fn("UserInputPromptInfraService.pickAgent")(function* (
-  agentPickerDependencies: AgentPickerDependencies,
+  commands: Commands,
   agentListItems: readonly AgentListItemDto[],
   placeHolder: string
 ) {
-  const setAsDefaultButton: QuickInputButton = {
-    iconPath: new agentPickerDependencies.ThemeIcon("star-empty"),
-    tooltip: AGENT_LABELS.SET_AS_DEFAULT
-  };
-  const agentQuickPickItems = yield* Effect.forEach(agentListItems, (agentListItem) =>
-    toAgentQuickPickItem(agentPickerDependencies, setAsDefaultButton, agentListItem)
+  const promptAnswer = yield* showPromptInSessionsView(commands, {
+    _tag: PROMPT_TAGS.CHOICE,
+    choices: yield* Effect.forEach(agentListItems, (agentListItem) => toAgentChoice(agentListItem)),
+    title: placeHolder
+  });
+  const chosenChoice = yield* findChosenChoice(promptAnswer, () => AgentPickCancelledError.make());
+  const pickedAgent = yield* Effect.fromResult(
+    Result.fromOption(
+      Array.findFirst(agentListItems, (agentListItem) => agentListItem.agentId === chosenChoice.choiceId),
+      () => AgentPickCancelledError.make()
+    )
   );
+  const agentPick: AgentPick = chosenChoice.isSecondaryAction
+    ? {_tag: AGENT_PICK_TAGS.DEFAULT_AGENT_CHOSEN, agentId: pickedAgent.agentId}
+    : {_tag: AGENT_PICK_TAGS.AGENT_PICKED, agentId: pickedAgent.agentId};
 
-  return yield* showAgentQuickPick(agentPickerDependencies.window, agentQuickPickItems, placeHolder);
+  return agentPick;
 });
 
 const pickProjectFolderPaths = Effect.fn("UserInputPromptInfraService.pickProjectFolderPaths")(function* (
@@ -177,16 +190,12 @@ const makeUserInputPromptInfraService = Effect.fn("UserInputPromptInfraService.m
   const vsCodeApi = yield* VsCodeApi;
 
   return {
-    askForText: (question: string, value: string) => askForText(vsCodeApi.window, question, value),
-    askQuestion: (questionRequest: QuestionRequest) => askQuestion(vsCodeApi.window, questionRequest),
+    askForText: (question: string, value: string) => askForText(vsCodeApi.commands, question, value),
+    askQuestion: (questionRequest: QuestionRequest) => askQuestion(vsCodeApi.commands, questionRequest),
     pickAgent: (agentListItems: readonly AgentListItemDto[], placeHolder: string) =>
-      pickAgent(
-        {ThemeIcon: vsCodeApi.ThemeIcon, Uri: vsCodeApi.Uri, window: vsCodeApi.window},
-        agentListItems,
-        placeHolder
-      ),
+      pickAgent(vsCodeApi.commands, agentListItems, placeHolder),
     pickProject: (projects: readonly ProjectListItemDto[], placeHolder: string) =>
-      pickProject(vsCodeApi.window, projects, placeHolder),
+      pickProject(vsCodeApi.commands, projects, placeHolder),
     pickProjectFolderPaths: pickProjectFolderPaths(vsCodeApi.window),
     showErrorMessage: (message: string, ...actions: string[]) => showErrorMessage(vsCodeApi.window, message, actions),
     showInformationMessage: (message: string, ...actions: string[]) =>

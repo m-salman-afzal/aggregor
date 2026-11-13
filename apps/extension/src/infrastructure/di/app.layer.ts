@@ -27,7 +27,6 @@ const IndependentLayers = Layer.mergeAll(
   SettingsConfig
 );
 
-// What runs in the background for the window's whole life.
 const BackgroundLayer = Layer.mergeAll(
   Layer.effectDiscard(startSessionTitleSync()),
   Layer.effectDiscard(startSessionTabNameSync()),
@@ -36,7 +35,7 @@ const BackgroundLayer = Layer.mergeAll(
   Layer.effectDiscard(startSessionReopenAfterReload())
 );
 
-// Everything the commands and views run on. It still needs VsCodeApi, and the trace log underneath.
+// It still needs VsCodeApi, and the trace log underneath.
 export const AppLayer = BackgroundLayer.pipe(
   Layer.provideMerge(TerminalInfraService),
   Layer.provideMerge(TmuxInfraService),

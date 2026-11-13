@@ -10,7 +10,6 @@ import {Path} from "effect/Path";
 
 import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
 
-// What the agents need from VS Code and the machine: the settings, and the extension's folder for relative icons.
 interface AgentSettingsSource {
   readonly extensionPath: string;
   readonly getConfiguration: VsCodeApi["Service"]["getConfiguration"];
@@ -18,8 +17,7 @@ interface AgentSettingsSource {
   readonly workspace: VsCodeApi["Service"]["workspace"];
 }
 
-// One aggregorApp.agents entry as the user may write it: the command defaults to its key, the name too, resumeArgs
-// to args, and the icon to Aggregor's logo.
+// The command and the name default to the entry's key, resumeArgs to args, and the icon to Aggregor's logo.
 const AgentSettingSchema = Schema.Struct({
   args: Schema.optional(Schema.Array(Schema.String)),
   command: Schema.optional(Schema.NonEmptyString),
@@ -63,8 +61,7 @@ const toAgent = Effect.fn("AgentRepository.toAgent")(
     )
 );
 
-// The built-ins are the setting's default, which VS Code merges with the user's entries key by key; null hides an entry,
-// and one that doesn't decode is left out with a warning.
+// VS Code merges the built-in defaults with the user's entries key by key; null hides an entry.
 const readAgents = Effect.fn("AgentRepository.readAgents")(function* (agentSettingsSource: AgentSettingsSource) {
   const config = yield* agentSettingsSource.getConfiguration(SETTINGS_SECTION);
   const agentSettings: unknown = config.get(AGENT_SETTINGS.AGENTS);

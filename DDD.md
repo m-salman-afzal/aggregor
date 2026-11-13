@@ -176,7 +176,7 @@ packages/
   constants/src/                           one file per feature, each with its command ids, labels, notices, error
                                            texts and the feature's other constants: app, commitMessage, database,
                                            git, agent, process, project, session, sessionAlert, sessionsView,
-                                           archiveView, terminal, tmux, vscode (VS Code's own command ids),
+                                           terminal, tmux, vscode (VS Code's own command ids),
                                            workspace
   eslint/src/                              the repo's ESLint setup: base/ per file type, layers/ the DDD layering
                                            checks, folderStructure/ apps/webview's checks, rules/ the aggregor
@@ -191,6 +191,9 @@ packages/
                                            showErrorNotificationWithoutWaiting (with an Open Settings button when
                                            given a setting)
     vsCodeArgument.utils.ts                decodeVsCodeArgument; InvalidVsCodeArgumentError
+    viewPrompt.schema.ts, viewPrompt.type.ts
+                                           ViewPrompt and ViewPromptAnswer: what infrastructure asks through the
+                                           Sessions view's prompt command, and the answer it gets back
 apps/extension/src/
   domain/
     entities/
@@ -273,9 +276,9 @@ apps/extension/src/
                                            runningSessionIds, refreshRunningSessionIds, startedOrStoppedSessionIds;
                                            SessionTabCommandRequest, PtyBinaryNotFoundError, TmuxUnavailableError
       userInputPrompt.infraService.interface.ts
-                                           showErrorMessage, showInformationMessage, askQuestion (VS Code's quick
-                                           pick, not a system dialog), askForText, pickProject,
-                                           pickProjectFolderPaths, pickAgent; AgentPick, QuestionRequest
+                                           showErrorMessage, showInformationMessage, askQuestion, askForText,
+                                           pickProject, pickAgent (a dialog in the Sessions view),
+                                           pickProjectFolderPaths (the system's); AgentPick, QuestionRequest
       shellCommand.infraService.interface.ts
                                            listInstalledCommands: which commands are on PATH
       desktopNotification.infraService.interface.ts
@@ -348,13 +351,11 @@ apps/extension/src/
                                            setting that fixes it; app: none, for commands that cannot fail
     utils/sessionsTreeNode.utils.ts        the rows' node ids, which their commands take, and decoding a row's node
                                            id into a request DTO
-    views/sessions/                        SessionsView: the webview view provider and its page, the rows and their
-                                           changes sent to apps/webview, the commands it asks for, the view's badge,
-                                           and the count of its sessions waiting on the user in its name;
+    views/sessions/                        SessionsView: the webview view provider and its page, the Sessions and
+                                           Archive lists' rows and their changes sent to apps/webview, the commands
+                                           it asks for, the view's badge, and each list's count of sessions waiting
+                                           on the user, and the prompts infrastructure sends it by command;
                                            sessions.view.type.ts the messages both ways, which apps/webview imports
-    views/archive/                         ArchiveView: the archived sessions' tree under their projects, its tree
-                                           items, the session badges and their spinner, and the count of its
-                                           sessions waiting on the user in its name
     views/sessionAlerts/                   SessionAlertsView: shows each alert in the focused window or hands it to
                                            the system, and handles the session links desktop notifications open
   extension.ts                             activate
@@ -413,19 +414,25 @@ apps/extension/tests/
   its `@pkg/vscode` helper, with no controller or service.
 - A view registers VS Code's providers and draws what its controllers return. Rows are ids, `project:<path>` and
   `session:<id>` (`sessionsTreeNode.utils.ts`), which every row command takes and its controller decodes into the
-  request DTO. The Archive tree reads a node's DTO again through the controllers on every draw, since VS Code finds a
-  node to redraw by its id, so it keeps no copy and decides nothing about a session.
+  request DTO.
 - The Sessions view is a webview: the view reads the rows through its controllers and sends them, with their node ids,
   to `apps/webview`, which keeps the rows it was sent and draws them. The webview asks the view to run a command on a
   row, and the view runs it with `executeCommand` when `SESSIONS_WEBVIEW_COMMANDS` lists it, so it takes the menus'
   path: its route, `registerCommand` and its controller.
-- Each view redraws only what changed: `watchSessionListChanges` sends `ProjectListChanged` (every project),
-  `ProjectSessionsChanged` (one project's sessions) or `SessionChanged` (one session). The Sessions view sends the
-  webview what changed; the Archive view redraws one row for `SessionChanged` and its whole tree for the others, since
-  its project rows come and go with their archived sessions.
+- What infrastructure asks the user (`IUserInputPromptInfraService`) reaches the view by a command,
+  `SESSIONS_VIEW.SHOW_PROMPT_COMMAND`, that the view registers and that resolves with the answer, so neither layer
+  imports the other; the command's id and `@pkg/vscode`'s `viewPrompt.schema.ts` are their contract. The view shows the
+  prompt in its webview and keeps it until it is answered.
+- A display preference only the view uses, `aggregorApp.fontSize`, the view reads itself through `VsCodeApi`, as it
+  draws, rather than through a controller and a service, since no use case needs it.
+- The view redraws only what changed: `watchSessionListChanges` sends `ProjectListChanged` (every project),
+  `ProjectSessionsChanged` (one project's sessions) or `SessionChanged` (one session). The view sends the webview what
+  changed in the Sessions list, one session's row in either list, and the Archive whole for any change but a session's
+  own, since its project rows come and go with their archived sessions.
 - Text, symbols and colours for a status are the view's: `STATUS_LABELS` and `STATUS_KIND_LABELS` in
-  `@pkg/constants/src/sessionsView.constant.ts` for both views, `STATUS_BADGES` for the Archive tree, and the webview's
-  status icons; the status itself is the backend's.
+  `@pkg/constants/src/sessionsView.constant.ts`, and the webview's status icons; the status itself is the backend's.
+  Which actions a row's menu offers the webview picks from the row's DTO (`canMoveUp`, `isAgentRunning`, `isArchived`,
+  `isAdded`), as the manifest's `when` clauses did for the tree.
 
 ## Errors
 

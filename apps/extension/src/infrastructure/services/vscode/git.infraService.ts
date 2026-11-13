@@ -14,7 +14,6 @@ import {Effect, Layer, Result, Schema} from "effect";
 import type {API, GitExtension, Repository} from "@pkg/typings/src/git.js";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
-// What the git functions share: VS Code's commands, extensions and Uri.
 type GitDependencies = Pick<VsCodeApi["Service"], "commands" | "extensions" | "Uri">;
 
 class GitRepositoryOpenFailedError extends Schema.TaggedError<
@@ -28,8 +27,7 @@ const getGitApi = Effect.fn("GitInfraService.getGitApi")(function* (gitDependenc
       GitExtensionUnavailableError.make()
     )
   );
-  // We can activate before git does (an open Sessions view activates us at startup), and git has no exports until it
-  // is active. activate() returns them, at once when git is already active.
+  // An open Sessions view can activate us before git, which has no exports until it is active; activate() returns them.
   const gitExports = yield* Effect.tryPromise({
     catch: () => GitExtensionUnavailableError.make(),
     try: () => gitExtension.activate()
@@ -143,8 +141,7 @@ const openAndLoadRepository = Effect.fn("GitInfraService.openAndLoadRepository")
   });
 });
 
-// Opens the project's repository and waits for its first status, so Source Control can show its changes at once. One
-// already open, or inside an open one, is left alone.
+// Waits for the repository's first status, so Source Control can show its changes at once.
 const openInSourceControl = Effect.fn("GitInfraService.openInSourceControl")(
   function* (gitDependencies: GitDependencies, projectPath: ProjectPathValueObject) {
     const gitApi = yield* getGitApi(gitDependencies);

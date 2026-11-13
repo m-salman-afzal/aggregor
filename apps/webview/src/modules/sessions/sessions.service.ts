@@ -1,12 +1,13 @@
+import {ACCENT_SOURCES, APPEARANCE_PROPERTIES, SESSION_LISTS} from "@/modules/sessions/sessions.constant.ts";
 import {SESSIONS_WEBVIEW_MESSAGE_TAGS} from "@pkg/constants/src/sessionsView.constant.ts";
 
+import type {PromptAnswer, SessionListId} from "@/modules/sessions/sessions.type.ts";
 import type {SessionsViewMessage, SessionsWebviewMessage} from "@views/sessions/sessions.view.type.ts";
 
-// The webview's host, the extension's Sessions view, reached through VS Code's webview API: the messages both ways, and
-// the state VS Code keeps for the page while the view is hidden.
-
+// A folded project is keyed by its list and its node id, since a project shows in both lists.
 interface WebviewState {
-  readonly collapsedProjectNodeIds: readonly string[];
+  readonly collapsedListIds: readonly SessionListId[];
+  readonly collapsedProjectKeys: readonly string[];
   readonly viewedSessionId?: string | undefined;
 }
 
@@ -19,6 +20,18 @@ const postToHost = (sessionsWebviewMessage: SessionsWebviewMessage) => {
 
 export const askHostToDraw = () => {
   postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.READY});
+};
+
+export const answerPromptOnHost = (promptAnswer: PromptAnswer) => {
+  postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.PROMPT_ANSWERED, answer: promptAnswer});
+};
+
+export const applyAppearance = (fontSize: number, accentColor: string) => {
+  const accentSource = ACCENT_SOURCES[accentColor] ?? {accent: accentColor, shade: "var(--brand)"};
+  const rootStyle = document.documentElement.style;
+  rootStyle.setProperty(APPEARANCE_PROPERTIES.FONT_SIZE, `${fontSize}px`);
+  rootStyle.setProperty(APPEARANCE_PROPERTIES.ACCENT, accentSource.accent);
+  rootStyle.setProperty(APPEARANCE_PROPERTIES.SHADE, accentSource.shade);
 };
 
 export const runCommandOnHost = (commandId: string, nodeId?: string) => {
@@ -36,8 +49,15 @@ export const listenToHost = (onHostMessage: (sessionsViewMessage: SessionsViewMe
   });
 };
 
-// Nothing folded, and no session in front, on the page's first load in a window.
-export const readWebviewState = (): WebviewState => vsCodeWebviewApi.getState() ?? {collapsedProjectNodeIds: []};
+export const readWebviewState = (): WebviewState => {
+  const savedState = vsCodeWebviewApi.getState();
+
+  return {
+    collapsedListIds: savedState?.collapsedListIds ?? [SESSION_LISTS.ARCHIVE],
+    collapsedProjectKeys: savedState?.collapsedProjectKeys ?? [],
+    viewedSessionId: savedState?.viewedSessionId
+  };
+};
 
 export const saveWebviewState = (webviewState: WebviewState) => {
   vsCodeWebviewApi.setState(webviewState);

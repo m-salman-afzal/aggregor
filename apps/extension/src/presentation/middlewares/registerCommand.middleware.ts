@@ -5,14 +5,12 @@ import {Effect} from "effect";
 
 import type {InvalidVsCodeArgumentError} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
 
-// What a presenter makes of a failure: the message, and the setting or web page that fixes it, when one does.
 interface PresentedCommandError {
   readonly message: string;
   readonly pageToOpen?: {readonly label: string; readonly url: string};
   readonly settingToOpen?: string;
 }
 
-// A failure the use case returned: logged, and shown with the message its presenter gives.
 const showCommandError = Effect.fn("RegisterCommandMiddleware.showCommandError")(function* <CommandError>(
   commandId: string,
   commandError: CommandError,
@@ -32,9 +30,6 @@ const showInvalidArguments = Effect.fn("RegisterCommandMiddleware.showInvalidArg
   yield* showErrorNotificationWithoutWaiting(APP_ERRORS.INVALID_COMMAND_ARGUMENTS(commandId));
 });
 
-// Registered for the surrounding scope's lifetime. Each run is a root span named by the command ID. The presenter must
-// cover every failure the controller returns; arguments that do not decode point at a broken menu entry; a crash is
-// logged.
 export const registerCommand = Effect.fn("RegisterCommandMiddleware.registerCommand")(function* <
   CommandError extends {readonly _tag: string},
   R

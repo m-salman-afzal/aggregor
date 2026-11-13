@@ -10,7 +10,6 @@ export const makeSessionNodeId = Effect.fn("makeSessionNodeId")(function* (sessi
   return `${SESSIONS_VIEW_NODE_ID_PREFIXES.SESSION}${sessionId}`;
 });
 
-// The project's path or the session's id that the node shows.
 export const readSessionsTreeNodeId = Effect.fn("readSessionsTreeNodeId")(function* (nodeId: string) {
   if (String.startsWith(SESSIONS_VIEW_NODE_ID_PREFIXES.PROJECT)(nodeId))
     return {
@@ -26,7 +25,6 @@ export const readSessionsTreeNodeId = Effect.fn("readSessionsTreeNodeId")(functi
   return yield* InvalidVsCodeArgumentError.make({cause: nodeId});
 });
 
-// A project row's menu passes the node's id; the request names its project.
 export const decodeProjectNodeRequest = Effect.fn("decodeProjectNodeRequest")(function* <
   RequestSchema extends Schema.Constraint
 >(requestSchema: RequestSchema, projectNodeIdArgument: unknown) {
@@ -40,7 +38,6 @@ export const decodeProjectNodeRequest = Effect.fn("decodeProjectNodeRequest")(fu
   return yield* decodeVsCodeArgument(requestSchema, {projectPath});
 });
 
-// A session row's menu and its click pass the node's id; the request names its session.
 export const decodeSessionNodeRequest = Effect.fn("decodeSessionNodeRequest")(function* <
   RequestSchema extends Schema.Constraint
 >(requestSchema: RequestSchema, sessionNodeIdArgument: unknown) {

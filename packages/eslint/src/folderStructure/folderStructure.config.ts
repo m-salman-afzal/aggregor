@@ -6,12 +6,8 @@ import globals from "globals";
 
 import type {Config} from "eslint/config";
 
-// apps/webview, the front end: React's rules, and the folder-structure skill's (.claude/skills/folder-structure) as the
-// aggregor plugin's rules. Effect's own syntax bans stay with the extension.
-
 const WEBVIEW_SOURCE_FILES = "apps/webview/src/**/*.{ts,tsx}";
 
-// React's hooks that hold state, run effects or keep values between draws: logic, which a component leaves to its hook.
 const LOGIC_HOOK_NAMES =
   "useActionState|useCallback|useDeferredValue|useEffect|useImperativeHandle|useInsertionEffect|useLayoutEffect|" +
   "useMemo|useOptimistic|useReducer|useRef|useState|useSyncExternalStore|useTransition";
@@ -39,8 +35,6 @@ const COMPONENT_LOGIC_BANS = [
   }
 ];
 
-// The webview runs in VS Code's page, apart from the extension, and talks to it only through the Sessions view's
-// messages.
 const WEBVIEW_IMPORT_PATTERNS = [
   {
     group: ["./*", "../*"],
@@ -81,7 +75,6 @@ const WEBVIEW_IMPORT_PATTERNS = [
   }
 ];
 
-// A hook's effects run after its draw, so they read last, right before what it returns.
 const EFFECT_HOOKS = "/^use(Layout|Insertion)?Effect$/";
 const EFFECTS_LAST_BAN = {
   message:
@@ -99,7 +92,6 @@ const COMPONENT_DATA_IMPORT_PATTERN = {
 };
 
 export const FOLDER_STRUCTURE_CONFIGS: Config[] = [
-  // React's rules of hooks, and the React Compiler's rules for code it can compile.
   {...reactHooks.configs.flat["recommended-latest"], files: [WEBVIEW_SOURCE_FILES]},
   {
     files: [WEBVIEW_SOURCE_FILES],

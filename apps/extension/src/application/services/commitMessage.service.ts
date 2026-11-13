@@ -13,13 +13,11 @@ import {Effect, Result, Schema} from "effect";
 import type {GenerateCommitMessageRequestDto} from "@dtos/commitMessage.dto.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
-// The Source Control has no root folder, so it names no project to write a message for.
 export class SourceControlRootNotFoundError extends Schema.TaggedError<
   SourceControlRootNotFoundError,
   {readonly brand: unique symbol}
 >()("SourceControlRootNotFoundError", {}) {}
 
-// The commit command writes the message for the staged changes into Source Control, and commits when autoCommit is on.
 const writeCommitMessage = Effect.fn("CommitMessageService.writeCommitMessage")(function* (
   projectPath: ProjectPathValueObject
 ) {
@@ -60,7 +58,7 @@ const offerToStageAllChanges = Effect.fn("CommitMessageService.offerToStageAllCh
   return true;
 });
 
-// The offer waits on the user after the first progress ends; staging everything and still finding nothing fails.
+// The offer waits on the user after the first progress ends.
 const stageAllAndWriteCommitMessage = Effect.fn("CommitMessageService.stageAllAndWriteCommitMessage")(function* (
   projectPath: ProjectPathValueObject
 ) {
@@ -69,7 +67,6 @@ const stageAllAndWriteCommitMessage = Effect.fn("CommitMessageService.stageAllAn
   yield* writeCommitMessageShowingProgress(projectPath);
 });
 
-// With nothing staged, offers to stage every change and writes the message for them.
 export const generateCommitMessage = Effect.fn("CommitMessageService.generateCommitMessage")(function* (
   request: GenerateCommitMessageRequestDto
 ) {

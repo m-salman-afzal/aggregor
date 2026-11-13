@@ -2,44 +2,67 @@ import {listProjectsForSessionsView} from "@controllers/project.controller.ts";
 import {
   findViewedSessionIdForSessionsView,
   getSessionListItemForSessionsView,
+  listArchivedProjectSessionIdsForSessionsView,
+  listArchivedProjectsForSessionsView,
   listProjectSessionIdsForSessionsView,
   listSessionsWaitingOnUserForSessionsView,
   watchSessionListChangesForSessionsView,
   watchViewedSessionIdsForSessionsView
 } from "@controllers/session.controller.ts";
+import {SETTINGS_SECTION} from "@pkg/constants/src/app.constant.ts";
 import {
+  PROMPT_ANSWER_TAGS,
+  PROMPT_TAGS,
   SESSIONS_VIEW,
-  SESSIONS_VIEW_LABELS,
   SESSIONS_VIEW_MESSAGE_TAGS,
+  SESSIONS_VIEW_SETTINGS,
   SESSIONS_WEBVIEW_COMMANDS,
   SESSIONS_WEBVIEW_MESSAGE_TAGS,
   STATUS_LABELS,
   VIEW_BADGE_LABELS
 } from "@pkg/constants/src/sessionsView.constant.ts";
+import {ViewPromptAnswerSchema, ViewPromptSchema} from "@pkg/vscode/src/viewPrompt.schema.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {acquireScopedDisposable} from "@pkg/vscode/src/vscode.utils.ts";
+import {acquireScopedDisposable, streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
 import {decodeVsCodeArgument} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
 import {makeProjectNodeId, makeSessionNodeId} from "@presentationUtils/sessionsTreeNode.utils.ts";
 import {
   countViewSessionsWaitingOnUser,
   getAgentIconUri,
+  makeIconWebviewUri,
   makeWebviewHtml,
   setUpWebviewOptions
 } from "@views/sessions/sessions.utils.ts";
-import {Array, Effect, Layer, Match, Ref, Result, Schema, Stream} from "effect";
+import {Array, Deferred, Effect, Layer, Match, Ref, Result, Schema, Stream, Struct} from "effect";
 
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {SessionListChangeDto} from "@dtos/session.dto.ts";
-import type {ProjectRowData, SessionRowData, SessionsViewMessage} from "@views/sessions/sessions.view.type.ts";
-import type {WebviewView} from "vscode";
+import type {ViewPrompt, ViewPromptAnswer, ViewPromptChoice} from "@pkg/vscode/src/viewPrompt.type.ts";
+import type {
+  ProjectRowData,
+  SessionRowData,
+  SessionsViewMessage,
+  WebviewPrompt,
+  WebviewPromptChoice
+} from "@views/sessions/sessions.view.type.ts";
+import type {Webview, WebviewView} from "vscode";
 
-// The Sessions view is a webview that apps/webview draws. The view reads the projects and sessions through the
-// controllers and sends them to the webview, then each change as it happens, and runs the commands the webview asks for,
-// the same commands the menus run. The webview keeps the rows it was sent; the view keeps none.
+type ListProjectSessionIds = typeof listProjectSessionIdsForSessionsView;
+
+// One at a time: a new prompt cancels the last.
+interface PendingPrompt {
+  readonly answer: Deferred.Deferred<ViewPromptAnswer>;
+  readonly viewPrompt: ViewPrompt;
+}
 
 // VS Code shows the view's webview the first time the view comes into sight, and disposes it when the view closes.
 class WebviewNotShownError extends Schema.TaggedError<WebviewNotShownError, {readonly brand: unique symbol}>()(
   "WebviewNotShownError",
+  {}
+) {}
+
+class NoPendingPromptError extends Schema.TaggedError<NoPendingPromptError, {readonly brand: unique symbol}>()(
+  "NoPendingPromptError",
   {}
 ) {}
 
@@ -50,8 +73,14 @@ class RowCommandFailedError extends Schema.TaggedError<RowCommandFailedError, {r
 
 type WebviewViewReference = Ref.Ref<Result.Result<WebviewView, WebviewNotShownError>>;
 
-// What the webview asks: to be drawn once its script listens, and to run one of the commands it may run on a row.
+type PendingPromptReference = Ref.Ref<Result.Result<PendingPrompt, NoPendingPromptError>>;
+
+const FontSizeSettingSchema = Schema.Finite.check(Schema.isBetween({maximum: 24, minimum: 10}));
+
+const AccentColorSettingSchema = Schema.String.check(Schema.isPattern(SESSIONS_VIEW_SETTINGS.ACCENT_COLOR_PATTERN));
+
 const SessionsWebviewMessageSchema = Schema.TaggedUnion({
+  [SESSIONS_WEBVIEW_MESSAGE_TAGS.PROMPT_ANSWERED]: {answer: ViewPromptAnswerSchema},
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.READY]: {},
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND]: {
     commandId: Schema.Literals(SESSIONS_WEBVIEW_COMMANDS),
@@ -99,9 +128,10 @@ const readSessionRowIfFound = Effect.fn("SessionsView.readSessionRowIfFound")(
 
 const readProjectSessionRows = Effect.fn("SessionsView.readProjectSessionRows")(function* (
   webviewView: WebviewView,
-  projectPath: string
+  projectPath: string,
+  listProjectSessionIds: ListProjectSessionIds
 ) {
-  const sessionIds = yield* listProjectSessionIdsForSessionsView(projectPath);
+  const sessionIds = yield* listProjectSessionIds(projectPath);
   const sessionRowLists = yield* Effect.forEach(sessionIds, (sessionId) =>
     readSessionRowIfFound(webviewView, sessionId)
   );
@@ -111,12 +141,13 @@ const readProjectSessionRows = Effect.fn("SessionsView.readProjectSessionRows")(
 
 const readProjectRow = Effect.fn("SessionsView.readProjectRow")(function* (
   webviewView: WebviewView,
-  projectListItem: ProjectListItemDto
+  projectListItem: ProjectListItemDto,
+  listProjectSessionIds: ListProjectSessionIds
 ) {
   const projectRow: ProjectRowData = {
     nodeId: yield* makeProjectNodeId(projectListItem.path),
     projectListItem,
-    sessionRows: yield* readProjectSessionRows(webviewView, projectListItem.path)
+    sessionRows: yield* readProjectSessionRows(webviewView, projectListItem.path, listProjectSessionIds)
   };
 
   return projectRow;
@@ -125,17 +156,27 @@ const readProjectRow = Effect.fn("SessionsView.readProjectRow")(function* (
 const drawAllProjects = Effect.fn("SessionsView.drawAllProjects")(function* (webviewView: WebviewView) {
   const projectListItems = yield* listProjectsForSessionsView();
   const projectRows = yield* Effect.forEach(projectListItems, (projectListItem) =>
-    readProjectRow(webviewView, projectListItem)
+    readProjectRow(webviewView, projectListItem, listProjectSessionIdsForSessionsView)
   );
 
   yield* postToWebview(webviewView, {_tag: SESSIONS_VIEW_MESSAGE_TAGS.PROJECTS_DRAWN, projectRows});
+});
+
+// The Archive is small, so any change but a session's own redraws it whole.
+const drawArchive = Effect.fn("SessionsView.drawArchive")(function* (webviewView: WebviewView) {
+  const projectListItems = yield* listArchivedProjectsForSessionsView();
+  const projectRows = yield* Effect.forEach(projectListItems, (projectListItem) =>
+    readProjectRow(webviewView, projectListItem, listArchivedProjectSessionIdsForSessionsView)
+  );
+
+  yield* postToWebview(webviewView, {_tag: SESSIONS_VIEW_MESSAGE_TAGS.ARCHIVE_DRAWN, projectRows});
 });
 
 const drawProjectSessions = Effect.fn("SessionsView.drawProjectSessions")(function* (
   webviewView: WebviewView,
   projectPath: string
 ) {
-  const sessionRows = yield* readProjectSessionRows(webviewView, projectPath);
+  const sessionRows = yield* readProjectSessionRows(webviewView, projectPath, listProjectSessionIdsForSessionsView);
 
   yield* postToWebview(webviewView, {
     _tag: SESSIONS_VIEW_MESSAGE_TAGS.PROJECT_SESSIONS_DRAWN,
@@ -154,7 +195,7 @@ const drawSession = Effect.fn("SessionsView.drawSession")(
   Effect.catchTag("SessionNotFoundError", () => Effect.void)
 );
 
-// The session in front gets its row marked; with none in front, the last one keeps it.
+// With no session in front, the last one keeps its mark.
 const drawViewedSession = Effect.fn("SessionsView.drawViewedSession")(
   function* (webviewView: WebviewView) {
     const viewedSessionId = yield* findViewedSessionIdForSessionsView();
@@ -167,15 +208,14 @@ const drawViewedSession = Effect.fn("SessionsView.drawViewedSession")(
   Effect.catchTag("NoViewedSessionError", () => Effect.void)
 );
 
-// Redraws only what changed: every project for the project list, one project's sessions, or one session.
 const drawChange = Effect.fn("SessionsView.drawChange")(
   function* (webviewViewReference: WebviewViewReference, sessionListChange: SessionListChangeDto) {
     const webviewView = yield* findShownWebviewView(webviewViewReference);
 
     yield* Match.valueTags(sessionListChange, {
-      ProjectListChanged: () => drawAllProjects(webviewView),
+      ProjectListChanged: () => Effect.andThen(drawAllProjects(webviewView), drawArchive(webviewView)),
       ProjectSessionsChanged: (projectSessionsChanged) =>
-        drawProjectSessions(webviewView, projectSessionsChanged.projectPath),
+        Effect.andThen(drawProjectSessions(webviewView, projectSessionsChanged.projectPath), drawArchive(webviewView)),
       SessionChanged: (sessionChanged) => drawSession(webviewView, sessionChanged.sessionId)
     });
   },
@@ -206,42 +246,176 @@ const runRowCommand = Effect.fn("SessionsView.runRowCommand")(function* (
   });
 });
 
+// VS Code shows the view's badge on the activity bar too.
+const drawWaitingCounts = Effect.fn("SessionsView.drawWaitingCounts")(function* (webviewView: WebviewView) {
+  const sessionsWaitingOnUser = yield* listSessionsWaitingOnUserForSessionsView();
+  const tooltipLines = Array.map(sessionsWaitingOnUser, (sessionWaitingOnUser) =>
+    VIEW_BADGE_LABELS.TOOLTIP_LINE(sessionWaitingOnUser.displayName, STATUS_LABELS[sessionWaitingOnUser.status])
+  );
+  const sessionsWaitingCount = yield* countViewSessionsWaitingOnUser(sessionsWaitingOnUser, false);
+  const archiveWaitingCount = yield* countViewSessionsWaitingOnUser(sessionsWaitingOnUser, true);
+
+  yield* Effect.sync(() => {
+    webviewView.badge =
+      tooltipLines.length === 0 ? undefined : {tooltip: Array.join(tooltipLines, "\n"), value: tooltipLines.length};
+  });
+  yield* postToWebview(webviewView, {
+    _tag: SESSIONS_VIEW_MESSAGE_TAGS.WAITING_COUNTS_DRAWN,
+    archiveWaitingCount,
+    sessionsWaitingCount
+  });
+});
+
+// Until VS Code first shows the view there are no counts to draw, and a failed read leaves them as they were.
+const updateWaitingCounts = Effect.fn("SessionsView.updateWaitingCounts")(
+  function* (webviewViewReference: WebviewViewReference) {
+    const webviewView = yield* findShownWebviewView(webviewViewReference);
+
+    yield* drawWaitingCounts(webviewView);
+  },
+  Effect.ignore({log: "Debug", message: "Could not update the Sessions view's badge and counts"})
+);
+
+// The look first, so the rows draw in it.
+const drawAppearance = Effect.fn("SessionsView.drawAppearance")(function* (webviewView: WebviewView) {
+  const vsCodeApi = yield* VsCodeApi;
+  const configuredSettings = yield* vsCodeApi.getConfiguration(SETTINGS_SECTION);
+  const fontSize = yield* Effect.orElseSucceed(
+    Schema.decodeUnknownEffect(FontSizeSettingSchema)(configuredSettings.get(SESSIONS_VIEW_SETTINGS.FONT_SIZE)),
+    () => SESSIONS_VIEW_SETTINGS.DEFAULT_FONT_SIZE
+  );
+  const accentColor = yield* Effect.orElseSucceed(
+    Schema.decodeUnknownEffect(AccentColorSettingSchema)(configuredSettings.get(SESSIONS_VIEW_SETTINGS.ACCENT_COLOR)),
+    () => SESSIONS_VIEW_SETTINGS.DEFAULT_ACCENT_COLOR
+  );
+
+  yield* postToWebview(webviewView, {_tag: SESSIONS_VIEW_MESSAGE_TAGS.APPEARANCE_DRAWN, accentColor, fontSize});
+});
+
+const drawAppearanceChange = Effect.fn("SessionsView.drawAppearanceChange")(
+  function* (webviewViewReference: WebviewViewReference) {
+    const webviewView = yield* findShownWebviewView(webviewViewReference);
+
+    yield* drawAppearance(webviewView);
+  },
+  Effect.catchTag("WebviewNotShownError", () => Effect.void)
+);
+
+const drawEverything = Effect.fn("SessionsView.drawEverything")(function* (webviewView: WebviewView) {
+  yield* drawAppearance(webviewView);
+  yield* drawAllProjects(webviewView);
+  yield* drawArchive(webviewView);
+  yield* drawViewedSession(webviewView);
+  yield* Effect.ignore(drawWaitingCounts(webviewView), {
+    log: "Debug",
+    message: "Could not draw the Sessions view's counts"
+  });
+});
+
+const toWebviewPromptChoice = Effect.fn("SessionsView.toWebviewPromptChoice")(function* (
+  webview: Webview,
+  promptChoice: ViewPromptChoice
+) {
+  const choiceWithoutIconPath = Struct.omit(promptChoice, ["iconPath"]);
+  if (promptChoice.iconPath === undefined) return choiceWithoutIconPath;
+  const webviewPromptChoice: WebviewPromptChoice = {
+    ...choiceWithoutIconPath,
+    iconUri: yield* makeIconWebviewUri(webview, promptChoice.iconPath)
+  };
+
+  return webviewPromptChoice;
+});
+
+const toWebviewPrompt = Effect.fn("SessionsView.toWebviewPrompt")(function* (webview: Webview, viewPrompt: ViewPrompt) {
+  return yield* Match.valueTags(viewPrompt, {
+    [PROMPT_TAGS.CHOICE]: (choicePrompt) =>
+      Effect.map(
+        Effect.forEach(choicePrompt.choices, (promptChoice) => toWebviewPromptChoice(webview, promptChoice)),
+        (choices): WebviewPrompt => ({...choicePrompt, choices})
+      ),
+    [PROMPT_TAGS.QUESTION]: (questionPrompt) => Effect.succeed<WebviewPrompt>(questionPrompt),
+    [PROMPT_TAGS.TEXT]: (textPrompt) => Effect.succeed<WebviewPrompt>(textPrompt)
+  });
+});
+
+// A page that loads later asks to be drawn, and gets the prompt then.
+const postPendingPrompt = Effect.fn("SessionsView.postPendingPrompt")(function* (
+  webviewView: WebviewView,
+  pendingPromptReference: PendingPromptReference
+) {
+  const pendingPromptResult = yield* Ref.get(pendingPromptReference);
+  if (Result.isFailure(pendingPromptResult)) return;
+  const webviewPrompt = yield* toWebviewPrompt(webviewView.webview, pendingPromptResult.success.viewPrompt);
+
+  yield* postToWebview(webviewView, {_tag: SESSIONS_VIEW_MESSAGE_TAGS.PROMPT_SHOWN, prompt: webviewPrompt});
+});
+
+const answerPendingPrompt = Effect.fn("SessionsView.answerPendingPrompt")(function* (
+  pendingPromptReference: PendingPromptReference,
+  promptAnswer: ViewPromptAnswer
+) {
+  const pendingPromptResult = yield* Ref.getAndSet(pendingPromptReference, Result.fail(NoPendingPromptError.make()));
+  if (Result.isFailure(pendingPromptResult)) return;
+
+  yield* Deferred.succeed(pendingPromptResult.success.answer, promptAnswer);
+});
+
+const revealPrompt = Effect.fn("SessionsView.revealPrompt")(
+  function* (webviewViewReference: WebviewViewReference, pendingPromptReference: PendingPromptReference) {
+    const vsCodeApi = yield* VsCodeApi;
+    yield* Effect.promise(() => vsCodeApi.commands.executeCommand(SESSIONS_VIEW.FOCUS_COMMAND));
+    const webviewView = yield* findShownWebviewView(webviewViewReference);
+
+    yield* postPendingPrompt(webviewView, pendingPromptReference);
+  },
+  Effect.catchTag("WebviewNotShownError", () => Effect.void)
+);
+
+// A prompt that doesn't decode is cancelled at once.
+const showPrompt = Effect.fn("SessionsView.showPrompt")(
+  function* (
+    webviewViewReference: WebviewViewReference,
+    pendingPromptReference: PendingPromptReference,
+    promptArgument: unknown
+  ) {
+    const viewPrompt = yield* decodeVsCodeArgument(ViewPromptSchema, promptArgument);
+    yield* answerPendingPrompt(pendingPromptReference, {_tag: PROMPT_ANSWER_TAGS.CANCELLED});
+    const answer = yield* Deferred.make<ViewPromptAnswer>();
+    yield* Ref.set(pendingPromptReference, Result.succeed({answer, viewPrompt}));
+    yield* revealPrompt(webviewViewReference, pendingPromptReference);
+
+    return yield* Deferred.await(answer);
+  },
+  Effect.catchTag("InvalidVsCodeArgumentError", (invalidPrompt) =>
+    Effect.as(
+      Effect.logWarning("Could not show a prompt in the Sessions view", invalidPrompt),
+      ViewPromptAnswerSchema.make({_tag: PROMPT_ANSWER_TAGS.CANCELLED})
+    )
+  )
+);
+
+const drawEverythingWithPrompt = Effect.fn("SessionsView.drawEverythingWithPrompt")(function* (
+  webviewView: WebviewView,
+  pendingPromptReference: PendingPromptReference
+) {
+  yield* drawEverything(webviewView);
+  yield* postPendingPrompt(webviewView, pendingPromptReference);
+});
+
 // The webview asks once its script listens, which is again each time VS Code shows the view after hiding it.
 const handleWebviewMessage = Effect.fn("SessionsView.handleWebviewMessage", {root: true})(
-  function* (webviewView: WebviewView, webviewMessage: unknown) {
+  function* (webviewView: WebviewView, pendingPromptReference: PendingPromptReference, webviewMessage: unknown) {
     const sessionsWebviewMessage = yield* decodeVsCodeArgument(SessionsWebviewMessageSchema, webviewMessage);
 
     yield* Match.valueTags(sessionsWebviewMessage, {
-      [SESSIONS_WEBVIEW_MESSAGE_TAGS.READY]: () =>
-        Effect.andThen(drawAllProjects(webviewView), drawViewedSession(webviewView)),
+      [SESSIONS_WEBVIEW_MESSAGE_TAGS.PROMPT_ANSWERED]: (promptAnswered) =>
+        answerPendingPrompt(pendingPromptReference, promptAnswered.answer),
+      [SESSIONS_WEBVIEW_MESSAGE_TAGS.READY]: () => drawEverythingWithPrompt(webviewView, pendingPromptReference),
       [SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND]: (runCommand) =>
         runRowCommand(runCommand.commandId, runCommand.nodeId)
     });
   },
   Effect.catch((messageError) => Effect.logWarning("Could not answer the Sessions view's webview", messageError))
-);
-
-// The view's badge counts the sessions waiting on the user in both views, and VS Code shows it on the activity bar too;
-// the count in the view's name, this view's. The name, not the description VS Code draws faded beside it: that one is
-// hard to read and hidden while the view is collapsed. Until VS Code first shows the view there is neither, and a
-// failed read leaves both as they were.
-const updateWaitingCounts = Effect.fn("SessionsView.updateWaitingCounts")(
-  function* (webviewViewReference: WebviewViewReference) {
-    const webviewView = yield* findShownWebviewView(webviewViewReference);
-    const sessionsWaitingOnUser = yield* listSessionsWaitingOnUserForSessionsView();
-    const tooltipLines = Array.map(sessionsWaitingOnUser, (sessionWaitingOnUser) =>
-      VIEW_BADGE_LABELS.TOOLTIP_LINE(sessionWaitingOnUser.displayName, STATUS_LABELS[sessionWaitingOnUser.status])
-    );
-    const waitingCount = yield* countViewSessionsWaitingOnUser(sessionsWaitingOnUser, false);
-
-    yield* Effect.sync(() => {
-      webviewView.badge =
-        tooltipLines.length === 0 ? undefined : {tooltip: Array.join(tooltipLines, "\n"), value: tooltipLines.length};
-      webviewView.title =
-        waitingCount === 0 ? SESSIONS_VIEW_LABELS.TITLE : SESSIONS_VIEW_LABELS.TITLE_WITH_WAITING_COUNT(waitingCount);
-    });
-  },
-  Effect.ignore({log: "Debug", message: "Could not update the Sessions view's badge and name"})
 );
 
 const attachWebviewView = Effect.fn("SessionsView.attachWebviewView")(function* (
@@ -257,15 +431,19 @@ const attachWebviewView = Effect.fn("SessionsView.attachWebviewView")(function* 
   yield* updateWaitingCounts(webviewViewReference);
 });
 
+// A prompt can't be answered once the view closes.
 const detachWebviewView = Effect.fn("SessionsView.detachWebviewView")(function* (
-  webviewViewReference: WebviewViewReference
+  webviewViewReference: WebviewViewReference,
+  pendingPromptReference: PendingPromptReference
 ) {
   yield* Ref.set(webviewViewReference, Result.fail(WebviewNotShownError.make()));
+  yield* answerPendingPrompt(pendingPromptReference, {_tag: PROMPT_ANSWER_TAGS.CANCELLED});
 });
 
-// What the webview's callbacks need to run.
 type SessionsViewServices =
-  | Effect.Services<ReturnType<typeof attachWebviewView | typeof detachWebviewView | typeof handleWebviewMessage>>
+  | Effect.Services<
+      ReturnType<typeof attachWebviewView | typeof detachWebviewView | typeof handleWebviewMessage | typeof showPrompt>
+    >
   | VsCodeApi;
 
 type RunPromise = <A, E>(effect: Effect.Effect<A, E, SessionsViewServices>) => Promise<A>;
@@ -277,10 +455,10 @@ const makeRunPromise = Effect.fn("SessionsView.makeRunPromise")(function* () {
   return runPromise;
 });
 
-// The webview's page reloads each time VS Code shows the view after hiding it, and asks to be drawn again; VS Code
-// disposes the webview's events with it.
+// VS Code disposes the webview's events with it.
 const registerWebviewViewProvider = Effect.fn("SessionsView.registerWebviewViewProvider")(function* (
   webviewViewReference: WebviewViewReference,
+  pendingPromptReference: PendingPromptReference,
   runPromise: RunPromise
 ) {
   const vsCodeApi = yield* VsCodeApi;
@@ -289,9 +467,9 @@ const registerWebviewViewProvider = Effect.fn("SessionsView.registerWebviewViewP
     vsCodeApi.window.registerWebviewViewProvider(SESSIONS_VIEW.ID, {
       resolveWebviewView: (webviewView) => {
         webviewView.webview.onDidReceiveMessage((webviewMessage) =>
-          runPromise(handleWebviewMessage(webviewView, webviewMessage))
+          runPromise(handleWebviewMessage(webviewView, pendingPromptReference, webviewMessage))
         );
-        webviewView.onDidDispose(() => runPromise(detachWebviewView(webviewViewReference)));
+        webviewView.onDidDispose(() => runPromise(detachWebviewView(webviewViewReference, pendingPromptReference)));
 
         return runPromise(attachWebviewView(webviewViewReference, webviewView));
       }
@@ -299,13 +477,42 @@ const registerWebviewViewProvider = Effect.fn("SessionsView.registerWebviewViewP
   );
 });
 
-// Registers the view for the lifetime of the runtime; disposing the runtime unregisters it.
+const registerPromptCommand = Effect.fn("SessionsView.registerPromptCommand")(function* (
+  webviewViewReference: WebviewViewReference,
+  pendingPromptReference: PendingPromptReference,
+  runPromise: RunPromise
+) {
+  const vsCodeApi = yield* VsCodeApi;
+
+  yield* acquireScopedDisposable(() =>
+    vsCodeApi.commands.registerCommand(SESSIONS_VIEW.SHOW_PROMPT_COMMAND, (promptArgument: unknown) =>
+      runPromise(showPrompt(webviewViewReference, pendingPromptReference, promptArgument))
+    )
+  );
+});
+
+const watchAppearanceChanges = Effect.fn("SessionsView.watchAppearanceChanges")(function* () {
+  const vsCodeApi = yield* VsCodeApi;
+  const configChanges = yield* streamVsCodeEvent(vsCodeApi.workspace.onDidChangeConfiguration);
+
+  return Stream.filter(
+    configChanges,
+    (configChange) =>
+      configChange.affectsConfiguration(`${SETTINGS_SECTION}.${SESSIONS_VIEW_SETTINGS.FONT_SIZE}`) ||
+      configChange.affectsConfiguration(`${SETTINGS_SECTION}.${SESSIONS_VIEW_SETTINGS.ACCENT_COLOR}`)
+  );
+});
+
 const makeSessionsView = Effect.fn("SessionsView.make")(function* () {
   const webviewViewReference = yield* Ref.make<Result.Result<WebviewView, WebviewNotShownError>>(
     Result.fail(WebviewNotShownError.make())
   );
+  const pendingPromptReference = yield* Ref.make<Result.Result<PendingPrompt, NoPendingPromptError>>(
+    Result.fail(NoPendingPromptError.make())
+  );
   const runPromise = yield* makeRunPromise();
-  yield* registerWebviewViewProvider(webviewViewReference, runPromise);
+  yield* registerWebviewViewProvider(webviewViewReference, pendingPromptReference, runPromise);
+  yield* registerPromptCommand(webviewViewReference, pendingPromptReference, runPromise);
   const sessionListChanges = yield* watchSessionListChangesForSessionsView();
   const viewedSessionIds = yield* watchViewedSessionIdsForSessionsView();
 
@@ -315,6 +522,8 @@ const makeSessionsView = Effect.fn("SessionsView.make")(function* () {
     )
   );
   yield* Effect.forkScoped(Stream.runForEach(viewedSessionIds, () => drawViewedSessionChange(webviewViewReference)));
+  const appearanceChanges = yield* watchAppearanceChanges();
+  yield* Effect.forkScoped(Stream.runForEach(appearanceChanges, () => drawAppearanceChange(webviewViewReference)));
 });
 
 export const SessionsView = Layer.effectDiscard(makeSessionsView());

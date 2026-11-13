@@ -21,7 +21,6 @@ import type {
   unarchiveSession
 } from "@services/session.service.ts";
 
-// Every failure the session commands' use cases return.
 type SessionCommandError = Effect.Error<
   ReturnType<
     | typeof archiveOngoingSessions
@@ -41,7 +40,6 @@ type SessionCommandError = Effect.Error<
   >
 >;
 
-// The message a failed session command shows the user, and the setting or page that fixes it, when one does.
 export const presentSessionCommandError = Effect.fn("SessionPresenter.presentSessionCommandError")(function* (
   sessionCommandError: SessionCommandError
 ) {

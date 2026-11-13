@@ -39,8 +39,7 @@ const openAlertedSession = Effect.fn("SessionAlertsView.openAlertedSession")(fun
   yield* Effect.promise(() => vsCodeApi.commands.executeCommand(SESSION_COMMANDS.OPEN, sessionNodeId));
 });
 
-// VS Code can't close the notification later, so it can outlive the state it tells about; Open still goes to the
-// session.
+// VS Code can't close the notification later, so it can outlive the state it tells about.
 const showInWindow = Effect.fn("SessionAlertsView.showInWindow")(function* (
   sessionAlert: SessionAlertDto,
   headline: string
@@ -68,9 +67,7 @@ const makeSessionLink = Effect.fn("SessionAlertsView.makeSessionLink")(function*
   return externalSessionLink.toString(true);
 });
 
-// A click on the notification brings VS Code's most recently used window forward. When that is this window, it came
-// into focus around the moment the notification closed, which a dismissal doesn't do. GNOME closes every VS Code
-// notification on a click, so the first alert to see the focus uses it up and the others open nothing.
+// Focus arriving as the notification closes means it was clicked; GNOME closes them all, so the first alert uses it up.
 const wasDesktopNotificationOpened = Effect.fn("SessionAlertsView.wasDesktopNotificationOpened")(function* (
   windowFocusedAt: WindowFocusedAt
 ) {
@@ -87,7 +84,6 @@ const wasDesktopNotificationOpened = Effect.fn("SessionAlertsView.wasDesktopNoti
   );
 });
 
-// Waits until the notification closes, then opens the session when the click brought this window forward.
 const showOnDesktop = Effect.fn("SessionAlertsView.showOnDesktop")(function* (
   sessionAlert: SessionAlertDto,
   headline: string,
@@ -106,8 +102,7 @@ const showOnDesktop = Effect.fn("SessionAlertsView.showOnDesktop")(function* (
   if (yield* wasDesktopNotificationOpened(windowFocusedAt)) yield* openAlertedSession(sessionAlert.sessionId);
 });
 
-// The focused window shows the alert itself; an unfocused one hands it to the system, since another app may be in
-// front. In the background, so a notification waiting for a click holds back no other. A failure is logged.
+// In the background, so a notification waiting for a click holds back no other.
 const showSessionAlert = Effect.fn("SessionAlertsView.showSessionAlert")(function* (
   sessionAlert: SessionAlertDto,
   windowFocusedAt: WindowFocusedAt
@@ -142,7 +137,7 @@ const registerSessionLinkHandler = Effect.fn("SessionAlertsView.registerSessionL
   );
 });
 
-// Records each time this window comes into focus; a change of only `active` while focused isn't one.
+// A change of only `active` while focused isn't a new focus.
 const trackWindowFocus = Effect.fn("SessionAlertsView.trackWindowFocus")(function* () {
   const vsCodeApi = yield* VsCodeApi;
   const windowFocusedAt = yield* SubscriptionRef.make(0);
@@ -161,7 +156,6 @@ const trackWindowFocus = Effect.fn("SessionAlertsView.trackWindowFocus")(functio
   return windowFocusedAt;
 });
 
-// Notifies about the states sessions out of view hold, for the lifetime of the runtime.
 const makeSessionAlertsView = Effect.fn("SessionAlertsView.make")(function* () {
   yield* registerSessionLinkHandler();
   const windowFocusedAt = yield* trackWindowFocus();

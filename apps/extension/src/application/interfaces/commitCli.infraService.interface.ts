@@ -13,7 +13,6 @@ export class CommitCliError extends Schema.TaggedError<CommitCliError, {readonly
   "CommitCliError",
   {exitCode: Schema.Int, stderr: Schema.String}
 ) {}
-// The command could not be started, or its output could not be read.
 export class CommitCliSpawnFailedError extends Schema.TaggedError<
   CommitCliSpawnFailedError,
   {readonly brand: unique symbol}

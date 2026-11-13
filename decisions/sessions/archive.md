@@ -24,66 +24,48 @@ Archiving sessions, and stopping or keeping their agents.
   project's archived sessions while its others stay hidden; redrawing one project's row, which misses a project row that
   arrives or goes.
 
-## The Archive view leaves out the Sessions view's extras
+## Archiving never asks, and the agent keeps running
 
-- **Problem:** the Sessions view also takes drops, keeps the session in front selected and turns the working spinner.
-- **Decision:** the Archive has Move Up and Move Down in its menu but no drag and drop, and keeps nothing selected; the
-  Sessions view skips an archived session in front, whose row it doesn't have, rather than retrying its reveal. The
-  Archive draws its own rows' badges and spinner. None of them was asked for, and each can come with its own step if it
-  is missed.
-- **Solution:** the spinner turns only while the Sessions pane is visible, so a working archived session's spinner stops
-  while that pane is collapsed.
+- **Problem:** archiving asked whether to keep a running agent or stop it, a question on the commonest action.
+- **Decision:** Archive, Archive Sessions and Archive All Sessions move the sessions to the Archive at once, whatever
+  their agents are doing: each agent runs on in tmux and finishes its turn, and its tab closes. Stop Agent in the
+  Archive stops it. Unarchive moves a session back, so nothing is lost by not asking.
+- **Solution:** `archiveSessionsKeepingAgents` in `session.service.ts`, for one session or many.
+- **Alternatives considered:** asking whether to keep or stop a running agent, first so Enter kept it, which was built
+  and dropped as one question too many; asking only while a turn runs and stopping the agent, which cut turns short.
 
-## Archiving asks whether to keep the agent running
+## Agents stop from the session, project and list menus, asking only mid-turn
 
-- **Problem:** stopping the agent on Archive cuts a running turn short, and the user wants the turn to finish and to
-  decide when the agent exits.
-- **Decision:** with its agent running, Archive asks whether to keep it running, first so that Enter keeps it, or stop
-  it; Cancel or Escape leaves the session where it is. Its tab closes either way: a kept agent runs on in tmux, finishes
-  its turn and opens again from the Archive. With no agent running, it asks nothing. The user decides when they archive,
-  and nothing is cut short unless they choose it.
-- **Alternatives considered:** archiving with the agent left running and nothing asked; asking only while a turn runs
-  (`isSessionTurnRunning`: working, or blocked on a permission, a question or a sign-in) and then stopping the agent,
-  which was built first and dropped because the user wants the turn to finish and to decide when the agent exits.
-
-## Agents stop from the session, project and view menus
-
-- **Problem:** with Archive keeping agents running, the user needs to stop them: one, a project's, or a whole view's.
-- **Decision:** Stop Agent in a session row's … menu while its agent runs, in both views; Stop Agents in a project row's
-  … menu, for that project's sessions in that view, now on every project row in both views; Stop All Agents in each
-  view's title … menu, for the sessions that view lists. Each asks every time, naming how many agents stop and how many
-  of them are mid-turn, and closes the stopped sessions' tabs. They are five commands, since a title or project menu
-  doesn't tell its command which view it is in. Each scope stops from where it is shown, and asking every time keeps a
-  stop from being a slip.
+- **Problem:** with Archive keeping agents running, the user needs to stop them: one, a project's, or a whole list's,
+  without a question when nothing is lost.
+- **Decision:** Stop Agent in a session row's … menu while its agent runs, in both lists; Stop Agents in a project row's
+  … menu, for that project's sessions in that list; Stop All Agents in each list's … menu. A stop asks only when it cuts
+  a turn short (an agent working, or waiting on a permission, a question or a sign-in), naming how many agents stop and
+  how many are mid-turn; idle agents stop without a question. The stopped sessions' tabs close. They are five commands,
+  since a project's or a list's menu doesn't tell its command which list it is in.
 - **Solution:** each stopped agent raises its own exited alert, so Stop All Agents raises one per agent.
-- **Alternatives considered:** inline stop buttons on the rows; a stop for one session only.
+- **Alternatives considered:** asking every time, which questions a stop that loses nothing; inline stop buttons on the
+  rows; a stop for one session only.
 
 ## A project's sessions, or all of them, archive at once
 
-- **Problem:** archiving is one session at a time, from its row, so clearing a project or the whole list means one menu
-  and one question per session.
-- **Decision:**
-  - ⤓ Archive Sessions in a Sessions view project row's … menu archives the project's sessions, and ⤓ Archive All
-    Sessions in the view's title … menu archives every session the view lists, the ones Stop All Agents covers. Each
-    sits under its Stop Agents item; the Archive view has neither.
-  - One question for them all, every time. With agents running, it asks whether to keep them running, first so that
-    Enter keeps them, or to stop them, worded for one agent or several and for turns cut short; with none, whether to
-    archive the sessions. Cancel or Escape archives none.
-  - A project with one session archives it as its row's Archive does, asking only while its agent runs, rather than
-    asking "Archive 1 sessions?".
-  - Every session is archived, in its order and placed at the end of the Archive together, before any agent stops, so a
-    failed write stops none for nothing; every tab closes, and a kept agent runs on in tmux. A session row's Archive
-    runs the same code with one session.
-  - `aggregorApp.archiveProjectSessions` and `aggregorApp.archiveOngoingSessions`, hidden from the Command Palette;
-    `archiveProjectSessions` and `archiveOngoingSessions` in `session.service.ts` over
-    `archiveSessionsAskingAboutAgents`; `makeArchiveSessionsQuestion` in `sessionQuestion.utils.ts`, whose keep and stop
-    answers the row's Archive question now shares.
+- **Problem:** archiving is one session at a time, from its row, so clearing a project or the whole list means one click
+  per session.
+- **Decision:** Archive Sessions in a Sessions-list project row's … menu archives the project's sessions, and Archive
+  All Sessions in the Sessions list's … menu archives every session it lists. Each sits under its Stop Agents item; the
+  Archive has neither. Like a row's Archive, neither asks: every session is archived in its order, placed at the end of
+  the Archive together, and its tab closes while its agent runs on.
+- **Solution:** `aggregorApp.archiveProjectSessions` and `aggregorApp.archiveOngoingSessions`, hidden from the Command
+  Palette, over `archiveSessionsKeepingAgents`.
+- **Alternatives considered:** Unarchive Sessions and Unarchive All Sessions in the Archive's menus too: left until they
+  are missed. One question for them all, which was built and dropped with the row's question.
 
-  A batch archives from where it is listed, as its agents stop, and one click that moves many sessions always asks.
+## The Archive list leaves out the Sessions list's extras
 
-- **Solution:** a session removed while the question is open leaves the sessions after it unarchived, their tabs open
-  and no agent stopped.
-- **Alternatives considered:**
-  - Unarchive Sessions and Unarchive All Sessions in the Archive view's menus too: left until they are missed.
-  - Asking nothing when no agent runs, as a session row's Archive does: one click here moves many sessions.
-  - Building it with the first worktree step: a bigger PR for two unrelated changes.
+- **Problem:** the Sessions list starts sessions in a project and moves projects.
+- **Decision:** an archived session's menu has Move Up and Move Down, Stop Agent, Rename, Unarchive and Remove; an
+  Archive project's has only Stop Agents, with no + and no Move or Remove Project, since a project's place and its
+  listing are the Sessions list's. The session in front is marked in whichever list holds it. None of the rest was asked
+  for.
+- **Alternatives considered:** the same project menu in both lists, which would let the Archive move or remove a project
+  the Sessions list shows.

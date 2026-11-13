@@ -1,14 +1,19 @@
-// Runs the aggregor extension in an isolated, headless VS Code for the verify-in-vscode skill (Linux only); SKILL.md
-// lists the commands. Besides `stop`, hooks and a watchdog in the launch close it, so it never outlives its turn.
 import {execFileSync, spawn, spawnSync} from "node:child_process";
 import fileSystem from "node:fs";
 import operatingSystem from "node:os";
 import path from "node:path";
 
-import {CDP_PORT, evaluate, evaluateInSessionsWebview, findWorkbenchPage, listCdpTargets, screenshot} from "./cdp.ts";
+import {
+  CDP_PORT,
+  evaluate,
+  evaluateInSessionsWebview,
+  findWorkbenchPage,
+  hoverInSessionsWebview,
+  listCdpTargets,
+  screenshot
+} from "./cdp.ts";
 import {findClaudeProcessId, findProcessTree, isClaudeProcess, readProcessFile, sendSignal} from "./processes.ts";
 
-// What start leaves for the other commands and for the hooks: whose launch it is and where its trace log went.
 interface VerifyState {
   readonly ownerProcessId: null | number;
   readonly startedAt: number;
@@ -24,13 +29,10 @@ const VSCODE_EXTENSIONS_DIRECTORY = path.join(STATE_DIRECTORY, "vscode-extension
 const LAUNCH_LOG = path.join(STATE_DIRECTORY, "launch.log");
 const MUTTER_LOG = path.join(STATE_DIRECTORY, "mutter.log");
 const RUNTIME_DIRECTORY = path.join(STATE_DIRECTORY, "runtime");
-// The extension's Aggregor folder (database, aggregor-pty's log, anchor folder), apart from the real ~/.aggregor;
-// $AGGREGOR_HOME moves it.
 const AGGREGOR_FOLDER =
   process.env.AGGREGOR_HOME === undefined ? path.join(STATE_DIRECTORY, "aggregor") : process.env.AGGREGOR_HOME;
 const WAYLAND_DISPLAY_NAME = `aggregor-verify-${CDP_PORT}`;
-// Every process the launch starts inherits this variable, so stop can find them. VS Code's own processes hide it
-// (Chromium rewrites their process title over the environment), so stop finds those by their --user-data-dir instead.
+// VS Code's processes hide this variable (Chromium rewrites their title over it), so stop finds them by --user-data-dir.
 const INSTANCE_VARIABLE = "AGGREGOR_VERIFY_INSTANCE";
 const INSTANCE_MARKER = `${INSTANCE_VARIABLE}=${STATE_DIRECTORY}`;
 const USER_DATA_DIRECTORY_ARGUMENTS = [
@@ -40,18 +42,15 @@ const USER_DATA_DIRECTORY_ARGUMENTS = [
 const REPOSITORY_ROOT = path.resolve(import.meta.dirname, "../../..");
 const EXTENSION_DIRECTORY = path.join(REPOSITORY_ROOT, "apps", "extension");
 const CONFIGURED_WORKSPACE = process.env.AGGREGOR_VERIFY_WORKSPACE;
-// The Aggregor App channel's log level; info shows what a user's window logs, with the traceLogging setting off.
 const CONFIGURED_LOG_LEVEL = process.env.AGGREGOR_VERIFY_LOG_LEVEL;
 const EXTENSION_LOG_LEVEL = CONFIGURED_LOG_LEVEL === undefined ? "trace" : CONFIGURED_LOG_LEVEL;
 const DEFAULT_WORKSPACE =
   CONFIGURED_WORKSPACE === undefined ? path.join(operatingSystem.homedir(), "side", "jsTester") : CONFIGURED_WORKSPACE;
-// Variables of the session the agent runs in; see createLaunchEnvironment.
 const INHERITED_SESSION_VARIABLE_PATTERN = /^(?:VSCODE_|ELECTRON_|CLAUDE|DISPLAY$|CHROME_DESKTOP$|TERM_PROGRAM)/u;
 const POLL_INTERVAL_MILLISECONDS = 200;
 const TRACE_LOG_RELATIVE_PATH = path.join("window1", "exthost", "SalmanAfzal.aggregor-app", "Aggregor App.log");
 
-// Runs inside the private D-Bus session. Ends in a watchdog that closes everything once the Claude session that ran
-// start is gone or the lifetime is up, so an interrupted or abandoned session leaves nothing behind.
+// Ends in a watchdog, so an interrupted or abandoned session leaves nothing behind.
 const LAUNCH_SCRIPT = `
 mutter --headless --no-x11 --wayland-display="$WAYLAND_DISPLAY" --virtual-monitor 1600x1000 > "$1" 2>&1 &
 for _ in $(seq 1 50); do [ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ] && break; sleep 0.1; done
@@ -134,8 +133,7 @@ const findTraceLogPath = (startedAt: number) => {
   return fileSystem.existsSync(traceLogPath) ? traceLogPath : undefined;
 };
 
-// The test instance must not inherit the session it runs from: VSCODE_* would point `code` at the user's own window,
-// CLAUDE* would make the Claude sessions in its terminals look nested, and DISPLAY could reach the real desktop.
+// VSCODE_* would point `code` at the user's window, CLAUDE* would nest its Claude sessions, DISPLAY reaches the desktop.
 const createLaunchEnvironment = () => ({
   ...Object.fromEntries(
     Object.entries(process.env).filter(([variableName]) => !INHERITED_SESSION_VARIABLE_PATTERN.test(variableName))
@@ -143,8 +141,7 @@ const createLaunchEnvironment = () => ({
   AGGREGOR_HOME: AGGREGOR_FOLDER,
   [INSTANCE_VARIABLE]: STATE_DIRECTORY,
   WAYLAND_DISPLAY: WAYLAND_DISPLAY_NAME,
-  // The private bus starts its own document portal at $XDG_RUNTIME_DIR/doc; sharing the real one unmounts the
-  // desktop's, and every Flatpak launch then fails.
+  // Sharing the real document portal unmounts the desktop's, and every Flatpak launch then fails.
   XDG_RUNTIME_DIR: RUNTIME_DIRECTORY,
   XDG_SESSION_TYPE: "wayland"
 });
@@ -265,7 +262,8 @@ const COMMANDS: Readonly<Record<string, (commandArgument?: string) => Promise<vo
   screenshot: requireArgument(screenshot),
   start,
   stop,
-  "webview-eval": requireArgument(evaluateInSessionsWebview)
+  "webview-eval": requireArgument(evaluateInSessionsWebview),
+  "webview-hover": requireArgument(hoverInSessionsWebview)
 };
 
 const [commandName = "", commandArgument] = process.argv.slice(2);

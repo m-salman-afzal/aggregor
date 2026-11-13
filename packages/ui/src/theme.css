@@ -6,11 +6,24 @@
 /* VS Code puts its theme kind on the body. */
 @custom-variant dark (&:where(.vscode-dark *, .vscode-high-contrast:not(.vscode-high-contrast-light) *));
 
-/* shadcn's tokens and Aggregor's own, as Tailwind colors. */
+/* Movement only for users who haven't asked for less, in the system's settings or VS Code's Reduce Motion; fades stay. */
+@custom-variant motion-ok {
+  @media (prefers-reduced-motion: no-preference) {
+    &:where(:not(.vscode-reduce-motion *)) {
+      @slot;
+    }
+  }
+}
+
 @theme inline {
   --font-sans: var(--vscode-font-family);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-foreground-strong: var(--foreground-strong);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-end: var(--brand-end);
+  --color-brand-glow: var(--brand-glow);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -27,8 +40,12 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-row-viewed: var(--row-viewed);
-  --color-row-viewed-foreground: var(--row-viewed-foreground);
+  /* Inlined, so each level reads the --level of where it is used. */
+  --color-level: color-mix(in oklab, var(--shade) calc(var(--level) * var(--level-step)), var(--background));
+  --color-lift-1: color-mix(in oklab, var(--shade) calc((var(--level) + 1) * var(--level-step)), var(--background));
+  --color-lift-2: color-mix(in oklab, var(--shade) calc((var(--level) + 2) * var(--level-step)), var(--background));
+  --color-lift-3: color-mix(in oklab, var(--shade) calc((var(--level) + 3) * var(--level-step)), var(--background));
+  --color-hairline: var(--hairline);
   --color-status-blocked: var(--status-blocked);
   --color-status-done: var(--status-done);
   --color-status-error: var(--status-error);
@@ -41,41 +58,108 @@
   --radius-xl: calc(var(--radius) * 1.4);
 }
 
-/* Every token reads the user's VS Code theme, so light, dark and high contrast themes all fit. */
 :root {
   --background: var(--vscode-sideBar-background);
   --foreground: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+  /* The webview sets --aggregor-accent and --aggregor-shade from aggregorApp.accentColor; neutral shades with the text. */
+  --shade: var(--aggregor-shade, var(--foreground));
+  --brand-foreground: oklch(from var(--brand) clamp(0.16, calc((0.7 - l) * 1000), 0.98) 0 0);
+  --brand-glow: color-mix(in srgb, var(--brand) 30%, transparent);
   --card: var(--vscode-sideBar-background);
   --card-foreground: var(--vscode-foreground);
-  --popover: var(--vscode-editorWidget-background);
-  --popover-foreground: var(--vscode-editorWidget-foreground);
-  --primary: var(--vscode-button-background);
-  --primary-foreground: var(--vscode-button-foreground);
+  /* shadcn's names for the levels, set here, where --level is 0: a popup is level 1, what is highlighted on it level 2. */
+  --popover: --theme(--color-lift-1 inline);
+  --popover-foreground: var(--foreground);
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-foreground);
   --secondary: var(--vscode-button-secondaryBackground);
   --secondary-foreground: var(--vscode-button-secondaryForeground);
-  --muted: var(--vscode-list-hoverBackground);
+  --muted: var(--accent);
   --muted-foreground: var(--vscode-descriptionForeground);
-  --accent: var(--vscode-list-hoverBackground);
-  --accent-foreground: var(--vscode-list-hoverForeground, var(--vscode-foreground));
+  --accent: --theme(--color-lift-2 inline);
+  --accent-foreground: var(--foreground-strong);
   --destructive: var(--vscode-errorForeground);
   --border: var(--vscode-widget-border, transparent);
   --input: var(--vscode-input-border, transparent);
-  --ring: var(--vscode-focusBorder);
-  --radius: 0.375rem;
-  --row-viewed: var(--vscode-list-inactiveSelectionBackground);
-  --row-viewed-foreground: var(--vscode-list-inactiveSelectionForeground, var(--vscode-foreground));
-  --status-blocked: var(--vscode-charts-yellow);
-  --status-done: var(--vscode-charts-green);
+  --ring: var(--brand);
+  --radius: 0.5rem;
+  /* Level n is n steps from the background toward the shade, in oklab so steps look equal; each state is one level up. */
+  --level: 0;
+  --level-step: 10%;
+  --hairline: color-mix(in srgb, var(--foreground) 14%, transparent);
+  /* A status is drawn in the theme's terminal colours, the palette its agents' terminals already use. */
+  --status-blocked: var(--vscode-terminal-ansiYellow);
+  --status-done: var(--vscode-terminal-ansiGreen);
   --status-error: var(--vscode-errorForeground);
   --status-exited: var(--vscode-disabledForeground);
   --status-idle: var(--vscode-descriptionForeground);
-  --status-working: var(--vscode-charts-blue);
+  --status-working: var(--vscode-terminal-ansiCyan);
+}
+
+/* The two colours keep their hue but are held to a lightness that shows against the theme kind's background. */
+:root {
+  --foreground-strong: color-mix(in srgb, var(--foreground), black 40%);
+  --brand: oklch(from var(--aggregor-accent, var(--vscode-focusBorder)) clamp(0.42, l, 0.6) calc(c * 1.25) h);
+  --brand-end: oklch(from var(--vscode-terminal-ansiBlue) clamp(0.42, l, 0.6) calc(c * 1.25) h);
+}
+
+:root:has(body:is(.vscode-dark, .vscode-high-contrast:not(.vscode-high-contrast-light))) {
+  --foreground-strong: color-mix(in srgb, var(--foreground), white 55%);
+  --brand: oklch(from var(--aggregor-accent, var(--vscode-focusBorder)) clamp(0.74, l, 0.9) calc(c * 1.25) h);
+  --brand-end: oklch(from var(--vscode-terminal-ansiBlue) clamp(0.74, l, 0.9) calc(c * 1.25) h);
+}
+
+/* The body's text is the size the user sets, and every rem scales with it. */
+html {
+  font-size: calc(var(--aggregor-font-size, 14px) / 0.875);
 }
 
 /* Unlayered, to beat the default styles VS Code puts in every webview: they pad the body 20px on each side. */
 body {
   padding: 0;
-  font-size: var(--vscode-font-size);
+  font-size: 0.875rem;
+}
+
+/* VS Code gives every webview a scrollbar-color, which would switch these pseudo-elements off. */
+@utility scrollbar-minimal {
+  --scrollbar-thumb: transparent;
+  scrollbar-color: auto;
+  scrollbar-gutter: stable;
+
+  &:hover,
+  &:focus-within {
+    --scrollbar-thumb: --theme(--color-lift-2 inline);
+  }
+
+  &::-webkit-scrollbar {
+    width: 0.5rem;
+    height: 0.5rem;
+  }
+
+  &::-webkit-scrollbar-button {
+    display: none;
+  }
+
+  &::-webkit-scrollbar-track,
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background-color: var(--scrollbar-thumb);
+    background-clip: padding-box;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: --theme(--color-lift-3 inline);
+  }
+}
+
+/* lucide's strokes thin out at small sizes; a little heavier reads better in a side bar. */
+svg.lucide {
+  stroke-width: 2.25;
 }
 
 @layer base {

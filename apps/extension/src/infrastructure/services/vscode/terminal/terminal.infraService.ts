@@ -24,7 +24,6 @@ import type {SessionTabRequest} from "@interfaces/terminal.infraService.interfac
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {Terminal} from "vscode";
 
-// Why no session is in view, private to this file: the interface only sees NoViewedSessionError.
 class NoActiveTerminalError extends Schema.TaggedError<NoActiveTerminalError, {readonly brand: unique symbol}>()(
   "NoActiveTerminalError",
   {}
@@ -49,8 +48,7 @@ const findSessionTerminal = Effect.fn("TerminalInfraService.findSessionTerminal"
   );
 });
 
-// The tab is transient: VS Code drops a reattached tab's file icon, so it neither keeps the tab over a reload nor restores
-// it when it starts again. Closing it only detaches from tmux, so the agent keeps running and its row attaches a new tab.
+// The tab is transient: VS Code drops a reattached tab's file icon, so it isn't kept over a reload or restored.
 const launchSessionTerminal = Effect.fn("TerminalInfraService.launchSessionTerminal")(function* (
   terminalDependencies: TerminalDependencies,
   session: SessionEntity,
@@ -78,7 +76,6 @@ const showTerminal = Effect.fn("TerminalInfraService.showTerminal")(function* (t
   });
 });
 
-// The user's default shell, named after the project, so the tab says where it runs.
 const openProjectTerminal = Effect.fn("TerminalInfraService.openProjectTerminal")(function* (
   window: TerminalDependencies["window"],
   project: ProjectListItemDto
@@ -99,8 +96,7 @@ const focusSessionTerminal = Effect.fn("TerminalInfraService.focusSessionTermina
   yield* showTerminal(sessionTerminal);
 });
 
-// Reuses the session's terminal when this window has one. Serialized on the map's permit, so a double-click shows the
-// terminal the first click launched.
+// Serialized on the map's permit, so a double-click shows the terminal the first click launched.
 const openSessionTerminal = Effect.fn("TerminalInfraService.openSessionTerminal")(function* (
   terminalDependencies: TerminalDependencies,
   session: SessionEntity,
@@ -143,7 +139,6 @@ const findActiveTerminalSessionId = Effect.fn("TerminalInfraService.findActiveTe
   return yield* findTrackedSessionId(sessionTerminals, terminal);
 });
 
-// No active terminal, or one that is not a session's, emits nothing.
 const watchActivatedSessionIds = Effect.fn("TerminalInfraService.watchActivatedSessionIds")(function* (
   terminalDependencies: TerminalDependencies
 ) {
@@ -154,7 +149,6 @@ const watchActivatedSessionIds = Effect.fn("TerminalInfraService.watchActivatedS
   );
 });
 
-// A closed tab only detaches from tmux, so the agent keeps running and clicking the session attaches a new tab.
 const forgetClosedTerminal = Effect.fn("TerminalInfraService.forgetClosedTerminal")(
   function* (sessionTerminals: SessionTerminalsReference, closedTerminal: Terminal) {
     const sessionId = yield* findTrackedSessionId(sessionTerminals, closedTerminal);
@@ -169,8 +163,7 @@ const forgetClosedTerminal = Effect.fn("TerminalInfraService.forgetClosedTermina
   Effect.catchTag("UntrackedTerminalError", () => Effect.void)
 );
 
-// The session in front of the user: the window has focus, the active tab is a terminal, and that terminal is ours. A
-// tab does not say which terminal it holds, so the active terminal fills that in.
+// A tab does not say which terminal it holds, so the active terminal fills that in.
 const readViewedSessionId = Effect.fn("TerminalInfraService.readViewedSessionId")(function* (
   terminalDependencies: TerminalDependencies
 ) {

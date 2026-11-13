@@ -15,26 +15,20 @@ import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {AgentStatusValueObject} from "@valueObjects/agentStatus.valueObject.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 
-// A session's status change, and whether the user was looking at the session when it changed.
 interface ObservedStatusChange {
   readonly session: SessionEntity;
   readonly wasInView: boolean;
 }
 
-// A status change that held, with the status the session held before it.
 interface HeldStatusChange extends ObservedStatusChange {
   readonly previousHeldStatus: AgentStatusValueObject | undefined;
 }
 
-// The held status raises no alert: the user saw it change or is looking at it, or the notifyOn setting leaves it out.
 class SessionAlertSkippedError extends Schema.TaggedError<SessionAlertSkippedError, {readonly brand: unique symbol}>()(
   "SessionAlertSkippedError",
   {}
 ) {}
 
-// The session alert use cases: which states sessions out of view notify about, and the notification outside VS Code.
-
-// The session whose tab is in front of the user in a focused window.
 const isSessionInView = Effect.fn("SessionAlertService.isSessionInView")(function* (sessionId: EntityIdValueObject) {
   const terminalInfraService = yield* ITerminalInfraService;
   const viewedSessionIdResult = yield* SubscriptionRef.get(terminalInfraService.viewedSessionId);
@@ -42,8 +36,7 @@ const isSessionInView = Effect.fn("SessionAlertService.isSessionInView")(functio
   return Result.getOrUndefined(viewedSessionIdResult) === sessionId;
 });
 
-// aggregor-pty moves statusChangedAt only when the state changes, so a session whose status changed since the window
-// started counts, and one that only kept a state it already had doesn't.
+// aggregor-pty moves statusChangedAt only when the state changes, so only a change since the window started counts.
 const watchChangedSessions = Effect.fn("SessionAlertService.watchChangedSessions")(function* () {
   const sessionRepository = yield* ISessionRepository;
   const alertsStartedAt = yield* DateTime.now;
@@ -72,7 +65,6 @@ const observeStatusChanges = Effect.fn("SessionAlertService.observeStatusChanges
   );
 });
 
-// A state passes once it has held for SESSION_ALERT_HOLD_MS, and only when it isn't the state that held before it.
 const holdStatusChanges = Effect.fn("SessionAlertService.holdStatusChanges")(function* (
   sessionWrites: Stream.Stream<SessionEntity>
 ) {
@@ -133,8 +125,7 @@ const toSessionAlert = Effect.fn("SessionAlertService.toSessionAlert")(function*
   });
 });
 
-// Each state a session out of view holds long enough, as the notifyOn setting picks them. Every session's changes are
-// held apart, so one session's quick changes never hold back another's.
+// Every session's changes are held apart, so one session's quick changes never hold back another's.
 export const watchSessionAlerts = Effect.fn("SessionAlertService.watchSessionAlerts")(function* () {
   const changedSessions = yield* watchChangedSessions();
   const heldStatusChanges = Stream.flatMap(

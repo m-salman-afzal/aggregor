@@ -14,10 +14,6 @@ import {basename, dirname} from "node:path";
 
 import type {Rule} from "eslint";
 
-// aggregor/kind-folder: flat until there are two. A level keeps one file of a kind next to its main file, and the second
-// moves both into the kind's folder (hooks/, components/); a kind's folder holds its kind only, and a folder left with
-// one entry goes flat again (the folder-structure skill's "One of a kind sits flat, two get a folder").
-
 type FolderReport = Readonly<{data: Record<string, string>; messageId: string}>;
 
 // A store always sits in its module's stores/ folder, even alone, beside its helpers there.
@@ -29,7 +25,6 @@ const getRoleTitle = (role: string) => {
   return roleInfo === undefined ? role : roleInfo.title;
 };
 
-// A file of another role in a kind's folder, and a kind's folder left with one entry.
 const findKindFolderReports = (filePath: string, kindRole: string, sourceRootPath: string): FolderReport[] => {
   const folderPath = dirname(filePath);
   const fileName = basename(filePath);
@@ -54,7 +49,6 @@ const findKindFolderReports = (filePath: string, kindRole: string, sourceRootPat
   return [...wrongKindReports, ...lonelyReports];
 };
 
-// The other entries of the file's role at its level: files, and unit folders whose main file plays it.
 const listSameRoleEntryNames = (folderPath: string, role: string, mainFileName: string | undefined) =>
   listFolderEntries(folderPath)
     .filter((entry) => entry.name !== mainFileName && getKindFolderRole(entry.name) === undefined)
@@ -62,7 +56,6 @@ const listSameRoleEntryNames = (folderPath: string, role: string, mainFileName: 
     .filter((entry) => getEntryRole(folderPath, entry.name, entry.isDirectory()) === role)
     .map((entry) => entry.name);
 
-// Two files of one kind loose beside the level's main file.
 const findTwoOfAKindReports = (filePath: string, sourceRootPath: string): FolderReport[] => {
   const folderPath = dirname(filePath);
   const fileName = basename(filePath);
@@ -78,7 +71,6 @@ const findTwoOfAKindReports = (filePath: string, sourceRootPath: string): Folder
   return [{data: {...data, kindFolder: roleInfo.kindFolder, role: roleInfo.title}, messageId: "twoOfAKind"}];
 };
 
-// A unit folder holding only this file.
 const findLonelyUnitFolderReports = (filePath: string, sourceRootPath: string): FolderReport[] => {
   const folderPath = dirname(filePath);
   if (isFixedFolder(folderPath, sourceRootPath) || listFolderEntries(folderPath).length > 1) return [];

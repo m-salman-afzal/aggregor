@@ -24,7 +24,6 @@ export class GitRepositoryUnavailableError extends Schema.TaggedError<
   {readonly brand: unique symbol}
 >()("GitRepositoryUnavailableError", {}) {}
 
-// Why the git repository at a path cannot be reached.
 export type GitUnavailableError =
   GitExtensionDisabledError | GitExtensionUnavailableError | GitRepositoryUnavailableError;
 export class NothingStagedError extends Schema.TaggedError<NothingStagedError, {readonly brand: unique symbol}>()(
@@ -32,7 +31,6 @@ export class NothingStagedError extends Schema.TaggedError<NothingStagedError, {
   {}
 ) {}
 
-// The git repositories VS Code's Source Control shows, each named by its root folder.
 export class IGitInfraService extends Context.Service<
   IGitInfraService,
   {
@@ -43,10 +41,8 @@ export class IGitInfraService extends Context.Service<
     readonly getStagedDiff: (
       projectPath: ProjectPathValueObject
     ) => Effect.Effect<string, GitDiffError | GitUnavailableError | NothingStagedError>;
-    // Opens the project's repository in Source Control and waits until its changes are loaded. Best effort: a folder
-    // that is not a git repository is skipped, and git being off only logs a warning.
+    // Best effort: a folder that is no git repository is skipped, and git being off only logs a warning.
     readonly openInSourceControl: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;
-    // Fills Source Control's commit message box.
     readonly setCommitMessageInput: (
       projectPath: ProjectPathValueObject,
       commitMessage: string

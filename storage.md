@@ -45,14 +45,14 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 
 - **Holds:** `projectId`, `agentId` (its `aggregorApp.agents` key), `name` (the agent's latest title, or ours until it
   gives one), `customName` (the user's, from the row menu's Rename, or NULL), `viewedAt` (when the session last came
-  into or left the user's view) and `lifecycle` (`ongoing`, listed in the Sessions view, or `archived`, listed in the
-  Archive view). The `id` is also the agent's session id.
+  into or left the user's view) and `lifecycle` (`ongoing`, listed in the Sessions list, or `archived`, listed in the
+  Archive list). The `id` is also the agent's session id.
 - **Written by:** `SessionService` through the base service: a row per New Session, `name` when the agent's title in the
   row changes, `customName` on Rename, `viewedAt` as the session comes into and leaves view, `sortId` on Move Up, Move
-  Down and a drop on another of its project's sessions in the same view, `lifecycle` and `sortId` on Archive and
-  Unarchive, which place the session last in its new view, and a soft delete on Remove Session. Removing a project keeps
+  Down and a drop on another of its project's sessions in the same list, `lifecycle` and `sortId` on Archive and
+  Unarchive, which place the session last in its new list, and a soft delete on Remove Session. Removing a project keeps
   its sessions, so adding the project again lists them again.
-- **Read by:** `SessionService`, with the project's path: the Sessions and Archive views read each row as they draw it.
+- **Read by:** `SessionService`, with the project's path: the Sessions view reads each row of both lists as it draws it.
 - **Status columns:** `status` (`unknown` until a report, `exited` once the agent is gone), `statusKind`,
   `statusMessage`, `statusProgress`, `statusChangedAt` (when the state last changed), `hasWorked` (it has reported
   `working`), `reportedTitle` (the title in its latest OSC 7501 report), `terminalTitle` (its latest window title) and
@@ -120,10 +120,11 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 
 ## The Sessions view's webview state
 
-- **Holds:** the node ids of the projects the user folded away in the Sessions view, and the id of the last session in
-  front, whose row stays marked.
+- **Holds:** the lists the user folded away in the Sessions view (the Archive, until the user opens it), the projects
+  folded away in each list, keyed by the list and the project's node id, and the id of the last session in front, whose
+  row stays marked.
 - **Written by:** `apps/webview`'s `sessions.store.ts`, through `sessions.service.ts` and the webview API's `setState`,
-  each time a project folds or unfolds or another session comes to the front.
+  each time a list or a project folds or unfolds or another session comes to the front.
 - **Read by:** the webview's `sessions.store.ts`, with `getState`, when its page loads, which it does again each time VS
   Code shows the view after hiding it.
 - **Why:** VS Code keeps a webview's state for it, so the view looks as it was left when its page reloads, without a

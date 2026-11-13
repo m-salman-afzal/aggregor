@@ -37,8 +37,7 @@ import {presentProjectCommandError} from "@presenters/project.presenter.ts";
 import {presentSessionCommandError} from "@presenters/session.presenter.ts";
 import {Effect, Layer} from "effect";
 
-// Every command the extension contributes: its ID, its controller, and the presenter for its failures. Open Settings
-// only drives VS Code, so it goes straight to the helper, with no controller or use case.
+// Open Settings only drives VS Code, so it goes straight to the helper, with no controller or use case.
 export const RoutesLayer = Layer.effectDiscard(
   Effect.all([
     registerCommand(APP_COMMANDS.OPEN_SETTINGS, openAggregorSettingsInSettingsEditor, presentAppCommandError),

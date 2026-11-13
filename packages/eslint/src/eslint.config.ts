@@ -10,8 +10,6 @@ import {defineConfig} from "eslint/config";
 
 import type {Config} from "eslint/config";
 
-// The repo's whole ESLint setup, in the order ESLint applies it: what to skip, each file type's base rules, then the
-// DDD layering and the repo's own rules for apps/extension, and the folder-structure rules for apps/webview.
 const eslintConfigs: Config[] = defineConfig([
   ...IGNORE_CONFIGS,
   ...PACKAGE_JSON_CONFIGS,

@@ -5,11 +5,7 @@ import {SessionStatusValueObjectSchema} from "@valueObjects/sessionStatus.valueO
 import {StatusKindValueObjectSchema} from "@valueObjects/statusKind.valueObject.ts";
 import {Schema} from "effect";
 
-// What crosses between presentation and the session use cases.
-
-// A session as the list shows it. The kind of wait and the progress are present only while the agent is at its turn,
-// and the message only while the agent runs. No agent name or icon means its agent is gone from the settings. It moves only among its
-// project's sessions in its own view: Sessions, or Archive once archived.
+// The wait kind and progress exist only at the agent's turn; no agent name or icon means it left the settings.
 export const SessionListItemDtoSchema = Schema.Struct({
   agentName: Schema.optional(Schema.String),
   canMoveDown: Schema.Boolean,
@@ -30,8 +26,6 @@ export const SessionListItemDtoSchema = Schema.Struct({
 
 export type SessionListItemDto = typeof SessionListItemDtoSchema.Type;
 
-// What changed in the list of projects and their sessions: the projects, which sessions one project has, or one
-// session.
 export const SessionListChangeDtoSchema = Schema.TaggedUnion({
   ProjectListChanged: {},
   ProjectSessionsChanged: {projectPath: ProjectPathValueObjectSchema},
@@ -91,7 +85,6 @@ export const MoveSessionDownRequestDtoSchema = Schema.Struct({sessionId: EntityI
 
 export type MoveSessionDownRequestDto = typeof MoveSessionDownRequestDtoSchema.Type;
 
-// The session takes the place of the other session of its project.
 export const MoveSessionToPlaceOfRequestDtoSchema = Schema.Struct({
   placeOfSessionId: EntityIdValueObjectSchema,
   sessionId: EntityIdValueObjectSchema

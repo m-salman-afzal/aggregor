@@ -4,7 +4,6 @@ import {defineConfig} from "eslint/config";
 
 import type {Config} from "eslint/config";
 
-// Every package.json, and the pnpm catalog in pnpm-workspace.yaml that their versions come from.
 export const PACKAGE_JSON_CONFIGS: Config[] = defineConfig([
   {
     extends: ["package-json/recommended"],
@@ -26,9 +25,7 @@ export const PACKAGE_JSON_CONFIGS: Config[] = defineConfig([
       // Private workspace packages: nothing is published, so no bundler hints or node ranges.
       "package-json/prefer-side-effects-field": "off",
       "package-json/require-engines": "off",
-      // Every version lives once, in pnpm-workspace.yaml's catalog; lint:fix moves a plain version there, and one that
-      // differs from the catalog fails instead of starting a second catalog. vsce reads @types/vscode's version to check
-      // engines.vscode and fails on catalog:, so it stays a version.
+      // vsce reads @types/vscode's version to check engines.vscode and fails on catalog:, so it stays a version.
       "pnpm/json-enforce-catalog": ["error", {conflicts: "error", ignores: ["@types/vscode"]}],
       "pnpm/json-prefer-workspace-settings": "error",
       "pnpm/json-valid-catalog": "error"

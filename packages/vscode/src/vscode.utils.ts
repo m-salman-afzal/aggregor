@@ -5,7 +5,6 @@ import {Effect, Queue, Stream} from "effect";
 
 import type {Disposable, Event, ProgressOptions} from "vscode";
 
-// A VS Code resource that lives as long as the surrounding scope: it is disposed when the scope closes.
 export const acquireScopedDisposable = Effect.fn("acquireScopedDisposable")(function* <
   VsCodeDisposable extends Disposable
 >(createVsCodeDisposable: () => VsCodeDisposable) {
@@ -16,14 +15,13 @@ export const acquireScopedDisposable = Effect.fn("acquireScopedDisposable")(func
   );
 });
 
-// A VS Code event as a Stream. The listener is disposed when whoever runs the stream closes its scope.
+// The listener is disposed when whoever runs the stream closes its scope.
 export const streamVsCodeEvent = Effect.fn("streamVsCodeEvent")(function* <EventValue>(vsCodeEvent: Event<EventValue>) {
   return Stream.callback<EventValue>((eventQueue) =>
     acquireScopedDisposable(() => vsCodeEvent((eventValue) => Queue.offerUnsafe(eventQueue, eventValue)))
   );
 });
 
-// Sets a context key that package.json's `when` clauses read, such as a menu item's visibility.
 export const setWhenClauseContextKey = Effect.fn("setWhenClauseContextKey")(function* (
   contextKey: string,
   contextValue: unknown
@@ -35,7 +33,7 @@ export const setWhenClauseContextKey = Effect.fn("setWhenClauseContextKey")(func
   );
 });
 
-// Shows VS Code's progress indicator while the effect runs; the effect's failure comes back out once the progress ends.
+// The effect's failure comes back out once the progress ends.
 export const runWithProgressIndicator = Effect.fn("runWithProgressIndicator")(function* <A, E, R>(
   progressOptions: ProgressOptions,
   effectToRun: Effect.Effect<A, E, R>
@@ -50,7 +48,6 @@ export const runWithProgressIndicator = Effect.fn("runWithProgressIndicator")(fu
   return yield* Effect.fromResult(effectResult);
 });
 
-// Opens the Settings editor at every Aggregor setting.
 export const openAggregorSettingsInSettingsEditor = Effect.fn("openAggregorSettingsInSettingsEditor")(function* () {
   const vsCodeApi = yield* VsCodeApi;
 
@@ -62,8 +59,7 @@ export const openAggregorSettingsInSettingsEditor = Effect.fn("openAggregorSetti
   );
 });
 
-// Shows the error notification without waiting for the user to dismiss it, so whatever failed can finish now. With a
-// setting, an Open Settings button opens the Settings editor at it; with a page, a button named for it opens it.
+// Without waiting for the user to dismiss it, so whatever failed can finish now.
 export const showErrorNotificationWithoutWaiting = Effect.fn("showErrorNotificationWithoutWaiting")(function* (
   errorMessage: string,
   errorButtons: {

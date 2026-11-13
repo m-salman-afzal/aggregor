@@ -3,11 +3,6 @@ import {basename} from "node:path";
 
 import type {Rule} from "eslint";
 
-// aggregor/constant-placement: a constant lives in @pkg/constants, in its feature's <feature>.constant.ts, grouped in an
-// object with the constants it belongs with. A module-level const named in UPPER_CASE, or set to a bare literal, is one.
-// In a front end (the "constantFile" option) it lives in its unit's <name>.constant.ts, or in @pkg/constants when the
-// extension shares it.
-
 // What the rule reads of a declared value; typescript-eslint's `as const` and `satisfies` nodes aren't in ESLint's types.
 interface DeclaredValue {
   readonly type: string;

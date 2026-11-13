@@ -5,14 +5,12 @@ import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 import {platform} from "node:os";
 
-// What the lookup needs: where to search, and the endings a bare name may take.
 interface CommandSearch {
   readonly commandExtensions: readonly string[];
   readonly searchFolders: readonly string[];
 }
 
-// Windows runs a bare name through PATHEXT's endings; elsewhere the name is the file. Reading the environment can't fail
-// with defaults in place, so a failure is a defect.
+// Windows runs a bare name through PATHEXT's endings; elsewhere the name is the file.
 const readCommandSearch = Effect.fn("ShellCommandInfraService.readCommandSearch")(function* () {
   const searchPath = yield* Config.withDefault(Config.String(COMMAND_SEARCH.PATH_ENV), "");
   const pathExtensions = yield* Config.withDefault(
@@ -49,7 +47,6 @@ const isRunnableFile = Effect.fn("ShellCommandInfraService.isRunnableFile")(
   Effect.orElseSucceed(() => false)
 );
 
-// A command with a folder in it runs as given; a bare name is looked up in each PATH folder.
 const isCommandInstalled = Effect.fn("ShellCommandInfraService.isCommandInstalled")(function* (
   command: string,
   commandSearch: CommandSearch

@@ -1,4 +1,3 @@
-// VS Code's own commands the extension runs.
 export const VS_CODE_COMMANDS = {
   OPEN_FOLDER: "vscode.openFolder",
   OPEN_SETTINGS: "workbench.action.openSettings",

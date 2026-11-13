@@ -9,26 +9,19 @@ import type {EntityChange} from "@entities/base/base.repository.interface.ts";
 import type {RepositoryTable} from "@repositories/base/base.repository.type.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 
-// How a repository hears about writes to its table, its own and other connections', without keeping a copy of the
-// rows: it reads the rows written since its last check.
-
-// Where the last check of the table stopped: the latest updatedAt it read, each row written at that same instant (the
-// next check reads them again, and skips them unless they changed), and the highest sortId, above which a row was
-// placed: new, or moved after every other row.
+// Rows written at the cursor's own instant are read again by the next check, and skipped unless they changed.
 interface ChangeCursor {
   readonly highestSortId: number;
   readonly latestRowsAsJson: ReadonlyMap<EntityIdValueObject, string>;
   readonly latestUpdatedAt: string;
 }
 
-// A row as the change check read it: the entity, its stored form, and its updatedAt as stored.
 interface ChangedRow<Entity> {
   readonly entity: Entity;
   readonly storedRowJson: string;
   readonly updatedAt: string;
 }
 
-// What the change check runs on: where it starts, the notification each own write sends, and where it publishes.
 interface ChangeFeed<Entity> {
   readonly entityChanges: PubSub.PubSub<EntityChange<Entity>>;
   readonly initialChangeCursor: ChangeCursor;

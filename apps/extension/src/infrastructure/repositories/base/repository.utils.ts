@@ -58,8 +58,7 @@ const readDataVersion = Effect.fn("BaseRepository.readDataVersion")(function* ()
   return dataVersionRow.dataVersion;
 });
 
-// data_version changes with each commit from another connection (aggregor-pty, another window), never with this one's
-// own. The poll runs untraced, like the spinner.
+// data_version changes with each commit from another connection, never this one's own; the poll runs untraced.
 export const watchDataVersionChanges = Effect.fn("BaseRepository.watchDataVersionChanges")(function* () {
   const dataVersions = Stream.fromEffectSchedule(
     Effect.withTracerEnabled(readDataVersion(), false),

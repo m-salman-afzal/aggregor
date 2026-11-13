@@ -12,10 +12,6 @@ import {typePlacementRule} from "@pkg/eslint/src/rules/typePlacement.rule.ts";
 
 import type {Config} from "eslint/config";
 
-// The repo's own lint rules, as the aggregor plugin: span names, where type files sit, which files share a folder, where
-// types sit in a file, and where constants live; and for a front end, the folder-structure skill's rules
-// (folderStructure/folderStructure.config.ts turns those on).
-
 export const AGGREGOR_PLUGIN = {
   rules: {
     "building-block": buildingBlockRule,

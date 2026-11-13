@@ -27,8 +27,7 @@ const makeVsCodeDesktopEntryHint = Effect.fn("DesktopNotificationInfraService.ma
   Effect.orDie
 );
 
-// The agent's logo shows in the notification's body, and Aggregor's in its header when GNOME doesn't know the sender is
-// VS Code. A button can't bring VS Code forward, only a click on the notification itself can, so there is none.
+// A button can't bring VS Code forward, only a click on the notification itself can, so there is none.
 const makeNotifySendArguments = Effect.fn("DesktopNotificationInfraService.makeNotifySendArguments")(function* (
   desktopNotificationRequest: DesktopNotificationRequest
 ) {
@@ -42,9 +41,7 @@ const makeNotifySendArguments = Effect.fn("DesktopNotificationInfraService.makeN
   ];
 });
 
-// libnotify sends a snap's or flatpak's notifications through the desktop portal, which drops what this one carries, and
-// the extension host can inherit a snap terminal's environment, so the portal is turned off. notify-send has to wait
-// until the notification closes: GNOME deletes a notification filed under an app as soon as its sender leaves.
+// The portal drops what this carries, so it is off; notify-send waits, since GNOME deletes it once its sender leaves.
 const notifyWithNotifySend = Effect.fn("DesktopNotificationInfraService.notifyWithNotifySend")(function* (
   childProcessSpawner: ChildProcessSpawner["Service"],
   desktopNotificationRequest: DesktopNotificationRequest
@@ -75,8 +72,7 @@ const notifyWithOsascript = Effect.fn("DesktopNotificationInfraService.notifyWit
   );
 });
 
-// A toast whose click opens the link through Windows, whose VS Code hands it to the WSL window. The texts travel as
-// base64, so no quote in them can break the script.
+// The texts travel as base64, so no quote in them can break the script.
 const makeWindowsToastScript = Effect.fn("DesktopNotificationInfraService.makeWindowsToastScript")(function* (
   desktopNotificationRequest: DesktopNotificationRequest
 ) {
@@ -129,7 +125,6 @@ const findSystemNotifier = Effect.fn("DesktopNotificationInfraService.findSystem
     : notifyWithNotifySend;
 });
 
-// A system that can't show it logs why.
 const notifyOnDesktop = Effect.fn("DesktopNotificationInfraService.notifyOnDesktop")(
   function* (
     childProcessSpawner: ChildProcessSpawner["Service"],

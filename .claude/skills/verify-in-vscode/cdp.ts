@@ -1,4 +1,3 @@
-// Talks to the headless VS Code window over the Chrome DevTools Protocol, for vscode.ts.
 import fileSystem from "node:fs";
 import path from "node:path";
 
@@ -10,6 +9,8 @@ interface CdpTarget {
 }
 
 export const CDP_PORT = 9447;
+
+const WEBVIEW_STYLE_FILE = path.resolve(import.meta.dirname, "../../../apps/extension/dist/webview/webview.css");
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null;
@@ -36,8 +37,7 @@ export const listCdpTargets = async (): Promise<readonly CdpTarget[]> => {
 export const findWorkbenchPage = async () =>
   (await listCdpTargets()).find((target) => target.type === "page" && target.title.includes("Visual Studio Code"));
 
-// The Sessions view's webview, the extension's only one: a frame of its own, apart from the window's page, whose page
-// shows the view in an inner frame. VS Code loads it only once the view has been in sight.
+// VS Code loads the Sessions view's webview frame only once the view has been in sight.
 const findSessionsWebviewFrame = async () =>
   (await listCdpTargets()).find(
     (target) =>
@@ -97,13 +97,29 @@ export const evaluate = async (expression: string) => {
   await evaluateIn(expression);
 };
 
-// Runs the expression against the view's own page, as `document` and `window`.
 export const evaluateInSessionsWebview = async (expression: string) => {
   const activeFrame = 'document.querySelector("iframe#active-frame")';
   await evaluateIn(
     `((document, window) => (${expression}))(${activeFrame}.contentDocument, ${activeFrame}.contentWindow)`,
     findSessionsWebviewFrame
   );
+};
+
+// The headless window has no pointer, so `(hover: hover)` is false there: the stylesheet is added again with it flipped.
+export const hoverInSessionsWebview = async (point: string) => {
+  const [pointX, pointY] = point.split(",").map(Number);
+  if (pointX === undefined || pointY === undefined || Number.isNaN(pointX) || Number.isNaN(pointY))
+    throw new Error("Pass the point to hover as x,y, in the window's CSS pixels.");
+  const hoverStyleSheet = fileSystem
+    .readFileSync(WEBVIEW_STYLE_FILE, "utf8")
+    .replaceAll("@media (hover:hover)", "@media all")
+    .replaceAll("@media (hover:none)", "@media not all");
+  await evaluateInSessionsWebview(
+    `(() => { const sheet = new window.CSSStyleSheet(); sheet.replaceSync(${JSON.stringify(hoverStyleSheet)}); ` +
+      `document.adoptedStyleSheets = [sheet]; return "hover styles on"; })()`
+  );
+  await sendCdpCommand("Input.dispatchMouseEvent", {type: "mouseMoved", x: pointX - 1, y: pointY - 1});
+  await sendCdpCommand("Input.dispatchMouseEvent", {type: "mouseMoved", x: pointX, y: pointY});
 };
 
 export const screenshot = async (screenshotPath: string) => {

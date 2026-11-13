@@ -23,7 +23,6 @@ import type {Rule} from "eslint";
 
 type ConsumerReport = Readonly<{data: Record<string, string>; messageId: string}>;
 
-// Who imports each file, by absolute path.
 interface ImportGraph {
   readonly builtAt: number;
   readonly importersByFile: ReadonlyMap<string, ReadonlySet<string>>;
@@ -85,8 +84,6 @@ const getTopModuleName = (sourceRootPath: string, filePath: string) => {
   return firstFolder === MODULES_FOLDER ? moduleName : undefined;
 };
 
-// The one unit below the file's level that holds every importer, looking through a kind's folder (components/) to the
-// unit inside it.
 const findConsumingUnit = (levelPath: string, importerPaths: readonly string[]) => {
   const importerParts = importerPaths.map((importerPath) => relative(levelPath, importerPath).split(sep));
   const sharedPart = (partIndex: number) => {
@@ -143,8 +140,7 @@ const findLocalReport = (
   };
 };
 
-// A building block's file holds only the block and its Props type, so its other types sit in a .type.ts even with one
-// consumer.
+// A block's file holds only the block and its Props type, so its other types sit in a .type.ts even with one consumer.
 const isBlockFile = (filePath: string) => {
   const role = parseFileName(basename(filePath)).role;
   const roleInfo = role === undefined ? undefined : FILE_ROLES[role];

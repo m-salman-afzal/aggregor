@@ -2,11 +2,9 @@ import {Array, Effect} from "effect";
 
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 
-// How rows move within an order, such as one project's sessions: a moved row takes the place of the row at the target,
-// so it lands after that row when it moves down and before it when it moves up.
+// A moved row takes the place of the row at the target: after it when moving down, before it when moving up.
 
-// The rows from the first place that changes on, in their new order; placing them after every other row of the table
-// gives the new order. A place outside the order, or the same place twice, moves nothing.
+// Placing these rows after every other row of the table gives the new order.
 export const findEntityIdsToPlaceAtEnd = Effect.fn("SortOrderDomainService.findEntityIdsToPlaceAtEnd")(function* (
   orderedEntityIds: readonly EntityIdValueObject[],
   movedIndex: number,
@@ -25,7 +23,6 @@ export const findEntityIdsToPlaceAtEnd = Effect.fn("SortOrderDomainService.findE
   return reorderedEntityIds.slice(Math.min(movedIndex, targetIndex));
 });
 
-// A row outside the order moves neither way.
 export const canMoveUpInOrder = Effect.fn("SortOrderDomainService.canMoveUpInOrder")(function* (
   orderedEntityIds: readonly EntityIdValueObject[],
   entityId: EntityIdValueObject

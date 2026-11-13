@@ -9,7 +9,6 @@ import {Effect, Layer, Schema} from "effect";
 import type {AlertSettings, SessionSettings} from "@interfaces/settings.config.interface.ts";
 import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
 
-// What saving the default needs from VS Code.
 type SettingsDependencies = Pick<VsCodeApi["Service"], "ConfigurationTarget" | "getConfiguration">;
 
 class DefaultAgentSaveFailedError extends Schema.TaggedError<

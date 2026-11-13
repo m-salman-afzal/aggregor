@@ -3,8 +3,6 @@ import {basename, dirname, join} from "node:path";
 
 import type {Rule} from "eslint";
 
-// aggregor/declaring-file: X.type.ts sits beside the file that declares it, X.ts or X.interface.ts, so the interface or
-// implementation its types belong to is the file next to it.
 const COMPANION_ROLES = new Set(["type"]);
 
 const getDeclaringFileNames = (fileName: string) => {

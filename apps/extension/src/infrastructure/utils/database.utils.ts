@@ -9,7 +9,6 @@ import {Path} from "effect/Path";
 import {make as makeReactivity, Reactivity} from "effect/reactivity/Reactivity";
 import {SqlClient} from "effect/sql/SqlClient";
 
-// The database has run every migration in the folder, or is new and holds nothing to back up.
 class NoPendingMigrationError extends Schema.TaggedError<NoPendingMigrationError, {readonly brand: unique symbol}>()(
   "NoPendingMigrationError",
   {}
@@ -20,7 +19,6 @@ class DatabaseFileNotFoundError extends Schema.TaggedError<
   {readonly brand: unique symbol}
 >()("DatabaseFileNotFoundError", {}) {}
 
-// The window opens it, and each session's aggregor-pty writes its agent's status to it and its errors beside it.
 export const getDatabaseFilePath = Effect.fn("getDatabaseFilePath")(function* () {
   const path = yield* Path;
   const aggregorFolderPath = yield* getAggregorFolderPath();
@@ -60,8 +58,7 @@ const readOpenDatabaseFilePath = Effect.fn("readOpenDatabaseFilePath")(function*
   return mainDatabase.file;
 });
 
-// On a second, read-only connection: VACUUM can't run inside the migrations' transaction, and a reader still sees the
-// database as it was before them while that transaction holds the write lock.
+// A second, read-only connection: VACUUM can't run inside the migrations' transaction.
 const vacuumDatabaseInto = Effect.fn("vacuumDatabaseInto")(
   function* (databaseFilePath: string, backupFilePath: string) {
     const readOnlySql = yield* SqliteClient.make({filename: databaseFilePath, readonly: true});
@@ -72,8 +69,7 @@ const vacuumDatabaseInto = Effect.fn("vacuumDatabaseInto")(
   Effect.provideServiceEffect(Reactivity, makeReactivity)
 );
 
-// The migrations' transaction holds the write lock, so nothing commits while the database file and its write-ahead log
-// are copied.
+// The migrations' transaction holds the write lock, so nothing commits while the files are copied.
 const copyDatabaseFiles = Effect.fn("copyDatabaseFiles")(function* (databaseFilePath: string, backupFilePath: string) {
   const fileSystem = yield* FileSystem;
   const writeAheadLogFilePath = `${databaseFilePath}${DATABASE_BACKUP.WRITE_AHEAD_LOG_SUFFIX}`;
@@ -82,7 +78,6 @@ const copyDatabaseFiles = Effect.fn("copyDatabaseFiles")(function* (databaseFile
     yield* fileSystem.copyFile(writeAheadLogFilePath, `${backupFilePath}${DATABASE_BACKUP.WRITE_AHEAD_LOG_SUFFIX}`);
 });
 
-// VACUUM INTO, or a copy of the files when that fails.
 const writeBackup = Effect.fn("writeBackup")(
   function* (databaseFilePath: string, backupFilePath: string) {
     yield* vacuumDatabaseInto(databaseFilePath, backupFilePath);
@@ -113,8 +108,7 @@ const removeOlderBackups = Effect.fn("removeOlderBackups")(function* (backupFile
   yield* Effect.forEach(olderBackupFileNames, (fileName) => fileSystem.remove(path.join(backupFolderPath, fileName)));
 });
 
-// A copy of the database before the migrations change it, beside it. When none can be written the migrations still run,
-// in their transaction, and the warning says so.
+// When no backup can be written the migrations still run, and the warning says so.
 const backUpBeforeMigrating = Effect.fn("backUpBeforeMigrating")(
   function* (migrationsFolderPath: string) {
     const path = yield* Path;
@@ -135,10 +129,7 @@ const backUpBeforeMigrating = Effect.fn("backUpBeforeMigrating")(
   )
 );
 
-// Backs up the database, then runs the folder's migrations it hasn't run. A migration that rebuilds a table drops it,
-// which foreign keys block, and the setting can't change inside a transaction. The one transaction holds SQLite's write
-// lock from before the backup to the last migration, so a second window starting at once waits for it, up to the
-// client's busy timeout, and then finds nothing pending; a failed migration leaves the database as it was.
+// Foreign keys go off outside the transaction: a table rebuild drops the table, and the setting can't change inside one.
 export const applyPendingMigrations = Effect.fn("applyPendingMigrations")(function* (migrationsFolderPath: string) {
   const sql = yield* SqlClient;
   const database = yield* makeWithDefaults();

@@ -227,21 +227,23 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Log every step Aggregor runs, with the fields of each error it meets, even one it handles, to the **Aggregor App** output channel and its log file, whatever log level the channel is set to (unless **Off**). Turn it on to report a problem, reproduce it, and attach the log; the `trace` skill in Aggregor's repository reads it and files the issue."
+        },
+        "aggregorApp.fontSize": {
+          "type": "number",
+          "default": 14,
+          "minimum": 10,
+          "maximum": 24,
+          "markdownDescription": "The Sessions view's text size, in pixels. Its spacing, buttons and icons scale with it."
+        },
+        "aggregorApp.accentColor": {
+          "type": "string",
+          "default": "neutral",
+          "pattern": "^(neutral|theme|palette|#[0-9a-fA-F]{6})$",
+          "patternErrorMessage": "Use neutral, theme, palette, or a colour such as #bd93f9.",
+          "markdownDescription": "The Sessions view's highlight colour. `neutral`: hover and selection in soft greys, the colour only in small marks, taken from the theme's focus colour. `theme`: the theme's activity-bar badge colour, which Peacock and similar extensions set per workspace. `palette`: the theme's terminal blue (Dracula's purple). Or any colour as `#rrggbb`."
         }
       }
     },
-    "submenus": [
-      {
-        "id": "aggregorApp.sessionActions",
-        "label": "More Actions...",
-        "icon": "$(ellipsis)"
-      },
-      {
-        "id": "aggregorApp.projectActions",
-        "label": "More Actions...",
-        "icon": "$(ellipsis)"
-      }
-    ],
     "menus": {
       "scm/title": [
         {
@@ -252,88 +254,9 @@
       ],
       "view/title": [
         {
-          "command": "aggregorApp.newSessionAskingForProject",
-          "group": "navigation@1",
-          "when": "view == aggregorApp.sessions"
-        },
-        {
-          "command": "aggregorApp.addProject",
-          "group": "navigation@2",
-          "when": "view == aggregorApp.sessions"
-        },
-        {
-          "command": "aggregorApp.openSettings",
-          "group": "navigation@3",
-          "when": "view == aggregorApp.sessions"
-        },
-        {
-          "command": "aggregorApp.stopOngoingSessionAgents",
-          "group": "1_agents@1",
-          "when": "view == aggregorApp.sessions"
-        },
-        {
-          "command": "aggregorApp.archiveOngoingSessions",
-          "group": "1_agents@2",
-          "when": "view == aggregorApp.sessions"
-        },
-        {
-          "command": "aggregorApp.stopArchivedSessionAgents",
-          "group": "1_agents@1",
-          "when": "view == aggregorApp.archive"
-        },
-        {
           "command": "aggregorApp.newProjectTerminal",
           "group": "navigation",
           "when": "view == terminal"
-        }
-      ],
-      "view/item/context": [
-        {
-          "submenu": "aggregorApp.sessionActions",
-          "group": "inline",
-          "when": "view == aggregorApp.archive && viewItem =~ /^session/"
-        },
-        {
-          "submenu": "aggregorApp.projectActions",
-          "group": "inline@2",
-          "when": "view == aggregorApp.archive && viewItem =~ /^(project|addedProject)/"
-        }
-      ],
-      "aggregorApp.sessionActions": [
-        {
-          "command": "aggregorApp.moveSessionUp",
-          "group": "1_order@1",
-          "when": "viewItem =~ /canMoveUp/"
-        },
-        {
-          "command": "aggregorApp.moveSessionDown",
-          "group": "1_order@2",
-          "when": "viewItem =~ /canMoveDown/"
-        },
-        {
-          "command": "aggregorApp.stopSessionAgent",
-          "group": "2_agents@1",
-          "when": "viewItem =~ /agentRunning/"
-        },
-        {
-          "command": "aggregorApp.renameSession",
-          "group": "3_session@1"
-        },
-        {
-          "command": "aggregorApp.unarchiveSession",
-          "group": "3_session@2",
-          "when": "view == aggregorApp.archive"
-        },
-        {
-          "command": "aggregorApp.removeSession",
-          "group": "3_session@3"
-        }
-      ],
-      "aggregorApp.projectActions": [
-        {
-          "command": "aggregorApp.stopArchivedProjectSessionAgents",
-          "group": "2_agents@1",
-          "when": "view == aggregorApp.archive"
         }
       ],
       "commandPalette": [
@@ -425,23 +348,11 @@
         {
           "id": "aggregorApp.sessions",
           "type": "webview",
-          "name": "Sessions",
+          "name": "Aggregor",
           "icon": "./assets/aggregorLightIcon.svg"
-        },
-        {
-          "id": "aggregorApp.archive",
-          "name": "Archive",
-          "icon": "./assets/aggregorLightIcon.svg",
-          "visibility": "collapsed"
         }
       ]
     },
-    "viewsWelcome": [
-      {
-        "view": "aggregorApp.archive",
-        "contents": "Sessions you are done with move here when you archive them from a … menu in the Sessions list: a session's, a project's or the view's."
-      }
-    ],
     "commands": [
       {
         "title": "Generate auto commit message with AI",
@@ -471,7 +382,7 @@
         "category": "Aggregor App"
       },
       {
-        "title": "✕\u2003Remove",
+        "title": "Remove",
         "command": "aggregorApp.removeSession",
         "category": "Aggregor App"
       },
@@ -482,7 +393,7 @@
         "icon": "$(new-folder)"
       },
       {
-        "title": "✕\u2003Remove Project",
+        "title": "Remove Project",
         "command": "aggregorApp.removeProject",
         "category": "Aggregor App"
       },
@@ -493,59 +404,59 @@
         "icon": "$(root-folder)"
       },
       {
-        "title": "✎\u2003Rename",
+        "title": "Rename",
         "command": "aggregorApp.renameSession"
       },
       {
-        "title": "⤓\u2003Archive",
+        "title": "Archive",
         "command": "aggregorApp.archiveSession"
       },
       {
-        "title": "⤒\u2003Unarchive",
+        "title": "Unarchive",
         "command": "aggregorApp.unarchiveSession"
       },
       {
-        "title": "⤓\u2003Archive Sessions",
+        "title": "Archive Sessions",
         "command": "aggregorApp.archiveProjectSessions"
       },
       {
-        "title": "⤓\u2003Archive All Sessions",
+        "title": "Archive All Sessions",
         "command": "aggregorApp.archiveOngoingSessions"
       },
       {
-        "title": "■\u2003Stop Agent",
+        "title": "Stop Agent",
         "command": "aggregorApp.stopSessionAgent"
       },
       {
-        "title": "■\u2003Stop Agents",
+        "title": "Stop Agents",
         "command": "aggregorApp.stopProjectSessionAgents"
       },
       {
-        "title": "■\u2003Stop Agents",
+        "title": "Stop Agents",
         "command": "aggregorApp.stopArchivedProjectSessionAgents"
       },
       {
-        "title": "■\u2003Stop All Agents",
+        "title": "Stop All Agents",
         "command": "aggregorApp.stopOngoingSessionAgents"
       },
       {
-        "title": "■\u2003Stop All Agents",
+        "title": "Stop All Agents",
         "command": "aggregorApp.stopArchivedSessionAgents"
       },
       {
-        "title": "∧\u2003Move Up",
+        "title": "Move Up",
         "command": "aggregorApp.moveSessionUp"
       },
       {
-        "title": "∨\u2003Move Down",
+        "title": "Move Down",
         "command": "aggregorApp.moveSessionDown"
       },
       {
-        "title": "∧\u2003Move Up",
+        "title": "Move Up",
         "command": "aggregorApp.moveProjectUp"
       },
       {
-        "title": "∨\u2003Move Down",
+        "title": "Move Down",
         "command": "aggregorApp.moveProjectDown"
       },
       {

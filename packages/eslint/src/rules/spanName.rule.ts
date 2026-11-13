@@ -3,11 +3,7 @@ import {basename, dirname} from "node:path";
 
 import type {Rule} from "eslint";
 
-// aggregor/span-name: a span is "<owner>.<const>", the owner coming from the file name, so a trace line names the code
-// that ran and finds it with one search.
-
-// The file roles that own their spans, with the suffix the owner's name takes: session.repository.ts is
-// SessionRepository's, agentInfraServices.layer.ts is AgentInfraServices'.
+// session.repository.ts is SessionRepository's, agentInfraServices.layer.ts is AgentInfraServices'.
 const OWNER_ROLE_SUFFIXES = new Map([
   ["config", "Config"],
   ["controller", "Controller"],
@@ -32,8 +28,7 @@ const getOwnerOfFileName = (fileName: string) => {
   return suffix === undefined ? undefined : `${stem.charAt(0).toUpperCase()}${stem.slice(1)}${suffix}`;
 };
 
-// A helper file (status.utils.ts, sessions.utils.ts) belongs to the one owner in its folder, and to none when its
-// folder has no owner or several. Read each time, since an editor's ESLint server outlives folder changes.
+// Read each time, since an editor's ESLint server outlives folder changes.
 const getOwnerOfFile = (filePath: string) => {
   const fileOwner = getOwnerOfFileName(basename(filePath));
   if (fileOwner !== undefined) return fileOwner;
@@ -46,7 +41,6 @@ const getOwnerOfFile = (filePath: string) => {
   return folderOwners.length === 1 ? folderOwners[0] : undefined;
 };
 
-// A layer's make function is <owner>.make; every other function keeps its const's name.
 const getExpectedSpanName = (owner: string | undefined, constName: string) => {
   if (owner === undefined) return constName;
 

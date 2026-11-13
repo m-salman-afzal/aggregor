@@ -42,8 +42,6 @@ import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject
 import type {ParseError} from "jsonc-parser";
 import type {TextDocument, Uri} from "vscode";
 
-// What the workspace functions share: VS Code's workspace and Uri, the file system, the anchor folder and the files
-// beside it, and the lock that keeps project settings syncs and switches one at a time.
 type WorkspaceDependencies = {
   readonly aggregorWorkspaceFilePath: string;
   readonly anchorFolderPath: string;
@@ -51,30 +49,25 @@ type WorkspaceDependencies = {
   readonly fileSystem: FileSystem;
   readonly path: Path;
   readonly projectSettingsLock: Semaphore.Semaphore;
-  // The project the extensions in FOLDER_SELECT_COMMANDS were last told about.
   readonly selectedProjectPath: Ref.Ref<ProjectPathValueObject | undefined>;
 } & Pick<VsCodeApi["Service"], "commands" | "extensions" | "Range" | "Uri" | "workspace" | "WorkspaceEdit">;
 
-// A folder entry of a workspace file as written, with the absolute path it names.
 interface WorkspaceFileFolder {
   readonly folderPath: string;
   readonly writtenFolder: unknown;
 }
 
-// A workspace file's text, and its folder entries.
 interface WorkspaceFileContents {
   readonly folders: readonly WorkspaceFileFolder[];
   readonly text: string;
 }
 
-// One splice of the folder list, as updateWorkspaceFolders takes it.
 interface WorkspaceFoldersSplice {
   readonly deleteCount: number;
   readonly foldersToAdd: readonly WorkspaceFolderToAdd[];
   readonly start: number;
 }
 
-// A folder as updateWorkspaceFolders adds it.
 interface WorkspaceFolderToAdd {
   readonly uri: Uri;
 }
@@ -83,12 +76,10 @@ class FolderSelectFailedError extends Schema.TaggedError<FolderSelectFailedError
   "FolderSelectFailedError",
   {cause: Schema.Unknown}
 ) {}
-// No settings were copied into the workspace file yet, or the file that says which is unreadable.
 class NoCopiedProjectSettingsError extends Schema.TaggedError<
   NoCopiedProjectSettingsError,
   {readonly brand: unique symbol}
 >()("NoCopiedProjectSettingsError", {}) {}
-// The next project's settings come in with its folder only in Aggregor's workspace, and only when they can be read.
 class NoIncomingProjectSettingsError extends Schema.TaggedError<
   NoIncomingProjectSettingsError,
   {readonly brand: unique symbol}
@@ -103,12 +94,11 @@ class SettingsFileEditRejectedError extends Schema.TaggedError<
   SettingsFileEditRejectedError,
   {readonly brand: unique symbol}
 >()("SettingsFileEditRejectedError", {settingsFilePath: Schema.String}) {}
-// VS Code couldn't open the settings file.
 class SettingsFileNotOpenedError extends Schema.TaggedError<
   SettingsFileNotOpenedError,
   {readonly brand: unique symbol}
 >()("SettingsFileNotOpenedError", {cause: Schema.Unknown, settingsFilePath: Schema.String}) {}
-// VS Code didn't save the edited settings file, even when asked again; the edit stays unsaved in its copy.
+// VS Code didn't save the file even when asked again; the edit stays unsaved in its copy.
 class SettingsFileNotSavedError extends Schema.TaggedError<
   SettingsFileNotSavedError,
   {readonly brand: unique symbol}
@@ -118,8 +108,7 @@ class SettingsFileUnreadableError extends Schema.TaggedError<
   SettingsFileUnreadableError,
   {readonly brand: unique symbol}
 >()("SettingsFileUnreadableError", {settingsFilePath: Schema.String}) {}
-// The settings file still has unsaved changes after another writer had time to save them, as an editor's would; the sync
-// after they are saved writes it.
+// Unsaved changes outlasted another writer's time to save, as an editor's would; the sync after their save writes it.
 class SettingsFileUnsavedError extends Schema.TaggedError<SettingsFileUnsavedError, {readonly brand: unique symbol}>()(
   "SettingsFileUnsavedError",
   {settingsFilePath: Schema.String}
@@ -129,19 +118,16 @@ class WorkspaceFoldersUpdateRejectedError extends Schema.TaggedError<
   {readonly brand: unique symbol}
 >()("WorkspaceFoldersUpdateRejectedError", {}) {}
 
-// A settings file's settings, by key.
 const FolderSettingsSchema = Schema.Record(Schema.String, Schema.Unknown);
 type FolderSettings = typeof FolderSettingsSchema.Type;
 const isFolderSettings = Schema.is(FolderSettingsSchema);
 
-// The project a switch brings in, with its settings when they come in too.
 interface IncomingProject {
   readonly projectPath: ProjectPathValueObject;
   readonly settings: Result.Result<FolderSettings, NoIncomingProjectSettingsError>;
 }
 
-// The settings last copied into the workspace file, and the project they came from: what each side is compared with to
-// tell an edit on one side from one on the other.
+// Each side is compared with the last copy, to tell an edit on one side from one on the other.
 const CopiedProjectSettingsJson = Schema.fromJsonString(
   Schema.Struct({projectPath: Schema.String, settings: FolderSettingsSchema})
 );
@@ -153,24 +139,20 @@ const AnchorFolderSettingsJson = Schema.fromJsonString(
   })
 );
 
-// Aggregor's own workspace file: its folders, the anchor folder then the shown project, and the project's settings. VS
-// Code names the window after the file, Aggregor, and never asks to save it.
+// VS Code names the window after the file, Aggregor, and never asks to save it.
 const AggregorWorkspaceJson = Schema.fromJsonString(
   Schema.Struct({folders: Schema.Array(Schema.Struct({path: Schema.String})), settings: FolderSettingsSchema}),
   {space: PROJECT_SETTINGS_SYNC.DEFAULT_INDENTATION}
 );
 
-// A workspace file's folder entry: a path, absolute or from the file's folder, as VS Code writes one, or a URI.
 const WorkspaceFileFoldersSchema = Schema.Array(
   Schema.Union([Schema.Struct({path: Schema.String}), Schema.Struct({uri: Schema.String})])
 );
 
-// The session the window was showing when it reloaded to open Aggregor's workspace, and when that was.
 const SessionToReopenJson = Schema.fromJsonString(
   Schema.Struct({sessionId: EntityIdValueObjectSchema, writtenAt: Schema.Finite})
 );
 
-// Every workspace folder's path, the anchor folder's included.
 const readWorkspaceFolderPaths = Effect.fn("WorkspaceInfraService.readWorkspaceFolderPaths")(function* (
   workspaceDependencies: WorkspaceDependencies
 ) {
@@ -204,8 +186,7 @@ const listWorkspaceFolderProjects = Effect.fn("WorkspaceInfraService.listWorkspa
   });
 });
 
-// Only for a window without a saved workspace file. One change at a time: VS Code refuses a folder update made before
-// the last one fired onDidChangeWorkspaceFolders, and every later one when it never does.
+// One change at a time: VS Code refuses a folder update made before the last one fired onDidChangeWorkspaceFolders.
 const updateWorkspaceFolders = Effect.fn("WorkspaceInfraService.updateWorkspaceFolders")(function* (
   workspaceDependencies: WorkspaceDependencies,
   workspaceFoldersSplice: WorkspaceFoldersSplice
@@ -270,7 +251,6 @@ const isSavedAnchoredWorkspace = Effect.fn("WorkspaceInfraService.isSavedAnchore
   });
 });
 
-// Kept beside the anchor folder for the reloaded window, which opens the session again.
 const writeSessionToReopen = Effect.fn("WorkspaceInfraService.writeSessionToReopen")(function* (
   workspaceDependencies: WorkspaceDependencies,
   sessionToReopen: EntityIdValueObject
@@ -287,7 +267,6 @@ const writeSessionToReopen = Effect.fn("WorkspaceInfraService.writeSessionToReop
   );
 });
 
-// The project's own settings file, in its .vscode folder.
 const findProjectSettingsFilePath = Effect.fn("WorkspaceInfraService.findProjectSettingsFilePath")(function* (
   workspaceDependencies: WorkspaceDependencies,
   projectPath: string
@@ -297,7 +276,6 @@ const findProjectSettingsFilePath = Effect.fn("WorkspaceInfraService.findProject
   );
 });
 
-// Settings text, which allows comments and trailing commas, as settings by key.
 const parseSettingsText = Effect.fn("WorkspaceInfraService.parseSettingsText")(function* (
   settingsText: string,
   settingsFilePath: string
@@ -321,7 +299,6 @@ const readProjectSettings = Effect.fn("WorkspaceInfraService.readProjectSettings
   return yield* parseSettingsText(settingsText, settingsFilePath);
 });
 
-// What the workspace file holds now: the last copy, with whatever VS Code or an extension has written there since.
 const readWorkspaceFileSettings = Effect.fn("WorkspaceInfraService.readWorkspaceFileSettings")(function* (
   workspaceDependencies: WorkspaceDependencies
 ) {
@@ -334,7 +311,6 @@ const readWorkspaceFileSettings = Effect.fn("WorkspaceInfraService.readWorkspace
   return isFolderSettings(workspaceSettings) ? workspaceSettings : {};
 });
 
-// Every string in the settings, in arrays and nested objects too, through mapSettingText.
 const mapSettingTexts = Effect.fn("WorkspaceInfraService.mapSettingTexts")(function* (
   folderSettings: FolderSettings,
   mapSettingText: (settingText: string) => string
@@ -350,8 +326,7 @@ const mapSettingTexts = Effect.fn("WorkspaceInfraService.mapSettingTexts")(funct
   return yield* Effect.sync(() => Record.map(folderSettings, mapSettingValue));
 });
 
-// The copy names the project wherever the project's own file did: in the workspace file, a relative path or a folder
-// variable would name the anchor folder.
+// In the workspace file, a relative path or a folder variable would name the anchor folder.
 const resolveProjectSettings = Effect.fn("WorkspaceInfraService.resolveProjectSettings")(function* (
   workspaceDependencies: WorkspaceDependencies,
   projectPath: string,
@@ -379,8 +354,7 @@ const resolveProjectSettings = Effect.fn("WorkspaceInfraService.resolveProjectSe
   });
 });
 
-// VS Code and extensions write a relative path in the workspace file from the workspace file's folder; the project's
-// own file has it from the project's folder.
+// A relative path in the workspace file starts from that file's folder; the project's own file has it from its own.
 const rebaseWorkspaceEdits = Effect.fn("WorkspaceInfraService.rebaseWorkspaceEdits")(function* (
   workspaceDependencies: WorkspaceDependencies,
   projectPath: string,
@@ -412,7 +386,6 @@ const prepareWorkspaceSettings = Effect.fn("WorkspaceInfraService.prepareWorkspa
   return yield* resolveProjectSettings(workspaceDependencies, projectPath, projectSettings);
 });
 
-// A setting changed only in the workspace file since the last copy: VS Code or an extension wrote it there.
 const findWorkspaceEditedKeys = Effect.fn("WorkspaceInfraService.findWorkspaceEditedKeys")(function* (
   workspaceSettings: FolderSettings,
   projectSettings: FolderSettings,
@@ -434,9 +407,7 @@ const findWorkspaceEditedKeys = Effect.fn("WorkspaceInfraService.findWorkspaceEd
   });
 });
 
-// A setting changed in the project's file since the last copy takes the project's value. One changed only in the
-// workspace file keeps it there and becomes a workspace edit for the project's file, as VS Code would have written it
-// there with the project open alone; an undefined value removes it.
+// The project's edit wins; one made only in the workspace file goes to the project's file, and undefined removes it.
 const mergeProjectSettings = Effect.fn("WorkspaceInfraService.mergeProjectSettings")(function* (
   workspaceSettings: FolderSettings,
   projectSettings: FolderSettings,
@@ -458,8 +429,7 @@ const mergeProjectSettings = Effect.fn("WorkspaceInfraService.mergeProjectSettin
   return {mergedSettings, workspaceEdits};
 });
 
-// The indentation of the first top-level property that starts a line. A deeper line's, such as the first folder's after
-// `{"folders":[`, would double with every edit.
+// A deeper line's indentation, such as the first folder's after `{"folders":[`, would double with every edit.
 const findJsonIndentation = Effect.fn("WorkspaceInfraService.findJsonIndentation")(function* (jsonText: string) {
   const rootNode = parseTree(jsonText);
   const topLevelPropertyNodes = rootNode === undefined || rootNode.children === undefined ? [] : rootNode.children;
@@ -480,7 +450,6 @@ const findJsonIndentation = Effect.fn("WorkspaceInfraService.findJsonIndentation
   return indentation;
 });
 
-// The JSON text with one top-level property set, or removed for an undefined value, indented as the file already is.
 const editJsonPropertyInText = Effect.fn("WorkspaceInfraService.editJsonPropertyInText")(function* (
   jsonText: string,
   propertyKey: string,
@@ -507,8 +476,7 @@ const confirmSettingsDocumentSaved = Effect.fn("WorkspaceInfraService.confirmSet
   return settingsDocument;
 });
 
-// Through VS Code's own copy of the file, which its settings writes share with every extension's, so none of them finds
-// the file changed under it.
+// VS Code's own copy of the file is shared with every extension's settings writes, so none finds it changed under it.
 const openSettingsDocumentCopy = Effect.fn("WorkspaceInfraService.openSettingsDocumentCopy")(function* (
   workspaceDependencies: WorkspaceDependencies,
   settingsFilePath: string
@@ -519,8 +487,7 @@ const openSettingsDocumentCopy = Effect.fn("WorkspaceInfraService.openSettingsDo
   });
 });
 
-// Unsaved changes are another writer's edit about to be saved, or an editor's, which are left alone, as VS Code's own
-// writes leave them.
+// Unsaved changes are another writer's or an editor's, and are left alone, as VS Code's own writes leave them.
 const openSettingsDocument = Effect.fn("WorkspaceInfraService.openSettingsDocument")(function* (
   workspaceDependencies: WorkspaceDependencies,
   settingsFilePath: string
@@ -533,8 +500,7 @@ const openSettingsDocument = Effect.fn("WorkspaceInfraService.openSettingsDocume
   });
 });
 
-// A save that fails after the edit applied would leave the edit unsaved in VS Code's copy, where it blocks every settings
-// write, VS Code's own included; saving again saves it, or finds that another writer's save already did.
+// An edit left unsaved in VS Code's copy blocks every settings write, VS Code's own included, so the save is retried.
 const saveSettingsDocument = Effect.fn("WorkspaceInfraService.saveSettingsDocument")(function* (
   settingsDocument: TextDocument
 ) {
@@ -548,7 +514,7 @@ const saveSettingsDocument = Effect.fn("WorkspaceInfraService.saveSettingsDocume
   return settingsDocument;
 });
 
-// One edit that replaces the whole text, then a save, so the file changes once. Gives back the saved document.
+// One edit that replaces the whole text, then a save, so the file changes once.
 const saveSettingsDocumentText = Effect.fn("WorkspaceInfraService.saveSettingsDocumentText")(function* (
   workspaceDependencies: WorkspaceDependencies,
   settingsDocument: TextDocument,
@@ -569,9 +535,7 @@ const saveSettingsDocumentText = Effect.fn("WorkspaceInfraService.saveSettingsDo
   });
 });
 
-// The window's workspace file is written by VS Code, by extensions and by Aggregor. Unsaved changes that outlast another
-// writer's save are a write that failed to save, as VS Code's own folder change can; after it, VS Code refuses every
-// settings write and this extension host never sees the folders change again. Saving them lets every writer go on.
+// A write that failed to save makes VS Code refuse every settings write and hide folder changes, so it is saved.
 const saveStaleWorkspaceFileChanges = Effect.fn("WorkspaceInfraService.saveStaleWorkspaceFileChanges")(function* (
   workspaceDependencies: WorkspaceDependencies,
   workspaceFilePath: string
@@ -624,7 +588,6 @@ const writeWorkspaceFileSettings = Effect.fn("WorkspaceInfraService.writeWorkspa
   );
 });
 
-// Each workspace edit goes into the project's own file, which the first one creates.
 const writeWorkspaceEditsToProject = Effect.fn("WorkspaceInfraService.writeWorkspaceEditsToProject")(function* (
   workspaceDependencies: WorkspaceDependencies,
   projectPath: string,
@@ -682,9 +645,7 @@ const writeCopiedProjectSettings = Effect.fn("WorkspaceInfraService.writeCopiedP
   );
 });
 
-// The project's own file and the workspace file meet again: each side's edits since the last copy reach the other. With
-// no last copy of this project, as right after a switch, the project's settings replace the workspace file's. Edits go
-// to the project first, so a failure there leaves them in the workspace file for the next sync.
+// Edits go to the project first, so a failure there leaves them in the workspace file for the next sync.
 const syncProjectSettings = Effect.fn("WorkspaceInfraService.syncProjectSettings")(function* (
   workspaceDependencies: WorkspaceDependencies,
   projectPath: string
@@ -719,7 +680,7 @@ const isAggregorWorkspaceOpen = Effect.fn("WorkspaceInfraService.isAggregorWorks
   });
 });
 
-// Only while Aggregor's workspace shows one project. A failure leaves both sides, edits included, for the next sync.
+// A failure leaves both sides, edits included, for the next sync.
 const syncShownProjectSettings = Effect.fn("WorkspaceInfraService.syncShownProjectSettings")(
   function* (workspaceDependencies: WorkspaceDependencies) {
     if (!(yield* isAggregorWorkspaceOpen(workspaceDependencies))) return;
@@ -742,7 +703,6 @@ const syncShownProjectSettingsInTurn = Effect.fn("WorkspaceInfraService.syncShow
   )(syncShownProjectSettings(workspaceDependencies));
 });
 
-// A workspace folder's own settings file: not the anchor folder's, nor one nested deeper in a project.
 const isProjectSettingsFile = Effect.fn("WorkspaceInfraService.isProjectSettingsFile")(function* (
   workspaceDependencies: WorkspaceDependencies,
   changedFileUri: Uri
@@ -775,8 +735,7 @@ const streamProjectSettingsFileChanges = Effect.fn("WorkspaceInfraService.stream
   );
 });
 
-// A sync follows each edit on either side: the project's settings file changing, VS Code writing any settings, which
-// an extension such as Peacock does in the workspace file, and the folders changing.
+// An extension such as Peacock writes its settings in the workspace file, so any settings write starts a sync.
 const watchProjectSettingsChanges = Effect.fn("WorkspaceInfraService.watchProjectSettingsChanges")(function* (
   workspaceDependencies: WorkspaceDependencies
 ) {
@@ -820,8 +779,7 @@ const prepareOpeningWorkspaceSettings = Effect.fn("WorkspaceInfraService.prepare
   )
 );
 
-// Writes Aggregor's workspace file with the project and its settings, then opens it in this window, which reloads it.
-// VS Code shows another window instead when that one already has the file open.
+// Opening the file reloads this window; VS Code shows another window instead when that one already has it open.
 const openAggregorWorkspace = Effect.fn("WorkspaceInfraService.openAggregorWorkspace")(function* (
   workspaceDependencies: WorkspaceDependencies,
   projectPath: ProjectPathValueObject,
@@ -847,7 +805,6 @@ const openAggregorWorkspace = Effect.fn("WorkspaceInfraService.openAggregorWorks
   );
 });
 
-// The open workspace's file, when the window has a saved one.
 const findSavedWorkspaceFilePath = Effect.fn("WorkspaceInfraService.findSavedWorkspaceFilePath")(function* (
   workspaceDependencies: WorkspaceDependencies
 ) {
@@ -857,7 +814,6 @@ const findSavedWorkspaceFilePath = Effect.fn("WorkspaceInfraService.findSavedWor
   return workspaceFile.fsPath;
 });
 
-// Each folder entry of the workspace file's text as written, with the absolute path it names.
 const readWorkspaceFileFolders = Effect.fn("WorkspaceInfraService.readWorkspaceFileFolders")(function* (
   workspaceDependencies: WorkspaceDependencies,
   workspaceFilePath: string,
@@ -885,8 +841,7 @@ const readWorkspaceFileFolders = Effect.fn("WorkspaceInfraService.readWorkspaceF
   );
 });
 
-// Saves the edited workspace file, then waits for this extension host to see its folders change: VS Code reloads them
-// from the file and tells every extension host. An edit that leaves the folders as they were has nothing to wait for.
+// VS Code reloads the folders from the saved file and tells every extension host, which this waits for.
 const saveWorkspaceFileFolders = Effect.fn("WorkspaceInfraService.saveWorkspaceFileFolders")(function* <EditError>(
   workspaceDependencies: WorkspaceDependencies,
   workspaceFilePath: string,
@@ -925,7 +880,6 @@ const readIncomingProjectSettings = Effect.fn("WorkspaceInfraService.readIncomin
   )
 );
 
-// The next project's settings come in with its folder in Aggregor's workspace only.
 const prepareIncomingProjectSettings = Effect.fn("WorkspaceInfraService.prepareIncomingProjectSettings")(function* (
   workspaceDependencies: WorkspaceDependencies,
   projectPath: ProjectPathValueObject
@@ -935,7 +889,6 @@ const prepareIncomingProjectSettings = Effect.fn("WorkspaceInfraService.prepareI
   return yield* readIncomingProjectSettings(workspaceDependencies, projectPath);
 });
 
-// Folder 0 as the file has it, when it is the anchor folder.
 const findAnchorFolderEntry = Effect.fn("WorkspaceInfraService.findAnchorFolderEntry")(function* (
   workspaceDependencies: WorkspaceDependencies,
   folders: readonly WorkspaceFileFolder[]
@@ -949,7 +902,6 @@ const findAnchorFolderEntry = Effect.fn("WorkspaceInfraService.findAnchorFolderE
   );
 });
 
-// The anchor folder, then the project; and the project's settings when they come in too.
 const editWorkspaceFileForProject = Effect.fn("WorkspaceInfraService.editWorkspaceFileForProject")(function* (
   workspaceDependencies: WorkspaceDependencies,
   workspaceFileContents: WorkspaceFileContents,
@@ -970,10 +922,7 @@ const editWorkspaceFileForProject = Effect.fn("WorkspaceInfraService.editWorkspa
   );
 });
 
-// VS Code tells the extension host about a folder change only when its own folders change. When the two disagree, as
-// after a change VS Code took but never confirmed, writing the folders VS Code already shows changes nothing it sees,
-// and the wait times out. Taking the project out, then putting it back, makes two changes VS Code sees, and its
-// confirmations bring the extension host back in step.
+// VS Code confirms only folder changes it sees, so the project is taken out and put back to bring the host in step.
 const swapProjectFolderThroughNoProject = Effect.fn("WorkspaceInfraService.swapProjectFolderThroughNoProject")(
   function* (
     workspaceDependencies: WorkspaceDependencies,
@@ -996,11 +945,7 @@ const swapProjectFolderThroughNoProject = Effect.fn("WorkspaceInfraService.swapP
   }
 );
 
-// One write of the workspace file brings the project in: its folder and, in Aggregor's workspace, its settings, so
-// Peacock applies the color it finds with the folder instead of racing a later copy. updateWorkspaceFolders isn't used:
-// it waits for VS Code to confirm each change, and once a confirmation never comes it refuses every later change until
-// the window reloads. The copy is recorded first, so a write that fails leaves the next sync to bring the shown
-// project's settings back.
+// One write brings in the folder with its settings, so Peacock doesn't race a later copy; updateWorkspaceFolders wedges.
 const swapProjectFolderInWorkspaceFile = Effect.fn("WorkspaceInfraService.swapProjectFolderInWorkspaceFile")(function* (
   workspaceDependencies: WorkspaceDependencies,
   projectPath: ProjectPathValueObject
@@ -1020,8 +965,7 @@ const swapProjectFolderInWorkspaceFile = Effect.fn("WorkspaceInfraService.swapPr
   );
 });
 
-// The last resort when VS Code confirms no folder change at all: the reloaded window reads its folders from the file,
-// which names the project by now, in a new extension host, and opens the session in view again.
+// The last resort when VS Code confirms no folder change at all: the reloaded window reads its folders from the file.
 const reloadWindowForProject = Effect.fn("WorkspaceInfraService.reloadWindowForProject")(function* (
   workspaceDependencies: WorkspaceDependencies,
   projectPath: ProjectPathValueObject,
@@ -1034,9 +978,7 @@ const reloadWindowForProject = Effect.fn("WorkspaceInfraService.reloadWindowForP
   yield* Effect.promise(() => workspaceDependencies.commands.executeCommand(VS_CODE_COMMANDS.RELOAD_WINDOW));
 });
 
-// Makes the project folder 1 of a saved anchored workspace, or opens Aggregor's workspace with it, which reloads the
-// window. The anchor folder's settings follow the project: before a reload, and after a swap, so a swap that fails
-// leaves them with the project still shown.
+// The anchor folder's settings follow the project after a swap, so a swap that fails leaves them with the project shown.
 const moveProjectFolderIn = Effect.fn("WorkspaceInfraService.moveProjectFolderIn")(function* (
   workspaceDependencies: WorkspaceDependencies,
   projectPath: ProjectPathValueObject,
@@ -1078,8 +1020,7 @@ const selectProjectFolderInExtensions = Effect.fn("WorkspaceInfraService.selectP
   );
 });
 
-// The shown project's workspace edits reach it before it leaves, and the next project's settings come in with it; the
-// sync once it is in sends any edit an extension made on its arrival back to it.
+// The shown project's workspace edits reach it before it leaves.
 const switchShownProject = Effect.fn("WorkspaceInfraService.switchShownProject")(function* (
   workspaceDependencies: WorkspaceDependencies,
   projectPath: ProjectPathValueObject,
@@ -1114,8 +1055,7 @@ const showOnlyProjectFolder = Effect.fn("WorkspaceInfraService.showOnlyProjectFo
   Effect.ignore({log: "Warn", message: "Could not show the project in the workspace"})
 );
 
-// Every entry naming the project after folder 0 leaves; changing folder 0 would restart every extension, so a project
-// there stays.
+// Changing folder 0 would restart every extension, so a project there stays.
 const removeProjectFolderFromWorkspaceFile = Effect.fn("WorkspaceInfraService.removeProjectFolderFromWorkspaceFile")(
   function* (
     workspaceDependencies: WorkspaceDependencies,

@@ -3,7 +3,6 @@ import {defineConfig} from "eslint/config";
 
 import type {Config} from "eslint/config";
 
-// JSON files with sorted keys; JSONC (tsconfigs) and JSON5 as their own languages.
 export const JSON_CONFIGS: Config[] = defineConfig([
   {
     extends: ["json/recommended"],

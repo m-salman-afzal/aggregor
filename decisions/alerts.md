@@ -59,21 +59,18 @@ How a session out of view gets the user's attention: notifications and badge cou
     contributors to try.
   - Removing `notifyOn` until it is wanted: kept, so the states can be picked.
 
-## Each view's name counts its sessions waiting on you
+## Each list's header counts its sessions waiting on you
 
-- **Problem:** the activity-bar badge counts the sessions waiting on the user in both views, so with archived agents
+- **Problem:** the activity-bar badge counts the sessions waiting on the user in both lists, so with archived agents
   left running, a finished one in the Archive raises the count without saying where it is.
-- **Decision:** each view's `TreeView.title` is its name, with the number of its sessions waiting on the user (a
-  finished turn unseen, a question, a failure) in brackets while there are any: `Archive (1)`. The badge stays, counting
-  both views. Both views read `listSessionsWaitingOnUser` on every change of the session list;
-  `countViewSessionsWaitingOnUser` in `sessions.utils.ts` picks a view's sessions by `isArchived`, and the names live in
-  `SESSIONS_VIEW_LABELS` and `ARCHIVE_VIEW_LABELS`, matching the manifest's. The count sits on the view that holds the
-  sessions, readable and shown when the view is collapsed, and the badge still shows from any other tab.
-- **Alternatives considered:** moving the count from the badge to the headings, which leaves nothing to see while
-  another tab of the side bar, such as Chat, is in front; one total in both headings, which says no more than the badge;
-  the view's `TreeView.description`, tried first, which VS Code draws small in `panelTitle.inactiveForeground`, too
-  faint to read, and hides while the view is collapsed, as the Archive starts. An extension can't change that colour,
-  and a user's `workbench.colorCustomizations` would change the bottom panel's tabs with it.
+- **Decision:** each list's header in the webview shows the number of its sessions waiting on the user (a finished turn
+  unseen, a question, a failure) as a small badge in the waiting colour while there are any. The activity bar's badge
+  counts both lists, and shows from any other tab.
+- **Solution:** the view reads `listSessionsWaitingOnUser` on every change of the session list;
+  `countViewSessionsWaitingOnUser` in `sessions.utils.ts` picks a list's sessions by `isArchived`, and the view sends
+  both counts in `WaitingCountsDrawn`.
+- **Alternatives considered:** the count in the view's name, `Sessions (2)`, which VS Code's header repeated beside the
+  container's name; the view's description, too faint to read and hidden while the view is collapsed.
 
 ## An agent exiting doesn't alert by default
 

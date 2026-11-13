@@ -7,13 +7,19 @@ terminals, tree views, Source Control and diffs.
 ## What works today
 
 - **Sessions sidebar.** The Sessions activity-bar view lists the window's projects, each with its sessions, and starts
-  an agent in an editor-tab terminal. Clicking a session focuses its tab; switching tabs selects the session. Drag a
-  session onto another of its project's sessions, or an added project onto another, to put it in that place, or use Move
-  Up and Move Down in the row's … menu.
+  an agent in an editor-tab terminal. The Archive, the sessions you are done with, is a drawer docked at the bottom that
+  opens upward. `aggregorApp.fontSize` sets the view's text size, and its spacing scales with it;
+  `aggregorApp.accentColor` its accent (`neutral`, `theme`, `palette` or a `#rrggbb` colour). Clicking a session focuses
+  its tab; switching tabs marks the session. Every row shows its buttons and a … menu on hover (a session's Archive is a
+  button of its own), and right-clicking it opens the same menu; Move Up and Move Down there put a session or an added
+  project in another place. The Sessions title holds New Session…, Add Project and Open Settings. What a command asks (a
+  confirmation, a name, which project or agent) opens as a dialog in the view, over its blurred lists, rather than at
+  the window's top. Archiving never asks: the agent runs on in the Archive, where Stop Agent stops it; a stop asks only
+  when it cuts a turn short.
 - **Projects.** The window's workspace folders are always listed; Add Project lists any other folder, and in a window
   showing no project it also shows the first one. Added projects are one list, kept for every window: Aggregor is meant
-  to run in one window. A project row's + starts a session in it, the view's + asks which project to use, and an added
-  project's … menu removes it.
+  to run in one window. A project row's + starts a session in it, the Sessions title's + asks which project to use, and
+  an added project's … menu removes it.
 - **One project in view.** Like VS Code's Agents window, the workspace follows the session in front of you: its project
   is the only folder Explorer, search, file watching and Source Control see. Opening a file keeps the project. The first
   switch opens Aggregor's own workspace, `~/.aggregor/anchor/Aggregor.code-workspace`, in the window: a hidden, empty
@@ -26,8 +32,8 @@ terminals, tree views, Source Control and diffs.
   each one's **Set as Default** button changes the default, and `aggregorApp.skipAgentPicker` starts the default without
   asking. Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot are built in. `aggregorApp.agents` in your user
   settings adds a CLI, changes a built-in's name, command, arguments, environment variables (`env`) or icon, or hides
-  one with `null`; the gear in the Sessions title bar opens Aggregor's settings. A session's tab shows the same name as
-  its row, and the session in front stays selected in the view.
+  one with `null`; the gear on the Sessions title opens Aggregor's settings. A session's tab shows the same name as its
+  row, whose second line shows the agent's icon, and the session in front stays marked in the view.
 - **Terminals.** The Terminal panel's + opens in the shown project without asking. Its project button opens a shell in
   any of the window's projects, shown or not.
 - **Persistent sessions.** Every agent runs in tmux (3.2 or newer), so it keeps working when you close its tab, reload
@@ -37,19 +43,19 @@ terminals, tree views, Source Control and diffs.
 - **Session titles.** Each tab and row shows the title the agent gives its terminal, as it changes (for Claude, its own
   title for the conversation or the one set with `/rename`); a closed session keeps the last one. Rename in the row's …
   menu gives a session your own name in the row and the tab; an empty name hands both back to the agent.
-- **Live status.** Each row ends with a status badge: a blue spinner while the agent works, a yellow dot when it waits
-  on you (the row says for what: permission, a question or a sign-in, and the tooltip shows the agent's message) and a
-  red cross on an error. A turn that finishes while you are looking elsewhere leaves a green check until you open that
-  session's tab; a session you have seen shows no badge, and a grey hollow dot means it has exited. Reported progress
-  shows next to the name. The status comes from the agent's own OSC 7501 reports, read by `aggregor-pty`, which runs
-  every session's agent; the Linux and macOS builds carry it, and on Windows sessions run in WSL.
+- **Live status.** Each row starts with a status icon: a blue spinner while the agent works, a yellow alert when it
+  waits on you (the tooltip says for what: permission, a question or a sign-in; the agent's message shows on the row's
+  second line) and a red cross on an error. A turn that finishes while you are looking elsewhere leaves a green check
+  until you open that session's tab, and a grey dashed circle means it has exited. Reported progress shows on the second
+  line. The status comes from the agent's own OSC 7501 reports, read by `aggregor-pty`, which runs every session's
+  agent; the Linux and macOS builds carry it, and on Windows sessions run in WSL.
 - **Alerts.** A session out of view notifies once it has held a new state for 3 seconds: waiting for you, finished or an
   error by default, picked with `aggregorApp.notifyOn`, which can add its agent exiting. The focused window shows it
   with an **Open** button; when VS Code isn't focused it is a system notification instead, with the agent's logo.
   Clicking it brings VS Code forward, even from another workspace, and opens the session when the window that comes
   forward is the one that sent it (`notify-send` on Linux; a PowerShell toast from WSL and `osascript` on macOS, both
   untested). The Sessions icon's badge counts the sessions waiting on you, and hovering it lists them; the Sessions and
-  Archive names end with how many of them each view holds, as in Archive (1).
+  Archive titles show how many of them each list holds.
 - **AI commit messages.** A Source Control button writes the commit message for the staged diff.
 - **Trace logging.** `aggregorApp.traceLogging` writes every step Aggregor runs, with the fields of every error it
   meets, to the **Aggregor App** output channel and its log file, to attach to a bug report.

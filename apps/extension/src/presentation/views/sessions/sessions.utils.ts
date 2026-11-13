@@ -6,9 +6,6 @@ import {SecureRandom} from "effect/crypto";
 import type {SessionListItemDto} from "@dtos/session.dto.ts";
 import type {Uri, Webview} from "vscode";
 
-// How the Sessions view sets up its webview and counts the sessions waiting on the user.
-
-// How many of a view's sessions wait on the user, for the count in its name.
 export const countViewSessionsWaitingOnUser = Effect.fn("SessionsView.countViewSessionsWaitingOnUser")(function* (
   sessionsWaitingOnUser: readonly SessionListItemDto[],
   isArchiveView: boolean
@@ -19,7 +16,6 @@ export const countViewSessionsWaitingOnUser = Effect.fn("SessionsView.countViewS
   ).length;
 });
 
-// The webview runs scripts and loads files from the extension, its build and the built-in agents' icons among them.
 export const setUpWebviewOptions = Effect.fn("SessionsView.setUpWebviewOptions")(function* (webview: Webview) {
   const vsCodeApi = yield* VsCodeApi;
 
@@ -28,8 +24,7 @@ export const setUpWebviewOptions = Effect.fn("SessionsView.setUpWebviewOptions")
   });
 });
 
-// An agent icon outside the extension, set in the agents setting, needs its folder allowed too. VS Code reloads the
-// page when the folders change, and the reloaded page asks to be drawn again, by then with the folder allowed.
+// An icon outside the extension needs its folder allowed; VS Code then reloads the page, which asks to be drawn again.
 const allowIconFolder = Effect.fn("SessionsView.allowIconFolder")(function* (webview: Webview, iconFileUri: Uri) {
   const vsCodeApi = yield* VsCodeApi;
   const iconFolderUri = vsCodeApi.Uri.joinPath(iconFileUri, "..");
@@ -44,20 +39,26 @@ const allowIconFolder = Effect.fn("SessionsView.allowIconFolder")(function* (web
   });
 });
 
-// The agent's icon as the webview loads it; a session whose agent is gone has none.
+export const makeIconWebviewUri = Effect.fn("SessionsView.makeIconWebviewUri")(function* (
+  webview: Webview,
+  iconPath: string
+) {
+  const vsCodeApi = yield* VsCodeApi;
+  const iconFileUri = vsCodeApi.Uri.file(iconPath);
+  yield* allowIconFolder(webview, iconFileUri);
+
+  return webview.asWebviewUri(iconFileUri).toString();
+});
+
 export const getAgentIconUri = Effect.fn("SessionsView.getAgentIconUri")(function* (
   webview: Webview,
   sessionListItem: SessionListItemDto
 ) {
   if (sessionListItem.icon === undefined) return {};
-  const vsCodeApi = yield* VsCodeApi;
-  const iconFileUri = vsCodeApi.Uri.file(sessionListItem.icon);
-  yield* allowIconFolder(webview, iconFileUri);
 
-  return {agentIconUri: webview.asWebviewUri(iconFileUri).toString()};
+  return {agentIconUri: yield* makeIconWebviewUri(webview, sessionListItem.icon)};
 });
 
-// apps/webview's build, from the extension's dist/webview.
 const makeBuiltPageHtml = Effect.fn("SessionsView.makeBuiltPageHtml")(function* (webview: Webview, nonce: string) {
   const vsCodeApi = yield* VsCodeApi;
   const buildFolderUri = vsCodeApi.Uri.joinPath(vsCodeApi.extensionUri, SESSIONS_WEBVIEW.BUILD_FOLDER);
@@ -72,7 +73,7 @@ const makeBuiltPageHtml = Effect.fn("SessionsView.makeBuiltPageHtml")(function* 
   });
 });
 
-// The page: from apps/webview's dev server while F5 sets its URL, so edits reload in place, else from the build.
+// From apps/webview's dev server while F5 sets its URL, so edits reload in place; else from the build.
 export const makeWebviewHtml = Effect.fn("SessionsView.makeWebviewHtml")(function* (webview: Webview) {
   const developmentServerUrl = yield* Config.withDefault(
     Config.String(SESSIONS_WEBVIEW.DEVELOPMENT_SERVER_URL_VARIABLE),
