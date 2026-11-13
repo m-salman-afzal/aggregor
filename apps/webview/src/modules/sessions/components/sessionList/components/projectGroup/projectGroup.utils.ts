@@ -18,7 +18,7 @@ export const listProjectActionGroups = (projectListItem: ProjectListItemDto, lis
         ],
         [ROW_ACTIONS.NEW_TERMINAL],
         [ROW_ACTIONS.STOP_PROJECT_AGENTS, ROW_ACTIONS.ARCHIVE_PROJECT_SESSIONS],
-        [projectListItem.isAdded && ROW_ACTIONS.REMOVE_PROJECT]
+        [ROW_ACTIONS.PROJECT_SETTINGS, projectListItem.isAdded && ROW_ACTIONS.REMOVE_PROJECT]
       ]);
 
 export const listProjectInlineActions = (listId: SessionListId) =>

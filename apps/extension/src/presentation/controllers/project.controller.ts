@@ -2,7 +2,8 @@ import {
   MoveProjectDownRequestDtoSchema,
   MoveProjectUpRequestDtoSchema,
   NewProjectTerminalRequestDtoSchema,
-  RemoveProjectRequestDtoSchema
+  RemoveProjectRequestDtoSchema,
+  SaveProjectSettingsRequestDtoSchema
 } from "@dtos/project.dto.ts";
 import {decodeVsCodeArgument} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
 import {
@@ -10,7 +11,8 @@ import {
   moveProjectDown,
   moveProjectUp,
   newProjectTerminal,
-  removeProject
+  removeProject,
+  saveProjectSettings
 } from "@services/project.service.ts";
 import {Effect} from "effect";
 
@@ -44,4 +46,11 @@ export const newTerminalInChosenProject = Effect.fn("ProjectController.newTermin
 ) {
   const request = yield* decodeVsCodeArgument(NewProjectTerminalRequestDtoSchema, chosenProject);
   yield* newProjectTerminal(request);
+});
+
+export const saveChosenProjectSettings = Effect.fn("ProjectController.saveChosenProjectSettings")(function* (
+  chosenProject: unknown
+) {
+  const request = yield* decodeVsCodeArgument(SaveProjectSettingsRequestDtoSchema, chosenProject);
+  yield* saveProjectSettings(request);
 });

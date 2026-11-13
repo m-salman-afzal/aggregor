@@ -39,6 +39,7 @@ Alternatives considered with why it was dropped. Leave a field out rather than g
 - [storage/files.md](storage/files.md): The folder Aggregor keeps its files in.
 - [storage/migrations.md](storage/migrations.md): How stored data survives an update.
 - [projects/projectList.md](projects/projectList.md): Which projects the Sessions view lists.
+- [projects/settings.md](projects/settings.md): What a project remembers about how its sessions start.
 - [projects/workspace.md](projects/workspace.md): The project in view, and the workspace file Aggregor writes for it.
 - [sessions/archive.md](sessions/archive.md): Archiving sessions, and stopping or keeping their agents.
 - [sessions/ordering.md](sessions/ordering.md): How projects and sessions are put in order.

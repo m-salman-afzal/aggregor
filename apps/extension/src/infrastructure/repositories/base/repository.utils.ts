@@ -1,7 +1,7 @@
 import {DATABASE_POLL_INTERVAL} from "@pkg/constants/src/database.constant.ts";
 import {eq, getColumns, isNull} from "drizzle-orm";
 import {getTableConfig} from "drizzle-orm/sqlite-core";
-import {Array, DateTime, Effect, Record, Schedule, Schema, Stream} from "effect";
+import {Array, DateTime, Effect, Predicate, Record, Schedule, Schema, Stream} from "effect";
 import {SqlClient} from "effect/sql/SqlClient";
 
 import type {BaseTableModel, RepositoryTable, StoredColumns} from "@repositories/base/base.repository.type.ts";
@@ -17,12 +17,23 @@ export const formatCurrentTimestamp = Effect.fn("BaseRepository.formatCurrentTim
 });
 
 // A missing value is stored as NULL, and a DateTime as ISO 8601 text, as aggregor-pty writes its timestamps.
-export const encodeStoredColumns = Effect.fn("BaseRepository.encodeStoredColumns")(function* (columns: StoredColumns) {
-  return Record.map(columns, (columnValue) => {
-    if (columnValue === undefined) return null;
+const StoredJsonSchema = Schema.fromJsonString(Schema.Unknown);
 
-    return DateTime.isDateTime(columnValue) ? DateTime.formatIso(columnValue) : columnValue;
-  });
+const encodeStoredColumn = Effect.fn("BaseRepository.encodeStoredColumn")(function* (columnValue: unknown) {
+  if (columnValue === undefined) return null;
+  if (DateTime.isDateTime(columnValue)) return DateTime.formatIso(columnValue);
+  if (!Predicate.isObject(columnValue)) return columnValue;
+
+  return yield* Schema.encodeUnknownEffect(StoredJsonSchema)(columnValue);
+});
+
+// An object column, such as a project's settings, is stored as its JSON text.
+export const encodeStoredColumns = Effect.fn("BaseRepository.encodeStoredColumns")(function* (columns: StoredColumns) {
+  const encodedEntries = yield* Effect.forEach(Record.toEntries(columns), ([columnName, columnValue]) =>
+    Effect.map(encodeStoredColumn(columnValue), (encodedValue) => [columnName, encodedValue] as const)
+  );
+
+  return Record.fromEntries(encodedEntries);
 });
 
 export const findUniqueColumns = Effect.fn("BaseRepository.findUniqueColumns")(function* (tableModel: BaseTableModel) {

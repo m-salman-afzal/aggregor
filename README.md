@@ -19,8 +19,9 @@ terminals, tree views, Source Control and diffs.
 - **Projects.** The window's workspace folders are always listed; Add Project lists any other folder, and in a window
   showing no project it also shows the first one. Added projects are one list, kept for every window: Aggregor is meant
   to run in one window. A project row's + starts a session in it, the Sessions title's + asks which project to use, and
-  a project's … menu opens a terminal in it (New Terminal) and, for an added project, removes it. Everything runs from
-  the view; the Command Palette lists no Aggregor command.
+  a project's … menu opens a terminal in it (New Terminal), edits its settings (Project Settings…: where its worktrees
+  go, the files copied into them, a setup script, and whether new sessions start in a worktree) and, for an added
+  project, removes it. Everything runs from the view; the Command Palette lists no Aggregor command.
 - **One project in view.** Like VS Code's Agents window, the workspace follows the session in front of you: its project
   is the only folder Explorer, search, file watching and Source Control see. Opening a file keeps the project. The first
   switch opens Aggregor's own workspace, `~/.aggregor/anchor/Aggregor.code-workspace`, in the window: a hidden, empty

@@ -23,8 +23,11 @@ export interface AgentRowData {
   readonly iconUri: string;
 }
 
-// The request DTO the command's controller decodes.
+// A row's key, the field its command's request DTO starts from.
 export type RowCommandArgument = Readonly<Record<string, string>>;
+
+// The request DTO the command's controller decodes.
+export type CommandRequest = Readonly<Record<string, unknown>>;
 
 export type SessionsViewMessage =
   | {
@@ -57,6 +60,6 @@ export type SessionsWebviewMessage =
   | {readonly _tag: typeof SESSIONS_WEBVIEW_MESSAGE_TAGS.READY}
   | {
       readonly _tag: typeof SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND;
-      readonly commandArgument?: RowCommandArgument;
+      readonly commandArgument?: CommandRequest;
       readonly commandId: string;
     };

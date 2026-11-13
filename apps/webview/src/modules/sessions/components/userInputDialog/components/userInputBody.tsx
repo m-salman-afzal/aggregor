@@ -1,4 +1,5 @@
 import {ChoiceInput} from "@/modules/sessions/components/userInputDialog/components/choiceInput.tsx";
+import {ProjectSettingsInput} from "@/modules/sessions/components/userInputDialog/components/projectSettingsInput/projectSettingsInput.tsx";
 import {QuestionInput} from "@/modules/sessions/components/userInputDialog/components/questionInput.tsx";
 import {TextInput} from "@/modules/sessions/components/userInputDialog/components/textInput.tsx";
 import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
@@ -10,6 +11,7 @@ interface UserInputBodyProps {
   readonly onCancel: () => void;
   readonly onChoose: (choiceId: string, isSecondaryAction: boolean) => void;
   readonly onEnterText: (formEvent: SubmitEvent<HTMLFormElement>) => void;
+  readonly onSaveSettings: (formEvent: SubmitEvent<HTMLFormElement>) => void;
   readonly userInput: UserInput;
 }
 
@@ -18,6 +20,14 @@ export const UserInputBody = (props: UserInputBodyProps) => {
     return <ChoiceInput choices={props.userInput.choices} onCancel={props.onCancel} onChoose={props.onChoose} />;
   if (props.userInput._tag === USER_INPUT_TAGS.QUESTION)
     return <QuestionInput answers={props.userInput.answers} onCancel={props.onCancel} onChoose={props.onChoose} />;
+  if (props.userInput._tag === USER_INPUT_TAGS.PROJECT_SETTINGS)
+    return (
+      <ProjectSettingsInput
+        onCancel={props.onCancel}
+        onSave={props.onSaveSettings}
+        settings={props.userInput.settings}
+      />
+    );
 
   return <TextInput onCancel={props.onCancel} onEnterText={props.onEnterText} value={props.userInput.value} />;
 };

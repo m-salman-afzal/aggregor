@@ -2,7 +2,7 @@ import {TURN_RUNNING_STATUSES} from "@/modules/sessions/components/sessionList/c
 import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 import {runCommandOnHost} from "@/modules/sessions/sessions.service.ts";
 import {AGENT_COMMANDS, AGENT_LABELS} from "@pkg/constants/src/agent.constant.ts";
-import {PROJECT_COMMANDS} from "@pkg/constants/src/project.constant.ts";
+import {PROJECT_COMMANDS, PROJECT_SETTINGS_LABELS} from "@pkg/constants/src/project.constant.ts";
 import {SESSION_COMMANDS, SESSION_LABELS, SESSION_NOTICES} from "@pkg/constants/src/session.constant.ts";
 import {StarIcon} from "lucide-react";
 
@@ -239,6 +239,22 @@ const startSessionAskingForProject = (askingContext: AskingContext) => {
   });
 };
 
+const editProjectSettings = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
+  const projectListItem = askingContext.projectRows
+    .map((projectRow) => projectRow.projectListItem)
+    .find((listedProject) => listedProject.path === commandArgument.projectPath);
+  if (projectListItem === undefined) return;
+
+  askingContext.showUserInput({
+    _tag: USER_INPUT_TAGS.PROJECT_SETTINGS,
+    onSave: (settings) => {
+      runCommandOnHost(PROJECT_COMMANDS.SAVE_SETTINGS, {projectPath: projectListItem.path, settings});
+    },
+    settings: projectListItem.settings,
+    title: PROJECT_SETTINGS_LABELS.TITLE(projectListItem.name)
+  });
+};
+
 const startSessionAsking = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
   if (commandArgument.projectPath === undefined) {
     startSessionAskingForProject(askingContext);
@@ -250,6 +266,9 @@ const startSessionAsking = (askingContext: AskingContext, commandArgument: RowCo
 };
 
 const askingActions: Partial<Record<RowAction["commandId"], AskingAction>> = {
+  [PROJECT_COMMANDS.SAVE_SETTINGS]: (askingContext, _rowAction, commandArgument) => {
+    editProjectSettings(askingContext, commandArgument);
+  },
   [SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT]: (askingContext, _rowAction, commandArgument) => {
     startSessionAsking(askingContext, commandArgument);
   },

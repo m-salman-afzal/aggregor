@@ -14,6 +14,7 @@ import {
   PencilIcon,
   PlusIcon,
   SettingsIcon,
+  SlidersHorizontalIcon,
   SquareTerminalIcon,
   Trash2Icon
 } from "lucide-react";
@@ -48,6 +49,7 @@ export const APPEARANCE = {
 
 export const USER_INPUT_TAGS = {
   CHOICE: "ChoiceInput",
+  PROJECT_SETTINGS: "ProjectSettingsInput",
   QUESTION: "QuestionInput",
   TEXT: "TextInput"
 } as const;
@@ -100,6 +102,11 @@ export const ROW_ACTIONS = {
   },
   NEW_TERMINAL: {commandId: TERMINAL_COMMANDS.NEW_PROJECT_TERMINAL, icon: SquareTerminalIcon, label: "New Terminal"},
   OPEN_SETTINGS: {commandId: APP_COMMANDS.OPEN_SETTINGS, icon: SettingsIcon, label: APP_LABELS.OPEN_SETTINGS},
+  PROJECT_SETTINGS: {
+    commandId: PROJECT_COMMANDS.SAVE_SETTINGS,
+    icon: SlidersHorizontalIcon,
+    label: "Project Settings…"
+  },
   REMOVE_PROJECT: {
     commandId: PROJECT_COMMANDS.REMOVE,
     icon: FolderMinusIcon,

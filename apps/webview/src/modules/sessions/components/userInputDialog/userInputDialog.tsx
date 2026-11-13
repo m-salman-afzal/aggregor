@@ -19,6 +19,7 @@ export const UserInputDialog = () => {
             onCancel={userInputDialogView.cancel}
             onChoose={userInputDialogView.choose}
             onEnterText={userInputDialogView.enterText}
+            onSaveSettings={userInputDialogView.saveSettings}
             userInput={userInputDialogView.userInput}
           />
         )}

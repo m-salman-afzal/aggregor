@@ -1,4 +1,5 @@
 import type {SESSION_LISTS, USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
+import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
 import type {SESSIONS_WEBVIEW_COMMANDS} from "@pkg/constants/src/sessionsView.constant.ts";
 import type {LucideIcon} from "lucide-react";
 
@@ -18,6 +19,12 @@ export type UserInput =
       readonly _tag: typeof USER_INPUT_TAGS.CHOICE;
       readonly choices: readonly UserInputChoice[];
       readonly onChoose: (choiceId: string, isSecondaryAction: boolean) => void;
+      readonly title: string;
+    }
+  | {
+      readonly _tag: typeof USER_INPUT_TAGS.PROJECT_SETTINGS;
+      readonly onSave: (settings: ProjectSettingsDto) => void;
+      readonly settings: ProjectSettingsDto;
       readonly title: string;
     }
   | {

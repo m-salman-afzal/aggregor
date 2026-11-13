@@ -206,7 +206,7 @@ apps/extension/src/
                                            terminalTitle and agentSessionId; displayName)
         session.repository.interface.ts    ISessionRepository: the base calls
       project/
-        project.entity.ts                  ProjectEntity (BaseEntity and path, isAdded)
+        project.entity.ts                  ProjectEntity (BaseEntity and path, isAdded, settings)
         project.repository.interface.ts    IProjectRepository: the base calls
       agent/
         agent.entity.ts                  AgentEntity (id, name, command, args, resumeArgs, environmentVariables,
@@ -221,7 +221,9 @@ apps/extension/src/
                                            key), AgentIconValueObject (an image file's path),
                                            EnvironmentVariablesValueObject (names to values),
                                            LaunchPlanValueObject (a command, its arguments and its variables),
-                                           EntityChangeKindValueObject (literals: placed, updated, removed)
+                                           EntityChangeKindValueObject (literals: placed, updated, removed),
+                                           ProjectSettingsValueObject (a project's settings, every key with its
+                                           default), SessionWorkingTreeValueObject (literals: root, worktree)
     services/
       session.domainService.ts             prepareLaunchPlan, getDefaultSessionName, getSessionTitle,
                                            getSessionTitleToSave, getSessionStatus, isSessionTurnRunning,
@@ -251,8 +253,8 @@ apps/extension/src/
                                            as notifyOn picks them; notifyOnDesktop
       project.service.ts                   listProjects, getProjectListItem, findProjectListItem, addProject
                                            (asks for folders), addProjectPaths, findOrAddProject, removeProject,
-                                           moveProjectUp, moveProjectDown, newProjectTerminal;
-                                           ProjectNotListedError
+                                           moveProjectUp, moveProjectDown, newProjectTerminal,
+                                           saveProjectSettings; ProjectNotListedError
       commitMessage.service.ts             generateCommitMessage: writes the message with Source Control's progress
       workspace.service.ts                 startShownProjectSync: the viewed session's project as the only
                                            project folder; startSessionReopenAfterReload
@@ -261,7 +263,8 @@ apps/extension/src/
                                            rows), SessionListChangeDto, and a request DTO per session use case
       sessionAlert.dto.ts                  SessionAlertDto, NotifyOnDesktopRequestDto
       agent.dto.ts                         AgentListItemDto: a row of the agent picker; SetDefaultAgentRequestDto
-      project.dto.ts                       ProjectListItemDto, and a request DTO per project use case
+      project.dto.ts                       ProjectListItemDto with its ProjectSettingsDto, and a request DTO per
+                                           project use case
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
     interfaces/                            each with the errors and types its signatures name
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
@@ -495,6 +498,10 @@ apps/extension/tests/
 
 - **One column per dimension.** A column holds one thing about its row that changes on its own, and one program writes
   it: the extension or `aggregor-pty`, never both.
+  - Settings are the exception: a project's settings are one JSON text column, `settings`, read and written whole by the
+    extension and decoded by `ProjectSettingsValueObject`, whose every key has a default and falls back to it when a
+    stored value no longer decodes. A new setting is a schema field, not a migration; the repository stores an object
+    column as its JSON text.
   - A stage a row moves through, such as an agent's status, is one text column backed by an enum value object, even with
     two values, rather than a boolean per stage. Each action checks the stage it starts from and ends quietly when the
     row is already where the action would move it. A row's context value carries its stage, so the menus offer only what

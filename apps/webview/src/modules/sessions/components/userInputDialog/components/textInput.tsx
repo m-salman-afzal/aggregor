@@ -1,6 +1,5 @@
+import {FormButtons} from "@/modules/sessions/components/userInputDialog/components/formButtons.tsx";
 import {SESSIONS_LABELS} from "@/modules/sessions/sessions.constant.ts";
-import {APP_LABELS} from "@pkg/constants/src/app.constant.ts";
-import {Button} from "@pkg/ui/src/components/base/button.tsx";
 import {Input} from "@pkg/ui/src/components/base/input.tsx";
 
 import type {SubmitEvent} from "react";
@@ -21,13 +20,6 @@ export const TextInput = (props: TextInputProps) => (
         focusEvent.currentTarget.select();
       }}
     />
-    <div className="flex justify-end gap-2">
-      <Button onClick={props.onCancel} size="sm" type="button" variant="soft">
-        {APP_LABELS.CANCEL}
-      </Button>
-      <Button size="sm" type="submit">
-        {SESSIONS_LABELS.OK}
-      </Button>
-    </div>
+    <FormButtons onCancel={props.onCancel} submitLabel={SESSIONS_LABELS.OK} />
   </form>
 );

@@ -1,8 +1,10 @@
 import {
   isDestructiveUserInput,
-  pickUserInputIcon
+  pickUserInputIcon,
+  readEnteredText,
+  readProjectSettings
 } from "@/modules/sessions/components/userInputDialog/userInputDialog.utils.ts";
-import {SESSIONS_LABELS, USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
+import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.store.ts";
 
 import type {SubmitEvent} from "react";
@@ -23,12 +25,17 @@ export const useUserInputDialog = () => {
     },
     enterText: (formEvent: SubmitEvent<HTMLFormElement>) => {
       formEvent.preventDefault();
-      const enteredText = new FormData(formEvent.currentTarget).get(SESSIONS_LABELS.USER_INPUT_TEXT_FIELD);
+      const enteredText = readEnteredText(formEvent.currentTarget);
       closeUserInput();
-      if (userInput?._tag === USER_INPUT_TAGS.TEXT)
-        userInput.onEnterText(typeof enteredText === "string" ? enteredText : "");
+      if (userInput?._tag === USER_INPUT_TAGS.TEXT) userInput.onEnterText(enteredText);
     },
     isDestructive: userInput !== undefined && isDestructiveUserInput(userInput),
+    saveSettings: (formEvent: SubmitEvent<HTMLFormElement>) => {
+      formEvent.preventDefault();
+      const settings = readProjectSettings(formEvent.currentTarget);
+      closeUserInput();
+      if (userInput?._tag === USER_INPUT_TAGS.PROJECT_SETTINGS) userInput.onSave(settings);
+    },
     userInput,
     UserInputIcon: userInput === undefined ? undefined : pickUserInputIcon(userInput)
   };

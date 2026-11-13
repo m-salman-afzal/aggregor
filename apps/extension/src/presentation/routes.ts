@@ -5,7 +5,8 @@ import {
   moveChosenProjectDown,
   moveChosenProjectUp,
   newTerminalInChosenProject,
-  removeChosenProject
+  removeChosenProject,
+  saveChosenProjectSettings
 } from "@controllers/project.controller.ts";
 import {
   archiveAllOngoingSessions,
@@ -52,6 +53,7 @@ export const RoutesLayer = Layer.effectDiscard(
     registerCommand(PROJECT_COMMANDS.MOVE_DOWN, moveChosenProjectDown, presentProjectCommandError),
     registerCommand(PROJECT_COMMANDS.MOVE_UP, moveChosenProjectUp, presentProjectCommandError),
     registerCommand(PROJECT_COMMANDS.REMOVE, removeChosenProject, presentProjectCommandError),
+    registerCommand(PROJECT_COMMANDS.SAVE_SETTINGS, saveChosenProjectSettings, presentProjectCommandError),
     registerCommand(SESSION_COMMANDS.ARCHIVE, archiveChosenSession, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.ARCHIVE_ONGOING, archiveAllOngoingSessions, presentSessionCommandError),
     registerCommand(
