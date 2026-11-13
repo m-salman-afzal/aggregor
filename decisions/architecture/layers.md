@@ -8,7 +8,10 @@ DDD.md's layers: what each holds and how they talk.
   session row focused saved a session with no path, and every later read failed as corrupt.
 - **Decision:** the title-bar New Session... asks for the project; every controller decodes its arguments with a schema,
   so a mismatch is logged and shown instead of reaching the service. The schema is the use case's request DTO, and a
-  Sessions row passes its node id (`project:<path>`, `session:<id>`), which the controller decodes into that DTO.
+  Sessions row passes that DTO's own field, `{sessionId}` or `{projectPath}`.
+- **Alternatives considered:** a node id per row (`project:<path>`, `session:<id>`), which the tree needed as each row's
+  one string and every controller took apart again (`sessionsTreeNode.utils.ts`); the webview sends objects, so the
+  prefixes and their decoding went.
 
 ## DDD layers: domain, application, infrastructure, presentation
 
@@ -28,11 +31,13 @@ DDD.md's layers: what each holds and how they talk.
     `ProjectSessionsChanged` (a session placed, that is added or moved, or removed) or `SessionChanged` (any other
     write, or its tab opening or closing), and the view redraws only that: the whole tree, one project, or one row and
     its badge.
-  - The tree's nodes are ids, `project:<path>` and `session:<id>`, since VS Code finds a node to redraw by its id. Each
-    draw reads the node through the controllers: a `ProjectListItemDto`, or a `SessionListItemDto` with the status the
-    user sees (`SessionStatusValueObject`, picked from the stored `AgentStatusValueObject` by `getSessionStatus`), its
-    kind and progress only while the turn runs, its message unless the agent is gone, its agent's icon and its project's
-    name. `SessionService` assembles it.
+  - Each list reaches the view whole from one use case: `listProjectsWithSessions` and
+    `listProjectsWithArchivedSessions` return a `ProjectSessionsDto` per project, its `ProjectListItemDto` with its
+    sessions' `SessionListItemDto`s; `listProjectSessions` returns one project's rows and `getSessionListItem` one row.
+    A session's row has the status the user sees (`SessionStatusValueObject`, picked from the stored
+    `AgentStatusValueObject` by `getSessionStatus`), its kind and progress only while the turn runs, its message unless
+    the agent is gone, its agent's icon and its project's name. `SessionService` assembles them, and the view adds only
+    each agent icon's webview URI, which VS Code alone can make.
   - No window keeps a copy: every read is a query, and each repository's `entityChanges` reads only the rows written
     since its last check (see the `data_version` entry). The spinner reads the working sessions each frame while the
     view is visible.
@@ -41,10 +46,13 @@ DDD.md's layers: what each holds and how they talk.
   symbols and colours stay the view's.
 
 - **Alternatives considered:** a snapshot of every project and session, rebuilt and pushed on each change, which still
-  redraws every row. Per-row queries with the view still merging the change sources and diffing badges. The first build
-  of this : the list's rows and changes as value objects (`ListedSessionValueObject`, `SessionListChangeValueObject`)
-  built by a domain service, and a `sessionList.controller.ts` that worked out what kind of row it was given; but those
-  have identity, so they are no value objects, and a controller only calls a service.
+  redraws every row. Rows as ids the view read one at a time through the controllers (the project list, then each
+  project's session ids, then each session's row), which the tree needed, since VS Code asked for a node's children
+  lazily and found a node to redraw by its id: under the webview it left the view assembling every list, a use case's
+  job, with a read per row. Per-row queries with the view still merging the change sources and diffing badges. The first
+  build of this : the list's rows and changes as value objects (`ListedSessionValueObject`,
+  `SessionListChangeValueObject`) built by a domain service, and a `sessionList.controller.ts` that worked out what kind
+  of row it was given; but those have identity, so they are no value objects, and a controller only calls a service.
 
 ## Presentation talks to use cases in DTOs
 
@@ -58,8 +66,8 @@ DDD.md's layers: what each holds and how they talk.
     only services, DTOs, presentation helpers and that decoder. Presenters import services' types; views import
     controllers and DTOs' types. Presentation imports nothing from the domain or infrastructure.
   - A value object is only a value: the list's rows and changes became DTOs.
-  - Source Control progress, its context key and the retry after Stage All moved into `CommitMessageService`, through a
-    new `IProgressInfraService`; `scm.*` became `commitMessage.*`.
+  - Source Control progress and its context key moved into `CommitMessageService`, through a new
+    `IProgressInfraService`; `scm.*` became `commitMessage.*`.
   - Every use case's file holds all of an entity's use cases, commands and queries; `sessionList.service.ts` went back
     into `session.service.ts`.
 

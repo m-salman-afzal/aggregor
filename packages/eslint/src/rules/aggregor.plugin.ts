@@ -5,6 +5,7 @@ import {fileRoleRule} from "@pkg/eslint/src/rules/fileRole.rule.ts";
 import {kindFolderRule} from "@pkg/eslint/src/rules/kindFolder.rule.ts";
 import {moduleBoundaryRule} from "@pkg/eslint/src/rules/moduleBoundary.rule.ts";
 import {noPassThroughRule} from "@pkg/eslint/src/rules/noPassThrough.rule.ts";
+import {oneLineCommentRule} from "@pkg/eslint/src/rules/oneLineComment.rule.ts";
 import {singleConsumerRule} from "@pkg/eslint/src/rules/singleConsumer.rule.ts";
 import {spanNameRule} from "@pkg/eslint/src/rules/spanName.rule.ts";
 import {stemFolderRule} from "@pkg/eslint/src/rules/stemFolder.rule.ts";
@@ -21,6 +22,7 @@ export const AGGREGOR_PLUGIN = {
     "kind-folder": kindFolderRule,
     "module-boundary": moduleBoundaryRule,
     "no-pass-through": noPassThroughRule,
+    "one-line-comment": oneLineCommentRule,
     "single-consumer": singleConsumerRule,
     "span-name": spanNameRule,
     "stem-folder": stemFolderRule,
@@ -44,6 +46,6 @@ export const AGGREGOR_PLUGIN_CONFIGS: Config[] = [
   {
     files: ["**/*.{ts,mts,cts,tsx}"],
     plugins: {aggregor: AGGREGOR_PLUGIN},
-    rules: {"aggregor/type-placement": "error"}
+    rules: {"aggregor/one-line-comment": "error", "aggregor/type-placement": "error"}
   }
 ];

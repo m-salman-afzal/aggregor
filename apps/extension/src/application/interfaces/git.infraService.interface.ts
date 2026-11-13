@@ -47,6 +47,5 @@ export class IGitInfraService extends Context.Service<
       projectPath: ProjectPathValueObject,
       commitMessage: string
     ) => Effect.Effect<void, GitUnavailableError>;
-    readonly stageAll: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;
   }
 >()("aggregor-app/application/interfaces/git.infraService.interface/IGitInfraService") {}

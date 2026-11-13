@@ -14,7 +14,7 @@ interface UseProjectGroupProps {
 }
 
 export const useProjectGroup = (props: UseProjectGroupProps) => {
-  const projectKey = makeProjectKey(props.listId, props.projectRow.nodeId);
+  const projectKey = makeProjectKey(props.listId, props.projectRow.projectListItem.path);
   const isOpen = useSessionsStore({
     selectFromState: (sessionsState) => !sessionsState.collapsedProjectKeys.has(projectKey)
   });
@@ -22,6 +22,7 @@ export const useProjectGroup = (props: UseProjectGroupProps) => {
 
   return {
     actionGroups: listProjectActionGroups(props.projectRow.projectListItem, props.listId),
+    commandArgument: {projectPath: props.projectRow.projectListItem.path},
     inlineActions: listProjectInlineActions(props.listId),
     isOpen,
     sessionCount: props.projectRow.sessionRows.length,

@@ -156,9 +156,9 @@ heading there. Update this file in the same commit as a change that adds, remove
 
 - **What it is:** VS Code's built-in Git extension, `vscode.git`, and its API.
 - **What we use:** `activate()`, then `getAPI(1)`: `getRepository`, `state.indexChanges`, `diff(true)` for the staged
-  diff, `inputBox.value`, `commit` and `status()`, plus the `git.stageAll` command
-  (`infrastructure/services/vscode/git.infraService.ts`). Its types are `packages/typings/src/git.d.ts`, fetched by
-  `pnpm --filter=@pkg/typings sync:git-types`. Agents get its credential helper through tmux's `update-environment`.
+  diff, `inputBox.value`, `commit` and `status()` (`infrastructure/services/vscode/git.infraService.ts`). Its types are
+  `packages/typings/src/git.d.ts`, fetched by `pnpm --filter=@pkg/typings sync:git-types`. Agents get its credential
+  helper through tmux's `update-environment`.
 - **Why:** "Review agent edits with git": Source Control and its diffs already exist.
 - **Alternatives:** Not weighed in `decisions/`.
   - Other options: the `git` CLI, simple-git, or isomorphic-git.

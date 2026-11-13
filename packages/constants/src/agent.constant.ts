@@ -13,9 +13,8 @@ export const AGENT_ICON = {
   FILE_PATTERN: /\.(?:png|svg)$/iu
 } as const;
 
-export const AGENT_PICK_TAGS = {
-  AGENT_PICKED: "AgentPicked",
-  DEFAULT_AGENT_CHOSEN: "DefaultAgentChosen"
+export const AGENT_COMMANDS = {
+  SET_DEFAULT: "aggregorApp.setDefaultAgent"
 } as const;
 
 export const AGENT_LABELS = {

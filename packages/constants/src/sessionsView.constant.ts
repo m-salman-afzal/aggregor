@@ -1,27 +1,11 @@
+import {AGENT_COMMANDS} from "@pkg/constants/src/agent.constant.ts";
 import {APP_COMMANDS} from "@pkg/constants/src/app.constant.ts";
 import {PROJECT_COMMANDS} from "@pkg/constants/src/project.constant.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
+import {TERMINAL_COMMANDS} from "@pkg/constants/src/terminal.constant.ts";
 
 export const SESSIONS_VIEW = {
-  FOCUS_COMMAND: "aggregorApp.sessions.focus",
-  ID: "aggregorApp.sessions",
-  SHOW_PROMPT_COMMAND: "aggregorApp.showPromptInSessionsView"
-} as const;
-
-export const PROMPT_TAGS = {
-  CHOICE: "ChoicePrompt",
-  QUESTION: "QuestionPrompt",
-  TEXT: "TextPrompt"
-} as const;
-
-export const PROMPT_ACTION_ICONS = {
-  STAR: "star"
-} as const;
-
-export const PROMPT_ANSWER_TAGS = {
-  CANCELLED: "PromptCancelled",
-  CHOSEN: "ChoiceChosen",
-  TEXT_ENTERED: "TextEntered"
+  ID: "aggregorApp.sessions"
 } as const;
 
 export const SESSIONS_WEBVIEW = {
@@ -32,28 +16,29 @@ export const SESSIONS_WEBVIEW = {
   HTTP_SCHEME_PATTERN: /^http/u,
   ROOT_ELEMENT_ID: "root",
   SCRIPT_FILE_NAME: "webview.js",
-  STYLE_FILE_NAME: "webview.css"
+  STYLE_FILE_NAME: "webview.css",
+  STYLE_NONCE_META_PROPERTY: "csp-nonce"
 } as const;
 
 export const SESSIONS_VIEW_MESSAGE_TAGS = {
+  AGENTS_DRAWN: "AgentsDrawn",
   APPEARANCE_DRAWN: "AppearanceDrawn",
   ARCHIVE_DRAWN: "ArchiveDrawn",
   PROJECT_SESSIONS_DRAWN: "ProjectSessionsDrawn",
   PROJECTS_DRAWN: "ProjectsDrawn",
-  PROMPT_SHOWN: "PromptShown",
   SESSION_DRAWN: "SessionDrawn",
   VIEWED_SESSION_CHANGED: "ViewedSessionChanged",
   WAITING_COUNTS_DRAWN: "WaitingCountsDrawn"
 } as const;
 
 export const SESSIONS_WEBVIEW_MESSAGE_TAGS = {
-  PROMPT_ANSWERED: "PromptAnswered",
   READY: "Ready",
   RUN_COMMAND: "RunCommand"
 } as const;
 
 // The view runs no other command the webview asks for.
 export const SESSIONS_WEBVIEW_COMMANDS = [
+  AGENT_COMMANDS.SET_DEFAULT,
   APP_COMMANDS.OPEN_SETTINGS,
   PROJECT_COMMANDS.ADD,
   PROJECT_COMMANDS.MOVE_DOWN,
@@ -64,7 +49,6 @@ export const SESSIONS_WEBVIEW_COMMANDS = [
   SESSION_COMMANDS.ARCHIVE_PROJECT_SESSIONS,
   SESSION_COMMANDS.MOVE_DOWN,
   SESSION_COMMANDS.MOVE_UP,
-  SESSION_COMMANDS.NEW_ASKING_FOR_PROJECT,
   SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT,
   SESSION_COMMANDS.OPEN,
   SESSION_COMMANDS.REMOVE,
@@ -74,16 +58,18 @@ export const SESSIONS_WEBVIEW_COMMANDS = [
   SESSION_COMMANDS.STOP_ARCHIVED_PROJECT_AGENTS,
   SESSION_COMMANDS.STOP_ONGOING_AGENTS,
   SESSION_COMMANDS.STOP_PROJECT_AGENTS,
-  SESSION_COMMANDS.UNARCHIVE
+  SESSION_COMMANDS.UNARCHIVE,
+  TERMINAL_COMMANDS.NEW_PROJECT_TERMINAL
 ] as const;
 
-// Scripts run only with the page's nonce or from the dev server; React's refresh runtime goes in before any component.
+// Scripts and inline styles need the page's nonce, or come from the dev server; React's refresh runtime goes in first.
 export const SESSIONS_WEBVIEW_HTML = {
   BUILT: (builtPage: Readonly<Record<"cspSource" | "nonce" | "scriptUri" | "styleUri", string>>) => `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${builtPage.cspSource}; font-src ${builtPage.cspSource}; style-src ${builtPage.cspSource}; script-src 'nonce-${builtPage.nonce}'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${builtPage.cspSource}; font-src ${builtPage.cspSource}; style-src ${builtPage.cspSource} 'nonce-${builtPage.nonce}'; script-src 'nonce-${builtPage.nonce}'" />
+    <meta property="${SESSIONS_WEBVIEW.STYLE_NONCE_META_PROPERTY}" nonce="${builtPage.nonce}" />
     <link rel="stylesheet" href="${builtPage.styleUri}" />
   </head>
   <body>
@@ -100,6 +86,7 @@ export const SESSIONS_WEBVIEW_HTML = {
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${developmentServerPage.cspSource} ${developmentServerPage.developmentServerUrl}; font-src ${developmentServerPage.cspSource} ${developmentServerPage.developmentServerUrl}; style-src ${developmentServerPage.developmentServerUrl} 'unsafe-inline'; script-src 'nonce-${developmentServerPage.nonce}' ${developmentServerPage.developmentServerUrl}; connect-src ${developmentServerPage.developmentServerUrl} ${developmentServerPage.developmentServerSocketUrl}" />
+    <meta property="${SESSIONS_WEBVIEW.STYLE_NONCE_META_PROPERTY}" nonce="${developmentServerPage.nonce}" />
     <script type="module" nonce="${developmentServerPage.nonce}">
       import RefreshRuntime from "${developmentServerPage.developmentServerUrl}/@react-refresh";
       RefreshRuntime.injectIntoGlobalHook(window);
@@ -122,16 +109,6 @@ export const SESSIONS_VIEW_SETTINGS = {
   DEFAULT_ACCENT_COLOR: "neutral",
   DEFAULT_FONT_SIZE: 14,
   FONT_SIZE: "fontSize"
-} as const;
-
-export const SESSIONS_VIEW_NODE_TAGS = {
-  PROJECT: "ProjectNode",
-  SESSION: "SessionNode"
-} as const;
-
-export const SESSIONS_VIEW_NODE_ID_PREFIXES = {
-  PROJECT: "project:",
-  SESSION: "session:"
 } as const;
 
 export const STATUS_LABELS = {

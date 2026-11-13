@@ -26,7 +26,7 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
   else.
 - **Presenter:** turns what a use case returns into what the user sees: here, a failure into its message.
 - **View:** draws response DTOs with VS Code's APIs, or sends them to a webview that draws them. It has its own things
-  (tree items, node ids, badges, the webview's messages) and decides nothing about the data.
+  (badges, the webview's page and messages) and decides nothing about the data.
 
 ## Layers
 
@@ -40,7 +40,7 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
 │ views       draw DTOs: trees, webviews     │                 │
 │ controllers input → request DTO → service  │                 │
 │ presenters  failure → message              │                 │
-│ routes, middlewares, utils                 │                 │
+│ routes, middlewares                        │                 │
 └─────────┬──────────────────────────────────┘                 │
           │ services, DTOs                                     │
 ┌─ application ▼─────────────────────────────┐  ┌─ infrastructure ┴────────────┐
@@ -55,13 +55,13 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-| Layer             | Holds                                                                                        | May import                                                                                                                    |
-| ----------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `domain/`         | Entities, value objects, domain services, repository interfaces and their errors             | `effect`, domain                                                                                                              |
-| `application/`    | Services (the use cases), DTOs, the interfaces of the infra services and config they use     | `effect`, `@pkg/constants`, domain, application                                                                               |
-| `infrastructure/` | Models, repositories, infra services, config, the layer graph, the trace log                 | `effect`, `@effect/*`, `drizzle-orm`, `jsonc-parser`, `vscode` types, `node:*`, `@pkg/*`, domain, application, infrastructure |
-| `presentation/`   | Command routes, the command middleware, controllers, presenters, views, presentation helpers | `effect`, `vscode` types, `@pkg/*`, and from the layers below only services and DTOs, each part as listed below               |
-| `extension.ts`    | `activate`: builds the runtime from the layer graph                                          | everything                                                                                                                    |
+| Layer             | Holds                                                                                    | May import                                                                                                                    |
+| ----------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `domain/`         | Entities, value objects, domain services, repository interfaces and their errors         | `effect`, domain                                                                                                              |
+| `application/`    | Services (the use cases), DTOs, the interfaces of the infra services and config they use | `effect`, `@pkg/constants`, domain, application                                                                               |
+| `infrastructure/` | Models, repositories, infra services, config, the layer graph, the trace log             | `effect`, `@effect/*`, `drizzle-orm`, `jsonc-parser`, `vscode` types, `node:*`, `@pkg/*`, domain, application, infrastructure |
+| `presentation/`   | Command routes, the command middleware, controllers, presenters, views                   | `effect`, `vscode` types, `@pkg/*`, and from the layers below only services and DTOs, each part as listed below               |
+| `extension.ts`    | `activate`: builds the runtime from the layer graph                                      | everything                                                                                                                    |
 
 - Dependencies point inward. Application declares the interfaces it needs, infrastructure implements them, and
   application never imports infrastructure.
@@ -71,11 +71,10 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
 - Presentation imports nothing from the domain or infrastructure. What it shares with infrastructure (VsCodeApi, the
   vscode helpers, argument decoding) lives in `@pkg/vscode`; constants live in `@pkg/constants`.
 - Within presentation:
-  - **Controllers** import `@services`, `@dtos`, `@presentationUtils` and `@pkg/vscode`'s `vsCodeArgument.utils.ts`.
+  - **Controllers** import `@services`, `@dtos` and `@pkg/vscode`'s `vsCodeArgument.utils.ts`.
   - **Presenters** import `@pkg/constants`, and `@services` for types only.
-  - **Views** import `@controllers`, their own files, `@presentationUtils`, `@pkg/*`, and `@dtos` for types only.
-  - **Routes, middlewares and helpers** import `@controllers`, `@middlewares`, `@presenters`, `@presentationUtils` and
-    `@pkg/*`.
+  - **Views** import `@controllers`, their own files, `@pkg/*`, and `@dtos` for types only.
+  - **Routes and middlewares** import `@controllers`, `@middlewares`, `@presenters` and `@pkg/*`.
 - `presentation/` lives inside `src`, because the extension ships as one bundle. The Sessions view's webview is the
   exception: `apps/webview` draws it, in VS Code's page, apart from the extension, and follows the folder-structure
   skill instead of these layers. It imports only the view's `.view.type.ts` and DTOs, for types only (lint rejects a
@@ -86,9 +85,9 @@ Each folder directly under a layer has one import alias in `apps/extension/tscon
 | Layer            | Aliases                                                                                                                             |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `domain`         | `@domainServices` (`services`), `@entities`, `@valueObjects`                                                                        |
-| `application`    | `@interfaces`, `@services`, `@dtos`, `@applicationUtils` (`utils`)                                                                  |
+| `application`    | `@interfaces`, `@services`, `@dtos`                                                                                                 |
 | `infrastructure` | `@config`, `@models` (`database/models`), `@di`, `@logger`, `@repositories`, `@infraServices` (`services`), `@infraUtils` (`utils`) |
-| `presentation`   | `@controllers`, `@middlewares`, `@presenters`, `@presentationUtils` (`utils`), `@views`                                             |
+| `presentation`   | `@controllers`, `@middlewares`, `@presenters`, `@views`                                                                             |
 
 Code is imported only through them, so each file has one import path, and by name: lint (`no-restricted-syntax`) bans
 `import * as`, `vscode` included; `extension.ts` imports `./presentation/routes.ts`, the one file at a layer's root.
@@ -153,8 +152,8 @@ file suffix.
   `TerminalInfraService`); a file with no owner gives the bare const name (`acquireScopedDisposable`). A command's root
   span is its command ID.
 - The aggregor plugin (`packages/eslint/src/rules/`, one file per rule) checks the span names, the `.type.ts` placement,
-  the stem folders and where constants live, and fixes span names; for `apps/webview`, it also checks the
-  folder-structure skill's rules (`packages/eslint/src/folderStructure/`).
+  the stem folders, where constants live and that a comment is one line, and fixes span names; for `apps/webview`, it
+  also checks the folder-structure skill's rules (`packages/eslint/src/folderStructure/`).
 - A constant lives in `@pkg/constants/src/<feature>.constant.ts`: ids, labels and texts, and also file and folder names,
   environment variables, external commands, VS Code's and other extensions' ids, timings and patterns. Constants that
   describe one thing share an object with a label per value (`TMUX.SOCKET_FILE_NAME`, `SESSIONS_VIEW.ID`). The domain,
@@ -191,9 +190,6 @@ packages/
                                            showErrorNotificationWithoutWaiting (with an Open Settings button when
                                            given a setting)
     vsCodeArgument.utils.ts                decodeVsCodeArgument; InvalidVsCodeArgumentError
-    viewPrompt.schema.ts, viewPrompt.type.ts
-                                           ViewPrompt and ViewPromptAnswer: what infrastructure asks through the
-                                           Sessions view's prompt command, and the answer it gets back
 apps/extension/src/
   domain/
     entities/
@@ -237,34 +233,34 @@ apps/extension/src/
     services/
       base.service.ts                      addEntity, findEntityById, findEntities, updateEntity, upsertEntity,
                                            removeEntity, placeEntitiesAtEnd, on any repository
-      session.service.ts                   newSession (which picks the project, then the agent), openSession,
-                                           archiveSession, unarchiveSession, removeSession, renameSession,
-                                           stopSessionAgent, stopProjectSessionAgents,
+      session.service.ts                   newSession (in a project, with an agent or the default one),
+                                           openSession, archiveSession, unarchiveSession, removeSession,
+                                           renameSession, stopSessionAgent, stopProjectSessionAgents,
                                            stopArchivedProjectSessionAgents, stopOngoingSessionAgents,
-                                           stopArchivedSessionAgents (each asks first),
-                                           moveSessionUp, moveSessionDown, moveSessionToPlaceOf (each session moves
-                                           among its project's sessions in its own view); NoAgentInstalledError;
-                                           the lists: getSessionListItem, listProjectSessionIds,
-                                           listArchivedProjectSessionIds, listProjectsWithArchivedSessions,
-                                           listWorkingSessionIds,
+                                           stopArchivedSessionAgents, moveSessionUp, moveSessionDown (each session
+                                           moves among its project's sessions in its own list);
+                                           the lists: listProjectsWithSessions and listProjectsWithArchivedSessions
+                                           (each project with its sessions' rows), listProjectSessions,
+                                           getSessionListItem,
                                            watchSessionListChanges, watchViewedSessionIds, findViewedSessionId,
                                            listSessionsWaitingOnUser (the badge and each view's count);
                                            startSessionTitleSync, startSessionTabNameSync, startViewedAtSync
+      agent.service.ts                     listAgents (the installed agents, the default first), setDefaultAgent,
+                                           findAgentToStart; NoAgentInstalledError
       sessionAlert.service.ts              watchSessionAlerts: the states sessions out of view hold for 3 seconds,
                                            as notifyOn picks them; notifyOnDesktop
-      project.service.ts                   listProjects, getProjectListItem, findProjectListItem, pickProject,
-                                           addProject, addProjectPaths, findOrAddProject, removeProject,
-                                           moveProjectUp, moveProjectDown, moveProjectToPlaceOf,
-                                           newProjectTerminal; NoProjectError, ProjectNotListedError
-      commitMessage.service.ts             generateCommitMessage: writes the message with Source Control's progress,
-                                           and offers to stage everything when nothing is staged
+      project.service.ts                   listProjects, getProjectListItem, findProjectListItem, addProject
+                                           (asks for folders), addProjectPaths, findOrAddProject, removeProject,
+                                           moveProjectUp, moveProjectDown, newProjectTerminal;
+                                           ProjectNotListedError
+      commitMessage.service.ts             generateCommitMessage: writes the message with Source Control's progress
       workspace.service.ts                 startShownProjectSync: the viewed session's project as the only
                                            project folder; startSessionReopenAfterReload
     dtos/
-      session.dto.ts                       SessionListItemDto, SessionListChangeDto, and a request DTO per session
-                                           use case
+      session.dto.ts                       SessionListItemDto, ProjectSessionsDto (a project's row with its sessions'
+                                           rows), SessionListChangeDto, and a request DTO per session use case
       sessionAlert.dto.ts                  SessionAlertDto, NotifyOnDesktopRequestDto
-      agent.dto.ts                       AgentListItemDto: a row of the agent picker
+      agent.dto.ts                         AgentListItemDto: a row of the agent picker; SetDefaultAgentRequestDto
       project.dto.ts                       ProjectListItemDto, and a request DTO per project use case
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
     interfaces/                            each with the errors and types its signatures name
@@ -276,9 +272,8 @@ apps/extension/src/
                                            runningSessionIds, refreshRunningSessionIds, startedOrStoppedSessionIds;
                                            SessionTabCommandRequest, PtyBinaryNotFoundError, TmuxUnavailableError
       userInputPrompt.infraService.interface.ts
-                                           showErrorMessage, showInformationMessage, askQuestion, askForText,
-                                           pickProject, pickAgent (a dialog in the Sessions view),
-                                           pickProjectFolderPaths (the system's); AgentPick, QuestionRequest
+                                           pickProjectFolderPaths: the system's folder dialog;
+                                           FolderPickCancelledError
       shellCommand.infraService.interface.ts
                                            listInstalledCommands: which commands are on PATH
       desktopNotification.infraService.interface.ts
@@ -288,7 +283,7 @@ apps/extension/src/
       workspace.infraService.interface.ts  listWorkspaceFolderProjects, workspaceFolderChanges,
                                            showOnlyProjectFolder, removeProjectFolder, takeSessionToReopen;
                                            WorkspaceFolderProject, NoSessionToReopenError
-      git.infraService.interface.ts        getStagedDiff, setCommitMessageInput, commit, stageAll,
+      git.infraService.interface.ts        getStagedDiff, setCommitMessageInput, commit,
                                            openInSourceControl
       commitCli.infraService.interface.ts  generateCommitMessage; CommitMessageRequest
       settings.config.interface.ts         readSettings, readSessionSettings, readAlertSettings,
@@ -345,17 +340,17 @@ apps/extension/src/
     middlewares/registerCommand.middleware.ts
                                            registerCommand: root span per command; shows the presenter's message
                                            for a failure, and logs a crash
-    controllers/                           session, sessionAlert, project, commitMessage: decode the input into a
+    controllers/                           session, agent, sessionAlert, project, commitMessage: decode the input into a
                                            request DTO and call one service; the views' reads
     presenters/                            session, project, commitMessage: a failed command's message, and the
                                            setting that fixes it; app: none, for commands that cannot fail
-    utils/sessionsTreeNode.utils.ts        the rows' node ids, which their commands take, and decoding a row's node
-                                           id into a request DTO
-    views/sessions/                        SessionsView: the webview view provider and its page, the Sessions and
-                                           Archive lists' rows and their changes sent to apps/webview, the commands
-                                           it asks for, the view's badge, and each list's count of sessions waiting
-                                           on the user, and the prompts infrastructure sends it by command;
-                                           sessions.view.type.ts the messages both ways, which apps/webview imports
+    views/sessions/                        SessionsView (sessions.view.ts): the webview view provider, the webview's
+                                           messages and the commands it asks for; sessionsDrawing.utils.ts what it
+                                           sends apps/webview (the Sessions and Archive lists' rows and their
+                                           changes, the installed agents, the view's badge, each list's count of
+                                           sessions waiting on the user, the look); sessionsPage.utils.ts the page (its HTML and content security
+                                           policy) and the agent icons' webview URIs; sessions.view.type.ts the
+                                           messages both ways, which apps/webview imports
     views/sessionAlerts/                   SessionAlertsView: shows each alert in the focused window or hands it to
                                            the system, and handles the session links desktop notifications open
   extension.ts                             activate
@@ -400,10 +395,12 @@ apps/extension/tests/
 - An application service is a file of use cases, one per entity or feature, as long as its use cases need: commands
   (`newSession`), queries that return response DTOs (`getSessionListItem`), and the work that runs for the window's life
   (`startSessionTitleSync`). A use case takes a request DTO, and turns entities into response DTOs before they leave it.
-- A use case asks the user what it needs mid-task (a project, a name, an answer to a question) through
-  `IUserInputPromptInfraService`, and shows progress through `IProgressInfraService`. It returns every failure the user
-  should hear about as a typed error, for presentation to show; a cancelled pick or a row removed meanwhile is not a
-  failure, so the use case ends quietly. Work no command started, such as the title sync, logs its failures.
+- A use case asks the user nothing: its request DTO carries every choice (the project, the agent, the name), and the
+  front end asks for them and confirms what needs confirming before it sends the request. Add Project, which needs the
+  system's folder dialog that a webview can't open, asks through `IUserInputPromptInfraService`. A use case shows
+  progress through `IProgressInfraService`. It returns every failure the user should hear about as a typed error, for
+  presentation to show; a cancelled dialog or a row removed meanwhile is not a failure, so the use case ends quietly.
+  Work no command started, such as the title sync, logs its failures.
 
 ## Presentation
 
@@ -412,19 +409,21 @@ apps/extension/tests/
   shows the presenter's message; the presenter's type covers every failure its services return, so a new one fails to
   compile until it has a message. A command that only drives VS Code and reads no data, Open Settings, goes straight to
   its `@pkg/vscode` helper, with no controller or service.
-- A view registers VS Code's providers and draws what its controllers return. Rows are ids, `project:<path>` and
-  `session:<id>` (`sessionsTreeNode.utils.ts`), which every row command takes and its controller decodes into the
-  request DTO.
-- The Sessions view is a webview: the view reads the rows through its controllers and sends them, with their node ids,
-  to `apps/webview`, which keeps the rows it was sent and draws them. The webview asks the view to run a command on a
-  row, and the view runs it with `executeCommand` when `SESSIONS_WEBVIEW_COMMANDS` lists it, so it takes the menus'
-  path: its route, `registerCommand` and its controller.
-- What infrastructure asks the user (`IUserInputPromptInfraService`) reaches the view by a command,
-  `SESSIONS_VIEW.SHOW_PROMPT_COMMAND`, that the view registers and that resolves with the answer, so neither layer
-  imports the other; the command's id and `@pkg/vscode`'s `viewPrompt.schema.ts` are their contract. The view shows the
-  prompt in its webview and keeps it until it is answered.
-- A display preference only the view uses, `aggregorApp.fontSize`, the view reads itself through `VsCodeApi`, as it
-  draws, rather than through a controller and a service, since no use case needs it.
+- A view registers VS Code's providers and draws what its controllers return. It assembles nothing: a list arrives whole
+  from one use case (`listProjectsWithSessions` returns each project's row with its sessions' rows), and the view adds
+  only what VS Code alone can make, such as an agent icon's webview URI.
+- The Sessions view is a webview: the view reads the lists through its controllers and sends them to `apps/webview`,
+  which keeps the rows it was sent and draws them. The webview asks the view to run a command on a row with the row's
+  key as the request DTO's own field, `{sessionId}` or `{projectPath}`, and the view runs it with `executeCommand` when
+  `SESSIONS_WEBVIEW_COMMANDS` lists it, so it takes the menus' path: its route, `registerCommand` and its controller,
+  which decodes that argument into the request DTO.
+- The webview asks the user before it sends a request: it picks the project and the agent for New Session, the name for
+  Rename, and confirms Remove on a running agent and Stop on a turn in progress, from the rows and the agent list the
+  view sent it. Its dialogs are its own; no layer below waits on the user.
+- Every command runs from the webview, the Source Control button or a notification; none is in the Command Palette.
+- A display preference only the view uses, `aggregorApp.fontSize`, `aggregorApp.accentColor` and
+  `aggregorApp.skipAgentPicker`, the view reads itself through `VsCodeApi`, as it draws, rather than through a
+  controller and a service, since no use case needs it.
 - The view redraws only what changed: `watchSessionListChanges` sends `ProjectListChanged` (every project),
   `ProjectSessionsChanged` (one project's sessions) or `SessionChanged` (one session). The view sends the webview what
   changed in the Sessions list, one session's row in either list, and the Archive whole for any change but a session's

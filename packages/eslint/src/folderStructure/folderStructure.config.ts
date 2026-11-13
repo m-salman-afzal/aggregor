@@ -51,7 +51,6 @@ const WEBVIEW_IMPORT_PATTERNS = [
   },
   {
     group: [
-      "@applicationUtils/*",
       "@config/*",
       "@controllers/*",
       "@di/*",
@@ -64,7 +63,6 @@ const WEBVIEW_IMPORT_PATTERNS = [
       "@middlewares/*",
       "@models/*",
       "@pkg/vscode/*",
-      "@presentationUtils/*",
       "@presenters/*",
       "@repositories/*",
       "@services/*"

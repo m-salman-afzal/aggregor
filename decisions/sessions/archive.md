@@ -6,10 +6,9 @@ Archiving sessions, and stopping or keeping their agents.
 
 - **Problem:** the Archive view needs its own lists, and a view needs to tell an archived session from another, but
   presentation can't import the domain's `SESSION_LIFECYCLES`.
-- **Decision:** `listArchivedProjectSessionIds` and `listProjectsWithArchivedSessions` in `session.service.ts`, beside
-  `listProjectSessionIds`, which now lists only the ongoing sessions; `isArchived` on `SessionListItemDto`; and the
-  controllers' `…ForArchiveView` functions, one per read. Each view asks for what it shows, and the lifecycle stays the
-  backend's.
+- **Decision:** `listProjectsWithArchivedSessions` in `session.service.ts`, beside `listProjectsWithSessions`, which
+  lists only the ongoing sessions; `isArchived` on `SessionListItemDto`; and a controller function per read. Each list
+  asks for what it shows, and the lifecycle stays the backend's.
 - **Alternatives considered:** a lifecycle field in the list requests, which the views would fill with a value the
   domain owns; the session list item's lifecycle value object, which the views would compare with that same value.
 
@@ -43,7 +42,8 @@ Archiving sessions, and stopping or keeping their agents.
   a turn short (an agent working, or waiting on a permission, a question or a sign-in), naming how many agents stop and
   how many are mid-turn; idle agents stop without a question. The stopped sessions' tabs close. They are five commands,
   since a project's or a list's menu doesn't tell its command which list it is in.
-- **Solution:** each stopped agent raises its own exited alert, so Stop All Agents raises one per agent.
+- **Solution:** the webview asks, from each row's `isAgentRunning` and status; the stop use cases stop every running
+  agent they are given. Each stopped agent raises its own exited alert, so Stop All Agents raises one per agent.
 - **Alternatives considered:** asking every time, which questions a stop that loses nothing; inline stop buttons on the
   rows; a stop for one session only.
 
@@ -55,8 +55,8 @@ Archiving sessions, and stopping or keeping their agents.
   All Sessions in the Sessions list's … menu archives every session it lists. Each sits under its Stop Agents item; the
   Archive has neither. Like a row's Archive, neither asks: every session is archived in its order, placed at the end of
   the Archive together, and its tab closes while its agent runs on.
-- **Solution:** `aggregorApp.archiveProjectSessions` and `aggregorApp.archiveOngoingSessions`, hidden from the Command
-  Palette, over `archiveSessionsKeepingAgents`.
+- **Solution:** `aggregorApp.archiveProjectSessions` and `aggregorApp.archiveOngoingSessions`, over
+  `archiveSessionsKeepingAgents`.
 - **Alternatives considered:** Unarchive Sessions and Unarchive All Sessions in the Archive's menus too: left until they
   are missed. One question for them all, which was built and dropped with the row's question.
 

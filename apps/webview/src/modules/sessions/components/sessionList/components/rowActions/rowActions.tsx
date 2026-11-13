@@ -6,6 +6,7 @@ import {ContextMenu, ContextMenuContent, ContextMenuTrigger} from "@pkg/ui/src/c
 import {cn} from "cn";
 
 import type {RowAction} from "@/modules/sessions/sessions.type.ts";
+import type {RowCommandArgument} from "@views/sessions/sessions.view.type.ts";
 import type {ReactNode} from "react";
 
 interface RowActionsProps {
@@ -13,8 +14,8 @@ interface RowActionsProps {
   readonly areActionsAlwaysShown?: boolean | undefined;
   readonly children: ReactNode;
   readonly className?: string | undefined;
+  readonly commandArgument?: RowCommandArgument | undefined;
   readonly inlineActions?: readonly RowAction[] | undefined;
-  readonly nodeId?: string | undefined;
 }
 
 export const RowActions = (props: RowActionsProps) => {

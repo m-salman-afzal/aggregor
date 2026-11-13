@@ -18,11 +18,15 @@ const replaceProjectSessionRows = (
 // Only the session's project gets a new object, so the other projects don't draw again.
 const replaceSessionRow = (projectRows: readonly ProjectRowData[], changedSessionRow: SessionRowData) =>
   projectRows.map((projectRow) =>
-    projectRow.sessionRows.some((sessionRow) => sessionRow.nodeId === changedSessionRow.nodeId)
+    projectRow.sessionRows.some(
+      (sessionRow) => sessionRow.sessionListItem.sessionId === changedSessionRow.sessionListItem.sessionId
+    )
       ? {
           ...projectRow,
           sessionRows: projectRow.sessionRows.map((sessionRow) =>
-            sessionRow.nodeId === changedSessionRow.nodeId ? changedSessionRow : sessionRow
+            sessionRow.sessionListItem.sessionId === changedSessionRow.sessionListItem.sessionId
+              ? changedSessionRow
+              : sessionRow
           )
         }
       : projectRow
@@ -34,6 +38,11 @@ const hostMessageReducers: {
     hostMessage: HostMessagesByTag[Tag]
   ) => SessionsData;
 } = {
+  [SESSIONS_VIEW_MESSAGE_TAGS.AGENTS_DRAWN]: (sessionsData, agentsDrawn) => ({
+    ...sessionsData,
+    agentRows: agentsDrawn.agentRows,
+    skipAgentPicker: agentsDrawn.skipAgentPicker
+  }),
   [SESSIONS_VIEW_MESSAGE_TAGS.APPEARANCE_DRAWN]: (sessionsData, appearanceDrawn) => ({
     ...sessionsData,
     appearance: {accentColor: appearanceDrawn.accentColor, fontSize: appearanceDrawn.fontSize}
@@ -50,10 +59,6 @@ const hostMessageReducers: {
     ...sessionsData,
     isDrawn: true,
     projectRows: projectsDrawn.projectRows
-  }),
-  [SESSIONS_VIEW_MESSAGE_TAGS.PROMPT_SHOWN]: (sessionsData, promptShown) => ({
-    ...sessionsData,
-    prompt: promptShown.prompt
   }),
   [SESSIONS_VIEW_MESSAGE_TAGS.SESSION_DRAWN]: (sessionsData, sessionDrawn) => ({
     ...sessionsData,
@@ -89,4 +94,4 @@ export const foldKey = <Key extends string>(foldedKeys: ReadonlySet<Key>, key: K
 };
 
 // A project shows in both lists, and folds in each on its own.
-export const makeProjectKey = (listId: SessionListId, projectNodeId: string) => `${listId}:${projectNodeId}`;
+export const makeProjectKey = (listId: SessionListId, projectPath: string) => `${listId}:${projectPath}`;

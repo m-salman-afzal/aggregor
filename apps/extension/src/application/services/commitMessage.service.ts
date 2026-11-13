@@ -2,12 +2,7 @@ import {ICommitCliInfraService} from "@interfaces/commitCli.infraService.interfa
 import {IGitInfraService} from "@interfaces/git.infraService.interface.ts";
 import {IProgressInfraService} from "@interfaces/progress.infraService.interface.ts";
 import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
-import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
-import {
-  COMMIT_MESSAGE_CONTEXT_KEYS,
-  COMMIT_MESSAGE_LABELS,
-  COMMIT_MESSAGE_NOTICES
-} from "@pkg/constants/src/commitMessage.constant.ts";
+import {COMMIT_MESSAGE_CONTEXT_KEYS, COMMIT_MESSAGE_LABELS} from "@pkg/constants/src/commitMessage.constant.ts";
 import {Effect, Result, Schema} from "effect";
 
 import type {GenerateCommitMessageRequestDto} from "@dtos/commitMessage.dto.ts";
@@ -44,29 +39,6 @@ const writeCommitMessageShowingProgress = Effect.fn("CommitMessageService.writeC
   }
 );
 
-// True when the user picked Stage All and everything is now staged.
-const offerToStageAllChanges = Effect.fn("CommitMessageService.offerToStageAllChanges")(function* (
-  projectPath: ProjectPathValueObject
-) {
-  const pickedAction = yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
-    userInputPromptInfraService.showErrorMessage(COMMIT_MESSAGE_NOTICES.NOTHING_STAGED, COMMIT_MESSAGE_LABELS.STAGE_ALL)
-  );
-  if (pickedAction !== COMMIT_MESSAGE_LABELS.STAGE_ALL) return false;
-
-  yield* IGitInfraService.use((gitInfraService) => gitInfraService.stageAll(projectPath));
-
-  return true;
-});
-
-// The offer waits on the user after the first progress ends.
-const stageAllAndWriteCommitMessage = Effect.fn("CommitMessageService.stageAllAndWriteCommitMessage")(function* (
-  projectPath: ProjectPathValueObject
-) {
-  if (!(yield* offerToStageAllChanges(projectPath))) return;
-
-  yield* writeCommitMessageShowingProgress(projectPath);
-});
-
 export const generateCommitMessage = Effect.fn("CommitMessageService.generateCommitMessage")(function* (
   request: GenerateCommitMessageRequestDto
 ) {
@@ -74,7 +46,5 @@ export const generateCommitMessage = Effect.fn("CommitMessageService.generateCom
     Result.fromNullishOr(request.projectPath, () => SourceControlRootNotFoundError.make())
   );
 
-  yield* Effect.catchTag(writeCommitMessageShowingProgress(projectPath), "NothingStagedError", () =>
-    stageAllAndWriteCommitMessage(projectPath)
-  );
+  yield* writeCommitMessageShowingProgress(projectPath);
 });

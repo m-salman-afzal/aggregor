@@ -21,8 +21,8 @@ export const ProjectGroup = (props: ProjectGroupProps) => {
     <Collapsible onOpenChange={projectGroupView.setOpen} open={projectGroupView.isOpen}>
       <RowActions
         actionGroups={projectGroupView.actionGroups}
-        inlineActions={projectGroupView.inlineActions}
-        nodeId={props.projectRow.nodeId}>
+        commandArgument={projectGroupView.commandArgument}
+        inlineActions={projectGroupView.inlineActions}>
         <CollapsibleTrigger
           className="group flex min-w-0 flex-1 items-center gap-1.5 rounded-lg py-1.5 pr-2 pl-2 text-left font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
           title={props.projectRow.projectListItem.path}>
@@ -37,7 +37,7 @@ export const ProjectGroup = (props: ProjectGroupProps) => {
       <CollapsibleContent className={PROJECT_PANEL}>
         <ul className="mt-0.5 flex flex-col gap-0.5 empty:hidden">
           {props.projectRow.sessionRows.map((sessionRow) => (
-            <SessionRow key={sessionRow.nodeId} sessionRow={sessionRow} />
+            <SessionRow key={sessionRow.sessionListItem.sessionId} sessionRow={sessionRow} />
           ))}
         </ul>
       </CollapsibleContent>

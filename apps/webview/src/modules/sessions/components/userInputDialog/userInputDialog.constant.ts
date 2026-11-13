@@ -1,6 +1,6 @@
 import {CircleHelpIcon, ListIcon, PencilLineIcon, TriangleAlertIcon} from "lucide-react";
 
-export const PROMPT_ICONS = {
+export const USER_INPUT_ICONS = {
   CHOICE: ListIcon,
   DESTRUCTIVE_QUESTION: TriangleAlertIcon,
   QUESTION: CircleHelpIcon,

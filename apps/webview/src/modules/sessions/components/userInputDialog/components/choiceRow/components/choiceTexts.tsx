@@ -1,10 +1,10 @@
-import type {WebviewPromptChoice} from "@views/sessions/sessions.view.type.ts";
+import type {UserInputChoice} from "@/modules/sessions/sessions.type.ts";
 
-interface PromptChoiceTextsProps {
-  readonly choice: WebviewPromptChoice;
+interface ChoiceTextsProps {
+  readonly choice: UserInputChoice;
 }
 
-export const PromptChoiceTexts = (props: PromptChoiceTextsProps) => (
+export const ChoiceTexts = (props: ChoiceTextsProps) => (
   <span className="flex min-w-0 flex-col gap-0.5">
     <span className="flex min-w-0 items-center gap-2">
       <span className="truncate font-medium text-foreground-strong">{props.choice.label}</span>
@@ -16,9 +16,6 @@ export const PromptChoiceTexts = (props: PromptChoiceTextsProps) => (
     </span>
     {props.choice.description !== undefined && (
       <span className="truncate text-xs text-muted-foreground">{props.choice.description}</span>
-    )}
-    {props.choice.detail !== undefined && (
-      <span className="text-xs text-pretty text-muted-foreground">{props.choice.detail}</span>
     )}
   </span>
 );

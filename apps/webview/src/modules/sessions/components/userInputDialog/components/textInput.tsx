@@ -5,18 +5,18 @@ import {Input} from "@pkg/ui/src/components/base/input.tsx";
 
 import type {SubmitEvent} from "react";
 
-interface TextPromptProps {
+interface TextInputProps {
   readonly onCancel: () => void;
   readonly onEnterText: (formEvent: SubmitEvent<HTMLFormElement>) => void;
   readonly value: string;
 }
 
 // The input comes first, so it takes the focus, with its text selected so typing replaces it.
-export const TextPrompt = (props: TextPromptProps) => (
+export const TextInput = (props: TextInputProps) => (
   <form className="flex flex-col gap-4" onSubmit={props.onEnterText}>
     <Input
       defaultValue={props.value}
-      name={SESSIONS_LABELS.PROMPT_TEXT_FIELD}
+      name={SESSIONS_LABELS.USER_INPUT_TEXT_FIELD}
       onFocus={(focusEvent) => {
         focusEvent.currentTarget.select();
       }}

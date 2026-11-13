@@ -3,13 +3,13 @@ import {cn} from "cn";
 
 import type {LucideIcon} from "lucide-react";
 
-interface PromptHeaderProps {
+interface UserInputHeaderProps {
   readonly Icon: LucideIcon | undefined;
   readonly isDestructive: boolean;
   readonly title: string | undefined;
 }
 
-export const PromptHeader = (props: PromptHeaderProps) => (
+export const UserInputHeader = (props: UserInputHeaderProps) => (
   <div className="flex items-start gap-3">
     {props.Icon !== undefined && (
       <span

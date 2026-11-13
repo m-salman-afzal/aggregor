@@ -115,12 +115,12 @@ What lint checks, where its setup lives, and how its messages read.
 
 ## A `_tag` is a constant, never a string written in place
 
-- **Problem:** the Sessions view's messages, the agent picker's result and the tree's node ids wrote their tags as
-  strings at the sender, in the type and in each match, so a rename had to find every copy.
+- **Problem:** the Sessions view's messages and the agent picker's result wrote their tags as strings at the sender, in
+  the type and in each match, so a rename had to find every copy.
 - **Decision:** every tag written by hand is a value in its feature's constants, as a labelled object
-  (`SESSIONS_VIEW_MESSAGE_TAGS`, `SESSIONS_WEBVIEW_MESSAGE_TAGS`, `SESSIONS_VIEW_NODE_TAGS`, `AGENT_PICK_TAGS`); the
-  sender writes the constant, the type `typeof` it, and a `Match.valueTags` key `[CONSTANT]`. One name per tag, shared
-  by the extension and the webview.
+  (`SESSIONS_VIEW_MESSAGE_TAGS`, `SESSIONS_WEBVIEW_MESSAGE_TAGS`, `AGENT_PICK_TAGS`); the sender writes the constant,
+  the type `typeof` it, and a `Match.valueTags` key `[CONSTANT]`. One name per tag, shared by the extension and the
+  webview.
 - **Solution:** `TAG_LITERAL_BAN` in `packages/eslint/src/layers/syntaxBans.ts` reports a string literal as a `_tag`'s
   value or type, everywhere. Tags that `Schema.TaggedError` and `Schema.TaggedUnion` define stay their schemas', and
   matches on them keep the tag names as keys.

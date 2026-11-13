@@ -1,10 +1,14 @@
-import {ACCENT_SOURCES, APPEARANCE_PROPERTIES, SESSION_LISTS} from "@/modules/sessions/sessions.constant.ts";
+import {APPEARANCE, SESSION_LISTS} from "@/modules/sessions/sessions.constant.ts";
 import {SESSIONS_WEBVIEW_MESSAGE_TAGS} from "@pkg/constants/src/sessionsView.constant.ts";
 
-import type {PromptAnswer, SessionListId} from "@/modules/sessions/sessions.type.ts";
-import type {SessionsViewMessage, SessionsWebviewMessage} from "@views/sessions/sessions.view.type.ts";
+import type {SessionListId} from "@/modules/sessions/sessions.type.ts";
+import type {
+  RowCommandArgument,
+  SessionsViewMessage,
+  SessionsWebviewMessage
+} from "@views/sessions/sessions.view.type.ts";
 
-// A folded project is keyed by its list and its node id, since a project shows in both lists.
+// A folded project is keyed by its list and its path, since a project shows in both lists.
 interface WebviewState {
   readonly collapsedListIds: readonly SessionListId[];
   readonly collapsedProjectKeys: readonly string[];
@@ -22,23 +26,15 @@ export const askHostToDraw = () => {
   postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.READY});
 };
 
-export const answerPromptOnHost = (promptAnswer: PromptAnswer) => {
-  postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.PROMPT_ANSWERED, answer: promptAnswer});
-};
+// The page's content security policy lets an inline style in only with this nonce.
+export const readStyleNonce = () =>
+  document.querySelector<HTMLMetaElement>(APPEARANCE.STYLE_NONCE_META_SELECTOR)?.nonce;
 
-export const applyAppearance = (fontSize: number, accentColor: string) => {
-  const accentSource = ACCENT_SOURCES[accentColor] ?? {accent: accentColor, shade: "var(--brand)"};
-  const rootStyle = document.documentElement.style;
-  rootStyle.setProperty(APPEARANCE_PROPERTIES.FONT_SIZE, `${fontSize}px`);
-  rootStyle.setProperty(APPEARANCE_PROPERTIES.ACCENT, accentSource.accent);
-  rootStyle.setProperty(APPEARANCE_PROPERTIES.SHADE, accentSource.shade);
-};
-
-export const runCommandOnHost = (commandId: string, nodeId?: string) => {
+export const runCommandOnHost = (commandId: string, commandArgument?: RowCommandArgument) => {
   postToHost(
-    nodeId === undefined
+    commandArgument === undefined
       ? {_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND, commandId}
-      : {_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND, commandId, nodeId}
+      : {_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND, commandArgument, commandId}
   );
 };
 

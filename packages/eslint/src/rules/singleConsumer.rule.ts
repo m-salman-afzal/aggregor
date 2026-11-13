@@ -13,13 +13,7 @@ import {basename, dirname, join, relative, sep} from "node:path";
 
 import type {Rule} from "eslint";
 
-// aggregor/single-consumer: code starts as deep in the tree as it can and moves up only on a second consumer (the
-// folder-structure skill's promotion ladder). It flags a file nothing imports, a .type.ts only one file imports, a core
-// file only one feature module imports, and a file whose importers all sit in one unit below its level.
-//
-// shortcut: it reads every file's imports from the app's src, and ESLint's cache doesn't know a file's report depends on
-// other files, so a cached run can miss a change elsewhere; CI's uncached run catches it. Move to a project-wide check if
-// that ever bites.
+// shortcut: ESLint's cache doesn't know a report depends on other files' imports, so a cached run can miss a move; CI runs uncached.
 
 type ConsumerReport = Readonly<{data: Record<string, string>; messageId: string}>;
 

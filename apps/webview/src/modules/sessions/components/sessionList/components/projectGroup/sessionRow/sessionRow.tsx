@@ -17,8 +17,8 @@ export const SessionRow = (props: SessionRowProps) => {
       <RowActions
         actionGroups={sessionRowView.actionGroups}
         className={sessionRowView.rowClassName}
-        inlineActions={sessionRowView.inlineActions}
-        nodeId={props.sessionRow.nodeId}>
+        commandArgument={sessionRowView.commandArgument}
+        inlineActions={sessionRowView.inlineActions}>
         <button
           aria-current={sessionRowView.isViewed}
           className="flex min-w-0 flex-1 flex-col gap-1 rounded-lg py-1.5 pr-2 pl-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"

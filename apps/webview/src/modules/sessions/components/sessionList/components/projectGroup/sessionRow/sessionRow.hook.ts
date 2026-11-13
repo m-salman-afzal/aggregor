@@ -25,11 +25,12 @@ export const useSessionRow = (props: UseSessionRowProps) => {
   return {
     actionGroups: listSessionActionGroups(sessionListItem),
     agentLabel: sessionListItem.agentName ?? SESSIONS_LABELS.MISSING_AGENT,
+    commandArgument: {sessionId: sessionListItem.sessionId},
     detail: makeSessionDetail(sessionListItem),
     inlineActions: listSessionInlineActions(sessionListItem),
     isViewed,
     openSession: () => {
-      runCommandOnHost(SESSION_COMMANDS.OPEN, props.sessionRow.nodeId);
+      runCommandOnHost(SESSION_COMMANDS.OPEN, {sessionId: sessionListItem.sessionId});
     },
     rowClassName: isViewed ? VIEWED_ROW : undefined,
     title: sessionListItem.displayName,

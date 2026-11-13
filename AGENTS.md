@@ -39,6 +39,10 @@ that no scope covers, add its scope in that PR, to `pr-title.yaml` and with what
   reference. Name a thing by what it is to the user, not by the gesture that reached it (`chosenProject`, not
   `clickedProject`), and give each word one meaning: a "prompt" is an LLM's, so asking the user is a user-input prompt
   (`IUserInputPromptInfraService`).
+- **Comments only for what the code hides.** Write a comment only for a hidden side effect or a behaviour a reader can't
+  see in the code: a platform limit, a workaround, a constraint from outside the file. Never one that says what a file,
+  type, function or line is or does; the names say that. One line, about the code as it is now, updated or deleted with
+  its code; lint (`aggregor/one-line-comment`) fails a longer one.
 - **No object destructuring.** Name the object and read each value as `object.key` where it is used
   (`sessionListItem.status`, `props.sessionRow`), so a reader deep in a long function sees where each value comes from.
   Array destructuring (`const [value, setValue] = useState()`) and named imports stay. Lint bans `ObjectPattern`
@@ -97,8 +101,6 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
 - **Small functions.** Give each function one job, so each shows up as its own span; lint caps a function at 30 lines.
   Functions sit at module level and take the state they share (refs, VS Code handles) as parameters. A layer's `make`
   function only creates that state, starts its watchers and wires up the service.
-- **Comments are rare.** Names say what code does, so a comment appears only where the code can't say why at a glance: a
-  platform limit, a workaround, a constraint that isn't visible. One true line; update or delete it with its code.
 
 ## Traces
 

@@ -2,17 +2,16 @@ import {APP_LABELS} from "@pkg/constants/src/app.constant.ts";
 import {Button} from "@pkg/ui/src/components/base/button.tsx";
 import {DialogDescription} from "@pkg/ui/src/components/base/dialog.tsx";
 
-import type {PROMPT_TAGS} from "@pkg/constants/src/sessionsView.constant.ts";
-import type {WebviewPrompt} from "@views/sessions/sessions.view.type.ts";
+import type {UserInputAnswer} from "@/modules/sessions/sessions.type.ts";
 
-interface QuestionPromptProps {
-  readonly answers: Extract<WebviewPrompt, {readonly _tag: typeof PROMPT_TAGS.QUESTION}>["answers"];
+interface QuestionInputProps {
+  readonly answers: readonly UserInputAnswer[];
   readonly onCancel: () => void;
   readonly onChoose: (answerId: string, isSecondaryAction: boolean) => void;
 }
 
 // Cancel comes first, so it takes the focus.
-export const QuestionPrompt = (props: QuestionPromptProps) => (
+export const QuestionInput = (props: QuestionInputProps) => (
   <>
     <DialogDescription className="flex flex-col gap-1 text-pretty text-foreground/80">
       {props.answers.map((answer) => (

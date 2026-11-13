@@ -1,16 +1,13 @@
 import {
   MoveProjectDownRequestDtoSchema,
-  MoveProjectToPlaceOfRequestDtoSchema,
   MoveProjectUpRequestDtoSchema,
+  NewProjectTerminalRequestDtoSchema,
   RemoveProjectRequestDtoSchema
 } from "@dtos/project.dto.ts";
 import {decodeVsCodeArgument} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
-import {decodeProjectNodeRequest} from "@presentationUtils/sessionsTreeNode.utils.ts";
 import {
   addProject,
-  listProjects,
   moveProjectDown,
-  moveProjectToPlaceOf,
   moveProjectUp,
   newProjectTerminal,
   removeProject
@@ -22,42 +19,29 @@ export const addProjectsAskingForFolders = Effect.fn("ProjectController.addProje
 });
 
 export const removeChosenProject = Effect.fn("ProjectController.removeChosenProject")(function* (
-  projectNodeId: unknown
+  chosenProject: unknown
 ) {
-  const request = yield* decodeProjectNodeRequest(RemoveProjectRequestDtoSchema, projectNodeId);
+  const request = yield* decodeVsCodeArgument(RemoveProjectRequestDtoSchema, chosenProject);
   yield* removeProject(request);
 });
 
 export const moveChosenProjectUp = Effect.fn("ProjectController.moveChosenProjectUp")(function* (
-  projectNodeId: unknown
+  chosenProject: unknown
 ) {
-  const request = yield* decodeProjectNodeRequest(MoveProjectUpRequestDtoSchema, projectNodeId);
+  const request = yield* decodeVsCodeArgument(MoveProjectUpRequestDtoSchema, chosenProject);
   yield* moveProjectUp(request);
 });
 
 export const moveChosenProjectDown = Effect.fn("ProjectController.moveChosenProjectDown")(function* (
-  projectNodeId: unknown
+  chosenProject: unknown
 ) {
-  const request = yield* decodeProjectNodeRequest(MoveProjectDownRequestDtoSchema, projectNodeId);
+  const request = yield* decodeVsCodeArgument(MoveProjectDownRequestDtoSchema, chosenProject);
   yield* moveProjectDown(request);
 });
 
-export const moveProjectToPlaceOfForSessionsView = Effect.fn("ProjectController.moveProjectToPlaceOfForSessionsView")(
-  function* (projectPath: string, placeOfProjectPath: string) {
-    const request = yield* decodeVsCodeArgument(MoveProjectToPlaceOfRequestDtoSchema, {
-      placeOfProjectPath,
-      projectPath
-    });
-    yield* moveProjectToPlaceOf(request);
-  }
-);
-
-export const newProjectTerminalAskingForProject = Effect.fn("ProjectController.newProjectTerminalAskingForProject")(
-  function* () {
-    yield* newProjectTerminal();
-  }
-);
-
-export const listProjectsForSessionsView = Effect.fn("ProjectController.listProjectsForSessionsView")(function* () {
-  return yield* listProjects();
+export const newTerminalInChosenProject = Effect.fn("ProjectController.newTerminalInChosenProject")(function* (
+  chosenProject: unknown
+) {
+  const request = yield* decodeVsCodeArgument(NewProjectTerminalRequestDtoSchema, chosenProject);
+  yield* newProjectTerminal(request);
 });

@@ -1,4 +1,3 @@
-import {makeStopAgentsQuestion} from "@applicationUtils/sessionQuestion.utils.ts";
 import {
   getDefaultSessionName,
   getSessionStatus,
@@ -12,19 +11,14 @@ import {
   canMoveUpInOrder,
   findEntityIdsToPlaceAtEnd
 } from "@domainServices/sortOrder.domainService.ts";
-import {AgentListItemDtoSchema} from "@dtos/agent.dto.ts";
-import {SessionListChangeDtoSchema, SessionListItemDtoSchema} from "@dtos/session.dto.ts";
-import {AgentNotFoundError, IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
+import {ProjectSessionsDtoSchema, SessionListChangeDtoSchema, SessionListItemDtoSchema} from "@dtos/session.dto.ts";
+import {IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
-import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
-import {IShellCommandInfraService} from "@interfaces/shellCommand.infraService.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
-import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import {AGENT_LABELS, AGENT_PICK_TAGS} from "@pkg/constants/src/agent.constant.ts";
-import {SESSION_LABELS, SESSION_NOTICES} from "@pkg/constants/src/session.constant.ts";
+import {findAgentToStart} from "@services/agent.service.ts";
 import {
   addEntity,
   findEntities,
@@ -33,12 +27,12 @@ import {
   removeEntity,
   updateEntity
 } from "@services/base.service.ts";
-import {findOrAddProject, findProjectListItem, listProjects, pickProject} from "@services/project.service.ts";
+import {findOrAddProject, findProjectListItem, listProjects} from "@services/project.service.ts";
 import {ENTITY_CHANGE_KINDS} from "@valueObjects/entityChangeKind.valueObject.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {SESSION_LIFECYCLES} from "@valueObjects/sessionLifecycle.valueObject.ts";
 import {SESSION_STATUSES} from "@valueObjects/sessionStatus.valueObject.ts";
-import {Array, DateTime, Effect, Match, Predicate, Result, Schema, Stream, String, SubscriptionRef} from "effect";
+import {Array, DateTime, Effect, Predicate, Result, Schema, Stream, String, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
@@ -46,10 +40,8 @@ import type {
   ArchiveProjectSessionsRequestDto,
   ArchiveSessionRequestDto,
   GetSessionListItemRequestDto,
-  ListArchivedProjectSessionIdsRequestDto,
-  ListProjectSessionIdsRequestDto,
+  ListProjectSessionsRequestDto,
   MoveSessionDownRequestDto,
-  MoveSessionToPlaceOfRequestDto,
   MoveSessionUpRequestDto,
   NewSessionRequestDto,
   OpenSessionRequestDto,
@@ -64,15 +56,9 @@ import type {
 import type {AgentEntity} from "@entities/agent/agent.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
-import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {SessionLifecycleValueObject} from "@valueObjects/sessionLifecycle.valueObject.ts";
-
-export class NoAgentInstalledError extends Schema.TaggedError<NoAgentInstalledError, {readonly brand: unique symbol}>()(
-  "NoAgentInstalledError",
-  {searchedCommands: Schema.Array(Schema.String)}
-) {}
 
 export class SessionNotFoundError extends Schema.TaggedError<SessionNotFoundError, {readonly brand: unique symbol}>()(
   "SessionNotFoundError",
@@ -137,119 +123,10 @@ const launchNewSession = Effect.fn("SessionService.launchNewSession")(
     )
 );
 
-const listInstalledAgents = Effect.fn("SessionService.listInstalledAgents")(function* () {
-  const agents = yield* IAgentRepository.use((agentRepository) => agentRepository.findAll);
-  const agentCommands = Array.map(agents, (agent) => agent.command);
-  const installedCommands = yield* IShellCommandInfraService.use((shellCommandInfraService) =>
-    shellCommandInfraService.listInstalledCommands(agentCommands)
-  );
-  const installedAgents = Array.filter(agents, (agent) => installedCommands.has(agent.command));
-  if (installedAgents.length === 0) return yield* NoAgentInstalledError.make({searchedCommands: agentCommands});
-
-  return installedAgents;
-});
-
-const toAgentListItems = Effect.fn("SessionService.toAgentListItems")(function* (
-  installedAgents: readonly AgentEntity[],
-  defaultAgentId: AgentIdValueObject
-) {
-  const agentListItems = Array.map(installedAgents, (installedAgent) =>
-    AgentListItemDtoSchema.make({
-      agentId: installedAgent.id,
-      command: installedAgent.command,
-      icon: installedAgent.icon,
-      isDefault: installedAgent.id === defaultAgentId,
-      name: installedAgent.name
-    })
-  );
-
-  return [
-    ...Array.filter(agentListItems, (agentListItem) => agentListItem.isDefault),
-    ...Array.filter(agentListItems, (agentListItem) => !agentListItem.isDefault)
-  ];
-});
-
-const findInstalledAgent = Effect.fn("SessionService.findInstalledAgent")(function* (
-  installedAgents: readonly AgentEntity[],
-  agentId: AgentIdValueObject
-) {
-  return yield* Effect.fromResult(
-    Result.fromOption(
-      Array.findFirst(installedAgents, (installedAgent) => installedAgent.id === agentId),
-      () => AgentNotFoundError.make({agentId})
-    )
-  );
-});
-
-// Choosing another default saves it to the user's settings and shows the list again, reordered.
-const pickAgent = Effect.fn("SessionService.pickAgent")(function* (
-  installedAgents: readonly AgentEntity[],
-  savedDefaultAgentId: AgentIdValueObject
-) {
-  let defaultAgentId = savedDefaultAgentId;
-  for (;;) {
-    const agentListItems = yield* toAgentListItems(installedAgents, defaultAgentId);
-    const agentPick = yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
-      userInputPromptInfraService.pickAgent(agentListItems, AGENT_LABELS.PICK)
-    );
-    const pickedAgent = yield* Match.valueTags(agentPick, {
-      [AGENT_PICK_TAGS.AGENT_PICKED]: (agentPicked) => findInstalledAgent(installedAgents, agentPicked.agentId),
-      [AGENT_PICK_TAGS.DEFAULT_AGENT_CHOSEN]: (defaultAgentChosen) =>
-        Effect.as(
-          ISettingsConfig.use((settingsConfig) => settingsConfig.saveDefaultAgentId(defaultAgentChosen.agentId)),
-          undefined
-        )
-    });
-    if (pickedAgent !== undefined) return pickedAgent;
-    defaultAgentId = agentPick.agentId;
-  }
-});
-
-const chooseAgent = Effect.fn("SessionService.chooseAgent")(function* () {
-  const sessionSettings = yield* ISettingsConfig.use((settingsConfig) => settingsConfig.readSessionSettings);
-  const installedAgents = yield* listInstalledAgents();
-  const [onlyInstalledAgent] = installedAgents;
-  if (installedAgents.length === 1 && onlyInstalledAgent !== undefined) return onlyInstalledAgent;
-  const defaultAgentResult = yield* Effect.result(findInstalledAgent(installedAgents, sessionSettings.defaultAgentId));
-  if (sessionSettings.skipAgentPicker && Result.isSuccess(defaultAgentResult)) return defaultAgentResult.success;
-
-  return yield* pickAgent(installedAgents, sessionSettings.defaultAgentId);
-});
-
-const startSession = Effect.fn("SessionService.startSession")(function* (
-  chosenProjectPath: ProjectPathValueObject | undefined
-) {
-  const sessionProject =
-    chosenProjectPath === undefined
-      ? yield* pickProject(SESSION_LABELS.PICK_PROJECT)
-      : yield* findProjectListItem(chosenProjectPath);
-  const sessionAgent = yield* chooseAgent();
-
-  const addedSession = yield* addSession(sessionProject, sessionAgent);
-  yield* launchNewSession(addedSession);
-});
-
 const reopenSession = Effect.fn("SessionService.reopenSession")(function* (sessionId: EntityIdValueObject) {
   const session = yield* findSession(sessionId);
 
   yield* openSessionTab(session);
-});
-
-const confirmRunningSessionRemoval = Effect.fn("SessionService.confirmRunningSessionRemoval")(function* (
-  session: SessionEntity
-) {
-  yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
-    userInputPromptInfraService.askQuestion({
-      answers: [
-        {
-          consequence: SESSION_NOTICES.REMOVE_STOPPING_AGENT,
-          isDestructive: true,
-          label: SESSION_LABELS.CONFIRM_REMOVE
-        }
-      ],
-      question: SESSION_NOTICES.CONFIRM_REMOVE_RUNNING(session.displayName)
-    })
-  );
 });
 
 // A tab that closed meanwhile has nothing left to close.
@@ -272,46 +149,17 @@ const stopAgentAndCloseTab = Effect.fn("SessionService.stopAgentAndCloseTab")(fu
 const removeSessionAndStopAgent = Effect.fn("SessionService.removeSessionAndStopAgent")(function* (
   session: SessionEntity
 ) {
-  const runningSessionIds = yield* ITmuxInfraService.use(
-    (tmuxInfraService) => tmuxInfraService.refreshRunningSessionIds
-  );
-  if (runningSessionIds.has(session.id)) yield* confirmRunningSessionRemoval(session);
-
   yield* removeEntity(ISessionRepository, session.id);
   yield* stopAgentAndCloseTab(session.id);
 });
 
-const findRunningAgentSessions = Effect.fn("SessionService.findRunningAgentSessions")(function* (
-  sessions: readonly SessionEntity[]
-) {
+const stopRunningAgents = Effect.fn("SessionService.stopRunningAgents")(function* (sessions: readonly SessionEntity[]) {
   const runningSessionIds = yield* ITmuxInfraService.use(
     (tmuxInfraService) => tmuxInfraService.refreshRunningSessionIds
   );
   const runningAgentSessions = Array.filter(sessions, (session) => runningSessionIds.has(session.id));
-  const turnRunningSessions = yield* Effect.filter(runningAgentSessions, (runningAgentSession) =>
-    Effect.flatMap(getSessionStatus(runningAgentSession, {isAgentRunning: true, isInView: false}), isSessionTurnRunning)
-  );
 
-  return {runningAgentSessions, turnRunningSessions};
-});
-
-const stopRunningAgentsAsking = Effect.fn("SessionService.stopRunningAgentsAsking")(function* (
-  sessions: readonly SessionEntity[]
-) {
-  const runningAgents = yield* findRunningAgentSessions(sessions);
-  if (!Array.isReadonlyArrayNonEmpty(runningAgents.runningAgentSessions)) return;
-  if (runningAgents.turnRunningSessions.length > 0) {
-    const stopAgentsQuestion = yield* makeStopAgentsQuestion(
-      Array.map(runningAgents.runningAgentSessions, (runningAgentSession) => runningAgentSession.displayName),
-      runningAgents.turnRunningSessions.length
-    );
-    yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
-      userInputPromptInfraService.askQuestion(stopAgentsQuestion)
-    );
-  }
-  yield* Effect.forEach(runningAgents.runningAgentSessions, (runningAgentSession) =>
-    stopAgentAndCloseTab(runningAgentSession.id)
-  );
+  yield* Effect.forEach(runningAgentSessions, (runningAgentSession) => stopAgentAndCloseTab(runningAgentSession.id));
 });
 
 // Placing them at the end makes the change feed read them as placed, which redraws their projects in both views.
@@ -332,15 +180,16 @@ const archiveSessionsKeepingAgents = Effect.fn("SessionService.archiveSessionsKe
   yield* Effect.forEach(sessionIds, (sessionId) => closeSessionTab(sessionId));
 });
 
+// A project no longer listed starts nothing.
 export const newSession = Effect.fn("SessionService.newSession")(
   function* (request: NewSessionRequestDto) {
-    yield* startSession(request.projectPath);
+    const sessionProject = yield* findProjectListItem(request.projectPath);
+    const sessionAgent = yield* findAgentToStart(request.agentId);
+    const addedSession = yield* addSession(sessionProject, sessionAgent);
+
+    yield* launchNewSession(addedSession);
   },
-  Effect.catchTags({
-    AgentPickCancelledError: () => Effect.void,
-    ProjectNotListedError: () => Effect.void,
-    ProjectPickCancelledError: () => Effect.void
-  })
+  Effect.catchTag("ProjectNotListedError", () => Effect.void)
 );
 
 export const openSession = Effect.fn("SessionService.openSession")(
@@ -358,7 +207,7 @@ export const removeSession = Effect.fn("SessionService.removeSession")(
     const session = yield* findSession(request.sessionId);
     yield* removeSessionAndStopAgent(session);
   },
-  Effect.catchTags({QuestionCancelledError: () => Effect.void, SessionNotFoundError: () => Effect.void})
+  Effect.catchTag("SessionNotFoundError", () => Effect.void)
 );
 
 export const archiveSession = Effect.fn("SessionService.archiveSession")(
@@ -381,23 +230,15 @@ export const unarchiveSession = Effect.fn("SessionService.unarchiveSession")(
   Effect.catchTags({EntityNotFoundError: () => Effect.void, SessionNotFoundError: () => Effect.void})
 );
 
-// An empty name hands the row and the tab back to the agent's title.
 export const renameSession = Effect.fn("SessionService.renameSession")(
   function* (request: RenameSessionRequestDto) {
-    const session = yield* findSession(request.sessionId);
-    const enteredName = yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
-      userInputPromptInfraService.askForText(SESSION_LABELS.RENAME, session.displayName)
-    );
-    const trimmedName = String.trim(enteredName);
-    const customName = trimmedName === "" ? undefined : trimmedName;
+    const trimmedName = String.trim(request.customName);
 
-    yield* updateEntity(ISessionRepository, session.id, {customName});
+    yield* updateEntity(ISessionRepository, request.sessionId, {
+      customName: trimmedName === "" ? undefined : trimmedName
+    });
   },
-  Effect.catchTags({
-    EntityNotFoundError: () => Effect.void,
-    InputCancelledError: () => Effect.void,
-    SessionNotFoundError: () => Effect.void
-  })
+  Effect.catchTag("EntityNotFoundError", () => Effect.void)
 );
 
 const findSessionPlaceInProject = Effect.fn("SessionService.findSessionPlaceInProject")(function* (
@@ -433,21 +274,6 @@ export const moveSessionDown = Effect.fn("SessionService.moveSessionDown")(
       sessionPlace.projectSessionIds,
       sessionPlace.sessionIndex,
       sessionPlace.sessionIndex + 1
-    );
-    yield* placeEntitiesAtEnd(ISessionRepository, sessionIdsToPlaceAtEnd);
-  },
-  Effect.catchTag("SessionNotFoundError", () => Effect.void)
-);
-
-// A session moves only among its project's sessions, so the place of another project's session moves nothing.
-export const moveSessionToPlaceOf = Effect.fn("SessionService.moveSessionToPlaceOf")(
-  function* (request: MoveSessionToPlaceOfRequestDto) {
-    const sessionPlace = yield* findSessionPlaceInProject(request.sessionId);
-    const placeIndex = sessionPlace.projectSessionIds.indexOf(request.placeOfSessionId);
-    const sessionIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(
-      sessionPlace.projectSessionIds,
-      sessionPlace.sessionIndex,
-      placeIndex
     );
     yield* placeEntitiesAtEnd(ISessionRepository, sessionIdsToPlaceAtEnd);
   },
@@ -529,15 +355,6 @@ const findProjectSessions = Effect.fn("SessionService.findProjectSessions")(func
   return yield* findEntities(ISessionRepository, {lifecycle, projectId: storedProject.id});
 });
 
-const findProjectSessionIds = Effect.fn("SessionService.findProjectSessionIds")(function* (
-  projectPath: ProjectPathValueObject,
-  lifecycle: SessionLifecycleValueObject
-) {
-  const projectSessions = yield* findProjectSessions(projectPath, lifecycle);
-
-  return Array.map(projectSessions, (projectSession) => projectSession.id);
-});
-
 const findListedSessions = Effect.fn("SessionService.findListedSessions")(function* (
   lifecycle: SessionLifecycleValueObject
 ) {
@@ -548,28 +365,55 @@ const findListedSessions = Effect.fn("SessionService.findListedSessions")(functi
   return Array.filter(sessions, (session) => listedProjectPaths.has(session.projectPath));
 });
 
-export const listProjectSessionIds = Effect.fn("SessionService.listProjectSessionIds")(function* (
-  request: ListProjectSessionIdsRequestDto
+export const listProjectSessions = Effect.fn("SessionService.listProjectSessions")(function* (
+  request: ListProjectSessionsRequestDto
 ) {
-  return yield* findProjectSessionIds(request.projectPath, SESSION_LIFECYCLES.ONGOING);
+  const projectSessions = yield* findProjectSessions(request.projectPath, SESSION_LIFECYCLES.ONGOING);
+
+  return yield* Effect.forEach(projectSessions, (projectSession) => toSessionListItem(projectSession, projectSessions));
 });
 
-export const listArchivedProjectSessionIds = Effect.fn("SessionService.listArchivedProjectSessionIds")(function* (
-  request: ListArchivedProjectSessionIdsRequestDto
+const toProjectSessions = Effect.fn("SessionService.toProjectSessions")(function* (
+  projectListItem: ProjectListItemDto,
+  lifecycleSessions: readonly SessionEntity[]
 ) {
-  return yield* findProjectSessionIds(request.projectPath, SESSION_LIFECYCLES.ARCHIVED);
+  const projectSessions = Array.filter(
+    lifecycleSessions,
+    (lifecycleSession) => lifecycleSession.projectPath === projectListItem.path
+  );
+
+  return ProjectSessionsDtoSchema.make({
+    projectListItem,
+    sessionListItems: yield* Effect.forEach(projectSessions, (projectSession) =>
+      toSessionListItem(projectSession, projectSessions)
+    )
+  });
+});
+
+const listProjectsWithLifecycleSessions = Effect.fn("SessionService.listProjectsWithLifecycleSessions")(function* (
+  lifecycle: SessionLifecycleValueObject
+) {
+  const projectListItems = yield* listProjects();
+  const lifecycleSessions = yield* findEntities(ISessionRepository, {lifecycle});
+
+  return yield* Effect.forEach(projectListItems, (projectListItem) =>
+    toProjectSessions(projectListItem, lifecycleSessions)
+  );
+});
+
+export const listProjectsWithSessions = Effect.fn("SessionService.listProjectsWithSessions")(function* () {
+  return yield* listProjectsWithLifecycleSessions(SESSION_LIFECYCLES.ONGOING);
 });
 
 // A project no longer listed hides its archived sessions, as it does its others.
 export const listProjectsWithArchivedSessions = Effect.fn("SessionService.listProjectsWithArchivedSessions")(
   function* () {
-    const archivedSessions = yield* findEntities(ISessionRepository, {lifecycle: SESSION_LIFECYCLES.ARCHIVED});
-    const archivedSessionProjectPaths = new Set(
-      Array.map(archivedSessions, (archivedSession) => archivedSession.projectPath)
-    );
-    const projectListItems = yield* listProjects();
+    const projectsWithArchivedSessions = yield* listProjectsWithLifecycleSessions(SESSION_LIFECYCLES.ARCHIVED);
 
-    return Array.filter(projectListItems, (projectListItem) => archivedSessionProjectPaths.has(projectListItem.path));
+    return Array.filter(
+      projectsWithArchivedSessions,
+      (projectWithArchivedSessions) => projectWithArchivedSessions.sessionListItems.length > 0
+    );
   }
 );
 
@@ -592,42 +436,34 @@ export const archiveOngoingSessions = Effect.fn("SessionService.archiveOngoingSe
 export const stopSessionAgent = Effect.fn("SessionService.stopSessionAgent")(
   function* (request: StopSessionAgentRequestDto) {
     const session = yield* findSession(request.sessionId);
-    yield* stopRunningAgentsAsking([session]);
+    yield* stopRunningAgents([session]);
   },
-  Effect.catchTags({QuestionCancelledError: () => Effect.void, SessionNotFoundError: () => Effect.void})
+  Effect.catchTag("SessionNotFoundError", () => Effect.void)
 );
 
-export const stopProjectSessionAgents = Effect.fn("SessionService.stopProjectSessionAgents")(
-  function* (request: StopProjectSessionAgentsRequestDto) {
-    const projectSessions = yield* findProjectSessions(request.projectPath, SESSION_LIFECYCLES.ONGOING);
-    yield* stopRunningAgentsAsking(projectSessions);
-  },
-  Effect.catchTag("QuestionCancelledError", () => Effect.void)
-);
+export const stopProjectSessionAgents = Effect.fn("SessionService.stopProjectSessionAgents")(function* (
+  request: StopProjectSessionAgentsRequestDto
+) {
+  const projectSessions = yield* findProjectSessions(request.projectPath, SESSION_LIFECYCLES.ONGOING);
+  yield* stopRunningAgents(projectSessions);
+});
 
-export const stopArchivedProjectSessionAgents = Effect.fn("SessionService.stopArchivedProjectSessionAgents")(
-  function* (request: StopArchivedProjectSessionAgentsRequestDto) {
-    const projectSessions = yield* findProjectSessions(request.projectPath, SESSION_LIFECYCLES.ARCHIVED);
-    yield* stopRunningAgentsAsking(projectSessions);
-  },
-  Effect.catchTag("QuestionCancelledError", () => Effect.void)
-);
+export const stopArchivedProjectSessionAgents = Effect.fn("SessionService.stopArchivedProjectSessionAgents")(function* (
+  request: StopArchivedProjectSessionAgentsRequestDto
+) {
+  const projectSessions = yield* findProjectSessions(request.projectPath, SESSION_LIFECYCLES.ARCHIVED);
+  yield* stopRunningAgents(projectSessions);
+});
 
-export const stopOngoingSessionAgents = Effect.fn("SessionService.stopOngoingSessionAgents")(
-  function* () {
-    const listedSessions = yield* findListedSessions(SESSION_LIFECYCLES.ONGOING);
-    yield* stopRunningAgentsAsking(listedSessions);
-  },
-  Effect.catchTag("QuestionCancelledError", () => Effect.void)
-);
+export const stopOngoingSessionAgents = Effect.fn("SessionService.stopOngoingSessionAgents")(function* () {
+  const listedSessions = yield* findListedSessions(SESSION_LIFECYCLES.ONGOING);
+  yield* stopRunningAgents(listedSessions);
+});
 
-export const stopArchivedSessionAgents = Effect.fn("SessionService.stopArchivedSessionAgents")(
-  function* () {
-    const listedSessions = yield* findListedSessions(SESSION_LIFECYCLES.ARCHIVED);
-    yield* stopRunningAgentsAsking(listedSessions);
-  },
-  Effect.catchTag("QuestionCancelledError", () => Effect.void)
-);
+export const stopArchivedSessionAgents = Effect.fn("SessionService.stopArchivedSessionAgents")(function* () {
+  const listedSessions = yield* findListedSessions(SESSION_LIFECYCLES.ARCHIVED);
+  yield* stopRunningAgents(listedSessions);
+});
 
 export const listSessionsWaitingOnUser = Effect.fn("SessionService.listSessionsWaitingOnUser")(function* () {
   const storedSessions = yield* findEntities(ISessionRepository, {});

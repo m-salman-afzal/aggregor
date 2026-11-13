@@ -1,16 +1,15 @@
 import {SESSION_LISTS} from "@/modules/sessions/sessions.constant.ts";
 import {
-  answerPromptOnHost,
-  applyAppearance,
   askHostToDraw,
   listenToHost,
+  readStyleNonce,
   readWebviewState,
   saveWebviewState
 } from "@/modules/sessions/sessions.service.ts";
 import {applyHostMessage, foldKey} from "@/modules/sessions/stores/sessions/sessions.utils.ts";
 import {useSyncExternalStore} from "react";
 
-import type {PromptAnswer, SessionListId} from "@/modules/sessions/sessions.type.ts";
+import type {SessionListId, UserInput} from "@/modules/sessions/sessions.type.ts";
 import type {SessionsData, SessionsState} from "@/modules/sessions/stores/sessions/sessions.type.ts";
 
 interface UseSessionsStoreProps<Selected> {
@@ -20,13 +19,16 @@ interface UseSessionsStoreProps<Selected> {
 const stateListeners = new Set<() => void>();
 const savedWebviewState = readWebviewState();
 let sessionsData: SessionsData = {
+  agentRows: [],
   appearance: undefined,
   archiveProjectRows: [],
   collapsedListIds: new Set(savedWebviewState.collapsedListIds),
   collapsedProjectKeys: new Set(savedWebviewState.collapsedProjectKeys),
   isDrawn: false,
   projectRows: [],
-  prompt: undefined,
+  skipAgentPicker: false,
+  styleNonce: readStyleNonce(),
+  userInput: undefined,
   viewedSessionId: savedWebviewState.viewedSessionId,
   waitingCounts: {[SESSION_LISTS.ARCHIVE]: 0, [SESSION_LISTS.SESSIONS]: 0}
 };
@@ -36,10 +38,7 @@ const setSessionsData = (nextSessionsData: SessionsData) => {
     nextSessionsData.collapsedListIds !== sessionsData.collapsedListIds ||
     nextSessionsData.collapsedProjectKeys !== sessionsData.collapsedProjectKeys ||
     nextSessionsData.viewedSessionId !== sessionsData.viewedSessionId;
-  const isAppearanceChanged = nextSessionsData.appearance !== sessionsData.appearance;
   sessionsData = nextSessionsData;
-  if (isAppearanceChanged && nextSessionsData.appearance !== undefined)
-    applyAppearance(nextSessionsData.appearance.fontSize, nextSessionsData.appearance.accentColor);
   if (isKeptStateChanged)
     saveWebviewState({
       collapsedListIds: [...nextSessionsData.collapsedListIds],
@@ -60,10 +59,12 @@ const setProjectOpen = (projectKey: string, isOpen: boolean) => {
   });
 };
 
-// The prompt closes as soon as it is answered; the host waits for no more.
-const answerPrompt = (promptAnswer: PromptAnswer) => {
-  answerPromptOnHost(promptAnswer);
-  setSessionsData({...sessionsData, prompt: undefined});
+const showUserInput = (userInput: UserInput) => {
+  setSessionsData({...sessionsData, userInput});
+};
+
+const closeUserInput = () => {
+  setSessionsData({...sessionsData, userInput: undefined});
 };
 
 const subscribeToSessionsData = (stateListener: () => void) => {
@@ -82,5 +83,5 @@ askHostToDraw();
 
 export const useSessionsStore = <Selected>(props: UseSessionsStoreProps<Selected>) =>
   useSyncExternalStore(subscribeToSessionsData, () =>
-    props.selectFromState({...sessionsData, answerPrompt, setListOpen, setProjectOpen})
+    props.selectFromState({...sessionsData, closeUserInput, setListOpen, setProjectOpen, showUserInput})
   );

@@ -113,16 +113,6 @@ const commit = Effect.fn("GitInfraService.commit")(function* (
   });
 });
 
-// Stage All finds the repository that contains the path it is given.
-const stageAll = Effect.fn("GitInfraService.stageAll")(function* (
-  gitDependencies: GitDependencies,
-  projectPath: ProjectPathValueObject
-) {
-  yield* Effect.promise(() =>
-    gitDependencies.commands.executeCommand(GIT_EXTENSION.STAGE_ALL_COMMAND, gitDependencies.Uri.file(projectPath))
-  );
-});
-
 const openAndLoadRepository = Effect.fn("GitInfraService.openAndLoadRepository")(function* (
   gitDependencies: GitDependencies,
   gitApi: API,
@@ -161,8 +151,7 @@ const makeGitInfraService = Effect.fn("GitInfraService.make")(function* () {
     getStagedDiff: (projectPath: ProjectPathValueObject) => getStagedDiff(gitDependencies, projectPath),
     openInSourceControl: (projectPath: ProjectPathValueObject) => openInSourceControl(gitDependencies, projectPath),
     setCommitMessageInput: (projectPath: ProjectPathValueObject, commitMessage: string) =>
-      setCommitMessageInput(gitDependencies, projectPath, commitMessage),
-    stageAll: (projectPath: ProjectPathValueObject) => stageAll(gitDependencies, projectPath)
+      setCommitMessageInput(gitDependencies, projectPath, commitMessage)
   };
 });
 

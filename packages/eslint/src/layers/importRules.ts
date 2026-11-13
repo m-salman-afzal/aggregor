@@ -10,7 +10,7 @@ export const IMPORT_BANS = [
 ];
 
 const DOMAIN_ALIASES = "domainServices|entities|valueObjects";
-const APPLICATION_ALIASES = "interfaces|services|dtos|applicationUtils";
+const APPLICATION_ALIASES = "interfaces|services|dtos";
 const INFRASTRUCTURE_ALIASES = "config|models|di|logger|repositories|infraServices|infraUtils";
 
 const DOMAIN_IMPORTS = {
@@ -26,16 +26,16 @@ const APPLICATION_IMPORTS = {
 
 const PRESENTATION_IMPORTS = {
   message:
-    "Presentation's routes, middlewares and helpers import only effect, vscode types, @pkg, controllers, middlewares, " +
-    "presenters and presentation helpers.",
-  regex: "^(?!effect(/|$)|vscode$|@pkg/|@(controllers|middlewares|presenters|presentationUtils)/)"
+    "Presentation's routes and middlewares import only effect, vscode types, @pkg, controllers, middlewares and " +
+    "presenters.",
+  regex: "^(?!effect(/|$)|vscode$|@pkg/|@(controllers|middlewares|presenters)/)"
 };
 
 const CONTROLLER_IMPORTS = {
   message:
-    "A controller imports only effect, services, DTOs, presentation helpers and @pkg/vscode's argument decoding: it " +
-    "decodes its input into a request DTO and calls a service.",
-  regex: "^(?!effect(/|$)|@(services|dtos|presentationUtils)/|@pkg/vscode/src/vsCodeArgument\\.utils\\.ts$)"
+    "A controller imports only effect, services, DTOs and @pkg/vscode's argument decoding: it decodes its input into " +
+    "a request DTO and calls a service.",
+  regex: "^(?!effect(/|$)|@(services|dtos)/|@pkg/vscode/src/vsCodeArgument\\.utils\\.ts$)"
 };
 
 const PRESENTER_IMPORTS = {
@@ -45,9 +45,8 @@ const PRESENTER_IMPORTS = {
 };
 
 const VIEW_IMPORTS = {
-  message:
-    "A view imports only effect, vscode types, @pkg, controllers, its own files, presentation helpers and DTOs' types.",
-  regex: "^(?!effect(/|$)|vscode$|@pkg/|@(controllers|views|presentationUtils|dtos)/)"
+  message: "A view imports only effect, vscode types, @pkg, controllers, its own files and DTOs' types.",
+  regex: "^(?!effect(/|$)|vscode$|@pkg/|@(controllers|views|dtos)/)"
 };
 
 // Type-only imports: a presenter names its services' failures, a view the DTOs it draws.

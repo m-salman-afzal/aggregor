@@ -11,3 +11,7 @@ export const AgentListItemDtoSchema = Schema.Struct({
 });
 
 export type AgentListItemDto = typeof AgentListItemDtoSchema.Type;
+
+export const SetDefaultAgentRequestDtoSchema = Schema.Struct({agentId: AgentIdValueObjectSchema});
+
+export type SetDefaultAgentRequestDto = typeof SetDefaultAgentRequestDtoSchema.Type;

@@ -1,9 +1,10 @@
+import {setChosenAgentAsDefault} from "@controllers/agent.controller.ts";
 import {generateCommitMessageForSourceControl} from "@controllers/commitMessage.controller.ts";
 import {
   addProjectsAskingForFolders,
   moveChosenProjectDown,
   moveChosenProjectUp,
-  newProjectTerminalAskingForProject,
+  newTerminalInChosenProject,
   removeChosenProject
 } from "@controllers/project.controller.ts";
 import {
@@ -12,7 +13,6 @@ import {
   archiveChosenSession,
   moveChosenSessionDown,
   moveChosenSessionUp,
-  newSessionAskingForProject,
   newSessionInChosenProject,
   openChosenSession,
   removeChosenSession,
@@ -25,6 +25,7 @@ import {
   unarchiveChosenSession
 } from "@controllers/session.controller.ts";
 import {registerCommand} from "@middlewares/registerCommand.middleware.ts";
+import {AGENT_COMMANDS} from "@pkg/constants/src/agent.constant.ts";
 import {APP_COMMANDS} from "@pkg/constants/src/app.constant.ts";
 import {COMMIT_MESSAGE_COMMANDS} from "@pkg/constants/src/commitMessage.constant.ts";
 import {PROJECT_COMMANDS} from "@pkg/constants/src/project.constant.ts";
@@ -40,6 +41,7 @@ import {Effect, Layer} from "effect";
 // Open Settings only drives VS Code, so it goes straight to the helper, with no controller or use case.
 export const RoutesLayer = Layer.effectDiscard(
   Effect.all([
+    registerCommand(AGENT_COMMANDS.SET_DEFAULT, setChosenAgentAsDefault, presentAppCommandError),
     registerCommand(APP_COMMANDS.OPEN_SETTINGS, openAggregorSettingsInSettingsEditor, presentAppCommandError),
     registerCommand(
       COMMIT_MESSAGE_COMMANDS.GENERATE,
@@ -59,7 +61,6 @@ export const RoutesLayer = Layer.effectDiscard(
     ),
     registerCommand(SESSION_COMMANDS.MOVE_DOWN, moveChosenSessionDown, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.MOVE_UP, moveChosenSessionUp, presentSessionCommandError),
-    registerCommand(SESSION_COMMANDS.NEW_ASKING_FOR_PROJECT, newSessionAskingForProject, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT, newSessionInChosenProject, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.OPEN, openChosenSession, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.REMOVE, removeChosenSession, presentSessionCommandError),
@@ -74,10 +75,6 @@ export const RoutesLayer = Layer.effectDiscard(
     registerCommand(SESSION_COMMANDS.STOP_ONGOING_AGENTS, stopAllOngoingSessionAgents, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.STOP_PROJECT_AGENTS, stopChosenProjectSessionAgents, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.UNARCHIVE, unarchiveChosenSession, presentSessionCommandError),
-    registerCommand(
-      TERMINAL_COMMANDS.NEW_PROJECT_TERMINAL,
-      newProjectTerminalAskingForProject,
-      presentProjectCommandError
-    )
+    registerCommand(TERMINAL_COMMANDS.NEW_PROJECT_TERMINAL, newTerminalInChosenProject, presentProjectCommandError)
   ])
 );

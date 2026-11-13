@@ -16,7 +16,7 @@ export const ProjectRows = (props: ProjectRowsProps) => {
   return (
     <div className="flex flex-col gap-1.5 pb-2 pl-1.5">
       {props.projectRows.map((projectRow) => (
-        <ProjectGroup key={projectRow.nodeId} listId={props.listId} projectRow={projectRow} />
+        <ProjectGroup key={projectRow.projectListItem.path} listId={props.listId} projectRow={projectRow} />
       ))}
     </div>
   );

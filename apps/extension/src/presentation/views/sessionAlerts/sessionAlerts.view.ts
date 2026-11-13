@@ -12,7 +12,6 @@ import {
 } from "@pkg/constants/src/sessionAlert.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {acquireScopedDisposable, streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
-import {makeSessionNodeId} from "@presentationUtils/sessionsTreeNode.utils.ts";
 import {Clock, Duration, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
 
 import type {SessionAlertDto} from "@dtos/sessionAlert.dto.ts";
@@ -34,9 +33,8 @@ const getSessionAlertHeadline = Effect.fn("SessionAlertsView.getSessionAlertHead
 // Opens the session as its row's click does, so a failure shows the same way.
 const openAlertedSession = Effect.fn("SessionAlertsView.openAlertedSession")(function* (sessionId: string) {
   const vsCodeApi = yield* VsCodeApi;
-  const sessionNodeId = yield* makeSessionNodeId(sessionId);
 
-  yield* Effect.promise(() => vsCodeApi.commands.executeCommand(SESSION_COMMANDS.OPEN, sessionNodeId));
+  yield* Effect.promise(() => vsCodeApi.commands.executeCommand(SESSION_COMMANDS.OPEN, {sessionId}));
 });
 
 // VS Code can't close the notification later, so it can outlive the state it tells about.

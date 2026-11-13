@@ -10,9 +10,11 @@ The Sessions view drawn in a webview of our own.
     folder-structure skill rather than `DDD.md`. It imports the extension's `@views/sessions/sessions.view.type.ts` and
     `@dtos` for types only, the rule `DDD.md` already gives a view, and `@pkg/constants` for texts and command ids. Lint
     rejects a value import from the extension, so none of its code enters the webview's bundle.
-  - `presentation/views/sessions/sessions.view.ts` is the view: it registers a webview view provider, reads the rows
-    through the view's controllers, sends them to the webview with `postMessage`, then each change of
-    `watchSessionListChanges` (every project, one project's sessions, or one session) and the session in front.
+  - `presentation/views/sessions/` is the view, a file per job. `sessions.view.ts` registers the webview view provider,
+    answers the webview's messages and watches what changes. `sessionsDrawing.utils.ts` is everything sent to the
+    webview with `postMessage`: each list, read whole through one controller, then each change of
+    `watchSessionListChanges` (every project, one project's sessions, or one session), the session in front, the counts,
+    the installed agents and the look. `sessionsPage.utils.ts` writes the page and makes the agent icons' webview URIs.
   - The messages are one tagged union each way, in `sessions.view.type.ts`; the view decodes the webview's with
     `decodeVsCodeArgument`.
 
@@ -28,11 +30,17 @@ The Sessions view drawn in a webview of our own.
 ## The webview runs the menus' commands
 
 - **Problem:** a click in the webview has to reach a use case.
-- **Decision:** the webview asks the view to run a command with the row's node id, the argument a tree menu passes, and
-  the view runs it with `executeCommand` when it is one of `SESSIONS_WEBVIEW_COMMANDS`, every command a row's or a
-  list's menu offers, Open Session and Add Project. Each runs as the menus' do: its route, `registerCommand`'s root span
-  and presenter message, its controller. No new controller or layer, and a webview action and a menu item stay one path.
-- **Alternatives considered:** RPC handlers calling the controllers; a message per action, each with its own controller.
+- **Decision:** the webview asks the view to run a command with the row's key as the request DTO's own field,
+  `{sessionId}` or `{projectPath}`, and the view runs it with `executeCommand` when it is one of
+  `SESSIONS_WEBVIEW_COMMANDS`, every command a row's or a list's menu offers, Open Session and Add Project. Each runs as
+  the menus' do: its route, `registerCommand`'s root span and presenter message, and its controller, which decodes the
+  argument straight into the request DTO. No new controller or layer, and a webview action and a menu item stay one
+  path.
+- **Solution:** the webview is a page in another process, so it can't call a controller itself; it can only post a
+  message, and the view is the extension's end of that.
+- **Alternatives considered:** RPC handlers calling the controllers; a message per action, each with its own controller;
+  the row's node id (`project:<path>`, `session:<id>`) as the argument, as the tree's menus passed it, which every
+  controller had to take apart again.
 
 ## The webview is React with shadcn on Base UI
 
@@ -189,15 +197,23 @@ The Sessions view drawn in a webview of our own.
   A status's icon is drawn in the theme's terminal colours, the palette its agents' terminals already use. Menus and
   dialogs sit a level above the view (see "Every shade is a whole level").
 - **Solution:** the view sends the setting with `AppearanceDrawn`, beside the text size, checked against
-  `SESSIONS_VIEW_SETTINGS.ACCENT_COLOR_PATTERN`. The webview's `ACCENT_SOURCES` turns it into `--aggregor-accent` and
-  `--aggregor-shade` on the page, which `theme.css` reads as `--brand` and `--shade`; `--primary` and `--ring` are the
-  brand. Both colours keep their hue but are held to a lightness that shows against the background, light on a dark
-  theme and dark on a light one (`oklch(from …)`), since a colour can be as dark as the background itself, as Peacock's
-  greens are. Text on the brand is near black or near white by the brand's own lightness.
+  `SESSIONS_VIEW_SETTINGS.ACCENT_COLOR_PATTERN`. The webview draws the look as markup and leaves the rest to CSS: its
+  root element carries the accent's name in `data-accent` (`custom` for a colour), and `theme.css` maps each name with
+  `:root:has([data-accent="…"])` to `--aggregor-accent` and `--aggregor-shade`, which it reads as `--brand` and
+  `--shade`; `--primary` and `--ring` are the brand. A colour of the user's own and the text size can't be rules written
+  ahead, and `:has()` can't carry a value up to the root, where rem and the menus' portals read it, so the app renders a
+  `<style>` that sets the two on `:root`. The built page's content security policy lets that `<style>` in by the page's
+  nonce, which the page also gives in `<meta property="csp-nonce">`, Vite's own convention, for the webview to read.
+  Both colours keep their hue but are held to a lightness that shows against the background, light on a dark theme and
+  dark on a light one (`oklch(from …)`), since a colour can be as dark as the background itself, as Peacock's greens
+  are. Text on the brand is near black or near white by the brand's own lightness.
 - **Alternatives considered:** the badge colour for everything, built first, which the user found too green with a green
   badge; the badge colour as the theme gives it, whose shades disappeared when it was dark on a dark theme; the theme's
   list hover and selection colours, too faint in the default themes; its button colours, which Dracula keeps grey; its
   link colour, off-palette in themes that don't set it; a palette of our own, which would clash with the user's theme.
+  For how the look reaches CSS: the store setting the three variables on `document.documentElement.style`, built first,
+  which put drawing in a store's side effect; the view writing them into the page it builds, which reloads the page each
+  time either setting changes.
 
 ## Things move: fades for everyone, sliding and growing unless the user asked for less motion
 
@@ -222,8 +238,8 @@ The Sessions view drawn in a webview of our own.
 - **Decision:** `aggregorApp.fontSize` (10 to 24 pixels, default 14) sets the view's text size; spacing, buttons and
   icons scale with it. The view reads the setting itself, as a display preference, and sends it with `AppearanceDrawn`
   first when the page asks to be drawn and again whenever it changes.
-- **Solution:** the webview sets `--aggregor-font-size` on the page, and `theme.css` sizes the root so the body's text,
-  `0.875rem`, is that size, which every rem follows.
+- **Solution:** the webview renders `--aggregor-font-size` in its `<style>` (see the accent's entry), and `theme.css`
+  sizes the root so the body's text, `0.875rem`, is that size, which every rem follows.
 - **Alternatives considered:** VS Code's own font size, which is the editor's; reading the setting through a controller
   and a settings service, for a value no use case needs.
 

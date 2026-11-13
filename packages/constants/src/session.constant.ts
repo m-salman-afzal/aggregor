@@ -4,7 +4,6 @@ export const SESSION_COMMANDS = {
   ARCHIVE_PROJECT_SESSIONS: "aggregorApp.archiveProjectSessions",
   MOVE_DOWN: "aggregorApp.moveSessionDown",
   MOVE_UP: "aggregorApp.moveSessionUp",
-  NEW_ASKING_FOR_PROJECT: "aggregorApp.newSessionAskingForProject",
   NEW_IN_CHOSEN_PROJECT: "aggregorApp.newSessionInChosenProject",
   OPEN: "aggregorApp.openSession",
   REMOVE: "aggregorApp.removeSession",
@@ -25,7 +24,7 @@ export const SESSION_LABELS = {
   STOP_AGENTS: "Stop Agents"
 } as const;
 
-// Which one a command shows is picked in application/utils/sessionQuestion.utils.ts.
+// Which one a question shows is picked in the webview's sessions.utils.ts.
 export const SESSION_NOTICES = {
   CONFIRM_REMOVE_RUNNING: (displayName: string) => `Remove "${displayName}"?`,
   CONFIRM_STOP_AGENT: (displayName: string) => `Stop the agent of "${displayName}"?`,
@@ -42,7 +41,6 @@ export const SESSION_ERRORS = {
   INVALID_SETTINGS: (reason: string) => `The agent settings are invalid: ${reason}`,
   LAUNCH_FAILED: "Could not open a terminal for the session.",
   NOT_FOUND: "This session no longer exists.",
-  PROJECT_REQUIRED: "Add a project or open a folder to start a session.",
   PTY_BINARY_NOT_FOUND: "Sessions can't run on this platform yet: this build of Aggregor has no aggregor-pty for it.",
   // A Windows VSIX has no aggregor-pty; sessions on Windows run inside WSL, on the Linux VSIX.
   PTY_BINARY_NOT_FOUND_ON_WINDOWS: "On Windows, sessions run in WSL. Reopen the folder in WSL to start one."

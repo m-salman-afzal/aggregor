@@ -1,6 +1,8 @@
 import {APP_COMMANDS, APP_LABELS} from "@pkg/constants/src/app.constant.ts";
 import {PROJECT_COMMANDS, PROJECT_LABELS} from "@pkg/constants/src/project.constant.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
+import {SESSIONS_WEBVIEW} from "@pkg/constants/src/sessionsView.constant.ts";
+import {TERMINAL_COMMANDS} from "@pkg/constants/src/terminal.constant.ts";
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
@@ -12,6 +14,7 @@ import {
   PencilIcon,
   PlusIcon,
   SettingsIcon,
+  SquareTerminalIcon,
   Trash2Icon
 } from "lucide-react";
 
@@ -29,22 +32,25 @@ export const SESSIONS_LABELS = {
   NO_PROJECTS: "No projects yet.",
   OK: "OK",
   PROGRESS: (statusProgress: number) => `${statusProgress}%`,
-  PROMPT_TEXT_FIELD: "promptText",
   SESSIONS_TITLE: "Sessions",
+  USER_INPUT_TEXT_FIELD: "userInputText",
   WAITING_COUNT: (waitingCount: number) => `${waitingCount} waiting on you`
 } as const;
 
-export const APPEARANCE_PROPERTIES = {
-  ACCENT: "--aggregor-accent",
-  FONT_SIZE: "--aggregor-font-size",
-  SHADE: "--aggregor-shade"
+// theme.css maps a named accent from data-accent; a colour of the user's own reaches it as CSS, with the text size.
+export const APPEARANCE = {
+  ACCENT_CSS: (accentColor: string) => `:root{--aggregor-accent:${accentColor}}`,
+  CUSTOM_ACCENT: "custom",
+  CUSTOM_ACCENT_PREFIX: "#",
+  FONT_SIZE_CSS: (fontSize: number) => `:root{--aggregor-font-size:${fontSize}px}`,
+  STYLE_NONCE_META_SELECTOR: `meta[property="${SESSIONS_WEBVIEW.STYLE_NONCE_META_PROPERTY}"]`
 } as const;
 
-export const ACCENT_SOURCES: Readonly<Record<string, {readonly accent: string; readonly shade: string}>> = {
-  neutral: {accent: "var(--vscode-focusBorder)", shade: "var(--foreground)"},
-  palette: {accent: "var(--vscode-terminal-ansiBlue)", shade: "var(--brand)"},
-  theme: {accent: "var(--vscode-activityBarBadge-background)", shade: "var(--brand)"}
-};
+export const USER_INPUT_TAGS = {
+  CHOICE: "ChoiceInput",
+  QUESTION: "QuestionInput",
+  TEXT: "TextInput"
+} as const;
 
 export const SESSION_LISTS = {
   ARCHIVE: "archive",
@@ -88,10 +94,11 @@ export const ROW_ACTIONS = {
   },
   NEW_SESSION: {commandId: SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT, icon: PlusIcon, label: "New Session"},
   NEW_SESSION_ASKING_FOR_PROJECT: {
-    commandId: SESSION_COMMANDS.NEW_ASKING_FOR_PROJECT,
+    commandId: SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT,
     icon: PlusIcon,
     label: "New Session…"
   },
+  NEW_TERMINAL: {commandId: TERMINAL_COMMANDS.NEW_PROJECT_TERMINAL, icon: SquareTerminalIcon, label: "New Terminal"},
   OPEN_SETTINGS: {commandId: APP_COMMANDS.OPEN_SETTINGS, icon: SettingsIcon, label: APP_LABELS.OPEN_SETTINGS},
   REMOVE_PROJECT: {
     commandId: PROJECT_COMMANDS.REMOVE,

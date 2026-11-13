@@ -16,6 +16,7 @@ export const listProjectActionGroups = (projectListItem: ProjectListItemDto, lis
           projectListItem.canMoveUp && ROW_ACTIONS.MOVE_PROJECT_UP,
           projectListItem.canMoveDown && ROW_ACTIONS.MOVE_PROJECT_DOWN
         ],
+        [ROW_ACTIONS.NEW_TERMINAL],
         [ROW_ACTIONS.STOP_PROJECT_AGENTS, ROW_ACTIONS.ARCHIVE_PROJECT_SESSIONS],
         [projectListItem.isAdded && ROW_ACTIONS.REMOVE_PROJECT]
       ]);

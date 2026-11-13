@@ -38,8 +38,7 @@ interface TraceLogDependencies {
 
 // The formatters run while a span ends, so they stay plain functions: a span of their own would end inside the tracer.
 
-// "aggregorApp.openSession > SessionController.openChosenSession > SessionService.openSession": the span's name after
-// its ancestors'.
+// "aggregorApp.openSession > SessionController.openChosenSession": the span's name after its ancestors'.
 // eslint-disable-next-line no-restricted-syntax -- runs while a span ends
 const formatSpanPath = (span: Tracer.AnySpan): string =>
   Match.valueTags(span, {
@@ -61,8 +60,7 @@ const formatTraceValue = (traceValue: unknown) =>
     ? `${traceValue.name}: ${traceValue.message}`
     : String.replace(TRACE_LOGGING.LINE_BREAK_PATTERN, " ")(inspect(traceValue, {depth: TRACE_LOGGING.VALUE_DEPTH}));
 
-// "SettingsFileNotSavedError settingsFilePath=/home/user/.aggregor/anchor/Aggregor.code-workspace": a tagged error with
-// each of its fields, its cause too, which an error keeps out of its own keys.
+// "SettingsFileNotSavedError settingsFilePath=…": each field, and the cause, which an error keeps out of its own keys.
 // eslint-disable-next-line no-restricted-syntax -- runs while a span ends
 const formatFailedError = (failedError: unknown) => {
   if (!Predicate.hasProperty(failedError, "_tag")) return formatTraceValue(failedError);
@@ -105,8 +103,7 @@ const formatSpanAttributes = (span: Tracer.Span) =>
     ""
   );
 
-// The line goes out at its own level, which the channel drops below the level the user picked. With trace logging on, a
-// line the channel would drop goes out again at Info, so it is written whatever that level is, unless it is Off.
+// With trace logging on, a line the channel would drop for its level goes out again at Info, unless the level is Off.
 // eslint-disable-next-line no-restricted-syntax -- runs while a span ends
 const writeTraceLogLine = (
   traceLogDependencies: TraceLogDependencies,

@@ -61,7 +61,7 @@
 :root {
   --background: var(--vscode-sideBar-background);
   --foreground: var(--vscode-sideBar-foreground, var(--vscode-foreground));
-  /* The webview sets --aggregor-accent and --aggregor-shade from aggregorApp.accentColor; neutral shades with the text. */
+  /* Neutral, the accent with no data-accent rule below, shades with the text. */
   --shade: var(--aggregor-shade, var(--foreground));
   --brand-foreground: oklch(from var(--brand) clamp(0.16, calc((0.7 - l) * 1000), 0.98) 0 0);
   --brand-glow: color-mix(in srgb, var(--brand) 30%, transparent);
@@ -107,6 +107,21 @@
   --foreground-strong: color-mix(in srgb, var(--foreground), white 55%);
   --brand: oklch(from var(--aggregor-accent, var(--vscode-focusBorder)) clamp(0.74, l, 0.9) calc(c * 1.25) h);
   --brand-end: oklch(from var(--vscode-terminal-ansiBlue) clamp(0.74, l, 0.9) calc(c * 1.25) h);
+}
+
+/* The app names its accent on an element it draws; a colour of the user's own and the text size come in its <style>. */
+:root:has([data-accent="theme"]) {
+  --aggregor-accent: var(--vscode-activityBarBadge-background);
+  --aggregor-shade: var(--brand);
+}
+
+:root:has([data-accent="palette"]) {
+  --aggregor-accent: var(--vscode-terminal-ansiBlue);
+  --aggregor-shade: var(--brand);
+}
+
+:root:has([data-accent="custom"]) {
+  --aggregor-shade: var(--brand);
 }
 
 /* The body's text is the size the user sets, and every rem scales with it. */

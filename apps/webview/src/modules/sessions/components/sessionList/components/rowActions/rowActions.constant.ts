@@ -1,3 +1,5 @@
+import type {SessionListItemDto} from "@dtos/session.dto.ts";
+
 // A row keeps its buttons over its end, on the row's own colour, so its text doesn't show through and it keeps its size.
 export const ALWAYS_SHOWN_ACTION_BAR = "flex shrink-0 items-center gap-1 pr-2";
 
@@ -19,3 +21,6 @@ export const ACTION_BUTTON =
   "size-7 rounded-lg text-muted-foreground hover:text-foreground-strong aria-expanded:text-foreground-strong";
 
 export const ACTION_ICON = "size-4";
+
+// An agent in one of these is mid-turn, so stopping it cuts the turn short and asks first.
+export const TURN_RUNNING_STATUSES: readonly SessionListItemDto["status"][] = ["working", "blocked"];

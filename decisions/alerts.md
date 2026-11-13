@@ -67,8 +67,8 @@ How a session out of view gets the user's attention: notifications and badge cou
   unseen, a question, a failure) as a small badge in the waiting colour while there are any. The activity bar's badge
   counts both lists, and shows from any other tab.
 - **Solution:** the view reads `listSessionsWaitingOnUser` on every change of the session list;
-  `countViewSessionsWaitingOnUser` in `sessions.utils.ts` picks a list's sessions by `isArchived`, and the view sends
-  both counts in `WaitingCountsDrawn`.
+  `countViewSessionsWaitingOnUser` in `sessionsDrawing.utils.ts` picks a list's sessions by `isArchived`, and the view
+  sends both counts in `WaitingCountsDrawn`.
 - **Alternatives considered:** the count in the view's name, `Sessions (2)`, which VS Code's header repeated beside the
   container's name; the view's description, too faint to read and hidden while the view is collapsed.
 

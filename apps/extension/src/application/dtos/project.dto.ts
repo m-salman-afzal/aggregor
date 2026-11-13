@@ -11,6 +11,10 @@ export const ProjectListItemDtoSchema = Schema.Struct({
 
 export type ProjectListItemDto = typeof ProjectListItemDtoSchema.Type;
 
+export const NewProjectTerminalRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
+
+export type NewProjectTerminalRequestDto = typeof NewProjectTerminalRequestDtoSchema.Type;
+
 export const RemoveProjectRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
 
 export type RemoveProjectRequestDto = typeof RemoveProjectRequestDtoSchema.Type;
@@ -22,10 +26,3 @@ export type MoveProjectUpRequestDto = typeof MoveProjectUpRequestDtoSchema.Type;
 export const MoveProjectDownRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
 
 export type MoveProjectDownRequestDto = typeof MoveProjectDownRequestDtoSchema.Type;
-
-export const MoveProjectToPlaceOfRequestDtoSchema = Schema.Struct({
-  placeOfProjectPath: ProjectPathValueObjectSchema,
-  projectPath: ProjectPathValueObjectSchema
-});
-
-export type MoveProjectToPlaceOfRequestDto = typeof MoveProjectToPlaceOfRequestDtoSchema.Type;

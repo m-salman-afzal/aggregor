@@ -8,7 +8,6 @@ import {IProjectRepository} from "@entities/project/project.repository.interface
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import {TERMINAL_LABELS} from "@pkg/constants/src/terminal.constant.ts";
 import {addEntity, findEntities, placeEntitiesAtEnd, updateEntity, upsertEntity} from "@services/base.service.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {Array, Effect, Result, Schema} from "effect";
@@ -16,18 +15,13 @@ import {Path} from "effect/Path";
 
 import type {
   MoveProjectDownRequestDto,
-  MoveProjectToPlaceOfRequestDto,
   MoveProjectUpRequestDto,
+  NewProjectTerminalRequestDto,
   RemoveProjectRequestDto
 } from "@dtos/project.dto.ts";
 import type {ProjectEntity} from "@entities/project/project.entity.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
-
-export class NoProjectError extends Schema.TaggedError<NoProjectError, {readonly brand: unique symbol}>()(
-  "NoProjectError",
-  {}
-) {}
 
 export class ProjectNotListedError extends Schema.TaggedError<ProjectNotListedError, {readonly brand: unique symbol}>()(
   "ProjectNotListedError",
@@ -87,16 +81,6 @@ export const findProjectListItem = Effect.fn("ProjectService.findProjectListItem
       () => ProjectNotListedError.make({projectPath})
     )
   );
-});
-
-export const pickProject = Effect.fn("ProjectService.pickProject")(function* (placeHolder: string) {
-  const projectListItems = yield* listProjects();
-  if (projectListItems.length > 1)
-    return yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
-      userInputPromptInfraService.pickProject(projectListItems, placeHolder)
-    );
-
-  return yield* Effect.fromResult(Result.fromNullishOr(projectListItems[0], () => NoProjectError.make()));
 });
 
 // Opening Aggregor's workspace reloads the window; nothing runs there yet.
@@ -183,21 +167,6 @@ export const moveProjectDown = Effect.fn("ProjectService.moveProjectDown")(funct
   yield* placeEntitiesAtEnd(IProjectRepository, projectIdsToPlaceAtEnd);
 });
 
-// The window's own folders don't move, so the place of one moves nothing.
-export const moveProjectToPlaceOf = Effect.fn("ProjectService.moveProjectToPlaceOf")(function* (
-  request: MoveProjectToPlaceOfRequestDto
-) {
-  const addedProjectOrder = yield* listAddedProjectOrder();
-  const projectIndex = addedProjectOrder.addedProjectPaths.indexOf(request.projectPath);
-  const placeIndex = addedProjectOrder.addedProjectPaths.indexOf(request.placeOfProjectPath);
-  const projectIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(
-    addedProjectOrder.addedProjectIds,
-    projectIndex,
-    placeIndex
-  );
-  yield* placeEntitiesAtEnd(IProjectRepository, projectIdsToPlaceAtEnd);
-});
-
 // Its folder leaves the workspace first: a workspace folder that isn't added is listed as one of the window's own.
 export const removeProject = Effect.fn("ProjectService.removeProject")(
   function* (request: RemoveProjectRequestDto) {
@@ -212,11 +181,12 @@ export const removeProject = Effect.fn("ProjectService.removeProject")(
   Effect.catchTag("EntityNotFoundError", () => Effect.void)
 );
 
+// A project no longer listed opens nothing.
 export const newProjectTerminal = Effect.fn("ProjectService.newProjectTerminal")(
-  function* () {
-    const pickedProject = yield* pickProject(TERMINAL_LABELS.PICK_PROJECT);
+  function* (request: NewProjectTerminalRequestDto) {
+    const chosenProject = yield* findProjectListItem(request.projectPath);
 
-    yield* ITerminalInfraService.use((terminalInfraService) => terminalInfraService.openProjectTerminal(pickedProject));
+    yield* ITerminalInfraService.use((terminalInfraService) => terminalInfraService.openProjectTerminal(chosenProject));
   },
-  Effect.catchTag("ProjectPickCancelledError", () => Effect.void)
+  Effect.catchTag("ProjectNotListedError", () => Effect.void)
 );

@@ -6,16 +6,6 @@ import {SecureRandom} from "effect/crypto";
 import type {SessionListItemDto} from "@dtos/session.dto.ts";
 import type {Uri, Webview} from "vscode";
 
-export const countViewSessionsWaitingOnUser = Effect.fn("SessionsView.countViewSessionsWaitingOnUser")(function* (
-  sessionsWaitingOnUser: readonly SessionListItemDto[],
-  isArchiveView: boolean
-) {
-  return Array.filter(
-    sessionsWaitingOnUser,
-    (sessionWaitingOnUser) => sessionWaitingOnUser.isArchived === isArchiveView
-  ).length;
-});
-
 export const setUpWebviewOptions = Effect.fn("SessionsView.setUpWebviewOptions")(function* (webview: Webview) {
   const vsCodeApi = yield* VsCodeApi;
 

@@ -121,8 +121,8 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 ## The Sessions view's webview state
 
 - **Holds:** the lists the user folded away in the Sessions view (the Archive, until the user opens it), the projects
-  folded away in each list, keyed by the list and the project's node id, and the id of the last session in front, whose
-  row stays marked.
+  folded away in each list, keyed by the list and the project's path, and the id of the last session in front, whose row
+  stays marked.
 - **Written by:** `apps/webview`'s `sessions.store.ts`, through `sessions.service.ts` and the webview API's `setState`,
   each time a list or a project folds or unfolds or another session comes to the front.
 - **Read by:** the webview's `sessions.store.ts`, with `getState`, when its page loads, which it does again each time VS
