@@ -295,7 +295,11 @@ const checkNewDatabase = Effect.fn("checkNewDatabase")(function* (testFolderPath
 });
 
 const runInTestFolder = Effect.fn("runInTestFolder")(
-  function* (check: (testFolderPath: string) => Effect.Effect<void, unknown, FileSystem | Path | SqlClient>) {
+  function* (
+    check: (
+      testFolderPath: string
+    ) => Effect.Effect<void, unknown, FileSystem | Path | SqlClient | SqliteClient.SqliteClient>
+  ) {
     const fileSystem = yield* FileSystem;
     const testFolderPath = yield* fileSystem.makeTempDirectoryScoped();
     const databaseLayer = SqliteClient.layer({filename: join(testFolderPath, DATABASE_FILE.FILE_NAME)});
