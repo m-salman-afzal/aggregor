@@ -2,6 +2,7 @@ import {SettingsConfig} from "@config/settings.config.ts";
 import {DatabaseLayer} from "@di/database.layer.ts";
 import {NodeServices} from "@effect/platform-node";
 import {CommitCliInfraService} from "@infraServices/commitCli/commitCli.infraService.ts";
+import {WorktreeInfraService} from "@infraServices/git/worktree.infraService.ts";
 import {DesktopNotificationInfraService} from "@infraServices/os/desktopNotification.infraService.ts";
 import {ShellCommandInfraService} from "@infraServices/os/shellCommand.infraService.ts";
 import {TmuxInfraService} from "@infraServices/tmux/tmux.infraService.ts";
@@ -47,5 +48,6 @@ export const AppLayer = BackgroundLayer.pipe(
   Layer.provideMerge(DesktopNotificationInfraService),
   Layer.provideMerge(ShellCommandInfraService),
   Layer.provideMerge(WorkspaceInfraService),
+  Layer.provideMerge(WorktreeInfraService),
   Layer.provideMerge(IndependentLayers)
 );

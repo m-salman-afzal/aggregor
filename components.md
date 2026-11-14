@@ -163,6 +163,16 @@ heading there. Update this file in the same commit as a change that adds, remove
 - **Alternatives:** Not weighed in `decisions/`.
   - Other options: the `git` CLI, simple-git, or isomorphic-git.
 
+### The git command line
+
+- **What it is:** git itself, the `git` the user has on `PATH`.
+- **What we use:** `git worktree add` and `git worktree list --porcelain`, `git rev-parse --verify` for a free branch
+  name, and `git ls-files --others --ignored` for the files a new worktree gets
+  (`infrastructure/services/git/worktree.infraService.ts`).
+- **Why:** the Git extension's API reaches only repositories open in Source Control, and opening each project's would
+  list them all there; the command line works on any project's folder.
+- **Alternatives:** the Git extension's `createWorktree` and `state.worktrees` (see `decisions/sessions/worktrees.md`).
+
 ### Desktop notifiers
 
 - **What it is:** each system's command for a desktop notification.

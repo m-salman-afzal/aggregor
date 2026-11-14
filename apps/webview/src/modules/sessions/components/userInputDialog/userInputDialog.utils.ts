@@ -7,20 +7,23 @@ import {SESSIONS_LABELS, USER_INPUT_TAGS} from "@/modules/sessions/sessions.cons
 
 import type {UserInput} from "@/modules/sessions/sessions.type.ts";
 import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
+import type {SubmitEvent} from "react";
 
 export const isDestructiveUserInput = (userInput: UserInput) =>
   userInput._tag === USER_INPUT_TAGS.QUESTION && userInput.answers.some((answer) => answer.isDestructive);
 
 export const pickUserInputIcon = (userInput: UserInput) => {
-  if (userInput._tag === USER_INPUT_TAGS.CHOICE) return USER_INPUT_ICONS.CHOICE;
+  if (userInput._tag === USER_INPUT_TAGS.NEW_SESSION) return USER_INPUT_ICONS.NEW_SESSION;
   if (userInput._tag === USER_INPUT_TAGS.TEXT) return USER_INPUT_ICONS.TEXT;
   if (userInput._tag === USER_INPUT_TAGS.PROJECT_SETTINGS) return USER_INPUT_ICONS.PROJECT_SETTINGS;
 
   return isDestructiveUserInput(userInput) ? USER_INPUT_ICONS.DESTRUCTIVE_QUESTION : USER_INPUT_ICONS.QUESTION;
 };
 
-export const readProjectSettings = (settingsForm: HTMLFormElement): ProjectSettingsDto => {
-  const formData = new FormData(settingsForm);
+// Submitting the form is taken over here, so the page doesn't reload.
+export const takeProjectSettings = (formEvent: SubmitEvent<HTMLFormElement>): ProjectSettingsDto => {
+  formEvent.preventDefault();
+  const formData = new FormData(formEvent.currentTarget);
   const readText = (fieldName: string) => {
     const fieldValue = formData.get(fieldName);
 
@@ -41,8 +44,14 @@ export const readProjectSettings = (settingsForm: HTMLFormElement): ProjectSetti
   };
 };
 
-export const readEnteredText = (textForm: HTMLFormElement) => {
-  const enteredText = new FormData(textForm).get(SESSIONS_LABELS.USER_INPUT_TEXT_FIELD);
+export const takeEnteredText = (formEvent: SubmitEvent<HTMLFormElement>) => {
+  formEvent.preventDefault();
+  const enteredText = new FormData(formEvent.currentTarget).get(SESSIONS_LABELS.USER_INPUT_TEXT_FIELD);
 
   return typeof enteredText === "string" ? enteredText : "";
 };
+
+export const describeUserInput = (userInput: undefined | UserInput) => ({
+  isDestructive: userInput !== undefined && isDestructiveUserInput(userInput),
+  UserInputIcon: userInput === undefined ? undefined : pickUserInputIcon(userInput)
+});

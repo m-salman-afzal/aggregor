@@ -19,7 +19,6 @@ export const AGENT_COMMANDS = {
 
 export const AGENT_LABELS = {
   DEFAULT: "default",
-  PICK: "Agent for the new session",
   SET_AS_DEFAULT: "Set as Default"
 } as const;
 

@@ -11,13 +11,25 @@ import {
   canMoveUpInOrder,
   findEntityIdsToPlaceAtEnd
 } from "@domainServices/sortOrder.domainService.ts";
-import {ProjectSessionsDtoSchema, SessionListChangeDtoSchema, SessionListItemDtoSchema} from "@dtos/session.dto.ts";
+import {
+  getWorktreeBranchName,
+  getWorktreeName,
+  getWorktreesFolderName
+} from "@domainServices/worktree.domainService.ts";
+import {
+  ProjectSessionsDtoSchema,
+  SessionListChangeDtoSchema,
+  SessionListItemDtoSchema,
+  WorktreeListItemDtoSchema
+} from "@dtos/session.dto.ts";
 import {IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
+import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
+import {NEW_SESSION_WORKING_TREE_TAGS} from "@pkg/constants/src/session.constant.ts";
 import {findAgentToStart} from "@services/agent.service.ts";
 import {
   addEntity,
@@ -32,7 +44,7 @@ import {ENTITY_CHANGE_KINDS} from "@valueObjects/entityChangeKind.valueObject.ts
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {SESSION_LIFECYCLES} from "@valueObjects/sessionLifecycle.valueObject.ts";
 import {SESSION_STATUSES} from "@valueObjects/sessionStatus.valueObject.ts";
-import {Array, DateTime, Effect, Predicate, Result, Schema, Stream, String, SubscriptionRef} from "effect";
+import {Array, DateTime, Effect, Match, Predicate, Result, Schema, Stream, String, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
@@ -54,11 +66,24 @@ import type {
   UnarchiveSessionRequestDto
 } from "@dtos/session.dto.ts";
 import type {AgentEntity} from "@entities/agent/agent.entity.ts";
+import type {ProjectEntity} from "@entities/project/project.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {SessionLifecycleValueObject} from "@valueObjects/sessionLifecycle.valueObject.ts";
+
+interface NewSessionDraft {
+  readonly project: ProjectEntity;
+  readonly projectName: string;
+  readonly sessionAgent: AgentEntity;
+  readonly sessionName: string;
+}
+
+export class WorktreeNotFoundError extends Schema.TaggedError<WorktreeNotFoundError, {readonly brand: unique symbol}>()(
+  "WorktreeNotFoundError",
+  {}
+) {}
 
 export class SessionNotFoundError extends Schema.TaggedError<SessionNotFoundError, {readonly brand: unique symbol}>()(
   "SessionNotFoundError",
@@ -74,17 +99,70 @@ export const findSession = Effect.fn("SessionService.findSession")(
 );
 
 const addSession = Effect.fn("SessionService.addSession")(function* (
-  sessionProject: ProjectListItemDto,
-  sessionAgent: AgentEntity
+  newSessionDraft: NewSessionDraft,
+  worktreePath: ProjectPathValueObject | undefined
 ) {
-  const project = yield* findOrAddProject(sessionProject.path);
-  const storedSessions = yield* findEntities(ISessionRepository, {});
-
   return yield* addEntity(ISessionRepository, {
-    agentId: sessionAgent.id,
+    agentId: newSessionDraft.sessionAgent.id,
     lifecycle: SESSION_LIFECYCLES.ONGOING,
-    name: yield* getDefaultSessionName(sessionProject.name, storedSessions),
-    projectId: project.id
+    name: newSessionDraft.sessionName,
+    projectId: newSessionDraft.project.id,
+    worktreePath
+  });
+});
+
+// Each is named after the session: "jsTester #3" works in jstester-3, on aggregor/jstester-3.
+const createSessionWorktree = Effect.fn("SessionService.createSessionWorktree")(function* (
+  newSessionDraft: NewSessionDraft
+) {
+  const worktreeInfraService = yield* IWorktreeInfraService;
+  const worktreeName = yield* getWorktreeName(newSessionDraft.sessionName);
+  const sessionWorktree = yield* worktreeInfraService.createWorktree({
+    branchName: yield* getWorktreeBranchName(worktreeName),
+    projectPath: newSessionDraft.project.path,
+    worktreeName,
+    worktreesFolderName: yield* getWorktreesFolderName(newSessionDraft.projectName, newSessionDraft.project.id),
+    worktreesFolderPath: newSessionDraft.project.settings.worktreeFolder
+  });
+  yield* worktreeInfraService.copyIncludedFiles({
+    filePatterns: newSessionDraft.project.settings.filesToCopy,
+    projectPath: newSessionDraft.project.path,
+    worktreePath: sessionWorktree.worktreePath
+  });
+
+  return sessionWorktree.worktreePath;
+});
+
+const findExistingWorktree = Effect.fn("SessionService.findExistingWorktree")(
+  function* (projectPath: ProjectPathValueObject, worktreePath: ProjectPathValueObject) {
+    const projectWorktrees = yield* IWorktreeInfraService.use((worktreeInfraService) =>
+      worktreeInfraService.listWorktrees(projectPath)
+    );
+    if (!Array.some(projectWorktrees, (projectWorktree) => projectWorktree.worktreePath === worktreePath))
+      return yield* WorktreeNotFoundError.make();
+
+    return worktreePath;
+  },
+  Effect.catchTag("NotGitRepositoryError", () => Effect.fail(WorktreeNotFoundError.make()))
+);
+
+const prepareSessionWorkingTree = Effect.fn("SessionService.prepareSessionWorkingTree")(function* (
+  newSessionDraft: NewSessionDraft,
+  workingTree: NewSessionRequestDto["workingTree"]
+) {
+  return yield* Match.valueTags(workingTree, {
+    [NEW_SESSION_WORKING_TREE_TAGS.EXISTING_WORKTREE]: (existingWorktree) =>
+      Effect.map(findExistingWorktree(newSessionDraft.project.path, existingWorktree.worktreePath), (worktreePath) => ({
+        setupScript: undefined,
+        worktreePath
+      })),
+    [NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE]: () =>
+      Effect.map(createSessionWorktree(newSessionDraft), (worktreePath) => ({
+        setupScript: newSessionDraft.project.settings.setupScript,
+        worktreePath
+      })),
+    [NEW_SESSION_WORKING_TREE_TAGS.PROJECT_ROOT]: () =>
+      Effect.succeed({setupScript: undefined, worktreePath: undefined})
   });
 });
 
@@ -92,14 +170,18 @@ const findSessionAgent = Effect.fn("SessionService.findSessionAgent")(function* 
   return yield* IAgentRepository.use((agentRepository) => agentRepository.findById(session.agentId));
 });
 
-const openSessionTab = Effect.fn("SessionService.openSessionTab")(function* (session: SessionEntity) {
+const openSessionTab = Effect.fn("SessionService.openSessionTab")(function* (
+  session: SessionEntity,
+  setupScript: string | undefined
+) {
   const tmuxInfraService = yield* ITmuxInfraService;
   const sessionAgent = yield* findSessionAgent(session);
   const launchPlan = yield* prepareLaunchPlan(sessionAgent, session);
   const tabCommand = yield* tmuxInfraService.prepareSessionTabCommand({
     launchPlan,
-    projectPath: session.projectPath,
-    sessionId: session.id
+    sessionId: session.id,
+    setupScript,
+    workingFolderPath: session.workingFolderPath
   });
   const sessionTabRequest: SessionTabRequest = {icon: sessionAgent.icon, tabCommand, tabName: session.displayName};
 
@@ -111,8 +193,8 @@ const openSessionTab = Effect.fn("SessionService.openSessionTab")(function* (ses
 
 // A new session whose tab fails to open is removed again, with any agent it started, so no dead row stays behind.
 const launchNewSession = Effect.fn("SessionService.launchNewSession")(
-  function* (addedSession: SessionEntity) {
-    yield* openSessionTab(addedSession);
+  function* (addedSession: SessionEntity, setupScript: string | undefined) {
+    yield* openSessionTab(addedSession, setupScript);
   },
   (effect, addedSession) =>
     Effect.tapError(effect, () =>
@@ -126,7 +208,7 @@ const launchNewSession = Effect.fn("SessionService.launchNewSession")(
 const reopenSession = Effect.fn("SessionService.reopenSession")(function* (sessionId: EntityIdValueObject) {
   const session = yield* findSession(sessionId);
 
-  yield* openSessionTab(session);
+  yield* openSessionTab(session, undefined);
 });
 
 // A tab that closed meanwhile has nothing left to close.
@@ -184,10 +266,17 @@ const archiveSessionsKeepingAgents = Effect.fn("SessionService.archiveSessionsKe
 export const newSession = Effect.fn("SessionService.newSession")(
   function* (request: NewSessionRequestDto) {
     const sessionProject = yield* findProjectListItem(request.projectPath);
-    const sessionAgent = yield* findAgentToStart(request.agentId);
-    const addedSession = yield* addSession(sessionProject, sessionAgent);
+    const storedSessions = yield* findEntities(ISessionRepository, {});
+    const newSessionDraft: NewSessionDraft = {
+      project: yield* findOrAddProject(sessionProject.path),
+      projectName: sessionProject.name,
+      sessionAgent: yield* findAgentToStart(request.agentId),
+      sessionName: yield* getDefaultSessionName(sessionProject.name, storedSessions)
+    };
+    const sessionWorkingTree = yield* prepareSessionWorkingTree(newSessionDraft, request.workingTree);
+    const addedSession = yield* addSession(newSessionDraft, sessionWorkingTree.worktreePath);
 
-    yield* launchNewSession(addedSession);
+    yield* launchNewSession(addedSession, sessionWorkingTree.setupScript);
   },
   Effect.catchTag("ProjectNotListedError", () => Effect.void)
 );
@@ -331,7 +420,8 @@ const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function
     status,
     statusKind: status === SESSION_STATUSES.BLOCKED ? session.statusKind : undefined,
     statusMessage: status === SESSION_STATUSES.EXITED ? undefined : session.statusMessage,
-    statusProgress: isTurnRunning ? session.statusProgress : undefined
+    statusProgress: isTurnRunning ? session.statusProgress : undefined,
+    worktreePath: session.worktreePath
   });
 });
 
@@ -373,9 +463,32 @@ export const listProjectSessions = Effect.fn("SessionService.listProjectSessions
   return yield* Effect.forEach(projectSessions, (projectSession) => toSessionListItem(projectSession, projectSessions));
 });
 
+const findProjectWorktrees = Effect.fn("SessionService.findProjectWorktrees")(function* (
+  projectPath: ProjectPathValueObject,
+  lifecycle: SessionLifecycleValueObject
+) {
+  if (lifecycle === SESSION_LIFECYCLES.ARCHIVED) return {};
+  const projectWorktreesResult = yield* Effect.result(
+    IWorktreeInfraService.use((worktreeInfraService) => worktreeInfraService.listWorktrees(projectPath))
+  );
+
+  return Result.match(projectWorktreesResult, {
+    onFailure: () => ({}),
+    onSuccess: (projectWorktrees) => ({
+      worktrees: Array.map(projectWorktrees, (projectWorktree) =>
+        WorktreeListItemDtoSchema.make({
+          branchName: projectWorktree.branchName,
+          worktreePath: projectWorktree.worktreePath
+        })
+      )
+    })
+  });
+});
+
 const toProjectSessions = Effect.fn("SessionService.toProjectSessions")(function* (
   projectListItem: ProjectListItemDto,
-  lifecycleSessions: readonly SessionEntity[]
+  lifecycleSessions: readonly SessionEntity[],
+  lifecycle: SessionLifecycleValueObject
 ) {
   const projectSessions = Array.filter(
     lifecycleSessions,
@@ -383,6 +496,7 @@ const toProjectSessions = Effect.fn("SessionService.toProjectSessions")(function
   );
 
   return ProjectSessionsDtoSchema.make({
+    ...(yield* findProjectWorktrees(projectListItem.path, lifecycle)),
     projectListItem,
     sessionListItems: yield* Effect.forEach(projectSessions, (projectSession) =>
       toSessionListItem(projectSession, projectSessions)
@@ -397,7 +511,7 @@ const listProjectsWithLifecycleSessions = Effect.fn("SessionService.listProjects
   const lifecycleSessions = yield* findEntities(ISessionRepository, {lifecycle});
 
   return yield* Effect.forEach(projectListItems, (projectListItem) =>
-    toProjectSessions(projectListItem, lifecycleSessions)
+    toProjectSessions(projectListItem, lifecycleSessions, lifecycle)
   );
 });
 

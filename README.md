@@ -30,6 +30,10 @@ terminals, tree views, Source Control and diffs.
   keep running, it reopens the session you switched to, and the folders that leave become added projects. The window is
   then named Aggregor and never asks to be saved. Later switches rewrite the file's folders, and the project's settings
   with them, in one write; in the rare case VS Code confirms none of that, the window reloads once to catch up.
+- **Worktrees.** In a git project, New Session can start a session in its project's root, in a new git worktree of its
+  own (from the current commit, on an `aggregor/<session>` branch, with the project's `.env*` or `.worktreeinclude`
+  files copied in and its setup script run first), or in a worktree that already exists. While that session is in front,
+  the window shows its worktree, so Source Control shows its changes.
 - **Agents.** New Session asks which agent to start, among those whose command is on `PATH`, with your default first;
   each one's **Set as Default** button changes the default, and `aggregorApp.skipAgentPicker` starts the default without
   asking. Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot are built in. `aggregorApp.agents` in your user

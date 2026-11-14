@@ -44,6 +44,7 @@ Alternatives considered with why it was dropped. Leave a field out rather than g
 - [sessions/archive.md](sessions/archive.md): Archiving sessions, and stopping or keeping their agents.
 - [sessions/ordering.md](sessions/ordering.md): How projects and sessions are put in order.
 - [sessions/terminals.md](sessions/terminals.md): Where a session's agent runs, its tab, and resuming it.
+- [sessions/worktrees.md](sessions/worktrees.md): Where a session works: its project's root, or a git worktree.
 - [sessions/titles.md](sessions/titles.md): The name a session shows.
 - [agents.md](agents.md): Which CLIs a session can run, and how a session picks one.
 - [status/pty.md](status/pty.md): The binary that runs each agent and records its status.

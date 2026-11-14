@@ -47,8 +47,9 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 
 - **Holds:** `projectId`, `agentId` (its `aggregorApp.agents` key), `name` (the agent's latest title, or ours until it
   gives one), `customName` (the user's, from the row menu's Rename, or NULL), `viewedAt` (when the session last came
-  into or left the user's view) and `lifecycle` (`ongoing`, listed in the Sessions list, or `archived`, listed in the
-  Archive list). The `id` is also the agent's session id.
+  into or left the user's view), `lifecycle` (`ongoing`, listed in the Sessions list, or `archived`, listed in the
+  Archive list) and `worktreePath` (the git worktree its agent works in, or NULL for its project's root). The `id` is
+  also the agent's session id.
 - **Written by:** `SessionService` through the base service: a row per New Session, `name` when the agent's title in the
   row changes, `customName` on Rename, `viewedAt` as the session comes into and leaves view, `sortId` on Move Up, Move
   Down and a drop on another of its project's sessions in the same list, `lifecycle` and `sortId` on Archive and
@@ -81,6 +82,18 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 - **Why:** an agent outlives its tab, a reload and VS Code, and the server stays apart from the user's own tmux. In the
   Aggregor folder, a test's `AGGREGOR_HOME` gets a server of its own.
 - **Cleaned up:** by tmux; a stale socket left by a reboot is replaced when the next server starts.
+
+## `worktrees/`
+
+- **Holds:** a folder per project, `<project folder name>-<the project id's last 6 characters>`, and in it a git
+  worktree per session started in a new worktree, named after the session (`jstester-3`), on the branch
+  `aggregor/<that name>`. A project whose settings name a worktree folder keeps its worktrees there instead.
+- **Written by:** `WorktreeInfraService`, with `git worktree add` from the project's current commit, then the project's
+  files to copy (its `.worktreeinclude`, or its settings' patterns) and its setup script, which runs in the session's
+  tab before the agent.
+- **Read by:** the session's tab and agent, which work in it, and the window, which shows it while the session is in
+  front.
+- **Cleaned up:** not yet; a removed session leaves its worktree and branch behind.
 
 ## `anchor/`
 

@@ -55,6 +55,7 @@ const toProjectRow = Effect.fn("SessionsView.toProjectRow")(function* (
   projectSessions: ProjectSessionsDto
 ) {
   const projectRow: ProjectRowData = {
+    ...(projectSessions.worktrees === undefined ? {} : {worktrees: projectSessions.worktrees}),
     projectListItem: projectSessions.projectListItem,
     sessionRows: yield* Effect.forEach(projectSessions.sessionListItems, (sessionListItem) =>
       toSessionRow(webview, sessionListItem)

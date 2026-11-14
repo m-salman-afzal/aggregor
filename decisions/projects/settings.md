@@ -14,8 +14,8 @@ What a project remembers about how its sessions start.
   repository.
 - **Solution:** the repository stores an object column as its JSON text, through `Schema.fromJsonString`. SQL can't
   query or constrain inside the column, which no read needs. Renaming a key needs the decoder to read the old one for a
-  while, where a column rename needs two releases. The settings take effect with worktree sessions; until then they are
-  only stored.
+  while, where a column rename needs two releases. New Session reads them when it starts a session in a worktree (see
+  `sessions/worktrees.md`).
 - **Alternatives considered:** a column per setting, a migration each. VS Code's resource-scoped settings, which would
   write into the project's `.vscode/settings.json`. A file in the repository (`aggregor.json`, like Conductor's
   `conductor.json` or Orca's `orca.yaml`) to share settings with a team: left until a team needs it; the one shared

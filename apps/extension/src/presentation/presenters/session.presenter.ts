@@ -1,5 +1,6 @@
 import {AGENT_ERRORS, AGENTS_SETTING_ID} from "@pkg/constants/src/agent.constant.ts";
 import {DATABASE_ERRORS} from "@pkg/constants/src/database.constant.ts";
+import {WORKTREE_ERRORS} from "@pkg/constants/src/git.constant.ts";
 import {SESSION_ERRORS} from "@pkg/constants/src/session.constant.ts";
 import {TMUX, TMUX_ERRORS, TMUX_LABELS} from "@pkg/constants/src/tmux.constant.ts";
 import {Array, Effect, Match} from "effect";
@@ -61,6 +62,8 @@ export const presentSessionCommandError = Effect.fn("SessionPresenter.presentSes
     TmuxUnavailableError: (error) => ({
       message: error.foundVersion === undefined ? TMUX_ERRORS.NOT_INSTALLED : TMUX_ERRORS.TOO_OLD(error.foundVersion),
       pageToOpen: {label: TMUX_LABELS.INSTALL, url: TMUX.INSTALL_PAGE}
-    })
+    }),
+    WorktreeCreateFailedError: (error) => ({message: WORKTREE_ERRORS.CREATE_FAILED(error.gitError)}),
+    WorktreeNotFoundError: () => ({message: WORKTREE_ERRORS.NOT_FOUND})
   });
 });

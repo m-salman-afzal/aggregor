@@ -1,8 +1,8 @@
-import {CircleHelpIcon, ListIcon, PencilLineIcon, SlidersHorizontalIcon, TriangleAlertIcon} from "lucide-react";
+import {CircleHelpIcon, PencilLineIcon, PlusIcon, SlidersHorizontalIcon, TriangleAlertIcon} from "lucide-react";
 
 export const USER_INPUT_ICONS = {
-  CHOICE: ListIcon,
   DESTRUCTIVE_QUESTION: TriangleAlertIcon,
+  NEW_SESSION: PlusIcon,
   PROJECT_SETTINGS: SlidersHorizontalIcon,
   QUESTION: CircleHelpIcon,
   TEXT: PencilLineIcon

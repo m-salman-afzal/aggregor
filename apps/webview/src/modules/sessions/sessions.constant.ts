@@ -48,7 +48,7 @@ export const APPEARANCE = {
 } as const;
 
 export const USER_INPUT_TAGS = {
-  CHOICE: "ChoiceInput",
+  NEW_SESSION: "NewSessionInput",
   PROJECT_SETTINGS: "ProjectSettingsInput",
   QUESTION: "QuestionInput",
   TEXT: "TextInput"

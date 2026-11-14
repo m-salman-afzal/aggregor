@@ -8,8 +8,9 @@ import type {Effect, Stream, SubscriptionRef} from "effect";
 
 export interface SessionTabCommandRequest {
   readonly launchPlan: LaunchPlanValueObject;
-  readonly projectPath: ProjectPathValueObject;
   readonly sessionId: EntityIdValueObject;
+  readonly setupScript?: string | undefined;
+  readonly workingFolderPath: ProjectPathValueObject;
 }
 
 // This build has no aggregor-pty: a Windows VSIX, where sessions need WSL, or a local build without it.

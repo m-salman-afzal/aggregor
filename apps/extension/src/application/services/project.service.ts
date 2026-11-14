@@ -5,13 +5,14 @@ import {
 } from "@domainServices/sortOrder.domainService.ts";
 import {ProjectListItemDtoSchema} from "@dtos/project.dto.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
+import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {addEntity, findEntities, placeEntitiesAtEnd, updateEntity, upsertEntity} from "@services/base.service.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {ProjectSettingsValueObjectSchema} from "@valueObjects/projectSettings.valueObject.ts";
-import {Array, Effect, Result, Schema} from "effect";
+import {Array, Effect, Predicate, Result, Schema} from "effect";
 import {Path} from "effect/Path";
 
 import type {
@@ -60,7 +61,18 @@ const findProjectSettings = Effect.fn("ProjectService.findProjectSettings")(func
   return yield* Effect.orDie(Schema.decodeEffect(ProjectSettingsValueObjectSchema)({}));
 });
 
-// An added project shown as a workspace folder stays an added project.
+const findSessionWorktreePaths = Effect.fn("ProjectService.findSessionWorktreePaths")(function* () {
+  const storedSessions = yield* findEntities(ISessionRepository, {});
+
+  return new Set(
+    Array.filter(
+      Array.map(storedSessions, (storedSession) => storedSession.worktreePath),
+      Predicate.isNotUndefined
+    )
+  );
+});
+
+// An added project shown in the window stays an added project, and a session's worktree shown there is no project.
 export const listProjects = Effect.fn("ProjectService.listProjects")(function* () {
   const workspaceFolderProjects = yield* IWorkspaceInfraService.use(
     (workspaceInfraService) => workspaceInfraService.listWorkspaceFolderProjects
@@ -68,9 +80,11 @@ export const listProjects = Effect.fn("ProjectService.listProjects")(function* (
   const storedProjects = yield* findEntities(IProjectRepository, {});
   const addedProjects = Array.filter(storedProjects, (storedProject) => storedProject.isAdded);
   const addedProjectPaths = new Set(Array.map(addedProjects, (addedProject) => addedProject.path));
+  const sessionWorktreePaths = yield* findSessionWorktreePaths();
   const ownFolderProjects = Array.filter(
     workspaceFolderProjects,
-    (workspaceFolderProject) => !addedProjectPaths.has(workspaceFolderProject.path)
+    (workspaceFolderProject) =>
+      !addedProjectPaths.has(workspaceFolderProject.path) && !sessionWorktreePaths.has(workspaceFolderProject.path)
   );
   const addedProjectIds = Array.map(addedProjects, (addedProject) => addedProject.id);
 

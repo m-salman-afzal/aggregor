@@ -16,10 +16,11 @@ export const UserInputDialog = () => {
         />
         {userInputDialogView.userInput !== undefined && (
           <UserInputBody
-            onCancel={userInputDialogView.cancel}
+            onCancel={userInputDialogView.closeUserInput}
             onChoose={userInputDialogView.choose}
             onEnterText={userInputDialogView.enterText}
             onSaveSettings={userInputDialogView.saveSettings}
+            onStart={userInputDialogView.startSession}
             userInput={userInputDialogView.userInput}
           />
         )}

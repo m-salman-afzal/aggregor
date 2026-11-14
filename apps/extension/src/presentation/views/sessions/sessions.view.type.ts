@@ -1,6 +1,6 @@
 import type {AgentListItemDto} from "@dtos/agent.dto.ts";
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
-import type {SessionListItemDto} from "@dtos/session.dto.ts";
+import type {SessionListItemDto, WorktreeListItemDto} from "@dtos/session.dto.ts";
 import type {
   SESSIONS_VIEW_MESSAGE_TAGS,
   SESSIONS_WEBVIEW_MESSAGE_TAGS
@@ -16,6 +16,7 @@ export interface SessionRowData {
 export interface ProjectRowData {
   readonly projectListItem: ProjectListItemDto;
   readonly sessionRows: readonly SessionRowData[];
+  readonly worktrees?: readonly WorktreeListItemDto[];
 }
 
 export interface AgentRowData {

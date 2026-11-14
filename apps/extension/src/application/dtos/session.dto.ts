@@ -1,4 +1,5 @@
 import {ProjectListItemDtoSchema} from "@dtos/project.dto.ts";
+import {NEW_SESSION_WORKING_TREE_TAGS} from "@pkg/constants/src/session.constant.ts";
 import {AgentIconValueObjectSchema} from "@valueObjects/agentIcon.valueObject.ts";
 import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
@@ -23,14 +24,24 @@ export const SessionListItemDtoSchema = Schema.Struct({
   status: SessionStatusValueObjectSchema,
   statusKind: Schema.optional(StatusKindValueObjectSchema),
   statusMessage: Schema.optional(Schema.String),
-  statusProgress: Schema.optional(Schema.Int)
+  statusProgress: Schema.optional(Schema.Int),
+  worktreePath: Schema.optional(ProjectPathValueObjectSchema)
 });
 
 export type SessionListItemDto = typeof SessionListItemDtoSchema.Type;
 
+export const WorktreeListItemDtoSchema = Schema.Struct({
+  branchName: Schema.String,
+  worktreePath: ProjectPathValueObjectSchema
+});
+
+export type WorktreeListItemDto = typeof WorktreeListItemDtoSchema.Type;
+
+// Without worktrees, the project is no git repository, or the list doesn't read them (the Archive).
 export const ProjectSessionsDtoSchema = Schema.Struct({
   projectListItem: ProjectListItemDtoSchema,
-  sessionListItems: Schema.Array(SessionListItemDtoSchema)
+  sessionListItems: Schema.Array(SessionListItemDtoSchema),
+  worktrees: Schema.optional(Schema.Array(WorktreeListItemDtoSchema))
 });
 
 export type ProjectSessionsDto = typeof ProjectSessionsDtoSchema.Type;
@@ -46,7 +57,12 @@ export type SessionListChangeDto = typeof SessionListChangeDtoSchema.Type;
 // Without an agent, the default one starts, or the only one installed.
 export const NewSessionRequestDtoSchema = Schema.Struct({
   agentId: Schema.optional(AgentIdValueObjectSchema),
-  projectPath: ProjectPathValueObjectSchema
+  projectPath: ProjectPathValueObjectSchema,
+  workingTree: Schema.TaggedUnion({
+    [NEW_SESSION_WORKING_TREE_TAGS.EXISTING_WORKTREE]: {worktreePath: ProjectPathValueObjectSchema},
+    [NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE]: {},
+    [NEW_SESSION_WORKING_TREE_TAGS.PROJECT_ROOT]: {}
+  })
 });
 
 export type NewSessionRequestDto = typeof NewSessionRequestDtoSchema.Type;

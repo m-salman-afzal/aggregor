@@ -49,14 +49,14 @@ Which CLIs a session can run, and how a session picks one.
 - **Problem:** with five built-in agents, starting a session has to say which, and offering one that isn't installed
   only fails in its terminal.
 - **Decision:**
-  - The project row's "New Claude Session" became "New Session"; the list's "New Session..." asks for the project first,
-    then the agent.
+  - The project row's "New Claude Session" became "New Session"; New Session's dialog shows the agent beside the project
+    and the working tree (see `sessions/worktrees.md`).
   - The picker lists the agents whose command is on `PATH` (plus `PATHEXT` on Windows), looked up in the extension host
     each time through `IShellCommandInfraService.listInstalledCommands`, so a new install shows without a reload. Each
     row is an `AgentListItemDto` from `listAgents`: icon, name, the command as the description, the default first and
     marked. The view sends the list to the webview when it draws, and again when an agent setting changes.
   - A row's **Set as Default** button runs `setDefaultAgent`, which saves `aggregorApp.defaultAgent` to user settings
-    through `ISettingsConfig.saveDefaultAgentId`; the open picker reorders at once.
+    through `ISettingsConfig.saveDefaultAgentId`, and picks that agent.
   - The webview picks: one agent installed, or `aggregorApp.skipAgentPicker` on with the default installed, starts the
     session without the picker. `newSession` takes the agent, or none for the default or the only one installed; none
     installed fails with `NoAgentInstalledError`, naming the commands searched for, with **Open Settings**.

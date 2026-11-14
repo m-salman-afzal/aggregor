@@ -1,10 +1,11 @@
-import {ChoiceInput} from "@/modules/sessions/components/userInputDialog/components/choiceInput.tsx";
+import {NewSessionInput} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.tsx";
 import {ProjectSettingsInput} from "@/modules/sessions/components/userInputDialog/components/projectSettingsInput/projectSettingsInput.tsx";
 import {QuestionInput} from "@/modules/sessions/components/userInputDialog/components/questionInput.tsx";
 import {TextInput} from "@/modules/sessions/components/userInputDialog/components/textInput.tsx";
 import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 
 import type {UserInput} from "@/modules/sessions/sessions.type.ts";
+import type {CommandRequest} from "@views/sessions/sessions.view.type.ts";
 import type {SubmitEvent} from "react";
 
 interface UserInputBodyProps {
@@ -12,12 +13,19 @@ interface UserInputBodyProps {
   readonly onChoose: (choiceId: string, isSecondaryAction: boolean) => void;
   readonly onEnterText: (formEvent: SubmitEvent<HTMLFormElement>) => void;
   readonly onSaveSettings: (formEvent: SubmitEvent<HTMLFormElement>) => void;
+  readonly onStart: (newSessionRequest: CommandRequest) => void;
   readonly userInput: UserInput;
 }
 
 export const UserInputBody = (props: UserInputBodyProps) => {
-  if (props.userInput._tag === USER_INPUT_TAGS.CHOICE)
-    return <ChoiceInput choices={props.userInput.choices} onCancel={props.onCancel} onChoose={props.onChoose} />;
+  if (props.userInput._tag === USER_INPUT_TAGS.NEW_SESSION)
+    return (
+      <NewSessionInput
+        chosenProjectPath={props.userInput.chosenProjectPath}
+        onCancel={props.onCancel}
+        onStart={props.onStart}
+      />
+    );
   if (props.userInput._tag === USER_INPUT_TAGS.QUESTION)
     return <QuestionInput answers={props.userInput.answers} onCancel={props.onCancel} onChoose={props.onChoose} />;
   if (props.userInput._tag === USER_INPUT_TAGS.PROJECT_SETTINGS)

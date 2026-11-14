@@ -16,12 +16,26 @@ export const SESSION_COMMANDS = {
   UNARCHIVE: "aggregorApp.unarchiveSession"
 } as const;
 
+// What a new session's request says about the working tree it runs in.
+export const NEW_SESSION_WORKING_TREE_TAGS = {
+  EXISTING_WORKTREE: "ExistingWorktree",
+  NEW_WORKTREE: "NewWorktree",
+  PROJECT_ROOT: "ProjectRoot"
+} as const;
+
 export const SESSION_LABELS = {
+  AGENT_SECTION: "Agent",
   CONFIRM_REMOVE: "Remove",
-  PICK_PROJECT: "Project for the new session",
+  NEW_SESSION: "New session",
+  NEW_WORKTREE: "New worktree",
+  NEW_WORKTREE_DESCRIPTION: "A branch of its own, from the project's current commit",
+  PROJECT_ROOT: "Project root",
+  PROJECT_SECTION: "Project",
   RENAME: "Session name. Leave it empty to show the agent's own title again.",
+  START: "Start",
   STOP_AGENT: "Stop Agent",
-  STOP_AGENTS: "Stop Agents"
+  STOP_AGENTS: "Stop Agents",
+  WORKING_TREE_SECTION: "Works in"
 } as const;
 
 // Which one a question shows is picked in the webview's sessions.utils.ts.
