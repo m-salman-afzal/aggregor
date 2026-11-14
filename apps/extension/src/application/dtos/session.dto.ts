@@ -1,16 +1,17 @@
+import {ProjectListItemDtoSchema} from "@dtos/project.dto.ts";
+import {NEW_SESSION_WORKING_TREE_TAGS} from "@pkg/constants/src/session.constant.ts";
 import {AgentIconValueObjectSchema} from "@valueObjects/agentIcon.valueObject.ts";
+import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {SessionStatusValueObjectSchema} from "@valueObjects/sessionStatus.valueObject.ts";
 import {StatusKindValueObjectSchema} from "@valueObjects/statusKind.valueObject.ts";
 import {Schema} from "effect";
 
-// What crosses between presentation and the session use cases.
-
-// A session as the list shows it. The kind of wait and the progress are present only while the agent is at its turn,
-// and the message only while the agent runs. No icon means its agent is gone from the settings. It moves only among its
-// project's sessions in its own view: Sessions, or Archive once archived.
+// The wait kind and progress exist only at the agent's turn; no agent name or icon means it left the settings.
 export const SessionListItemDtoSchema = Schema.Struct({
+  agentName: Schema.optional(Schema.String),
+  branchName: Schema.optional(Schema.String),
   canMoveDown: Schema.Boolean,
   canMoveUp: Schema.Boolean,
   displayName: Schema.String,
@@ -24,13 +25,30 @@ export const SessionListItemDtoSchema = Schema.Struct({
   status: SessionStatusValueObjectSchema,
   statusKind: Schema.optional(StatusKindValueObjectSchema),
   statusMessage: Schema.optional(Schema.String),
-  statusProgress: Schema.optional(Schema.Int)
+  statusProgress: Schema.optional(Schema.Int),
+  worktreePath: Schema.optional(ProjectPathValueObjectSchema)
 });
 
 export type SessionListItemDto = typeof SessionListItemDtoSchema.Type;
 
-// What changed in the list of projects and their sessions: the projects, which sessions one project has, or one
-// session.
+export const WorktreeListItemDtoSchema = Schema.Struct({
+  branchName: Schema.String,
+  worktreePath: ProjectPathValueObjectSchema
+});
+
+export type WorktreeListItemDto = typeof WorktreeListItemDtoSchema.Type;
+
+// Without worktrees, the project is no git repository, or the list doesn't read them (the Archive).
+export const ProjectSessionsDtoSchema = Schema.Struct({
+  hasLeftovers: Schema.optional(Schema.Boolean),
+  projectListItem: ProjectListItemDtoSchema,
+  sessionListItems: Schema.Array(SessionListItemDtoSchema),
+  worktrees: Schema.optional(Schema.Array(WorktreeListItemDtoSchema)),
+  worktreesRootPath: Schema.optional(Schema.String)
+});
+
+export type ProjectSessionsDto = typeof ProjectSessionsDtoSchema.Type;
+
 export const SessionListChangeDtoSchema = Schema.TaggedUnion({
   ProjectListChanged: {},
   ProjectSessionsChanged: {projectPath: ProjectPathValueObjectSchema},
@@ -39,8 +57,16 @@ export const SessionListChangeDtoSchema = Schema.TaggedUnion({
 
 export type SessionListChangeDto = typeof SessionListChangeDtoSchema.Type;
 
-// Without a project, the user picks one.
-export const NewSessionRequestDtoSchema = Schema.Struct({projectPath: Schema.optional(ProjectPathValueObjectSchema)});
+// Without an agent, the default one starts, or the only one installed.
+export const NewSessionRequestDtoSchema = Schema.Struct({
+  agentId: Schema.optional(AgentIdValueObjectSchema),
+  projectPath: ProjectPathValueObjectSchema,
+  workingTree: Schema.TaggedUnion({
+    [NEW_SESSION_WORKING_TREE_TAGS.EXISTING_WORKTREE]: {worktreePath: ProjectPathValueObjectSchema},
+    [NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE]: {},
+    [NEW_SESSION_WORKING_TREE_TAGS.PROJECT_ROOT]: {}
+  })
+});
 
 export type NewSessionRequestDto = typeof NewSessionRequestDtoSchema.Type;
 
@@ -78,9 +104,20 @@ export const StopArchivedProjectSessionAgentsRequestDtoSchema = Schema.Struct({
 
 export type StopArchivedProjectSessionAgentsRequestDto = typeof StopArchivedProjectSessionAgentsRequestDtoSchema.Type;
 
-export const RenameSessionRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
+// An empty name hands the row and the tab back to the agent's title.
+export const RenameSessionRequestDtoSchema = Schema.Struct({
+  customName: Schema.String,
+  sessionId: EntityIdValueObjectSchema
+});
 
 export type RenameSessionRequestDto = typeof RenameSessionRequestDtoSchema.Type;
+
+export const RenameSessionBranchRequestDtoSchema = Schema.Struct({
+  branchName: Schema.NonEmptyString,
+  sessionId: EntityIdValueObjectSchema
+});
+
+export type RenameSessionBranchRequestDto = typeof RenameSessionBranchRequestDtoSchema.Type;
 
 export const MoveSessionUpRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
 
@@ -90,24 +127,10 @@ export const MoveSessionDownRequestDtoSchema = Schema.Struct({sessionId: EntityI
 
 export type MoveSessionDownRequestDto = typeof MoveSessionDownRequestDtoSchema.Type;
 
-// The session takes the place of the other session of its project.
-export const MoveSessionToPlaceOfRequestDtoSchema = Schema.Struct({
-  placeOfSessionId: EntityIdValueObjectSchema,
-  sessionId: EntityIdValueObjectSchema
-});
-
-export type MoveSessionToPlaceOfRequestDto = typeof MoveSessionToPlaceOfRequestDtoSchema.Type;
-
 export const GetSessionListItemRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
 
 export type GetSessionListItemRequestDto = typeof GetSessionListItemRequestDtoSchema.Type;
 
-export const ListProjectSessionIdsRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
+export const GetProjectSessionsRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
 
-export type ListProjectSessionIdsRequestDto = typeof ListProjectSessionIdsRequestDtoSchema.Type;
-
-export const ListArchivedProjectSessionIdsRequestDtoSchema = Schema.Struct({
-  projectPath: ProjectPathValueObjectSchema
-});
-
-export type ListArchivedProjectSessionIdsRequestDto = typeof ListArchivedProjectSessionIdsRequestDtoSchema.Type;
+export type GetProjectSessionsRequestDto = typeof GetProjectSessionsRequestDtoSchema.Type;

@@ -5,7 +5,6 @@ import {SYNTAX_BANS} from "@pkg/eslint/src/layers/syntaxBans.ts";
 import importX from "eslint-plugin-import-x";
 import perfectionist from "eslint-plugin-perfectionist";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
-// import pluginPromise from "eslint-plugin-promise";
 import unicorn from "eslint-plugin-unicorn";
 import {defineConfig} from "eslint/config";
 import globals from "globals";
@@ -16,10 +15,8 @@ import type {Config} from "eslint/config";
 
 const REPO_ROOT_PATH = resolve(import.meta.dirname, "../../../..");
 
-// Every JavaScript and TypeScript file: the full recommended sets, Prettier, and the repo's own choices on top.
 export const TYPESCRIPT_CONFIGS: Config[] = defineConfig([
   e18e.configs.recommended,
-  // pluginPromise.configs["flat/recommended"],
   {
     extends: [
       javascript.configs.all,
@@ -27,16 +24,13 @@ export const TYPESCRIPT_CONFIGS: Config[] = defineConfig([
       eslintPluginPrettierRecommended,
 
       perfectionist.configs["recommended-alphabetical"]
-
-      // unicorn.configs.all
     ],
-    files: ["**/*.{js,mjs,cjs,ts,mts,cts}"],
+    files: ["**/*.{js,mjs,cjs,ts,mts,cts,tsx}"],
     languageOptions: {
       globals: globals.node,
       parserOptions: {
         projectService: true,
-        // typescript-eslint infers the folder of the file that loads its configs, this one, and looks for each file's
-        // tsconfig.json no higher than that; the repo root lets it find every package's.
+        // typescript-eslint looks for tsconfig.json no higher than this file's folder; the repo root lets it find each package's.
         tsconfigRootDir: REPO_ROOT_PATH
       }
     },
@@ -64,6 +58,8 @@ export const TYPESCRIPT_CONFIGS: Config[] = defineConfig([
           varsIgnorePattern: "^_"
         }
       ],
+      // Object destructuring is banned (syntaxBans.ts): a value is read as object.key where it is used.
+      "@typescript-eslint/prefer-destructuring": "off",
       "@typescript-eslint/prefer-nullish-coalescing": "off",
       "@typescript-eslint/prefer-optional-chain": "off",
       "@typescript-eslint/prefer-readonly-parameter-types": "off",
@@ -120,11 +116,12 @@ export const TYPESCRIPT_CONFIGS: Config[] = defineConfig([
           sortBy: "path"
         }
       ],
+      "prefer-destructuring": "off",
       // An Effect.fn body is a generator, and a pure one has nothing to yield.
       "require-yield": "off",
       "sort-imports": "off",
       "sort-keys": "off",
-      // Every dotted part and folder is camelCase; .claude's skill folders follow Claude Code's kebab-case names.
+      // .claude's skill folders follow Claude Code's kebab-case names.
       "unicorn/filename-case": [
         "error",
         {case: "camelCase", ignore: [String.raw`^\.claude$`], multipleFileExtensions: false}

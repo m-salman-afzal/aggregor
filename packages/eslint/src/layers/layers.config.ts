@@ -10,6 +10,7 @@ import {
   ERROR_FILE_BAN,
   EXPORTED_TYPE_BAN,
   NON_TYPE_BAN,
+  OBJECT_DESTRUCTURING_BAN,
   PLAIN_FUNCTION_BAN,
   SERVICE_CLASS_BAN,
   STATUS_LITERAL_BAN,
@@ -17,9 +18,6 @@ import {
 } from "@pkg/eslint/src/layers/syntaxBans.ts";
 
 import type {Config} from "eslint/config";
-
-// The DDD layering of apps/extension (see DDD.md), per folder and file role: what it may import, the code it may not
-// contain, how its modules are ordered, and the names its role requires.
 
 export const LAYER_CONFIGS: Config[] = [
   ...IMPORT_RULES.map(([sourcePath, paths, patterns]): Config => ({
@@ -96,6 +94,10 @@ export const LAYER_CONFIGS: Config[] = [
     }
   },
   {
+    files: ["packages/vscode/src/**/*.type.ts"],
+    rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ...SYNTAX_BANS, NON_TYPE_BAN]}
+  },
+  {
     files: ["packages/vscode/src/vscode.api.ts"],
     rules: {"@typescript-eslint/no-restricted-imports": ["error", {paths: OPTION_IMPORT_BANS}]}
   },
@@ -118,10 +120,9 @@ export const LAYER_CONFIGS: Config[] = [
   },
   {
     files: ["apps/extension/src/**/*.error.ts"],
-    rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ERROR_FILE_BAN]}
+    rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ERROR_FILE_BAN, OBJECT_DESTRUCTURING_BAN]}
   },
-  // A file's errors sit at its top, above its other classes. Blank lines split the sorting, so a type built from the
-  // file's classes can sit below them, where aggregor/type-placement puts it.
+  // Blank lines split the sorting, so a type built from the file's classes can sit below them.
   {
     files: ["apps/extension/src/**/*.ts"],
     rules: {

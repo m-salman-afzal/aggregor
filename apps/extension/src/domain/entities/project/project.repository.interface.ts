@@ -3,7 +3,7 @@ import {Context} from "effect";
 import type {IBaseRepository} from "@entities/base/base.repository.interface.ts";
 import type {ProjectEntity} from "@entities/project/project.entity.ts";
 
-export type AddProjectRequest = Pick<ProjectEntity, "isAdded" | "path">;
+export type AddProjectRequest = Partial<Pick<ProjectEntity, "settings">> & Pick<ProjectEntity, "isAdded" | "path">;
 
 export class IProjectRepository extends Context.Service<
   IProjectRepository,

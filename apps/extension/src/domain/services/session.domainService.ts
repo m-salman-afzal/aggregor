@@ -8,8 +8,6 @@ import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {AgentStatusValueObject} from "@valueObjects/agentStatus.valueObject.ts";
 import type {SessionStatusValueObject} from "@valueObjects/sessionStatus.valueObject.ts";
 
-// What a session's status depends on besides the session: whether its agent's process still runs, and whether the user
-// is looking at it.
 interface SessionViewingFacts {
   readonly isAgentRunning: boolean;
   readonly isInView: boolean;
@@ -21,42 +19,33 @@ export class AgentSessionIdNotFoundError extends Schema.TaggedError<
   {readonly brand: unique symbol}
 >()("AgentSessionIdNotFoundError", {agentName: Schema.String}) {}
 
-// The user named the session, so the agent's title doesn't replace that name.
 export class SessionNamedByUserError extends Schema.TaggedError<
   SessionNamedByUserError,
   {readonly brand: unique symbol}
 >()("SessionNamedByUserError", {}) {}
 
-// The agent's titles carry no session title: they hold only status marks or an id, or it has not named the conversation.
+// The titles hold only status marks or an id, or the agent has not named the conversation.
 export class SessionTitleNotFoundError extends Schema.TaggedError<
   SessionTitleNotFoundError,
   {readonly brand: unique symbol}
 >()("SessionTitleNotFoundError", {}) {}
 
-// The session's name already is the agent's latest title.
 export class SessionTitleUnchangedError extends Schema.TaggedError<
   SessionTitleUnchangedError,
   {readonly brand: unique symbol}
 >()("SessionTitleUnchangedError", {}) {}
 
-// The rules about sessions: how their agent starts, their names and titles, and the status the user sees.
-
-// Agents put status marks (Claude's ✳, Codex's ⠋, emoji) around the title, as symbols, so the title runs from the first
-// character that is not a symbol, space or control character to the last. Matching Unicode classes keeps every language.
+// Agents put status marks (Claude's ✳, Codex's ⠋, emoji) around the title; Unicode classes keep every language.
 const STATUS_MARKS_AT_ENDS = /^[\p{C}\p{S}\p{Z}]+|[\p{C}\p{S}\p{Z}]+$/gu;
 
 // Some agents show their session's id until it has a title: a UUID, maybe with a prefix such as OpenCode's ses_.
 const ID_ONLY_TITLE = /^(?:[a-z]+_)?(?=[\da-f-]*\d)[\da-f-]{16,}$/iu;
 
-// Some agents name a conversation by when it started until it has a title: OpenCode's
-// "New session - 2026-11-09T09:26:37.754Z".
+// OpenCode names a conversation by its start time until it has a title: "New session - 2026-11-09T09:26:37.754Z".
 const START_TIME_TITLE = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/u;
 
-// What a regular expression treats as syntax, so a name can be matched as plain text.
 const REGEX_SYNTAX_CHARACTERS = /[$()*+./?[\\\]^{|}]/gu;
 
-// The variables an agent's arguments may use: the session's id, and the id the agent gave the conversation, for an agent
-// that can't start under ours.
 const SESSION_ID_VARIABLE = `\${sessionId}`;
 const AGENT_SESSION_ID_VARIABLE = `\${agentSessionId}`;
 
@@ -72,7 +61,6 @@ const fillInVariables = Effect.fn("SessionDomainService.fillInVariables")(functi
   return String.replaceAll(AGENT_SESSION_ID_VARIABLE, session.agentSessionId)(filledInArgument);
 });
 
-// The arguments that resume the session's conversation once it has worked, else the ones that start a new one.
 export const prepareLaunchPlan = Effect.fn("SessionDomainService.prepareLaunchPlan")(function* (
   agent: AgentEntity,
   session: SessionEntity
@@ -88,8 +76,7 @@ export const prepareLaunchPlan = Effect.fn("SessionDomainService.prepareLaunchPl
   });
 });
 
-// Agents join their own name, their command or the project folder to the title: "<title> - GitHub Copilot",
-// "<title> | <folder>".
+// Agents add their name, command or the project folder to the title: "<title> - GitHub Copilot", "<title> | <folder>".
 const dropNamesAtEnds = Effect.fn("SessionDomainService.dropNamesAtEnds")(function* (
   title: string,
   names: readonly string[]
@@ -114,9 +101,6 @@ export const getDefaultSessionName = Effect.fn("SessionDomainService.getDefaultS
   return `${projectName} #${sessionNumber}`;
 });
 
-// The session's title from what its agent reports: the title in its OSC 7501 report first, else its window title, without
-// status marks or the agent's name, command or project folder at either end. An empty title, one of those names alone,
-// an id or a start time is no title.
 export const getSessionTitle = Effect.fn("SessionDomainService.getSessionTitle")(function* (
   session: SessionEntity,
   agent: AgentEntity,
@@ -143,8 +127,7 @@ export const getSessionTitle = Effect.fn("SessionDomainService.getSessionTitle")
   return yield* Effect.fromResult(Result.fromOption(sessionTitle, () => SessionTitleNotFoundError.make()));
 });
 
-// The agent's title becomes the session's name, so the row keeps it while the agent is gone or resuming; a name the user
-// gave wins.
+// Saved as the session's name, so the row keeps it while the agent is gone or resuming.
 export const getSessionTitleToSave = Effect.fn("SessionDomainService.getSessionTitleToSave")(function* (
   session: SessionEntity,
   agent: AgentEntity,
@@ -157,42 +140,35 @@ export const getSessionTitleToSave = Effect.fn("SessionDomainService.getSessionT
   return sessionTitle;
 });
 
-// A finished turn stays unseen while the session is out of view, until it comes into or leaves view after the agent
-// said done.
 const isFinishedTurnUnseen = Effect.fn("SessionDomainService.isFinishedTurnUnseen")(function* (
   session: SessionEntity,
   isInView: boolean
 ) {
-  const {statusChangedAt, viewedAt} = session;
-  if (isInView || statusChangedAt === undefined) return false;
+  if (isInView || session.statusChangedAt === undefined) return false;
 
-  return viewedAt === undefined || DateTime.isGreaterThan(statusChangedAt, viewedAt);
+  return session.viewedAt === undefined || DateTime.isGreaterThan(session.statusChangedAt, session.viewedAt);
 });
 
-// Without its process the agent is gone, even one that could not say so, as after a reboot. No report yet, as from an
-// agent that never reports, shows idle, so the row never looks stuck. A finished turn shows done until the user has
-// seen it.
+// No process means the agent is gone, even after a reboot; no report yet shows idle, so the row never looks stuck.
 export const getSessionStatus = Effect.fn("SessionDomainService.getSessionStatus")(function* (
   session: SessionEntity,
-  {isAgentRunning, isInView}: SessionViewingFacts
+  sessionViewingFacts: SessionViewingFacts
 ) {
-  if (!isAgentRunning) return SESSION_STATUSES.EXITED;
+  if (!sessionViewingFacts.isAgentRunning) return SESSION_STATUSES.EXITED;
   if (session.status === AGENT_STATUSES.UNKNOWN) return SESSION_STATUSES.IDLE;
-  if (session.status === AGENT_STATUSES.DONE && !(yield* isFinishedTurnUnseen(session, isInView)))
+  if (session.status === AGENT_STATUSES.DONE && !(yield* isFinishedTurnUnseen(session, sessionViewingFacts.isInView)))
     return SESSION_STATUSES.IDLE;
 
   return session.status;
 });
 
-// The kind of wait and the progress apply only while the agent is at its turn.
 export const isSessionTurnRunning = Effect.fn("SessionDomainService.isSessionTurnRunning")(function* (
   sessionStatus: SessionStatusValueObject
 ) {
   return sessionStatus === SESSION_STATUSES.WORKING || sessionStatus === SESSION_STATUSES.BLOCKED;
 });
 
-// A turn that went from working back to idle has finished too, for agents that end a turn with idle rather than done
-// (OpenCode).
+// Agents that end a turn with idle rather than done (OpenCode) have finished when they go from working back to idle.
 export const getAlertedStatus = Effect.fn("SessionDomainService.getAlertedStatus")(function* (
   heldStatus: AgentStatusValueObject,
   previousHeldStatus: AgentStatusValueObject | undefined
@@ -202,7 +178,6 @@ export const getAlertedStatus = Effect.fn("SessionDomainService.getAlertedStatus
   return heldStatus;
 });
 
-// A session waits on the user while its agent asks something, after it failed, and while a finished turn is unseen.
 export const isSessionWaitingOnUser = Effect.fn("SessionDomainService.isSessionWaitingOnUser")(function* (
   sessionStatus: SessionStatusValueObject
 ) {

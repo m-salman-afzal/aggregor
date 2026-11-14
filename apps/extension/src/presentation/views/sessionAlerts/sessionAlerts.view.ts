@@ -12,7 +12,6 @@ import {
 } from "@pkg/constants/src/sessionAlert.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {acquireScopedDisposable, streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
-import {makeSessionNodeId} from "@presentationUtils/sessionsTreeNode.utils.ts";
 import {Clock, Duration, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
 
 import type {SessionAlertDto} from "@dtos/sessionAlert.dto.ts";
@@ -21,56 +20,52 @@ import type {Uri} from "vscode";
 // When this window last came into focus from another app or window, in milliseconds; 0 once a click has used it.
 type WindowFocusedAt = SubscriptionRef.SubscriptionRef<number>;
 
-const getSessionAlertHeadline = Effect.fn("SessionAlertsView.getSessionAlertHeadline")(function* ({
-  displayName,
-  status,
-  statusKind
-}: SessionAlertDto) {
+const getSessionAlertHeadline = Effect.fn("SessionAlertsView.getSessionAlertHeadline")(function* (
+  sessionAlert: SessionAlertDto
+) {
   // Only a blocked session's alert carries the kind of wait.
-  if (statusKind !== undefined) return SESSION_ALERT_BLOCKED_HEADLINES[statusKind](displayName);
+  if (sessionAlert.statusKind !== undefined)
+    return SESSION_ALERT_BLOCKED_HEADLINES[sessionAlert.statusKind](sessionAlert.displayName);
 
-  return SESSION_ALERT_HEADLINES[status](displayName);
+  return SESSION_ALERT_HEADLINES[sessionAlert.status](sessionAlert.displayName);
 });
 
 // Opens the session as its row's click does, so a failure shows the same way.
 const openAlertedSession = Effect.fn("SessionAlertsView.openAlertedSession")(function* (sessionId: string) {
-  const {commands} = yield* VsCodeApi;
-  const sessionNodeId = yield* makeSessionNodeId(sessionId);
+  const vsCodeApi = yield* VsCodeApi;
 
-  yield* Effect.promise(() => commands.executeCommand(SESSION_COMMANDS.OPEN, sessionNodeId));
+  yield* Effect.promise(() => vsCodeApi.commands.executeCommand(SESSION_COMMANDS.OPEN, {sessionId}));
 });
 
-// VS Code can't close the notification later, so it can outlive the state it tells about; Open still goes to the
-// session.
+// VS Code can't close the notification later, so it can outlive the state it tells about.
 const showInWindow = Effect.fn("SessionAlertsView.showInWindow")(function* (
   sessionAlert: SessionAlertDto,
   headline: string
 ) {
-  const {window} = yield* VsCodeApi;
-  const {statusMessage} = sessionAlert;
-  const alertText = statusMessage === undefined ? headline : `${headline}: ${statusMessage}`;
-  const pickedAction = yield* Effect.promise(() => window.showInformationMessage(alertText, SESSION_ALERT_LABELS.OPEN));
+  const vsCodeApi = yield* VsCodeApi;
+  const alertText = sessionAlert.statusMessage === undefined ? headline : `${headline}: ${sessionAlert.statusMessage}`;
+  const pickedAction = yield* Effect.promise(() =>
+    vsCodeApi.window.showInformationMessage(alertText, SESSION_ALERT_LABELS.OPEN)
+  );
 
   if (pickedAction === SESSION_ALERT_LABELS.OPEN) yield* openAlertedSession(sessionAlert.sessionId);
 });
 
 // asExternalUri adds this window's id, so the window that sent the notification opens the session and comes forward.
 const makeSessionLink = Effect.fn("SessionAlertsView.makeSessionLink")(function* (sessionId: string) {
-  const {env, extensionId, Uri} = yield* VsCodeApi;
-  const sessionLink = Uri.from({
-    authority: extensionId,
+  const vsCodeApi = yield* VsCodeApi;
+  const sessionLink = vsCodeApi.Uri.from({
+    authority: vsCodeApi.extensionId,
     path: SESSION_LINK.OPEN_SESSION_PATH,
     query: `${SESSION_LINK.SESSION_ID_PARAMETER}=${sessionId}`,
-    scheme: env.uriScheme
+    scheme: vsCodeApi.env.uriScheme
   });
-  const externalSessionLink = yield* Effect.promise(() => env.asExternalUri(sessionLink));
+  const externalSessionLink = yield* Effect.promise(() => vsCodeApi.env.asExternalUri(sessionLink));
 
   return externalSessionLink.toString(true);
 });
 
-// A click on the notification brings VS Code's most recently used window forward. When that is this window, it came
-// into focus around the moment the notification closed, which a dismissal doesn't do. GNOME closes every VS Code
-// notification on a click, so the first alert to see the focus uses it up and the others open nothing.
+// Focus arriving as the notification closes means it was clicked; GNOME closes them all, so the first alert uses it up.
 const wasDesktopNotificationOpened = Effect.fn("SessionAlertsView.wasDesktopNotificationOpened")(function* (
   windowFocusedAt: WindowFocusedAt
 ) {
@@ -87,35 +82,32 @@ const wasDesktopNotificationOpened = Effect.fn("SessionAlertsView.wasDesktopNoti
   );
 });
 
-// Waits until the notification closes, then opens the session when the click brought this window forward.
 const showOnDesktop = Effect.fn("SessionAlertsView.showOnDesktop")(function* (
   sessionAlert: SessionAlertDto,
   headline: string,
   windowFocusedAt: WindowFocusedAt
 ) {
-  const {extensionUri, Uri} = yield* VsCodeApi;
-  const {icon, statusMessage} = sessionAlert;
+  const vsCodeApi = yield* VsCodeApi;
   const openLink = yield* makeSessionLink(sessionAlert.sessionId);
 
   yield* notifyOnDesktopForSessionAlertsView({
-    agentIconPath: icon,
-    aggregorIconPath: Uri.joinPath(extensionUri, DESKTOP_NOTIFICATION.AGGREGOR_ICON).fsPath,
+    agentIconPath: sessionAlert.icon,
+    aggregorIconPath: vsCodeApi.Uri.joinPath(vsCodeApi.extensionUri, DESKTOP_NOTIFICATION.AGGREGOR_ICON).fsPath,
     headline,
-    message: statusMessage === undefined ? "" : statusMessage,
+    message: sessionAlert.statusMessage === undefined ? "" : sessionAlert.statusMessage,
     openLink
   });
   if (yield* wasDesktopNotificationOpened(windowFocusedAt)) yield* openAlertedSession(sessionAlert.sessionId);
 });
 
-// The focused window shows the alert itself; an unfocused one hands it to the system, since another app may be in
-// front. In the background, so a notification waiting for a click holds back no other. A failure is logged.
+// In the background, so a notification waiting for a click holds back no other.
 const showSessionAlert = Effect.fn("SessionAlertsView.showSessionAlert")(function* (
   sessionAlert: SessionAlertDto,
   windowFocusedAt: WindowFocusedAt
 ) {
-  const {window} = yield* VsCodeApi;
+  const vsCodeApi = yield* VsCodeApi;
   const headline = yield* getSessionAlertHeadline(sessionAlert);
-  const shownAlert = window.state.focused
+  const shownAlert = vsCodeApi.window.state.focused
     ? showInWindow(sessionAlert, headline)
     : showOnDesktop(sessionAlert, headline, windowFocusedAt);
 
@@ -134,20 +126,20 @@ const openLinkedSession = Effect.fn("SessionAlertsView.openLinkedSession")(funct
 });
 
 const registerSessionLinkHandler = Effect.fn("SessionAlertsView.registerSessionLinkHandler")(function* () {
-  const {window} = yield* VsCodeApi;
+  const vsCodeApi = yield* VsCodeApi;
   const viewContext = yield* Effect.context<VsCodeApi>();
   const runPromise = Effect.runPromiseWith(viewContext);
 
   yield* acquireScopedDisposable(() =>
-    window.registerUriHandler({handleUri: (sessionLink) => runPromise(openLinkedSession(sessionLink))})
+    vsCodeApi.window.registerUriHandler({handleUri: (sessionLink) => runPromise(openLinkedSession(sessionLink))})
   );
 });
 
-// Records each time this window comes into focus; a change of only `active` while focused isn't one.
+// A change of only `active` while focused isn't a new focus.
 const trackWindowFocus = Effect.fn("SessionAlertsView.trackWindowFocus")(function* () {
-  const {window} = yield* VsCodeApi;
+  const vsCodeApi = yield* VsCodeApi;
   const windowFocusedAt = yield* SubscriptionRef.make(0);
-  const windowStateChanges = yield* streamVsCodeEvent(window.onDidChangeWindowState);
+  const windowStateChanges = yield* streamVsCodeEvent(vsCodeApi.window.onDidChangeWindowState);
   const focusChanges = Stream.changesWith(
     Stream.map(windowStateChanges, (windowState) => windowState.focused),
     (wasFocused, isFocused) => wasFocused === isFocused
@@ -162,7 +154,6 @@ const trackWindowFocus = Effect.fn("SessionAlertsView.trackWindowFocus")(functio
   return windowFocusedAt;
 });
 
-// Notifies about the states sessions out of view hold, for the lifetime of the runtime.
 const makeSessionAlertsView = Effect.fn("SessionAlertsView.make")(function* () {
   yield* registerSessionLinkHandler();
   const windowFocusedAt = yield* trackWindowFocus();

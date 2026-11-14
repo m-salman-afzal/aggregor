@@ -6,11 +6,13 @@ The agent writes the code; the user makes the architecture decisions (where code
 implemented). Before writing a PR's code, post its decision list with a recommended default per item and wait for the
 user to approve or change it. Call out any deviation from an agreed decision when handing the work back.
 
-`decisions.md` records every decision: the problem, the options weighed, what was picked and why, dependencies included.
-It is the one place for them and for each stack's plan, by milestone, stack and step, in the order they happened; there
-are no separate plan files. Add each one once it is agreed, in the same commit as the code it shapes, under its step; a
-changed decision is a new entry that names the one it replaces. Before a session's last hand-back, check that every
-decision the session made, or changed, is there.
+`decisions/` records every decision, dependencies included, by feature: a file per feature, and a folder per feature
+once it has two files. Each entry holds the problem, the decision and why it won, the solution as built, and the
+alternatives considered, with no dates, milestones or steps (`decisions/README.md` has the format and the index). Add
+each one once it is agreed, in the same commit as the code it shapes, in its feature's file; a changed decision is
+rewritten to say what holds, with the old choice moved to its alternatives. A stack's plan lives in its PRs' decision
+lists and the README's roadmap; there are no plan files. Before a session's last hand-back, check that every decision
+the session made, or changed, is there.
 
 Work lands as small, feature-sliced, stacked PRs on `stack/<name>/<n>/<type>/<slug>` branches, each starting from the
 one below it. The `stack` skill (`.claude/skills/stack`) creates them; on push, the Auto PR workflow opens each PR into
@@ -37,6 +39,14 @@ that no scope covers, add its scope in that PR, to `pr-title.yaml` and with what
   reference. Name a thing by what it is to the user, not by the gesture that reached it (`chosenProject`, not
   `clickedProject`), and give each word one meaning: a "prompt" is an LLM's, so asking the user is a user-input prompt
   (`IUserInputPromptInfraService`).
+- **Comments only for what the code hides.** Write a comment only for a hidden side effect or a behaviour a reader can't
+  see in the code: a platform limit, a workaround, a constraint from outside the file. Never one that says what a file,
+  type, function or line is or does; the names say that. One line, about the code as it is now, updated or deleted with
+  its code; lint (`aggregor/one-line-comment`) fails a longer one.
+- **No object destructuring.** Name the object and read each value as `object.key` where it is used
+  (`sessionListItem.status`, `props.sessionRow`), so a reader deep in a long function sees where each value comes from.
+  Array destructuring (`const [value, setValue] = useState()`) and named imports stay. Lint bans `ObjectPattern`
+  everywhere.
 - **No users before 0.1.0, but their data stays.** Until 0.1.0 ships, the author is the only user. Be brave: rename
   command IDs, setting keys and storage keys, and leave no compatibility shims or deprecation paths. Stored data is the
   exception: every schema change is a new migration (`pnpm db:generate --name <change>`) that runs on the user's
@@ -53,7 +63,15 @@ types and interfaces live. Code imports through one alias per folder under a lay
 `@infraServices/` and so on, listed in `apps/extension/tsconfig.json`), never through a relative path, and by name,
 never with `import * as`. Every constant outside the domain lives in its feature's `@pkg/constants` file, grouped in a
 labelled object with the constants it belongs with, and holds no logic: a util beside its caller picks between texts
-(see `DDD.md`). Enforce a new convention with a lint there, not only with prose here.
+(see `DDD.md`). Enforce a new convention with a lint there, not only with prose here, and give the lint a message that
+says what is wrong, why the rule exists, and what to do instead.
+
+`apps/webview` is the Sessions view's webview, a React front end (see `DDD.md`'s Layers). It follows the
+folder-structure skill (`.claude/skills/folder-structure`) instead of the layers, and `@pkg/eslint`'s `folderStructure/`
+checks each of its rules. It imports the extension's message and DTO types for types only, and texts and ids shared with
+the extension from `@pkg/constants`; its own constants sit in its units' `.constant.ts` files. Its design system, the
+theme and shadcn's base components, is `@pkg/ui` (`packages/ui`), where `shadcn add` writes. It runs no Effect, so the
+Effect rules below are the extension's. F5 draws it from Vite's dev server, so an edit there shows without a restart.
 
 ## Effect
 
@@ -83,8 +101,6 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
 - **Small functions.** Give each function one job, so each shows up as its own span; lint caps a function at 30 lines.
   Functions sit at module level and take the state they share (refs, VS Code handles) as parameters. A layer's `make`
   function only creates that state, starts its watchers and wires up the service.
-- **Comments are rare.** Names say what code does, so a comment appears only where the code can't say why at a glance: a
-  platform limit, a workaround, a constraint that isn't visible. One true line; update or delete it with its code.
 
 ## Traces
 
@@ -129,12 +145,14 @@ pnpm format:fix    # Same, writing the changes
 pnpm typecheck     # tsc --noEmit in the apps, the root config files and .claude's scripts; packages are covered through the apps
 pnpm pty:check     # cargo fmt --check and cargo clippy -D warnings on apps/pty, the aggregor-pty binary
 pnpm pty:test      # aggregor-pty's tests, the end-to-end one included
-pnpm test          # The extension's tests (vitest, apps/extension/tests), the migration test among them
+pnpm test          # The extension's tests (vitest, apps/extension/tests), the migration test among them, and the lint rules' (packages/eslint/tests)
 pnpm quality       # lint:check + format:check + typecheck + pty:check, in parallel
 pnpm lint-staged   # Same lint and format checks on staged files only (the husky pre-commit hook)
 pnpm db:generate   # After changing a table model, with --name <change>: drizzle-kit writes its migration
 pnpm db:check      # Fails when a table model changed without its migration; reports only
 pnpm --filter=aggregor-app build:pty  # Builds aggregor-pty for this machine into apps/extension/bin
+pnpm --filter=aggregor-webview build  # Builds the webview into apps/extension/dist/webview, after the extension's own build
+pnpm --filter=aggregor-webview dev    # The webview's dev server, which F5 starts and its webview loads
 pnpm bump          # On an up-to-date dev: pick the next version; pushes chore/bump-v<version> and opens its PR
 ```
 

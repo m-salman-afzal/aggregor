@@ -22,15 +22,16 @@ import type {SQLiteColumn} from "drizzle-orm/sqlite-core";
 
 const findRows = Effect.fn("BaseRepository.findRows")(
   function* <Entity>(repositoryTable: RepositoryTable<Entity>, filter: StoredColumns) {
-    const {entitySchema, tableModel} = repositoryTable;
-    const filterClauses = yield* makeFilterClauses(tableModel, filter);
+    const filterClauses = yield* makeFilterClauses(repositoryTable.tableModel, filter);
     const storedRows = yield* selectRows(
       repositoryTable,
-      and(isNull(tableModel.deletedAt), ...filterClauses),
-      tableModel.sortId
+      and(isNull(repositoryTable.tableModel.deletedAt), ...filterClauses),
+      repositoryTable.tableModel.sortId
     );
 
-    return yield* Effect.forEach(storedRows, (storedRow) => BaseEntity.fromRow(entitySchema, storedRow));
+    return yield* Effect.forEach(storedRows, (storedRow) =>
+      BaseEntity.fromRow(repositoryTable.entitySchema, storedRow)
+    );
   },
   Effect.mapError((cause) => DatabaseReadError.make({cause}))
 );
@@ -47,11 +48,11 @@ const findRowById = Effect.fn("BaseRepository.findRowById")(function* <Entity>(
 
 // AUTOINCREMENT needs an integer primary key, so sortId is MAX + 1, inside the writing statement.
 const writeRowAtEnd = Effect.fn("BaseRepository.writeRowAtEnd")(function* <Entity>(
-  {database, tableModel}: RepositoryTable<Entity>,
+  repositoryTable: RepositoryTable<Entity>,
   addRequest: StoredColumns,
   conflictColumns: readonly SQLiteColumn[]
 ) {
-  const nextSortId = sql`(SELECT COALESCE(MAX(${tableModel.sortId}), 0) + 1 FROM ${tableModel})`;
+  const nextSortId = sql`(SELECT COALESCE(MAX(${repositoryTable.tableModel.sortId}), 0) + 1 FROM ${repositoryTable.tableModel})`;
   const updatedAt = yield* formatCurrentTimestamp();
   const storedColumns = {
     ...(yield* encodeStoredColumns(addRequest)),
@@ -64,11 +65,11 @@ const writeRowAtEnd = Effect.fn("BaseRepository.writeRowAtEnd")(function* <Entit
     ...Record.filter(storedColumns, (_columnValue, column) => column !== "id" && !conflictColumnNames.includes(column)),
     deletedAt: null
   };
-  const [writtenRow] = yield* database
-    .insert(tableModel)
+  const [writtenRow] = yield* repositoryTable.database
+    .insert(repositoryTable.tableModel)
     .values(storedColumns)
     .onConflictDoUpdate({set: changedColumns, target: [...conflictColumns]})
-    .returning({id: tableModel.id});
+    .returning({id: repositoryTable.tableModel.id});
   if (writtenRow === undefined) return yield* Effect.die("A write returned no row");
 
   return yield* Schema.decodeUnknownEffect(EntityIdValueObjectSchema)(writtenRow.id);
@@ -109,17 +110,20 @@ const upsertRow = Effect.fn("BaseRepository.upsertRow")(function* <Entity>(
 });
 
 const updateRow = Effect.fn("BaseRepository.updateRow")(function* <Entity>(
-  {database, tableModel}: RepositoryTable<Entity>,
+  repositoryTable: RepositoryTable<Entity>,
   entityId: EntityIdValueObject,
   changes: StoredColumns
 ) {
-  const changedColumns = {...(yield* encodeStoredColumns(changes)), updatedAt: yield* formatCurrentTimestamp()};
+  const encodedChanges = yield* Effect.mapError(encodeStoredColumns(changes), (cause) =>
+    DatabaseWriteError.make({cause})
+  );
+  const changedColumns = {...encodedChanges, updatedAt: yield* formatCurrentTimestamp()};
   const updatedRows = Effect.mapError(
-    database
-      .update(tableModel)
+    repositoryTable.database
+      .update(repositoryTable.tableModel)
       .set(changedColumns)
-      .where(and(eq(tableModel.id, entityId), isNull(tableModel.deletedAt)))
-      .returning({id: tableModel.id}),
+      .where(and(eq(repositoryTable.tableModel.id, entityId), isNull(repositoryTable.tableModel.deletedAt)))
+      .returning({id: repositoryTable.tableModel.id}),
     (cause) => DatabaseWriteError.make({cause})
   );
   yield* Effect.filterOrFail(
@@ -130,31 +134,30 @@ const updateRow = Effect.fn("BaseRepository.updateRow")(function* <Entity>(
 });
 
 const softDeleteRow = Effect.fn("BaseRepository.softDeleteRow")(
-  function* <Entity>({database, tableModel}: RepositoryTable<Entity>, entityId: EntityIdValueObject) {
+  function* <Entity>(repositoryTable: RepositoryTable<Entity>, entityId: EntityIdValueObject) {
     const deletedAt = yield* formatCurrentTimestamp();
-    yield* database
-      .update(tableModel)
+    yield* repositoryTable.database
+      .update(repositoryTable.tableModel)
       .set({deletedAt, updatedAt: deletedAt})
-      .where(and(eq(tableModel.id, entityId), isNull(tableModel.deletedAt)));
+      .where(and(eq(repositoryTable.tableModel.id, entityId), isNull(repositoryTable.tableModel.deletedAt)));
   },
   Effect.mapError((cause) => DatabaseWriteError.make({cause}))
 );
 
-// One statement, which reads the highest sortId once, so the rows take the sortIds after it in the order given; the
-// change feed then reads them as placed.
+// One statement reads the highest sortId once, so the rows take the sortIds after it in the order given.
 const placeRowsAtEnd = Effect.fn("BaseRepository.placeRowsAtEnd")(
-  function* <Entity>({database, tableModel}: RepositoryTable<Entity>, entityIds: readonly EntityIdValueObject[]) {
+  function* <Entity>(repositoryTable: RepositoryTable<Entity>, entityIds: readonly EntityIdValueObject[]) {
     if (!Array.isReadonlyArrayNonEmpty(entityIds)) return;
-    const highestSortId = sql`(SELECT MAX(${tableModel.sortId}) FROM ${tableModel})`;
+    const highestSortId = sql`(SELECT MAX(${repositoryTable.tableModel.sortId}) FROM ${repositoryTable.tableModel})`;
     const placesAfterHighest = sql.join(
       Array.map(entityIds, (entityId, placeIndex) => sql`WHEN ${entityId} THEN ${placeIndex + 1}`),
       sql` `
     );
     const updatedAt = yield* formatCurrentTimestamp();
-    yield* database
-      .update(tableModel)
-      .set({sortId: sql`${highestSortId} + CASE ${tableModel.id} ${placesAfterHighest} END`, updatedAt})
-      .where(and(inArray(tableModel.id, entityIds), isNull(tableModel.deletedAt)));
+    yield* repositoryTable.database
+      .update(repositoryTable.tableModel)
+      .set({sortId: sql`${highestSortId} + CASE ${repositoryTable.tableModel.id} ${placesAfterHighest} END`, updatedAt})
+      .where(and(inArray(repositoryTable.tableModel.id, entityIds), isNull(repositoryTable.tableModel.deletedAt)));
   },
   Effect.mapError((cause) => DatabaseWriteError.make({cause}))
 );
@@ -167,12 +170,12 @@ export const makeBaseRepository = Effect.fn("BaseRepository.make")(function* <
   const repositoryTable: RepositoryTable<Entity> = {...entityTable, database: yield* makeWithDefaults()};
   const secureRandom = yield* SecureRandom.SecureRandom;
   const randomContext = Context.make(SecureRandom.SecureRandom, secureRandom);
-  const {entityChanges, ownWriteNotifications} = yield* startEntityChangeFeed(repositoryTable);
+  const entityChangeFeed = yield* startEntityChangeFeed(repositoryTable);
   const notifyChangeFeedAfter = <Success, Failure>(write: Effect.Effect<Success, Failure>) =>
-    Effect.tap(write, () => Queue.offer(ownWriteNotifications, undefined));
+    Effect.tap(write, () => Queue.offer(entityChangeFeed.ownWriteNotifications, undefined));
   const baseRepository: IBaseRepository<Entity, AddRequest> = {
     add: (addRequest) => notifyChangeFeedAfter(Effect.provide(addRow(repositoryTable, addRequest), randomContext)),
-    entityChanges,
+    entityChanges: entityChangeFeed.entityChanges,
     findById: (entityId) => findRowById(repositoryTable, entityId),
     findMany: (filter) => findRows(repositoryTable, filter),
     placeAtEnd: (entityIds) => notifyChangeFeedAfter(placeRowsAtEnd(repositoryTable, entityIds)),

@@ -14,9 +14,11 @@
         // Turns on the extension's trace-level span lines in the Aggregor App output channel.
         "--log=SalmanAfzal.aggregor-app:trace"
       ],
-      // Keeps the dev build's database, tmux server and anchor workspace apart from the installed extension's ~/.aggregor.
+      // Keeps the dev build's database, tmux server and anchor workspace apart from the installed extension's ~/.aggregor,
+      // and draws the Sessions view from apps/webview's dev server, so an edit there shows without a restart.
       "env": {
-        "AGGREGOR_HOME": "${userHome}/.aggregorDev"
+        "AGGREGOR_HOME": "${userHome}/.aggregorDev",
+        "AGGREGOR_WEBVIEW_DEV_SERVER_URL": "http://localhost:5179"
       },
       "outFiles": ["${workspaceFolder}/apps/extension/dist/**/*.js"],
       "preLaunchTask": "${defaultBuildTask}"

@@ -1,6 +1,5 @@
 import {Schema} from "effect";
 
-// What a blocked session waits for, when its agent says.
 export const StatusKindValueObjectSchema = Schema.Enum({
   AUTH: "auth",
   PERMISSION: "permission",

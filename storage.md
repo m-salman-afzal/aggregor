@@ -3,10 +3,10 @@
 What the extension stores, where, and why. Add an entry whenever something new is stored, and keep every entry to what
 is stored now.
 
-Everything but one user setting lives in the Aggregor folder, `~/.aggregor` (or `$AGGREGOR_HOME`), which only its owner
-can read. Every window and every VS Code profile shares it, and it survives reloads, restarts and extension updates. The
-build F5 runs keeps its own, `~/.aggregorDev`, and `$AGGREGOR_DATABASE_FILE` puts the database elsewhere, with
-`aggregor-pty.log` beside it.
+Everything but one user setting and the Sessions view's webview state lives in the Aggregor folder, `~/.aggregor` (or
+`$AGGREGOR_HOME`), which only its owner can read. Every window and every VS Code profile shares it, and it survives
+reloads, restarts and extension updates. The build F5 runs keeps its own, `~/.aggregorDev`, and
+`$AGGREGOR_DATABASE_FILE` puts the database elsewhere, with `aggregor-pty.log` beside it.
 
 ## `data/aggregor.db`
 
@@ -32,27 +32,30 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 
 ### `projects`
 
-- **Holds:** `path`, unique: a folder sessions run in, and `isAdded`: listed in the Sessions view. One list serves every
-  window.
+- **Holds:** `path`, unique: a folder sessions run in, `isAdded`: listed in the Sessions view, and `settings`: the
+  project's settings as one JSON object (`worktreeFolder`, `filesToCopy`, `setupScript`, `newSessionWorkingTree`), `{}`
+  until saved, each missing key read as its default. One list serves every window.
 - **Written by:** `ProjectService` through the base service. Add Project upserts the row with `isAdded` set, which puts
   it at the end of the list, removed before or not; Remove Project clears `isAdded`. A window's own folder that makes
   way for the shown project is added the same way; a project already added keeps its place, so switching projects never
   moves one. A session in a window's own folder gives that folder a row without `isAdded`, so it stays one of the
-  window's own. Move Up, Move Down and a drop on another added project rewrite `sortId`.
+  window's own. Move Up, Move Down and a drop on another added project rewrite `sortId`. Project Settings… writes
+  `settings` whole, giving a listed project its row first.
 - **Read by:** `ProjectService`: the added projects in `sortId` order, for the Sessions view and the project pickers.
 
 ### `sessions`
 
 - **Holds:** `projectId`, `agentId` (its `aggregorApp.agents` key), `name` (the agent's latest title, or ours until it
   gives one), `customName` (the user's, from the row menu's Rename, or NULL), `viewedAt` (when the session last came
-  into or left the user's view) and `lifecycle` (`ongoing`, listed in the Sessions view, or `archived`, listed in the
-  Archive view). The `id` is also the agent's session id.
+  into or left the user's view), `lifecycle` (`ongoing`, listed in the Sessions list, or `archived`, listed in the
+  Archive list) and `worktreePath` (the git worktree its agent works in, or NULL for its project's root). The `id` is
+  also the agent's session id.
 - **Written by:** `SessionService` through the base service: a row per New Session, `name` when the agent's title in the
   row changes, `customName` on Rename, `viewedAt` as the session comes into and leaves view, `sortId` on Move Up, Move
-  Down and a drop on another of its project's sessions in the same view, `lifecycle` and `sortId` on Archive and
-  Unarchive, which place the session last in its new view, and a soft delete on Remove Session. Removing a project keeps
+  Down and a drop on another of its project's sessions in the same list, `lifecycle` and `sortId` on Archive and
+  Unarchive, which place the session last in its new list, and a soft delete on Remove Session. Removing a project keeps
   its sessions, so adding the project again lists them again.
-- **Read by:** `SessionService`, with the project's path: the Sessions and Archive views read each row as they draw it.
+- **Read by:** `SessionService`, with the project's path: the Sessions view reads each row of both lists as it draws it.
 - **Status columns:** `status` (`unknown` until a report, `exited` once the agent is gone), `statusKind`,
   `statusMessage`, `statusProgress`, `statusChangedAt` (when the state last changed), `hasWorked` (it has reported
   `working`), `reportedTitle` (the title in its latest OSC 7501 report), `terminalTitle` (its latest window title) and
@@ -79,6 +82,24 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 - **Why:** an agent outlives its tab, a reload and VS Code, and the server stays apart from the user's own tmux. In the
   Aggregor folder, a test's `AGGREGOR_HOME` gets a server of its own.
 - **Cleaned up:** by tmux; a stale socket left by a reboot is replaced when the next server starts.
+
+## `worktrees/`
+
+- **Holds:** a folder per project, `<project folder name>-<the project id's last 6 characters>`, and in it a git
+  worktree per session started in a new worktree, named after the session (`jstester-3`), on the branch
+  `aggregor/<that name>`. A project whose settings name a worktree folder keeps its worktrees there instead.
+- **Written by:** `WorktreeInfraService`, with `git worktree add` from the project's current commit, then the project's
+  files to copy (its `.worktreeinclude`, or its settings' patterns) and its setup script, which runs in the session's
+  tab before the agent.
+- **Read by:** the session's tab and agent, which work in it, and the window, which shows it while the session is in
+  front.
+- **Renamed:** the branch, never the folder: to `aggregor/<title>` when the agent gives the session its first title,
+  while the branch keeps its first name and was never pushed, and by Rename Branch in the session's menu.
+- **Cleaned up:** Remove deletes a session's worktree, when Aggregor made it and no other session works there, and keeps
+  its branch; git refuses a worktree with changes, and nothing is removed. Archive keeps the worktree. The project row's
+  cleanup dialog deletes the worktrees and `aggregor/*` branches the user ticks, among those left over: worktrees
+  Aggregor made that no ongoing session works in and no archived session's agent still runs in, and branches with no
+  worktree or a leftover one. The archived sessions of a deleted worktree are forgotten with it.
 
 ## `anchor/`
 
@@ -117,3 +138,16 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
   into the user's `settings.json`.
 - **Read by:** `SessionService`, through `ISettingsConfig.readSessionSettings`, each time New Session runs.
 - **Cleaned up:** by the user, like any setting.
+
+## The Sessions view's webview state
+
+- **Holds:** the lists the user folded away in the Sessions view (the Archive, until the user opens it), the projects
+  folded away in each list, keyed by the list and the project's path, the id of the last session in front, whose row
+  stays marked, and whether the user hid New Session's worktree trust hint (Don't show again).
+- **Written by:** `apps/webview`'s `sessions.store.ts`, through `sessions.service.ts` and the webview API's `setState`,
+  each time a list or a project folds or unfolds, another session comes to the front, or the hint is hidden.
+- **Read by:** the webview's `sessions.store.ts`, with `getState`, when its page loads, which it does again each time VS
+  Code shows the view after hiding it.
+- **Why:** VS Code keeps a webview's state for it, so the view looks as it was left when its page reloads, without a
+  table or a message to the extension; the extension says which session is in front only while the window has focus.
+- **Cleaned up:** by VS Code, with the view's state.

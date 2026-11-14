@@ -6,16 +6,14 @@ import type {LaunchPlanValueObject} from "@valueObjects/launchPlan.valueObject.t
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Effect, Stream, SubscriptionRef} from "effect";
 
-// What a session's tab command is built from: the session its agent records its status for, its project, and how the
-// agent starts.
 export interface SessionTabCommandRequest {
   readonly launchPlan: LaunchPlanValueObject;
-  readonly projectPath: ProjectPathValueObject;
   readonly sessionId: EntityIdValueObject;
+  readonly setupScript?: string | undefined;
+  readonly workingFolderPath: ProjectPathValueObject;
 }
 
-// This build has no aggregor-pty, which runs every session's agent: a Windows VSIX, where sessions need WSL, or a local
-// build without it.
+// This build has no aggregor-pty: a Windows VSIX, where sessions need WSL, or a local build without it.
 export class PtyBinaryNotFoundError extends Schema.TaggedError<
   PtyBinaryNotFoundError,
   {readonly brand: unique symbol}
@@ -30,21 +28,14 @@ export class TmuxUnavailableError extends Schema.TaggedError<TmuxUnavailableErro
 export class ITmuxInfraService extends Context.Service<
   ITmuxInfraService,
   {
-    // The command a session's tab runs: tmux attaches to the session's tmux session, or starts one with the agent under
-    // aggregor-pty.
     readonly prepareSessionTabCommand: (
       sessionTabCommandRequest: SessionTabCommandRequest
     ) => Effect.Effect<SessionTabCommand, PtyBinaryNotFoundError | TmuxUnavailableError>;
-    // Reads which sessions' agents tmux runs now, and updates runningSessionIds with it.
     readonly refreshRunningSessionIds: Effect.Effect<ReadonlySet<EntityIdValueObject>>;
-    // The sessions whose agent tmux runs, as last read: when the window starts or regains focus, when a terminal
-    // closes, after a session's tab opens, and after each stop.
+    // As last read: at window start or focus, when a terminal closes, after a tab opens and after each stop.
     readonly runningSessionIds: SubscriptionRef.SubscriptionRef<ReadonlySet<EntityIdValueObject>>;
-    // The session whose agent started or stopped, each time runningSessionIds changes.
     readonly startedOrStoppedSessionIds: Stream.Stream<EntityIdValueObject>;
-    // Ends the session's tmux session and its agent; one already gone has nothing to stop.
     readonly stopSessionAgent: (sessionId: EntityIdValueObject) => Effect.Effect<void>;
-    // Reads tmux's list until it has the session, whose tab has just opened; one that never shows up has its tab say why.
     readonly waitForSessionAgentStart: (sessionId: EntityIdValueObject) => Effect.Effect<void>;
   }
 >()("aggregor-app/application/interfaces/tmux.infraService.interface/ITmuxInfraService") {}

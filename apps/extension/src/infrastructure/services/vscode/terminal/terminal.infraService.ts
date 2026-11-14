@@ -24,7 +24,6 @@ import type {SessionTabRequest} from "@interfaces/terminal.infraService.interfac
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {Terminal} from "vscode";
 
-// Why no session is in view, private to this file: the interface only sees NoViewedSessionError.
 class NoActiveTerminalError extends Schema.TaggedError<NoActiveTerminalError, {readonly brand: unique symbol}>()(
   "NoActiveTerminalError",
   {}
@@ -49,27 +48,24 @@ const findSessionTerminal = Effect.fn("TerminalInfraService.findSessionTerminal"
   );
 });
 
-// The tab is transient: VS Code drops a reattached tab's file icon, so it neither keeps the tab over a reload nor restores
-// it when it starts again. Closing it only detaches from tmux, so the agent keeps running and its row attaches a new tab.
+// The tab is transient: VS Code drops a reattached tab's file icon, so it isn't kept over a reload or restored.
 const launchSessionTerminal = Effect.fn("TerminalInfraService.launchSessionTerminal")(function* (
   terminalDependencies: TerminalDependencies,
   session: SessionEntity,
-  {icon, tabCommand, tabName}: SessionTabRequest
+  sessionTabRequest: SessionTabRequest
 ) {
-  const {Uri, ViewColumn, window} = terminalDependencies;
-
   return yield* Effect.try({
     catch: (cause) => TerminalLaunchFailedError.make({cause}),
     try: () =>
-      window.createTerminal({
-        cwd: session.projectPath,
+      terminalDependencies.window.createTerminal({
+        cwd: session.workingFolderPath,
         env: {[SESSION_ID_ENV]: session.id},
-        iconPath: Uri.file(icon),
+        iconPath: terminalDependencies.Uri.file(sessionTabRequest.icon),
         isTransient: true,
-        location: {viewColumn: ViewColumn.Active},
-        name: tabName,
-        shellArgs: [...tabCommand.commandArguments],
-        shellPath: tabCommand.command
+        location: {viewColumn: terminalDependencies.ViewColumn.Active},
+        name: sessionTabRequest.tabName,
+        shellArgs: [...sessionTabRequest.tabCommand.commandArguments],
+        shellPath: sessionTabRequest.tabCommand.command
       })
   });
 });
@@ -80,7 +76,6 @@ const showTerminal = Effect.fn("TerminalInfraService.showTerminal")(function* (t
   });
 });
 
-// The user's default shell, named after the project, so the tab says where it runs.
 const openProjectTerminal = Effect.fn("TerminalInfraService.openProjectTerminal")(function* (
   window: TerminalDependencies["window"],
   project: ProjectListItemDto
@@ -101,8 +96,7 @@ const focusSessionTerminal = Effect.fn("TerminalInfraService.focusSessionTermina
   yield* showTerminal(sessionTerminal);
 });
 
-// Reuses the session's terminal when this window has one. Serialized on the map's permit, so a double-click shows the
-// terminal the first click launched.
+// Serialized on the map's permit, so a double-click shows the terminal the first click launched.
 const openSessionTerminal = Effect.fn("TerminalInfraService.openSessionTerminal")(function* (
   terminalDependencies: TerminalDependencies,
   session: SessionEntity,
@@ -145,19 +139,16 @@ const findActiveTerminalSessionId = Effect.fn("TerminalInfraService.findActiveTe
   return yield* findTrackedSessionId(sessionTerminals, terminal);
 });
 
-// No active terminal, or one that is not a session's, emits nothing.
-const watchActivatedSessionIds = Effect.fn("TerminalInfraService.watchActivatedSessionIds")(function* ({
-  sessionTerminals,
-  window
-}: TerminalDependencies) {
-  const activeTerminalChanges = yield* streamVsCodeEvent(window.onDidChangeActiveTerminal);
+const watchActivatedSessionIds = Effect.fn("TerminalInfraService.watchActivatedSessionIds")(function* (
+  terminalDependencies: TerminalDependencies
+) {
+  const activeTerminalChanges = yield* streamVsCodeEvent(terminalDependencies.window.onDidChangeActiveTerminal);
 
   return Stream.filterMapEffect(activeTerminalChanges, (activeTerminal) =>
-    Effect.result(findActiveTerminalSessionId(sessionTerminals, activeTerminal))
+    Effect.result(findActiveTerminalSessionId(terminalDependencies.sessionTerminals, activeTerminal))
   );
 });
 
-// A closed tab only detaches from tmux, so the agent keeps running and clicking the session attaches a new tab.
 const forgetClosedTerminal = Effect.fn("TerminalInfraService.forgetClosedTerminal")(
   function* (sessionTerminals: SessionTerminalsReference, closedTerminal: Terminal) {
     const sessionId = yield* findTrackedSessionId(sessionTerminals, closedTerminal);
@@ -172,20 +163,22 @@ const forgetClosedTerminal = Effect.fn("TerminalInfraService.forgetClosedTermina
   Effect.catchTag("UntrackedTerminalError", () => Effect.void)
 );
 
-// The session in front of the user: the window has focus, the active tab is a terminal, and that terminal is ours. A
-// tab does not say which terminal it holds, so the active terminal fills that in.
+// A tab does not say which terminal it holds, so the active terminal fills that in.
 const readViewedSessionId = Effect.fn("TerminalInfraService.readViewedSessionId")(function* (
   terminalDependencies: TerminalDependencies
 ) {
-  const {TabInputTerminal, window} = terminalDependencies;
-  if (!window.state.focused) return yield* WindowUnfocusedError.make();
-  const {activeTab} = window.tabGroups.activeTabGroup;
-  if (activeTab === undefined || !(activeTab.input instanceof TabInputTerminal))
+  if (!terminalDependencies.window.state.focused) return yield* WindowUnfocusedError.make();
+  if (
+    terminalDependencies.window.tabGroups.activeTabGroup.activeTab === undefined ||
+    !(
+      terminalDependencies.window.tabGroups.activeTabGroup.activeTab.input instanceof
+      terminalDependencies.TabInputTerminal
+    )
+  )
     return yield* NotATerminalTabError.make();
-  const {activeTerminal} = window;
-  if (activeTerminal === undefined) return yield* NoActiveTerminalError.make();
+  if (terminalDependencies.window.activeTerminal === undefined) return yield* NoActiveTerminalError.make();
 
-  return yield* findTrackedSessionId(terminalDependencies.sessionTerminals, activeTerminal);
+  return yield* findTrackedSessionId(terminalDependencies.sessionTerminals, terminalDependencies.window.activeTerminal);
 });
 
 // The interface only says that no session is in view; readViewedSessionId's span keeps the reason.
@@ -208,16 +201,15 @@ const updateViewedSessionId = Effect.fn("TerminalInfraService.updateViewedSessio
 });
 
 // Reading between the events of one tab switch could credit the tab being left.
-const watchFocusChanges = Effect.fn("TerminalInfraService.watchFocusChanges")(function* ({
-  sessionTerminals,
-  window
-}: TerminalDependencies) {
+const watchFocusChanges = Effect.fn("TerminalInfraService.watchFocusChanges")(function* (
+  terminalDependencies: TerminalDependencies
+) {
   const focusChangeSources: readonly Stream.Stream<unknown>[] = [
-    yield* streamVsCodeEvent(window.onDidChangeActiveTerminal),
-    yield* streamVsCodeEvent(window.onDidChangeWindowState),
-    yield* streamVsCodeEvent(window.tabGroups.onDidChangeTabs),
-    yield* streamVsCodeEvent(window.tabGroups.onDidChangeTabGroups),
-    SubscriptionRef.changes(sessionTerminals)
+    yield* streamVsCodeEvent(terminalDependencies.window.onDidChangeActiveTerminal),
+    yield* streamVsCodeEvent(terminalDependencies.window.onDidChangeWindowState),
+    yield* streamVsCodeEvent(terminalDependencies.window.tabGroups.onDidChangeTabs),
+    yield* streamVsCodeEvent(terminalDependencies.window.tabGroups.onDidChangeTabGroups),
+    SubscriptionRef.changes(terminalDependencies.sessionTerminals)
   ];
 
   return Stream.debounce(
@@ -252,19 +244,22 @@ const makeTerminalDependencies = Effect.fn("TerminalInfraService.makeTerminalDep
 
 const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function* () {
   const terminalDependencies = yield* makeTerminalDependencies();
-  const {sessionTerminals, window} = terminalDependencies;
-  const closedTerminals = yield* streamVsCodeEvent(window.onDidCloseTerminal);
+  const closedTerminals = yield* streamVsCodeEvent(terminalDependencies.window.onDidCloseTerminal);
   yield* Effect.forkScoped(
-    Stream.runForEach(closedTerminals, (closedTerminal) => forgetClosedTerminal(sessionTerminals, closedTerminal))
+    Stream.runForEach(closedTerminals, (closedTerminal) =>
+      forgetClosedTerminal(terminalDependencies.sessionTerminals, closedTerminal)
+    )
   );
 
   return {
     activatedSessionIds: yield* watchActivatedSessionIds(terminalDependencies),
-    closeSessionTerminal: (sessionId: EntityIdValueObject) => closeSessionTerminal(sessionTerminals, sessionId),
-    focusSessionTerminal: (sessionId: EntityIdValueObject) => focusSessionTerminal(sessionTerminals, sessionId),
+    closeSessionTerminal: (sessionId: EntityIdValueObject) =>
+      closeSessionTerminal(terminalDependencies.sessionTerminals, sessionId),
+    focusSessionTerminal: (sessionId: EntityIdValueObject) =>
+      focusSessionTerminal(terminalDependencies.sessionTerminals, sessionId),
     nameActiveSessionTab: (sessionId: EntityIdValueObject, tabName: string) =>
       nameActiveSessionTab(terminalDependencies, sessionId, tabName),
-    openProjectTerminal: (project: ProjectListItemDto) => openProjectTerminal(window, project),
+    openProjectTerminal: (project: ProjectListItemDto) => openProjectTerminal(terminalDependencies.window, project),
     openSessionTerminal: (session: SessionEntity, sessionTabRequest: SessionTabRequest) =>
       openSessionTerminal(terminalDependencies, session, sessionTabRequest),
     viewedSessionId: yield* trackViewedSessionId(terminalDependencies)

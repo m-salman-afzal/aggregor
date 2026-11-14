@@ -11,7 +11,6 @@ import {describe, expect, it} from "vitest";
 
 import type {Path} from "effect/Path";
 
-// The column whose values a column takes when seeded: the column its foreign key references, or the column itself.
 interface SeedSource {
   readonly column: TableColumn;
   readonly tableName: string;
@@ -25,7 +24,6 @@ interface StoredTable {
   readonly name: string;
 }
 
-// A column as SQLite's table_info describes it.
 interface TableColumn {
   readonly cid: number;
   readonly dflt_value: null | string;
@@ -35,7 +33,6 @@ interface TableColumn {
   readonly type: string;
 }
 
-// A foreign key as SQLite's foreign_key_list describes it: this table's column, and the table and column it references.
 interface TableForeignKey {
   readonly from: string;
   readonly table: string;
@@ -46,11 +43,6 @@ interface TableSnapshot extends StoredTable {
   readonly rows: readonly StoredRow[];
 }
 
-// What each test proves: a database migrated from any earlier migration to the newest keeps every row and every value,
-// whichever migrations it skipped, leaves a backup of itself from before, and running the migrations again changes
-// nothing.
-
-// The migrations this build ships, oldest first, as the migrator runs them.
 const MIGRATIONS_FOLDER_PATH = join(import.meta.dirname, "..", MIGRATIONS.FOLDER);
 const MIGRATION_NAMES = readdirSync(MIGRATIONS_FOLDER_PATH).toSorted();
 
@@ -82,12 +74,11 @@ const findSeedSource = Effect.fn("findSeedSource")(function* (
   return referencedSource;
 });
 
-// A value no other row or column holds, so a value that lands in another row or column shows; a foreign key holds the
-// value its referenced column has in the row with the same number.
-const makeSeedValue = Effect.fn("makeSeedValue")(function* ({column, tableName}: SeedSource, rowNumber: number) {
-  return INTEGER_AFFINITY.test(column.type)
-    ? rowNumber * 1000 + column.cid
-    : `${tableName}.${column.name}.${rowNumber}`;
+// A value no other row or column holds, so one that lands in another row or column shows.
+const makeSeedValue = Effect.fn("makeSeedValue")(function* (seedSource: SeedSource, rowNumber: number) {
+  return INTEGER_AFFINITY.test(seedSource.column.type)
+    ? rowNumber * 1000 + seedSource.column.cid
+    : `${seedSource.tableName}.${seedSource.column.name}.${rowNumber}`;
 });
 
 const isRequiredColumn = (column: TableColumn) => column.pk > 0 || (column.notnull === 1 && column.dflt_value === null);
@@ -142,10 +133,10 @@ const readStoredTables = Effect.fn("readStoredTables")(function* () {
     WHERE type = 'table' AND name NOT LIKE 'sqlite%' AND name != '__drizzle_migrations'
     ORDER BY name`;
 
-  return yield* Effect.forEach(tableNames, ({name}) => readStoredTable(name));
+  return yield* Effect.forEach(tableNames, (tableName) => readStoredTable(tableName.name));
 });
 
-// Rows in id order, as plain objects: node:sqlite returns them without a prototype.
+// node:sqlite returns rows without a prototype.
 const readTableSnapshot = Effect.fn("readTableSnapshot")(function* (storedTable: StoredTable) {
   const sql = yield* SqlClient;
   const rows = yield* sql<StoredRow>`SELECT * FROM ${sql(storedTable.name)} ORDER BY id`;
@@ -163,7 +154,6 @@ const readTableSnapshots = Effect.fn("readTableSnapshots")(function* () {
 const pickColumns = (row: StoredRow, columns: readonly TableColumn[]) =>
   Object.fromEntries(Array.map(columns, (column) => [column.name, row[column.name]]));
 
-// Every table is still there, with every row, and every row has the value it had in every column it had.
 const expectEveryRowKept = Effect.fn("expectEveryRowKept")(function* (
   snapshotsBefore: readonly TableSnapshot[],
   snapshotsAfter: readonly TableSnapshot[]
@@ -178,7 +168,9 @@ const expectEveryRowKept = Effect.fn("expectEveryRowKept")(function* (
     return {name: snapshotBefore.name, rows: keptRows};
   });
 
-  expect(keptTables).toStrictEqual(Array.map(snapshotsBefore, ({name, rows}) => ({name, rows})));
+  expect(keptTables).toStrictEqual(
+    Array.map(snapshotsBefore, (snapshotBefore) => ({name: snapshotBefore.name, rows: snapshotBefore.rows}))
+  );
 });
 
 const evaluateColumnDefault = Effect.fn("evaluateColumnDefault")(function* (column: TableColumn) {
@@ -198,7 +190,9 @@ const expectNewColumnsAtDefault = Effect.fn("expectNewColumnsAtDefault")(functio
   snapshotsAfter: readonly TableSnapshot[]
 ) {
   const columnKeysBefore = new Set(
-    snapshotsBefore.flatMap(({columns, name}) => Array.map(columns, (column) => `${name}.${column.name}`))
+    snapshotsBefore.flatMap((snapshotBefore) =>
+      Array.map(snapshotBefore.columns, (column) => `${snapshotBefore.name}.${column.name}`)
+    )
   );
   for (const snapshotAfter of snapshotsAfter)
     for (const column of snapshotAfter.columns.filter(
@@ -211,7 +205,6 @@ const expectNewColumnsAtDefault = Effect.fn("expectNewColumnsAtDefault")(functio
     }
 });
 
-// SQLite finds nothing wrong, every foreign key resolves, and the database has run every migration.
 const expectDatabaseIntact = Effect.fn("expectDatabaseIntact")(function* () {
   const sql = yield* SqlClient;
   const integrityResults = yield* sql<{readonly integrity_check: string}>`PRAGMA integrity_check`;
@@ -239,7 +232,7 @@ const copyEarlierMigrations = Effect.fn("copyEarlierMigrations")(function* (
   return earlierMigrationsFolderPath;
 });
 
-// The backups' database files; a backup copied as files has its write-ahead log beside it.
+// A backup copied as files has its write-ahead log beside it.
 const listBackupFileNames = Effect.fn("listBackupFileNames")(function* (testFolderPath: string) {
   const fileSystem = yield* FileSystem;
   const testFolderFileNames = yield* fileSystem.readDirectory(testFolderPath);
@@ -252,8 +245,6 @@ const listBackupFileNames = Effect.fn("listBackupFileNames")(function* (testFold
   );
 });
 
-// A database with migrations to run leaves one backup, holding every row it had before them, in place of the older one;
-// one with nothing to run keeps the backups it had.
 const expectBackupOfRowsBefore = Effect.fn("expectBackupOfRowsBefore")(function* (
   testFolderPath: string,
   appliedMigrationCount: number,
@@ -273,8 +264,6 @@ const expectBackupOfRowsBefore = Effect.fn("expectBackupOfRowsBefore")(function*
   expect(yield* Effect.provide(readTableSnapshots(), backupLayer)).toStrictEqual(snapshotsBefore);
 });
 
-// A user's database at an earlier migration, with rows in every table and a backup from an earlier update, updated to
-// this build's migrations.
 const checkUpgradeFrom = Effect.fn("checkUpgradeFrom")(function* (
   testFolderPath: string,
   appliedMigrationCount: number
@@ -305,9 +294,12 @@ const checkNewDatabase = Effect.fn("checkNewDatabase")(function* (testFolderPath
   expect(yield* listBackupFileNames(testFolderPath)).toStrictEqual([]);
 });
 
-// Each check gets its own folder, with its own database file in it, deleted when the check ends.
 const runInTestFolder = Effect.fn("runInTestFolder")(
-  function* (check: (testFolderPath: string) => Effect.Effect<void, unknown, FileSystem | Path | SqlClient>) {
+  function* (
+    check: (
+      testFolderPath: string
+    ) => Effect.Effect<void, unknown, FileSystem | Path | SqlClient | SqliteClient.SqliteClient>
+  ) {
     const fileSystem = yield* FileSystem;
     const testFolderPath = yield* fileSystem.makeTempDirectoryScoped();
     const databaseLayer = SqliteClient.layer({filename: join(testFolderPath, DATABASE_FILE.FILE_NAME)});

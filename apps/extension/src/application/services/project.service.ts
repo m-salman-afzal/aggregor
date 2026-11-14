@@ -5,38 +5,32 @@ import {
 } from "@domainServices/sortOrder.domainService.ts";
 import {ProjectListItemDtoSchema} from "@dtos/project.dto.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
+import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import {TERMINAL_LABELS} from "@pkg/constants/src/terminal.constant.ts";
 import {addEntity, findEntities, placeEntitiesAtEnd, updateEntity, upsertEntity} from "@services/base.service.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
-import {Array, Effect, Result, Schema} from "effect";
+import {ProjectSettingsValueObjectSchema} from "@valueObjects/projectSettings.valueObject.ts";
+import {Array, Effect, Predicate, Result, Schema} from "effect";
 import {Path} from "effect/Path";
 
 import type {
-  GetProjectListItemRequestDto,
   MoveProjectDownRequestDto,
-  MoveProjectToPlaceOfRequestDto,
   MoveProjectUpRequestDto,
-  RemoveProjectRequestDto
+  NewProjectTerminalRequestDto,
+  RemoveProjectRequestDto,
+  SaveProjectSettingsRequestDto
 } from "@dtos/project.dto.ts";
 import type {ProjectEntity} from "@entities/project/project.entity.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
-export class NoProjectError extends Schema.TaggedError<NoProjectError, {readonly brand: unique symbol}>()(
-  "NoProjectError",
-  {}
-) {}
-
-// The project's row was removed, or its folder left the workspace, since the user saw it.
 export class ProjectNotListedError extends Schema.TaggedError<ProjectNotListedError, {readonly brand: unique symbol}>()(
   "ProjectNotListedError",
   {projectPath: ProjectPathValueObjectSchema}
 ) {}
 
-// An added project moves among the added projects.
 const toAddedProjectListItem = Effect.fn("ProjectService.toAddedProjectListItem")(function* (
   addedProject: ProjectEntity,
   addedProjectIds: readonly EntityIdValueObject[]
@@ -48,34 +42,65 @@ const toAddedProjectListItem = Effect.fn("ProjectService.toAddedProjectListItem"
     canMoveUp: yield* canMoveUpInOrder(addedProjectIds, addedProject.id),
     isAdded: true,
     name: path.basename(addedProject.path),
-    path: addedProject.path
+    path: addedProject.path,
+    settings: addedProject.settings
   });
 });
 
-// The window's own workspace folders, then the added projects. An added project shown as a workspace folder stays an
-// added project.
+// A listed project has no stored row until its first session or its settings are saved.
+const findProjectSettings = Effect.fn("ProjectService.findProjectSettings")(function* (
+  projectPath: ProjectPathValueObject,
+  storedProjects: readonly ProjectEntity[]
+) {
+  const storedProjectResult = Result.fromOption(
+    Array.findFirst(storedProjects, (storedProject) => storedProject.path === projectPath),
+    () => undefined
+  );
+  if (Result.isSuccess(storedProjectResult)) return storedProjectResult.success.settings;
+
+  return yield* Effect.orDie(Schema.decodeEffect(ProjectSettingsValueObjectSchema)({}));
+});
+
+const findSessionWorktreePaths = Effect.fn("ProjectService.findSessionWorktreePaths")(function* () {
+  const storedSessions = yield* findEntities(ISessionRepository, {});
+
+  return new Set(
+    Array.filter(
+      Array.map(storedSessions, (storedSession) => storedSession.worktreePath),
+      Predicate.isNotUndefined
+    )
+  );
+});
+
+// An added project shown in the window stays an added project, and a session's worktree shown there is no project.
 export const listProjects = Effect.fn("ProjectService.listProjects")(function* () {
   const workspaceFolderProjects = yield* IWorkspaceInfraService.use(
     (workspaceInfraService) => workspaceInfraService.listWorkspaceFolderProjects
   );
-  const addedProjects = yield* findEntities(IProjectRepository, {isAdded: true});
+  const storedProjects = yield* findEntities(IProjectRepository, {});
+  const addedProjects = Array.filter(storedProjects, (storedProject) => storedProject.isAdded);
   const addedProjectPaths = new Set(Array.map(addedProjects, (addedProject) => addedProject.path));
+  const sessionWorktreePaths = yield* findSessionWorktreePaths();
   const ownFolderProjects = Array.filter(
     workspaceFolderProjects,
-    (workspaceFolderProject) => !addedProjectPaths.has(workspaceFolderProject.path)
+    (workspaceFolderProject) =>
+      !addedProjectPaths.has(workspaceFolderProject.path) && !sessionWorktreePaths.has(workspaceFolderProject.path)
   );
   const addedProjectIds = Array.map(addedProjects, (addedProject) => addedProject.id);
 
   return [
-    ...Array.map(ownFolderProjects, (ownFolderProject) =>
-      ProjectListItemDtoSchema.make({
-        canMoveDown: false,
-        canMoveUp: false,
-        isAdded: false,
-        name: ownFolderProject.name,
-        path: ownFolderProject.path
-      })
-    ),
+    ...(yield* Effect.forEach(ownFolderProjects, (ownFolderProject) =>
+      Effect.map(findProjectSettings(ownFolderProject.path, storedProjects), (settings) =>
+        ProjectListItemDtoSchema.make({
+          canMoveDown: false,
+          canMoveUp: false,
+          isAdded: false,
+          name: ownFolderProject.name,
+          path: ownFolderProject.path,
+          settings
+        })
+      )
+    )),
     ...(yield* Effect.forEach(addedProjects, (addedProject) => toAddedProjectListItem(addedProject, addedProjectIds)))
   ];
 });
@@ -93,25 +118,7 @@ export const findProjectListItem = Effect.fn("ProjectService.findProjectListItem
   );
 });
 
-export const getProjectListItem = Effect.fn("ProjectService.getProjectListItem")(function* (
-  request: GetProjectListItemRequestDto
-) {
-  return yield* findProjectListItem(request.projectPath);
-});
-
-// Asks only when the window has more than one project.
-export const pickProject = Effect.fn("ProjectService.pickProject")(function* (placeHolder: string) {
-  const projectListItems = yield* listProjects();
-  if (projectListItems.length > 1)
-    return yield* IUserInputPromptInfraService.use((userInputPromptInfraService) =>
-      userInputPromptInfraService.pickProject(projectListItems, placeHolder)
-    );
-
-  return yield* Effect.fromResult(Result.fromNullishOr(projectListItems[0], () => NoProjectError.make()));
-});
-
-// A window showing no project shows the first new one, opening Aggregor's workspace, which reloads the window; nothing
-// runs there yet.
+// Opening Aggregor's workspace reloads the window; nothing runs there yet.
 const showFirstNewProject = Effect.fn("ProjectService.showFirstNewProject")(function* (
   newProjectPaths: readonly ProjectPathValueObject[]
 ) {
@@ -123,7 +130,6 @@ const showFirstNewProject = Effect.fn("ProjectService.showFirstNewProject")(func
   yield* workspaceInfraService.showOnlyProjectFolder(firstNewProjectPath, undefined);
 });
 
-// Each goes to the end of the list, an added project too.
 export const addProjectPaths = Effect.fn("ProjectService.addProjectPaths")(function* (
   projectPaths: readonly ProjectPathValueObject[]
 ) {
@@ -132,8 +138,7 @@ export const addProjectPaths = Effect.fn("ProjectService.addProjectPaths")(funct
   );
 });
 
-// Leaves an existing project where it is in the list. A workspace folder's new row is not added, so the folder stays one
-// of the window's own.
+// A workspace folder's new row is not added, so the folder stays one of the window's own.
 export const findOrAddProject = Effect.fn("ProjectService.findOrAddProject")(function* (
   projectPath: ProjectPathValueObject
 ) {
@@ -152,11 +157,8 @@ export const addProject = Effect.fn("ProjectService.addProject")(
     // One of the window's own folders is listed already.
     const projectListItems = yield* listProjects();
     const ownFolderProjects = Array.filter(projectListItems, (projectListItem) => !projectListItem.isAdded);
-    const ownFolderPaths = new Set(Array.map(ownFolderProjects, (ownFolderProject) => ownFolderProject.path));
-    const newProjectPaths = Array.filter(
-      pickedFolderPaths,
-      (pickedFolderPath) => !ownFolderPaths.has(pickedFolderPath)
-    );
+    const projectPaths = new Set(Array.map(ownFolderProjects, (ownFolderProject) => ownFolderProject.path));
+    const newProjectPaths = Array.filter(pickedFolderPaths, (pickedFolderPath) => !projectPaths.has(pickedFolderPath));
 
     yield* addProjectPaths(newProjectPaths);
     yield* showFirstNewProject(newProjectPaths);
@@ -164,10 +166,9 @@ export const addProject = Effect.fn("ProjectService.addProject")(
   Effect.catchTag("FolderPickCancelledError", () => Effect.void)
 );
 
-// The added projects in their order: their ids, to move them, and their paths, to find one. A project that isn't added
-// has no place among them.
 const listAddedProjectOrder = Effect.fn("ProjectService.listAddedProjectOrder")(function* () {
-  const addedProjects = yield* findEntities(IProjectRepository, {isAdded: true});
+  const storedProjects = yield* findEntities(IProjectRepository, {});
+  const addedProjects = Array.filter(storedProjects, (storedProject) => storedProject.isAdded);
 
   return {
     addedProjectIds: Array.map(addedProjects, (addedProject) => addedProject.id),
@@ -175,37 +176,42 @@ const listAddedProjectOrder = Effect.fn("ProjectService.listAddedProjectOrder")(
   };
 });
 
-// The first added project stays where it is.
 export const moveProjectUp = Effect.fn("ProjectService.moveProjectUp")(function* (request: MoveProjectUpRequestDto) {
-  const {addedProjectIds, addedProjectPaths} = yield* listAddedProjectOrder();
-  const projectIndex = addedProjectPaths.indexOf(request.projectPath);
-  const projectIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(addedProjectIds, projectIndex, projectIndex - 1);
+  const addedProjectOrder = yield* listAddedProjectOrder();
+  const projectIndex = addedProjectOrder.addedProjectPaths.indexOf(request.projectPath);
+  const projectIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(
+    addedProjectOrder.addedProjectIds,
+    projectIndex,
+    projectIndex - 1
+  );
   yield* placeEntitiesAtEnd(IProjectRepository, projectIdsToPlaceAtEnd);
 });
 
-// The last added project stays where it is.
 export const moveProjectDown = Effect.fn("ProjectService.moveProjectDown")(function* (
   request: MoveProjectDownRequestDto
 ) {
-  const {addedProjectIds, addedProjectPaths} = yield* listAddedProjectOrder();
-  const projectIndex = addedProjectPaths.indexOf(request.projectPath);
-  const projectIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(addedProjectIds, projectIndex, projectIndex + 1);
+  const addedProjectOrder = yield* listAddedProjectOrder();
+  const projectIndex = addedProjectOrder.addedProjectPaths.indexOf(request.projectPath);
+  const projectIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(
+    addedProjectOrder.addedProjectIds,
+    projectIndex,
+    projectIndex + 1
+  );
   yield* placeEntitiesAtEnd(IProjectRepository, projectIdsToPlaceAtEnd);
 });
 
-// The window's own folders don't move, so the place of one moves nothing.
-export const moveProjectToPlaceOf = Effect.fn("ProjectService.moveProjectToPlaceOf")(function* (
-  request: MoveProjectToPlaceOfRequestDto
-) {
-  const {addedProjectIds, addedProjectPaths} = yield* listAddedProjectOrder();
-  const projectIndex = addedProjectPaths.indexOf(request.projectPath);
-  const placeIndex = addedProjectPaths.indexOf(request.placeOfProjectPath);
-  const projectIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(addedProjectIds, projectIndex, placeIndex);
-  yield* placeEntitiesAtEnd(IProjectRepository, projectIdsToPlaceAtEnd);
-});
+// A listed project without a stored row gets one here, left unadded so its place in the list stays.
+export const saveProjectSettings = Effect.fn("ProjectService.saveProjectSettings")(
+  function* (request: SaveProjectSettingsRequestDto) {
+    yield* findProjectListItem(request.projectPath);
+    const project = yield* findOrAddProject(request.projectPath);
 
-// Its sessions stay saved and their open tabs keep running; adding the project again lists them again. Its folder leaves
-// the workspace first, since a workspace folder that is not added is listed as one of the window's own.
+    yield* updateEntity(IProjectRepository, project.id, {settings: request.settings});
+  },
+  Effect.catchTags({EntityNotFoundError: () => Effect.void, ProjectNotListedError: () => Effect.void})
+);
+
+// Its folder leaves the workspace first: a workspace folder that isn't added is listed as one of the window's own.
 export const removeProject = Effect.fn("ProjectService.removeProject")(
   function* (request: RemoveProjectRequestDto) {
     yield* IWorkspaceInfraService.use((workspaceInfraService) =>
@@ -219,12 +225,12 @@ export const removeProject = Effect.fn("ProjectService.removeProject")(
   Effect.catchTag("EntityNotFoundError", () => Effect.void)
 );
 
-// A shell in any of the window's projects, shown in the workspace or not; asks which when there is more than one.
+// A project no longer listed opens nothing.
 export const newProjectTerminal = Effect.fn("ProjectService.newProjectTerminal")(
-  function* () {
-    const pickedProject = yield* pickProject(TERMINAL_LABELS.PICK_PROJECT);
+  function* (request: NewProjectTerminalRequestDto) {
+    const chosenProject = yield* findProjectListItem(request.projectPath);
 
-    yield* ITerminalInfraService.use((terminalInfraService) => terminalInfraService.openProjectTerminal(pickedProject));
+    yield* ITerminalInfraService.use((terminalInfraService) => terminalInfraService.openProjectTerminal(chosenProject));
   },
-  Effect.catchTag("ProjectPickCancelledError", () => Effect.void)
+  Effect.catchTag("ProjectNotListedError", () => Effect.void)
 );

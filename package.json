@@ -1,6 +1,6 @@
 {
   "name": "aggregor-monorepo",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "private": true,
   "description": "Combines multiple coding agents.",
   "type": "module",
@@ -38,7 +38,7 @@
     "publish:vsce": "pnpm --filter=aggregor-app publish:vsce",
     "db:generate": "pnpm --filter=aggregor-app db:generate",
     "db:check": "pnpm --filter=aggregor-app db:check",
-    "test": "pnpm --filter=aggregor-app test",
+    "test": "pnpm --filter=aggregor-app --filter=@pkg/eslint run test",
     "bump": "bumpp",
     "release:version": "pnpm pkg get version"
   },

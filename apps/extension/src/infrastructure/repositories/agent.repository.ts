@@ -10,7 +10,6 @@ import {Path} from "effect/Path";
 
 import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
 
-// What the agents need from VS Code and the machine: the settings, and the extension's folder for relative icons.
 interface AgentSettingsSource {
   readonly extensionPath: string;
   readonly getConfiguration: VsCodeApi["Service"]["getConfiguration"];
@@ -18,8 +17,7 @@ interface AgentSettingsSource {
   readonly workspace: VsCodeApi["Service"]["workspace"];
 }
 
-// One aggregorApp.agents entry as the user may write it: the command defaults to its key, the name too, resumeArgs
-// to args, and the icon to Aggregor's logo.
+// The command and the name default to the entry's key, resumeArgs to args, and the icon to Aggregor's logo.
 const AgentSettingSchema = Schema.Struct({
   args: Schema.optional(Schema.Array(Schema.String)),
   command: Schema.optional(Schema.NonEmptyString),
@@ -31,29 +29,30 @@ const AgentSettingSchema = Schema.Struct({
 
 // A relative icon is inside the extension's folder.
 const toAgentIcon = Effect.fn("AgentRepository.toAgentIcon")(function* (
-  {extensionPath, path}: AgentSettingsSource,
+  agentSettingsSource: AgentSettingsSource,
   icon: string | undefined
 ) {
   const iconPath = icon === undefined ? AGENT_ICON.DEFAULT : icon;
 
-  return path.isAbsolute(iconPath) ? iconPath : path.join(extensionPath, iconPath);
+  return agentSettingsSource.path.isAbsolute(iconPath)
+    ? iconPath
+    : agentSettingsSource.path.join(agentSettingsSource.extensionPath, iconPath);
 });
 
 const toAgent = Effect.fn("AgentRepository.toAgent")(
   function* (agentSettingsSource: AgentSettingsSource, [agentKey, agentSetting]: readonly [string, unknown]) {
-    const {args, command, env, icon, name, resumeArgs} =
-      yield* Schema.decodeUnknownEffect(AgentSettingSchema)(agentSetting);
-    const agentArguments = args === undefined ? [] : args;
-    const agentIcon = yield* toAgentIcon(agentSettingsSource, icon);
+    const agentSettingFields = yield* Schema.decodeUnknownEffect(AgentSettingSchema)(agentSetting);
+    const agentArguments = agentSettingFields.args === undefined ? [] : agentSettingFields.args;
+    const agentIcon = yield* toAgentIcon(agentSettingsSource, agentSettingFields.icon);
 
     return yield* Schema.decodeEffect(AgentEntity)({
       args: agentArguments,
-      command: command === undefined ? agentKey : command,
-      environmentVariables: env === undefined ? {} : env,
+      command: agentSettingFields.command === undefined ? agentKey : agentSettingFields.command,
+      environmentVariables: agentSettingFields.env === undefined ? {} : agentSettingFields.env,
       icon: agentIcon,
       id: agentKey,
-      name: name === undefined ? agentKey : name,
-      resumeArgs: resumeArgs === undefined ? agentArguments : resumeArgs
+      name: agentSettingFields.name === undefined ? agentKey : agentSettingFields.name,
+      resumeArgs: agentSettingFields.resumeArgs === undefined ? agentArguments : agentSettingFields.resumeArgs
     });
   },
   (effect, _agentSettingsSource, [agentKey]) =>
@@ -62,8 +61,7 @@ const toAgent = Effect.fn("AgentRepository.toAgent")(
     )
 );
 
-// The built-ins are the setting's default, which VS Code merges with the user's entries key by key; null hides an entry,
-// and one that doesn't decode is left out with a warning.
+// VS Code merges the built-in defaults with the user's entries key by key; null hides an entry.
 const readAgents = Effect.fn("AgentRepository.readAgents")(function* (agentSettingsSource: AgentSettingsSource) {
   const config = yield* agentSettingsSource.getConfiguration(SETTINGS_SECTION);
   const agentSettings: unknown = config.get(AGENT_SETTINGS.AGENTS);
@@ -106,12 +104,12 @@ const findAgentById = Effect.fn("AgentRepository.findAgentById")(function* (
 });
 
 const makeAgentRepository = Effect.fn("AgentRepository.make")(function* () {
-  const {extensionUri, getConfiguration, workspace} = yield* VsCodeApi;
+  const vsCodeApi = yield* VsCodeApi;
   const agentSettingsSource: AgentSettingsSource = {
-    extensionPath: extensionUri.fsPath,
-    getConfiguration,
+    extensionPath: vsCodeApi.extensionUri.fsPath,
+    getConfiguration: vsCodeApi.getConfiguration,
     path: yield* Path,
-    workspace
+    workspace: vsCodeApi.workspace
   };
   const initialAgents = yield* readAgents(agentSettingsSource);
   const agents = yield* Ref.make<readonly AgentEntity[]>(initialAgents);

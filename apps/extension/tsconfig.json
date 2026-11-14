@@ -13,7 +13,6 @@
       "@interfaces/*": ["./src/application/interfaces/*"],
       "@services/*": ["./src/application/services/*"],
       "@dtos/*": ["./src/application/dtos/*"],
-      "@applicationUtils/*": ["./src/application/utils/*"],
       "@config/*": ["./src/infrastructure/config/*"],
       "@models/*": ["./src/infrastructure/database/models/*"],
       "@di/*": ["./src/infrastructure/di/*"],
@@ -24,7 +23,6 @@
       "@controllers/*": ["./src/presentation/controllers/*"],
       "@middlewares/*": ["./src/presentation/middlewares/*"],
       "@presenters/*": ["./src/presentation/presenters/*"],
-      "@presentationUtils/*": ["./src/presentation/utils/*"],
       "@views/*": ["./src/presentation/views/*"]
     }
   },

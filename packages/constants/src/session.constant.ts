@@ -4,11 +4,11 @@ export const SESSION_COMMANDS = {
   ARCHIVE_PROJECT_SESSIONS: "aggregorApp.archiveProjectSessions",
   MOVE_DOWN: "aggregorApp.moveSessionDown",
   MOVE_UP: "aggregorApp.moveSessionUp",
-  NEW_ASKING_FOR_PROJECT: "aggregorApp.newSessionAskingForProject",
   NEW_IN_CHOSEN_PROJECT: "aggregorApp.newSessionInChosenProject",
   OPEN: "aggregorApp.openSession",
   REMOVE: "aggregorApp.removeSession",
   RENAME: "aggregorApp.renameSession",
+  RENAME_BRANCH: "aggregorApp.renameSessionBranch",
   STOP_AGENT: "aggregorApp.stopSessionAgent",
   STOP_ARCHIVED_AGENTS: "aggregorApp.stopArchivedSessionAgents",
   STOP_ARCHIVED_PROJECT_AGENTS: "aggregorApp.stopArchivedProjectSessionAgents",
@@ -17,40 +17,36 @@ export const SESSION_COMMANDS = {
   UNARCHIVE: "aggregorApp.unarchiveSession"
 } as const;
 
-export const SESSION_LABELS = {
-  ARCHIVE_SESSIONS: "Archive Sessions",
-  CONFIRM_REMOVE: "Remove",
-  KEEP_AGENT_RUNNING: "Keep Agent Running",
-  KEEP_AGENTS_RUNNING: "Keep Agents Running",
-  PICK_PROJECT: "Project for the new session",
-  RENAME: "Session name. Leave it empty to show the agent's own title again.",
-  STOP_AGENT: "Stop Agent",
-  STOP_AGENTS: "Stop Agents"
+// What a new session's request says about the working tree it runs in.
+export const NEW_SESSION_WORKING_TREE_TAGS = {
+  EXISTING_WORKTREE: "ExistingWorktree",
+  NEW_WORKTREE: "NewWorktree",
+  PROJECT_ROOT: "ProjectRoot"
 } as const;
 
-// The questions a session command asks, and the line under each answer on what picking it does. Which one a command
-// shows is picked in application/utils/sessionQuestion.utils.ts.
+export const SESSION_LABELS = {
+  AGENT_SECTION: "Agent",
+  CONFIRM_REMOVE: "Remove",
+  NEW_SESSION: "New session",
+  NEW_WORKTREE: "New worktree",
+  NEW_WORKTREE_DESCRIPTION: "A branch of its own, from the project's current commit",
+  PROJECT_ROOT: "Project root",
+  PROJECT_SECTION: "Project",
+  RENAME: "Session name. Leave it empty to show the agent's own title again.",
+  RENAME_BRANCH: "Branch name",
+  START: "Start",
+  STOP_AGENT: "Stop Agent",
+  STOP_AGENTS: "Stop Agents",
+  WORKING_TREE_SECTION: "Works in"
+} as const;
+
+// Which one a question shows is picked in the webview's sessions.utils.ts.
 export const SESSION_NOTICES = {
-  ARCHIVE_KEEPING_AGENT: "Its agent stays in the background; open the session from the Archive to use it.",
-  ARCHIVE_KEEPING_AGENT_MID_TURN:
-    "Its agent finishes its turn in the background; open the session from the Archive to see it.",
-  ARCHIVE_KEEPING_AGENTS: "Their agents stay in the background; open a session from the Archive to use it.",
-  ARCHIVE_KEEPING_AGENTS_MID_TURN: (turnRunningCount: number) =>
-    `${turnRunningCount} of them finish their turn in the background; open a session from the Archive to see it.`,
-  ARCHIVE_SESSIONS_CONSEQUENCE: "Each opens from the Archive as before; Unarchive in its menu moves it back.",
-  ASK_ARCHIVE_SESSIONS: (sessionCount: number) => `Archive ${sessionCount} sessions?`,
-  ASK_ARCHIVE_SESSIONS_WITH_AGENT_RUNNING: (sessionCount: number) =>
-    `Archive ${sessionCount} sessions: keep the agent running in one of them?`,
-  ASK_ARCHIVE_SESSIONS_WITH_AGENTS_RUNNING: (sessionCount: number, runningAgentCount: number) =>
-    `Archive ${sessionCount} sessions: keep the agents running in ${runningAgentCount} of them?`,
-  ASK_ARCHIVE_WITH_AGENT_RUNNING: (displayName: string) => `Archive "${displayName}": keep its agent running?`,
   CONFIRM_REMOVE_RUNNING: (displayName: string) => `Remove "${displayName}"?`,
   CONFIRM_STOP_AGENT: (displayName: string) => `Stop the agent of "${displayName}"?`,
   CONFIRM_STOP_AGENTS: (runningAgentCount: number) => `Stop ${runningAgentCount} running agents?`,
   REMOVE_STOPPING_AGENT: "Its agent is still running and will be stopped.",
-  STOP_AGENT_CONSEQUENCE: "Opening the session starts its agent again.",
   STOP_AGENT_MID_TURN_CONSEQUENCE: "Its turn is cut short. Opening the session starts its agent again.",
-  STOP_AGENTS_CONSEQUENCE: "Opening a session starts its agent again.",
   STOP_AGENTS_MID_TURN_CONSEQUENCE: (turnRunningCount: number) =>
     `${turnRunningCount} of them are in the middle of a turn, which is cut short. Opening a session starts its agent again.`
 } as const;
@@ -61,7 +57,6 @@ export const SESSION_ERRORS = {
   INVALID_SETTINGS: (reason: string) => `The agent settings are invalid: ${reason}`,
   LAUNCH_FAILED: "Could not open a terminal for the session.",
   NOT_FOUND: "This session no longer exists.",
-  PROJECT_REQUIRED: "Add a project or open a folder to start a session.",
   PTY_BINARY_NOT_FOUND: "Sessions can't run on this platform yet: this build of Aggregor has no aggregor-pty for it.",
   // A Windows VSIX has no aggregor-pty; sessions on Windows run inside WSL, on the Linux VSIX.
   PTY_BINARY_NOT_FOUND_ON_WINDOWS: "On Windows, sessions run in WSL. Reopen the folder in WSL to start one."

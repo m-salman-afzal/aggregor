@@ -11,7 +11,6 @@ import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 
 import type {CommitMessageRequest} from "@interfaces/commitCli.infraService.interface.ts";
 
-// Runs the command in a shell in the project, with the staged diff on stdin.
 const runCommitCommand = Effect.fn("CommitCliInfraService.runCommitCommand")(
   function* (childProcessSpawner: ChildProcessSpawner["Service"], commitMessageRequest: CommitMessageRequest) {
     const commitCommandProcess = yield* childProcessSpawner.spawn(
@@ -43,10 +42,14 @@ const generateCommitMessage = Effect.fn("CommitCliInfraService.generateCommitMes
   childProcessSpawner: ChildProcessSpawner["Service"],
   commitMessageRequest: CommitMessageRequest
 ) {
-  const {exitCode, stderr, stdout} = yield* runCommitCommand(childProcessSpawner, commitMessageRequest);
-  if (exitCode !== EXIT_CODES.SUCCESSFUL) return yield* CommitCliError.make({exitCode, stderr: String.trim(stderr)});
+  const commitCommandOutput = yield* runCommitCommand(childProcessSpawner, commitMessageRequest);
+  if (commitCommandOutput.exitCode !== EXIT_CODES.SUCCESSFUL)
+    return yield* CommitCliError.make({
+      exitCode: commitCommandOutput.exitCode,
+      stderr: String.trim(commitCommandOutput.stderr)
+    });
 
-  const commitMessage = String.trim(stdout);
+  const commitMessage = String.trim(commitCommandOutput.stdout);
   if (commitMessage.length === 0) return yield* EmptyCommitMessageError.make();
 
   return commitMessage;

@@ -17,9 +17,9 @@ const openDatabaseFile = Effect.fn("Database.openDatabaseFile")(function* () {
 });
 
 const migrateDatabase = Effect.fn("Database.migrateDatabase")(function* () {
-  const {extensionUri, Uri} = yield* VsCodeApi;
+  const vsCodeApi = yield* VsCodeApi;
 
-  yield* applyPendingMigrations(Uri.joinPath(extensionUri, MIGRATIONS.FOLDER).fsPath);
+  yield* applyPendingMigrations(vsCodeApi.Uri.joinPath(vsCodeApi.extensionUri, MIGRATIONS.FOLDER).fsPath);
 });
 
 export const DatabaseLayer = Layer.effectDiscard(migrateDatabase()).pipe(

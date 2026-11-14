@@ -1,8 +1,8 @@
 # Components
 
 What Aggregor is built from, runs on, and is checked and released with: what each component is, which part of it we use,
-why, and what else was weighed. [decisions.md](decisions.md) holds the full reasoning; an entry named here is a heading
-there. Update this file in the same commit as a change that adds, removes or changes how a component is used.
+why, and what else was weighed. [decisions/](decisions/README.md) holds the full reasoning; an entry named here is a
+heading there. Update this file in the same commit as a change that adds, removes or changes how a component is used.
 
 ## On the user's machine
 
@@ -10,13 +10,13 @@ there. Update this file in the same commit as a change that adds, removes or cha
 
 - **What it is:** the editor the extension runs in, through its extension API.
 - **What we use:** `engines.vscode` `^1.145.0`, `extensionKind: ["workspace"]` (in a WSL or remote window the extension,
-  tmux and the agents run there), the Aggregor activity-bar container with the Sessions and Archive views, menus and
-  `aggregorApp.*` settings. APIs: `createTreeView` with drag and drop, `registerFileDecorationProvider` for row badges,
-  `createTerminal` (`shellPath`, `isTransient`, an editor-tab `location`, `env`, `iconPath`), `createQuickPick`,
-  `showInputBox`, `withProgress`, `registerUriHandler` with `env.asExternalUri`, a log `createOutputChannel` for the
-  trace, `workspace.updateWorkspaceFolders` (only for a window without a saved workspace file), `openTextDocument`,
-  `applyEdit` and `TextDocument.save`, and the `vscode.openFolder` and `workbench.action.reloadWindow` commands.
-  `packages/vscode` holds `VsCodeApi`, the one runtime `vscode` import.
+  tmux and the agents run there), the Aggregor activity-bar container with the Sessions webview view, menus and
+  `aggregorApp.*` settings. APIs: `registerWebviewViewProvider`, `createTerminal` (`shellPath`, `isTransient`, an
+  editor-tab `location`, `env`, `iconPath`), `createQuickPick`, `showInputBox`, `withProgress`, `registerUriHandler`
+  with `env.asExternalUri`, a log `createOutputChannel` for the trace, `workspace.updateWorkspaceFolders` (only for a
+  window without a saved workspace file), `openTextDocument`, `applyEdit` and `TextDocument.save`, and the
+  `vscode.openFolder`, `workbench.action.reloadWindow` and `workbench.trust.manage` commands. `packages/vscode` holds
+  `VsCodeApi`, the one runtime `vscode` import.
 - **Why:** terminals, trees, Source Control and diffs already exist in VS Code, through stable APIs only.
 - **Alternatives:** "Agents run in their own terminal UIs": an ACP client with a webview chat UI; VS Code's chat
   sessions API, a proposed API. "Every session's agent runs in tmux": tabs drawn as `Pseudoterminal`s over one tmux
@@ -50,7 +50,7 @@ there. Update this file in the same commit as a change that adds, removes or cha
   the tab only attaching; tmux as the extension's child process; one control-mode (`-CC`) client for every tab.
   harness-foundation 5, Decided 3: a pkexec install prompt and a bundled tmux (README's M5 plans a bundled tmux).
   Decided 4: a named server, `-L aggregor`. The harness-foundation plan names psmux for native Windows later.
-  - Other options for the multiplexer itself, not weighed in decisions.md: GNU screen, Zellij, dtach or abduco.
+  - Other options for the multiplexer itself, not weighed in `decisions/`: GNU screen, Zellij, dtach or abduco.
 
 ### aggregor-pty
 
@@ -83,7 +83,7 @@ there. Update this file in the same commit as a change that adds, removes or cha
 - **What we use:** 0.41.1 with `bundled`, which compiles SQLite into the binary: `Connection::open_with_flags`,
   `busy_timeout`, and one `UPDATE` by `id` per change that skips soft-deleted rows (`apps/pty/src/store.rs`).
 - **Why:** the binary writes the session rows of the database the extension reads.
-- **Alternatives:** Not weighed in decisions.md.
+- **Alternatives:** Not weighed in `decisions/`.
   - Other options: sqlx, the `sqlite` crate, or the `sqlite3` CLI.
 
 ### rustix
@@ -92,7 +92,7 @@ there. Update this file in the same commit as a change that adds, removes or cha
 - **What we use:** 1.1.6 with `termios`: `tcgetattr` and `tcsetattr` for raw mode and its restore, `tcgetwinsize` for
   the window size (`apps/pty/src/terminal.rs`).
 - **Why:** `aggregor-pty`'s terminal goes into raw mode, and the agent's pty takes its size.
-- **Alternatives:** Not weighed in decisions.md as the termios layer.
+- **Alternatives:** Not weighed in `decisions/` as the termios layer.
   - Other options: nix, libc, or the termios crate.
 
 ### signal-hook
@@ -101,7 +101,7 @@ there. Update this file in the same commit as a change that adds, removes or cha
 - **What we use:** 0.4.6: `iterator::Signals` for `SIGWINCH` (resize the pty) and `SIGHUP`, `SIGTERM` and `SIGINT`
   (passed on to the agent), in `apps/pty/src/main.rs`.
 - **Why:** resizes and hangups reach the agent.
-- **Alternatives:** Not weighed in decisions.md.
+- **Alternatives:** Not weighed in `decisions/`.
   - Other options: nix's `sigaction`, ctrlc, or tokio's signal module.
 
 ### base64
@@ -110,7 +110,7 @@ there. Update this file in the same commit as a change that adds, removes or cha
 - **What we use:** 0.23.1: a `GeneralPurpose` engine that decodes base64 values in OSC 7501 reports
   (`apps/pty/src/report.rs`).
 - **Why:** OSC 7501 reports carry some values in base64.
-- **Alternatives:** Not weighed in decisions.md.
+- **Alternatives:** Not weighed in `decisions/`.
   - Other options: data-encoding, or a hand-written decoder.
 
 ### SQLite
@@ -149,19 +149,31 @@ there. Update this file in the same commit as a change that adds, removes or cha
   (`infrastructure/services/commitCli/commitCli.infraService.ts`). The prompt has no inner double quotes, so it runs the
   same under sh and cmd.exe. `.vscode/settings.json` overrides it here with aggregor's scopes.
 - **Why:** not recorded; "Commit messages come from a shell command" makes it a setting any command can replace.
-- **Alternatives:** Not weighed in decisions.md.
+- **Alternatives:** Not weighed in `decisions/`.
   - Other options: the Anthropic API called from the extension, or VS Code's Language Model API (`vscode.lm`).
 
 ### VS Code's Git extension
 
 - **What it is:** VS Code's built-in Git extension, `vscode.git`, and its API.
 - **What we use:** `activate()`, then `getAPI(1)`: `getRepository`, `state.indexChanges`, `diff(true)` for the staged
-  diff, `inputBox.value`, `commit` and `status()`, plus the `git.stageAll` command
-  (`infrastructure/services/vscode/git.infraService.ts`). Its types are `packages/typings/src/git.d.ts`, fetched by
-  `pnpm --filter=@pkg/typings sync:git-types`. Agents get its credential helper through tmux's `update-environment`.
+  diff, `inputBox.value`, `commit` and `status()` (`infrastructure/services/vscode/git.infraService.ts`). Its types are
+  `packages/typings/src/git.d.ts`, fetched by `pnpm --filter=@pkg/typings sync:git-types`. Agents get its credential
+  helper through tmux's `update-environment`.
 - **Why:** "Review agent edits with git": Source Control and its diffs already exist.
-- **Alternatives:** Not weighed in decisions.md.
+- **Alternatives:** Not weighed in `decisions/`.
   - Other options: the `git` CLI, simple-git, or isomorphic-git.
+
+### The git command line
+
+- **What it is:** git itself, the `git` the user has on `PATH`.
+- **What we use:** `git worktree add`, `list --porcelain`, `remove` and `prune`, `git rev-parse --verify` for a free
+  branch name, `git ls-files --others --ignored` for the files a new worktree gets, `git status --porcelain` for a
+  worktree's changes, and for cleanup `git for-each-ref` (each `aggregor/*` branch's upstream and worktree),
+  `git remote prune origin`, `git symbolic-ref refs/remotes/origin/HEAD` for the base branch,
+  `git merge-base --is-ancestor` and `git branch -D` (`infrastructure/services/git/worktree.infraService.ts`).
+- **Why:** the Git extension's API reaches only repositories open in Source Control, and opening each project's would
+  list them all there; the command line works on any project's folder.
+- **Alternatives:** the Git extension's `createWorktree` and `state.worktrees` (see `decisions/sessions/worktrees.md`).
 
 ### Desktop notifiers
 
@@ -192,7 +204,7 @@ there. Update this file in the same commit as a change that adds, removes or cha
   `effect/reactivity`, each allowed by name in `packages/tsconfigs/tsconfig.base.json`.
 - **Why:** "Effect 4" records no reason for the choice; it is what gives every function its span and every failure a
   typed error.
-- **Alternatives:** Not weighed in decisions.md.
+- **Alternatives:** Not weighed in `decisions/`.
   - Other options: plain async TypeScript with OpenTelemetry, fp-ts, or neverthrow.
 
 ### @effect/platform-node
@@ -201,7 +213,7 @@ there. Update this file in the same commit as a change that adds, removes or cha
 - **What we use:** 4.1.2: `NodeServices.layer`, for `FileSystem`, `Path` and `ChildProcessSpawner`
   (`infrastructure/di/app.layer.ts`).
 - **Why:** the code asks for Effect's platform services, and this layer provides them in the extension host.
-- **Alternatives:** Not weighed in decisions.md.
+- **Alternatives:** Not weighed in `decisions/`.
   - Other options: `node:fs` and `node:child_process` directly, or execa.
 
 ### @effect/sql-sqlite-node
@@ -238,6 +250,58 @@ there. Update this file in the same commit as a change that adds, removes or cha
 - **Alternatives:** "The shown project's own settings sync with Aggregor's workspace file": VS Code's settings API, one
   key at a time, which refuses the keys of extensions that aren't installed.
 
+## Inside the webview
+
+`apps/webview`, which draws the Sessions view inside VS Code's page, and `packages/ui` (`@pkg/ui`), its design system:
+the theme and the base components.
+
+### React
+
+- **What it is:** a library for user interfaces built from components.
+- **What we use:** `react` and `react-dom` 19.3.1: function components and hooks, `createRoot` in `src/main.tsx`, and
+  `useSyncExternalStore` for `sessions.store.ts`, which keeps what the view sends. The React Compiler memoizes it.
+- **Why:** "The webview is React with shadcn on Base UI": shadcn's components are React, and so are the user's other
+  front ends.
+- **Alternatives:** Not weighed in `decisions/`.
+  - Other options: Preact, Solid, or Lit.
+
+### Base UI
+
+- **What it is:** unstyled, accessible React primitives from the makers of Radix and Material UI.
+- **What we use:** `@base-ui/react` 1.9.0, under shadcn's button, collapsible, menus, dialog and input.
+- **Why:** "The webview is React with shadcn on Base UI": maintained, where Radix isn't anymore.
+- **Alternatives:** that decision: Radix primitives under shadcn.
+
+### shadcn/ui
+
+- **What it is:** components copied into the app by a CLI, styled with Tailwind, over a headless library.
+- **What we use:** the CLI (`npx shadcn@4.23.0 add`, run on `packages/ui`) with `packages/ui/components.json`: the
+  `base-nova` style on Base UI, its components in `packages/ui/src/components/base` (button, collapsible, dropdown menu,
+  context menu, dialog, input), which lint skips so the CLI can update them; `class-variance-authority` 0.7.1 for the
+  button's variants, and `cn` 0.5.2, shadcn's class-name merge, which the webview's own components use too. The theme's
+  tokens read VS Code's theme variables (`packages/ui/src/theme.css`).
+- **Why:** "The webview is React with shadcn on Base UI".
+- **Alternatives:** that decision.
+
+### Tailwind CSS
+
+- **What it is:** a CSS framework of utility classes, compiled from the classes the code uses.
+- **What we use:** `tailwindcss` and `@tailwindcss/vite` 4.3.5: `@pkg/ui`'s `src/theme.css` maps shadcn's tokens and
+  each session status's colour to VS Code's theme variables, its `dark` variant follows VS Code's theme kind, and its
+  `@source` adds the package's components to the classes the webview's build scans.
+- **Why:** shadcn's components are styled with it.
+- **Alternatives:** Not weighed in `decisions/`.
+  - Other options: CSS modules, or VS Code's Webview UI Toolkit, which is deprecated.
+
+### lucide-react
+
+- **What it is:** an icon set as React components.
+- **What we use:** 1.71.0: the status icons, the chevron, the missing-agent warning and the menus' icons; shadcn's icon
+  library, which `@pkg/ui`'s menus use too.
+- **Why:** "The webview is React with shadcn on Base UI".
+- **Alternatives:** Not weighed in `decisions/`.
+  - Other options: VS Code's codicons font.
+
 ## Building and checking
 
 ### Node.js
@@ -246,7 +310,7 @@ there. Update this file in the same commit as a change that adds, removes or cha
 - **What we use:** 26.13.0, pinned by `devEngines` with `onFail: error`; CI's `pnpm/setup` installs it. The extension
   runs on the Node in VS Code's Electron (24.22 in VS Code 1.145), so Vite targets `node24`.
 - **Why:** not recorded; "pnpm workspace with pinned Node and pnpm" records the pin.
-- **Alternatives:** Not weighed in decisions.md.
+- **Alternatives:** Not weighed in `decisions/`.
   - Other options: nvm with an `.nvmrc`, Volta, or mise.
 
 ### pnpm
@@ -257,7 +321,7 @@ there. Update this file in the same commit as a change that adds, removes or cha
   `cleanupUnusedCatalogs`.
 - **Why:** "Every dependency version lives once, in the pnpm catalog": one source of truth, which lint keeps.
 - **Alternatives:** "Every dependency version lives once, in the pnpm catalog": named catalogs.
-  - Other options for the package manager, not weighed in decisions.md: npm workspaces, Yarn, or Bun.
+  - Other options for the package manager, not weighed in `decisions/`: npm workspaces, Yarn, or Bun.
 
 ### TypeScript
 
@@ -267,7 +331,7 @@ there. Update this file in the same commit as a change that adds, removes or cha
   dependency of `@pkg/eslint`. Options live in `packages/tsconfigs/tsconfig.base.json`, aliases in
   `apps/extension/tsconfig.json`.
 - **Why:** "`@effect/tsgo` on TypeScript 7 native" records the native compiler; no reason for TypeScript 6 is recorded.
-- **Alternatives:** Not weighed in decisions.md.
+- **Alternatives:** Not weighed in `decisions/`.
   - Other options: TypeScript 5 or 6's `tsc` alone.
 
 ### @effect/tsgo
@@ -277,7 +341,7 @@ there. Update this file in the same commit as a change that adds, removes or cha
   it through `js/ts.experimental.useTsgo` in `.vscode/settings.json`. `tsconfig.base.json` makes every rule an error in
   `apps/extension/src` and lists the allowed unstable modules.
 - **Why:** Effect's rules run in `pnpm typecheck` and in the editor.
-- **Alternatives:** Not weighed in decisions.md.
+- **Alternatives:** Not weighed in `decisions/`.
   - Other options: `@effect/language-service` on TypeScript's JavaScript server.
 
 ### Vite
@@ -285,11 +349,22 @@ there. Update this file in the same commit as a change that adds, removes or cha
 - **What it is:** a build tool; its library mode bundles with Rolldown.
 - **What we use:** 8.3.6, `apps/extension/vite.config.ts`: `src/extension.ts` into one ES module, `dist/extension.js`,
   for `node24`, with `vscode` and Node's built-in modules external; minified in production, source maps in development.
-  `watch:vite` rebuilds for F5, and `vscode:prepublish` runs `vite build --mode production`.
+  `watch:vite` rebuilds for F5, and `vscode:prepublish` runs `vite build --mode production`, then the webview's build.
+  `apps/webview/vite.config.ts` builds `src/main.tsx` into `apps/extension/dist/webview` (`webview.js`, `webview.css`)
+  with `@vitejs/plugin-react` 6.3.0 and Tailwind's plugin, and serves it on port 5179 for F5, to `vscode-webview:`
+  pages.
 - **Why:** not recorded; "Vite bundles, vsce packages" records that the extension ships as one bundle, which vsce
   packages with `--no-dependencies`.
-- **Alternatives:** Not weighed in decisions.md.
+- **Alternatives:** Not weighed in `decisions/`.
   - Other options: esbuild (VS Code's extension template), webpack, or tsup.
+
+### React Compiler
+
+- **What it is:** a compiler that memoizes React components and hooks at build time.
+- **What we use:** `babel-plugin-react-compiler` 1.0.0 through `@vitejs/plugin-react`'s `reactCompilerPreset`, run by
+  `@rolldown/plugin-babel` 0.3.1 with `@babel/core` 8.1.0; `eslint-plugin-react-hooks` checks the code it compiles.
+- **Why:** "The webview is React with shadcn on Base UI": no `useMemo` or `useCallback` by hand.
+- **Alternatives:** that decision: `@vitejs/plugin-react`'s Rust port of the compiler, which is experimental.
 
 ### drizzle-kit
 
@@ -306,13 +381,15 @@ there. Update this file in the same commit as a change that adds, removes or cha
 
 - **What it is:** a JavaScript and TypeScript linter.
 - **What we use:** 10.14.0, `pnpm lint:check` with `--max-warnings 0`. `@pkg/eslint` (`packages/eslint/src`) holds
-  `base/` per file type, `layers/` for the DDD layering, and `rules/`, the aggregor plugin (`span-name`,
-  `constant-placement`, `type-placement`, `declaring-file`, `stem-folder`). Plugins: typescript-eslint, unicorn,
-  perfectionist, import-x, e18e, `@eslint/markdown`, `@eslint/json`, eslint-package-json, eslint-plugin-pnpm (the
-  catalog checks) and eslint-plugin-prettier.
+  `base/` per file type, `layers/` for the DDD layering, `folderStructure/` for `apps/webview`, and `rules/`, the
+  aggregor plugin (`span-name`, `constant-placement`, `type-placement`, `declaring-file`, `stem-folder`, and for the
+  webview `file-role`, `building-block`, `kind-folder`, `module-boundary`, `no-pass-through` and `single-consumer`).
+  Plugins: typescript-eslint, unicorn, perfectionist, import-x, e18e, `@eslint/markdown`, `@eslint/json`,
+  eslint-package-json, eslint-plugin-pnpm (the catalog checks), eslint-plugin-prettier, and eslint-plugin-react-hooks
+  7.1.1 for the webview.
 - **Why:** "Conventions are enforced by lint, not prose".
 - **Alternatives:** "The ESLint setup lives in `@pkg/eslint`": the base setup at the root, one file per category.
-  - Other options for the linter, not weighed in decisions.md: Biome or oxlint.
+  - Other options for the linter, not weighed in `decisions/`: Biome or oxlint.
 
 ### Prettier
 
@@ -320,7 +397,7 @@ there. Update this file in the same commit as a change that adds, removes or cha
 - **What we use:** 3.9.10, `.prettierrc`: 120 columns, `proseWrap: always`. `pnpm format:check`, and staged files before
   each commit.
 - **Why:** not recorded; "Lint and format on commit" records the setup.
-- **Alternatives:** Not weighed in decisions.md.
+- **Alternatives:** Not weighed in `decisions/`.
   - Other options: Biome or dprint.
 
 ### vitest
@@ -328,7 +405,8 @@ there. Update this file in the same commit as a change that adds, removes or cha
 - **What it is:** a test runner built on Vite.
 - **What we use:** 5.1.0, `pnpm test`: `apps/extension/tests/migrations.test.ts`, which builds a database at each
   migration, fills it, migrates it to the newest and checks nothing was lost. `vitest.config.ts` resolves the tsconfig
-  aliases; each test runs its effect with `Effect.runPromise`.
+  aliases; each test runs its effect with `Effect.runPromise`. `packages/eslint/tests` runs the folder-structure lint
+  rules on a small app it writes to a temporary folder.
 - **Why:** it resolves the extension's aliases, so the test runs the extension's own migration code.
 - **Alternatives:** "Every schema change is a migration on the user's database": Node's own test runner, which can't
   resolve the aliases; `@effect/vitest`, whose every export `@effect/tsgo` reports as unstable.
@@ -341,7 +419,7 @@ there. Update this file in the same commit as a change that adds, removes or cha
   `rustfmt --check --edition 2024` on `.rs` files. It checks the index, so a moved file edited after must be staged
   again. Renovate's abandoned-package warning is off for husky.
 - **Why:** not recorded; "Lint and format on commit" records the setup.
-- **Alternatives:** Not weighed in decisions.md.
+- **Alternatives:** Not weighed in `decisions/`.
   - Other options: lefthook, simple-git-hooks, or pre-commit.
 
 ### Rust toolchain
@@ -352,7 +430,7 @@ there. Update this file in the same commit as a change that adds, removes or cha
   `pnpm pty:test` runs `cargo test`, whose `tests/end_to_end.rs` runs the binary against a database built from the
   extension's migrations.
 - **Why:** "Rust for `aggregor-pty`, checked like the TypeScript": one command checks the whole repo.
-- **Alternatives:** Not weighed in decisions.md as the language for the binary.
+- **Alternatives:** Not weighed in `decisions/` as the language for the binary.
   - Other options: Go, C, Zig, or a Node.js script.
 
 ### mutter (headless verification)
@@ -369,7 +447,8 @@ there. Update this file in the same commit as a change that adds, removes or cha
 
 - `npm-run-all2` 9.0.4: `pnpm watch` runs `watch:vite` and `watch:tsc` together.
 - `@types/node` 26.6.6; `@types/vscode` 1.145.0, a plain version in `apps/extension` and `packages/vscode` because vsce
-  reads it to check `engines.vscode`; `@types/eslint-plugin-promise` 7.3.0.
+  reads it to check `engines.vscode`; `@types/eslint-plugin-promise` 7.3.0; `@types/react` and `@types/react-dom`
+  19.3.0; `@types/vscode-webview` 1.57.5, for the webview's `acquireVsCodeApi`.
 
 ## Releasing
 
@@ -380,10 +459,10 @@ there. Update this file in the same commit as a change that adds, removes or cha
   `pty:test`, `vsix`), `auto-pr.yaml` (opens and stacks PRs), `pr-title.yaml`, `release-pr.yaml` (dev → main once a bump
   merges) and `release.yaml` (binaries, VSIXs, publish, GitHub release), in `.github/workflows/`. Actions are named by
   exact tag, with each tag's commit in `.github/workflows/actions.lock`.
-- **Why:** not recorded in decisions.md.
+- **Why:** not recorded in `decisions/`.
 - **Alternatives:** "Releases start from merged PRs": a release from a pushed git tag. "Actions pinned to exact tags,
   with a lock file": commit digests in the workflows.
-  - Other options for the CI service, not weighed in decisions.md: GitLab CI or Buildkite.
+  - Other options for the CI service, not weighed in `decisions/`: GitLab CI or Buildkite.
 
 ### vsce
 
@@ -413,7 +492,7 @@ there. Update this file in the same commit as a change that adds, removes or cha
   root `package.json`, commits `chore(release): bump version to ‹version›` and opens a `chore/bump-v‹version›` PR into
   dev, with no tag.
 - **Why:** not recorded; "`bumpp` for version bumps" records what `pnpm bump` does.
-- **Alternatives:** Not weighed in decisions.md.
+- **Alternatives:** Not weighed in `decisions/`.
   - Other options: changesets, release-please, or `pnpm version`.
 
 ### Renovate
@@ -433,5 +512,5 @@ there. Update this file in the same commit as a change that adds, removes or cha
   the `stack` and `issue` skills open stacked PRs and file issues with `gh issue develop` branches; `gh actions-lock`
   writes `actions.lock`.
 - **Why:** "Stacked PRs" and "Problems for later are GitHub issues, each with its branch" run through it.
-- **Alternatives:** Not weighed in decisions.md.
+- **Alternatives:** Not weighed in `decisions/`.
   - Other options: the GitHub REST API through `actions/github-script` or `curl`.
