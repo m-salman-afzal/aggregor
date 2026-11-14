@@ -15,8 +15,8 @@ heading there. Update this file in the same commit as a change that adds, remove
   editor-tab `location`, `env`, `iconPath`), `createQuickPick`, `showInputBox`, `withProgress`, `registerUriHandler`
   with `env.asExternalUri`, a log `createOutputChannel` for the trace, `workspace.updateWorkspaceFolders` (only for a
   window without a saved workspace file), `openTextDocument`, `applyEdit` and `TextDocument.save`, and the
-  `vscode.openFolder` and `workbench.action.reloadWindow` commands. `packages/vscode` holds `VsCodeApi`, the one runtime
-  `vscode` import.
+  `vscode.openFolder`, `workbench.action.reloadWindow` and `workbench.trust.manage` commands. `packages/vscode` holds
+  `VsCodeApi`, the one runtime `vscode` import.
 - **Why:** terminals, trees, Source Control and diffs already exist in VS Code, through stable APIs only.
 - **Alternatives:** "Agents run in their own terminal UIs": an ACP client with a webview chat UI; VS Code's chat
   sessions API, a proposed API. "Every session's agent runs in tmux": tabs drawn as `Pseudoterminal`s over one tmux
@@ -162,6 +162,18 @@ heading there. Update this file in the same commit as a change that adds, remove
 - **Why:** "Review agent edits with git": Source Control and its diffs already exist.
 - **Alternatives:** Not weighed in `decisions/`.
   - Other options: the `git` CLI, simple-git, or isomorphic-git.
+
+### The git command line
+
+- **What it is:** git itself, the `git` the user has on `PATH`.
+- **What we use:** `git worktree add`, `list --porcelain`, `remove` and `prune`, `git rev-parse --verify` for a free
+  branch name, `git ls-files --others --ignored` for the files a new worktree gets, `git status --porcelain` for a
+  worktree's changes, and for cleanup `git for-each-ref` (each `aggregor/*` branch's upstream and worktree),
+  `git remote prune origin`, `git symbolic-ref refs/remotes/origin/HEAD` for the base branch,
+  `git merge-base --is-ancestor` and `git branch -D` (`infrastructure/services/git/worktree.infraService.ts`).
+- **Why:** the Git extension's API reaches only repositories open in Source Control, and opening each project's would
+  list them all there; the command line works on any project's folder.
+- **Alternatives:** the Git extension's `createWorktree` and `state.worktrees` (see `decisions/sessions/worktrees.md`).
 
 ### Desktop notifiers
 

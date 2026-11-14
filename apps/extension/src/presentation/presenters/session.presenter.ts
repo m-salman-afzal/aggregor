@@ -1,5 +1,6 @@
 import {AGENT_ERRORS, AGENTS_SETTING_ID} from "@pkg/constants/src/agent.constant.ts";
 import {DATABASE_ERRORS} from "@pkg/constants/src/database.constant.ts";
+import {WORKTREE_ERRORS} from "@pkg/constants/src/git.constant.ts";
 import {SESSION_ERRORS} from "@pkg/constants/src/session.constant.ts";
 import {TMUX, TMUX_ERRORS, TMUX_LABELS} from "@pkg/constants/src/tmux.constant.ts";
 import {Array, Effect, Match} from "effect";
@@ -14,6 +15,7 @@ import type {
   openSession,
   removeSession,
   renameSession,
+  renameSessionBranch,
   stopArchivedProjectSessionAgents,
   stopArchivedSessionAgents,
   stopProjectSessionAgents,
@@ -32,6 +34,7 @@ type SessionCommandError = Effect.Error<
     | typeof openSession
     | typeof removeSession
     | typeof renameSession
+    | typeof renameSessionBranch
     | typeof stopArchivedProjectSessionAgents
     | typeof stopArchivedSessionAgents
     | typeof stopProjectSessionAgents
@@ -46,6 +49,7 @@ export const presentSessionCommandError = Effect.fn("SessionPresenter.presentSes
   return Match.valueTags(sessionCommandError, {
     AgentNotFoundError: (error) => ({message: AGENT_ERRORS.NOT_FOUND(error.agentId), settingToOpen: AGENTS_SETTING_ID}),
     AgentSessionIdNotFoundError: (error) => ({message: SESSION_ERRORS.AGENT_SESSION_ID_NOT_FOUND(error.agentName)}),
+    BranchRenameFailedError: (error) => ({message: WORKTREE_ERRORS.BRANCH_RENAME_FAILED(error.gitError)}),
     DatabaseReadError: () => ({message: DATABASE_ERRORS.READ_FAILED}),
     DatabaseWriteError: () => ({message: DATABASE_ERRORS.WRITE_FAILED}),
     InvalidSettingsError: (error) => ({message: SESSION_ERRORS.INVALID_SETTINGS(error.reason)}),
@@ -57,10 +61,15 @@ export const presentSessionCommandError = Effect.fn("SessionPresenter.presentSes
       message: error.isWindows ? SESSION_ERRORS.PTY_BINARY_NOT_FOUND_ON_WINDOWS : SESSION_ERRORS.PTY_BINARY_NOT_FOUND
     }),
     SessionNotFoundError: () => ({message: SESSION_ERRORS.NOT_FOUND}),
+    SessionNotInWorktreeError: () => ({message: WORKTREE_ERRORS.NOT_IN_WORKTREE}),
     TerminalLaunchFailedError: () => ({message: SESSION_ERRORS.LAUNCH_FAILED}),
     TmuxUnavailableError: (error) => ({
       message: error.foundVersion === undefined ? TMUX_ERRORS.NOT_INSTALLED : TMUX_ERRORS.TOO_OLD(error.foundVersion),
       pageToOpen: {label: TMUX_LABELS.INSTALL, url: TMUX.INSTALL_PAGE}
-    })
+    }),
+    WorktreeCreateFailedError: (error) => ({message: WORKTREE_ERRORS.CREATE_FAILED(error.gitError)}),
+    WorktreeHasChangesError: () => ({message: WORKTREE_ERRORS.HAS_CHANGES}),
+    WorktreeNotFoundError: () => ({message: WORKTREE_ERRORS.NOT_FOUND}),
+    WorktreeRemoveFailedError: (error) => ({message: WORKTREE_ERRORS.REMOVE_FAILED(error.gitError)})
   });
 });

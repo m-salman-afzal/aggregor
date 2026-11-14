@@ -7,6 +7,8 @@ import {SessionLifecycleValueObjectSchema} from "@valueObjects/sessionLifecycle.
 import {StatusKindValueObjectSchema} from "@valueObjects/statusKind.valueObject.ts";
 import {Schema} from "effect";
 
+import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+
 // The status fields, titles and agentSessionId are aggregor-pty's, from the agent's output; the rest are ours.
 export class SessionEntity extends BaseEntity.extend<SessionEntity>("Session")({
   agentId: AgentIdValueObjectSchema,
@@ -24,9 +26,14 @@ export class SessionEntity extends BaseEntity.extend<SessionEntity>("Session")({
   statusMessage: Schema.optional(Schema.String),
   statusProgress: Schema.optional(Schema.Int),
   terminalTitle: Schema.optional(Schema.String),
-  viewedAt: Schema.optional(Schema.DateTimeUtcFromString)
+  viewedAt: Schema.optional(Schema.DateTimeUtcFromString),
+  worktreePath: Schema.optional(ProjectPathValueObjectSchema)
 }) {
   public get displayName(): string {
     return this.customName === undefined ? this.name : this.customName;
+  }
+
+  public get workingFolderPath(): ProjectPathValueObject {
+    return this.worktreePath === undefined ? this.projectPath : this.worktreePath;
   }
 }

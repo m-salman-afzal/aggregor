@@ -18,6 +18,7 @@ import {
   drawAppearance,
   drawChange,
   drawEverything,
+  drawLeftovers,
   drawViewedSession,
   drawWaitingCounts
 } from "@views/sessions/sessionsDrawing.utils.ts";
@@ -25,7 +26,7 @@ import {makeWebviewHtml, setUpWebviewOptions} from "@views/sessions/sessionsPage
 import {Array, Effect, Layer, Match, Ref, Result, Schema, Stream} from "effect";
 
 import type {SessionListChangeDto} from "@dtos/session.dto.ts";
-import type {RowCommandArgument} from "@views/sessions/sessions.view.type.ts";
+import type {CommandRequest} from "@views/sessions/sessions.view.type.ts";
 import type {WebviewView} from "vscode";
 
 // VS Code shows the view's webview the first time the view comes into sight, and disposes it when the view closes.
@@ -42,9 +43,10 @@ class RowCommandFailedError extends Schema.TaggedError<RowCommandFailedError, {r
 type WebviewViewReference = Ref.Ref<Result.Result<WebviewView, WebviewNotShownError>>;
 
 const SessionsWebviewMessageSchema = Schema.TaggedUnion({
+  [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_LEFTOVERS]: {projectPath: Schema.String},
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.READY]: {},
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND]: {
-    commandArgument: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+    commandArgument: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
     commandId: Schema.Literals(SESSIONS_WEBVIEW_COMMANDS)
   }
 });
@@ -78,7 +80,7 @@ const redrawViewedSession = Effect.fn("SessionsView.redrawViewedSession")(
 
 const runRowCommand = Effect.fn("SessionsView.runRowCommand")(function* (
   commandId: string,
-  commandArgument: RowCommandArgument | undefined
+  commandArgument: CommandRequest | undefined
 ) {
   const vsCodeApi = yield* VsCodeApi;
   const commandArguments = commandArgument === undefined ? [] : [commandArgument];
@@ -125,6 +127,8 @@ const handleWebviewMessage = Effect.fn("SessionsView.handleWebviewMessage", {roo
     const sessionsWebviewMessage = yield* decodeVsCodeArgument(SessionsWebviewMessageSchema, webviewMessage);
 
     yield* Match.valueTags(sessionsWebviewMessage, {
+      [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_LEFTOVERS]: (listLeftovers) =>
+        drawLeftovers(webviewView, listLeftovers.projectPath),
       [SESSIONS_WEBVIEW_MESSAGE_TAGS.READY]: () => drawEverything(webviewView),
       [SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND]: (runCommand) =>
         runRowCommand(runCommand.commandId, runCommand.commandArgument)

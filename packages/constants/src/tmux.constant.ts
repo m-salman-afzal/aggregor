@@ -5,6 +5,7 @@ export const TMUX = {
   INSTALL_PAGE: "https://github.com/tmux/tmux/wiki/Installing",
   // The oldest tmux tmux.conf works with: extended-keys and terminal-features arrived in 3.2.
   MINIMUM_VERSION: {MAJOR: 3, MINOR: 2},
+  SETUP_SHELL: "sh",
   // Aggregor's own server, apart from the user's tmux; a test's Aggregor folder gets one of its own.
   SOCKET_FILE_NAME: "tmux.sock",
   // What `tmux -V` prints: "tmux 3.8", "tmux 3.3a" or "tmux next-3.6".

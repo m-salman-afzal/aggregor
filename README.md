@@ -19,8 +19,9 @@ terminals, tree views, Source Control and diffs.
 - **Projects.** The window's workspace folders are always listed; Add Project lists any other folder, and in a window
   showing no project it also shows the first one. Added projects are one list, kept for every window: Aggregor is meant
   to run in one window. A project row's + starts a session in it, the Sessions title's + asks which project to use, and
-  a project's … menu opens a terminal in it (New Terminal) and, for an added project, removes it. Everything runs from
-  the view; the Command Palette lists no Aggregor command.
+  a project's … menu opens a terminal in it (New Terminal), edits its settings (Project Settings…: where its worktrees
+  go, the files copied into them, a setup script, and whether new sessions start in a worktree) and, for an added
+  project, removes it. Everything runs from the view; the Command Palette lists no Aggregor command.
 - **One project in view.** Like VS Code's Agents window, the workspace follows the session in front of you: its project
   is the only folder Explorer, search, file watching and Source Control see. Opening a file keeps the project. The first
   switch opens Aggregor's own workspace, `~/.aggregor/anchor/Aggregor.code-workspace`, in the window: a hidden, empty
@@ -29,6 +30,15 @@ terminals, tree views, Source Control and diffs.
   keep running, it reopens the session you switched to, and the folders that leave become added projects. The window is
   then named Aggregor and never asks to be saved. Later switches rewrite the file's folders, and the project's settings
   with them, in one write; in the rare case VS Code confirms none of that, the window reloads once to catch up.
+- **Worktrees.** In a git project, New Session can start a session in its project's root, in a new git worktree of its
+  own (from the current commit, on an `aggregor/<session>` branch, with the project's `.env*` or `.worktreeinclude`
+  files copied in and its setup script run first), or in a worktree that already exists. While that session is in front,
+  the window shows its worktree, so Source Control shows its changes. The branch takes the session's first title
+  (`aggregor/login-fix`) unless it was pushed, shows on the session's row, and Rename Branch in its menu renames it.
+  Remove deletes the session's worktree and keeps its branch; a worktree with changes is kept until you commit or
+  discard them. When a project has worktrees or `aggregor/*` branches left over, a red dot shows on its row and its
+  broom button lists them, with merged branches ticked, to delete the ones you pick. VS Code asks to trust each new
+  worktree until you trust the folder they go in; New Session's hint copies its path and opens Manage Workspace Trust.
 - **Agents.** New Session asks which agent to start, among those whose command is on `PATH`, with your default first;
   each one's **Set as Default** button changes the default, and `aggregorApp.skipAgentPicker` starts the default without
   asking. Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot are built in. `aggregorApp.agents` in your user
@@ -88,8 +98,8 @@ solution and what was turned down.
 - [x] Archive sessions you are done with, in an Archive view under Sessions
 - [ ] Sessions sidebar as a webview of our own design: one view with a dropdown per list (Sessions, Archive, later SSH
       and snoozed), rows of up to three lines, menus, drag and drop and keyboard
-- [ ] Worktree mode: start a session in the project root or in a new git worktree; archiving removes the worktree and
-      keeps an unmerged branch
+- [x] Worktree mode: start a session in the project root or in a new git worktree; Remove deletes the worktree, and each
+      project's cleanup deletes the leftover worktrees and the branches you pick, merged ones first
 - [ ] Changed files under each session, opening git's diff with per-hunk staging
 - [ ] Bookmarks
 - [ ] Create/Link a pull request from a session

@@ -1,6 +1,7 @@
 import {CountBadge} from "@/modules/sessions/components/sessionList/components/countBadge.tsx";
+import {LeftoverDot} from "@/modules/sessions/components/sessionList/components/projectGroup/components/leftoverDot.tsx";
+import {SessionRow} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/sessionRow.tsx";
 import {useProjectGroup} from "@/modules/sessions/components/sessionList/components/projectGroup/projectGroup.hook.ts";
-import {SessionRow} from "@/modules/sessions/components/sessionList/components/projectGroup/sessionRow/sessionRow.tsx";
 import {RowActions} from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.tsx";
 import {PROJECT_PANEL} from "@/modules/sessions/components/sessionList/sessionList.constant.ts";
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@pkg/ui/src/components/base/collapsible.tsx";
@@ -32,6 +33,7 @@ export const ProjectGroup = (props: ProjectGroupProps) => {
           />
           <span className="truncate">{props.projectRow.projectListItem.name}</span>
           <CountBadge count={projectGroupView.sessionCount} />
+          {projectGroupView.hasLeftovers && <LeftoverDot />}
         </CollapsibleTrigger>
       </RowActions>
       <CollapsibleContent className={PROJECT_PANEL}>

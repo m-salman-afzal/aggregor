@@ -18,8 +18,11 @@ export const listProjectActionGroups = (projectListItem: ProjectListItemDto, lis
         ],
         [ROW_ACTIONS.NEW_TERMINAL],
         [ROW_ACTIONS.STOP_PROJECT_AGENTS, ROW_ACTIONS.ARCHIVE_PROJECT_SESSIONS],
-        [projectListItem.isAdded && ROW_ACTIONS.REMOVE_PROJECT]
+        [ROW_ACTIONS.PROJECT_SETTINGS, projectListItem.isAdded && ROW_ACTIONS.REMOVE_PROJECT]
       ]);
 
-export const listProjectInlineActions = (listId: SessionListId) =>
-  listId === SESSION_LISTS.SESSIONS ? [ROW_ACTIONS.NEW_SESSION] : [];
+export const listProjectInlineActions = (listId: SessionListId, hasLeftovers: boolean) => {
+  if (listId !== SESSION_LISTS.SESSIONS) return [];
+
+  return hasLeftovers ? [ROW_ACTIONS.CLEAN_UP_LEFTOVERS, ROW_ACTIONS.NEW_SESSION] : [ROW_ACTIONS.NEW_SESSION];
+};

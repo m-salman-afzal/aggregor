@@ -11,13 +11,27 @@ import {
   canMoveUpInOrder,
   findEntityIdsToPlaceAtEnd
 } from "@domainServices/sortOrder.domainService.ts";
-import {ProjectSessionsDtoSchema, SessionListChangeDtoSchema, SessionListItemDtoSchema} from "@dtos/session.dto.ts";
+import {
+  getTitledBranchName,
+  getWorktreeBranchName,
+  getWorktreeName,
+  getWorktreesFolderName,
+  hasWorktreeBranchFirstName
+} from "@domainServices/worktree.domainService.ts";
+import {
+  ProjectSessionsDtoSchema,
+  SessionListChangeDtoSchema,
+  SessionListItemDtoSchema,
+  WorktreeListItemDtoSchema
+} from "@dtos/session.dto.ts";
 import {IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
+import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
+import {NEW_SESSION_WORKING_TREE_TAGS} from "@pkg/constants/src/session.constant.ts";
 import {findAgentToStart} from "@services/agent.service.ts";
 import {
   addEntity,
@@ -28,24 +42,26 @@ import {
   updateEntity
 } from "@services/base.service.ts";
 import {findOrAddProject, findProjectListItem, listProjects} from "@services/project.service.ts";
+import {hasProjectLeftovers, removeSessionWorktree} from "@services/worktree.service.ts";
 import {ENTITY_CHANGE_KINDS} from "@valueObjects/entityChangeKind.valueObject.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {SESSION_LIFECYCLES} from "@valueObjects/sessionLifecycle.valueObject.ts";
 import {SESSION_STATUSES} from "@valueObjects/sessionStatus.valueObject.ts";
-import {Array, DateTime, Effect, Predicate, Result, Schema, Stream, String, SubscriptionRef} from "effect";
+import {Array, DateTime, Effect, Match, Predicate, Result, Schema, Stream, String, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {
   ArchiveProjectSessionsRequestDto,
   ArchiveSessionRequestDto,
+  GetProjectSessionsRequestDto,
   GetSessionListItemRequestDto,
-  ListProjectSessionsRequestDto,
   MoveSessionDownRequestDto,
   MoveSessionUpRequestDto,
   NewSessionRequestDto,
   OpenSessionRequestDto,
   RemoveSessionRequestDto,
+  RenameSessionBranchRequestDto,
   RenameSessionRequestDto,
   SessionListChangeDto,
   StopArchivedProjectSessionAgentsRequestDto,
@@ -54,11 +70,29 @@ import type {
   UnarchiveSessionRequestDto
 } from "@dtos/session.dto.ts";
 import type {AgentEntity} from "@entities/agent/agent.entity.ts";
+import type {ProjectEntity} from "@entities/project/project.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {SessionLifecycleValueObject} from "@valueObjects/sessionLifecycle.valueObject.ts";
+
+interface NewSessionDraft {
+  readonly project: ProjectEntity;
+  readonly projectName: string;
+  readonly sessionAgent: AgentEntity;
+  readonly sessionName: string;
+}
+
+export class SessionNotInWorktreeError extends Schema.TaggedError<
+  SessionNotInWorktreeError,
+  {readonly brand: unique symbol}
+>()("SessionNotInWorktreeError", {}) {}
+
+export class WorktreeNotFoundError extends Schema.TaggedError<WorktreeNotFoundError, {readonly brand: unique symbol}>()(
+  "WorktreeNotFoundError",
+  {}
+) {}
 
 export class SessionNotFoundError extends Schema.TaggedError<SessionNotFoundError, {readonly brand: unique symbol}>()(
   "SessionNotFoundError",
@@ -74,17 +108,70 @@ export const findSession = Effect.fn("SessionService.findSession")(
 );
 
 const addSession = Effect.fn("SessionService.addSession")(function* (
-  sessionProject: ProjectListItemDto,
-  sessionAgent: AgentEntity
+  newSessionDraft: NewSessionDraft,
+  worktreePath: ProjectPathValueObject | undefined
 ) {
-  const project = yield* findOrAddProject(sessionProject.path);
-  const storedSessions = yield* findEntities(ISessionRepository, {});
-
   return yield* addEntity(ISessionRepository, {
-    agentId: sessionAgent.id,
+    agentId: newSessionDraft.sessionAgent.id,
     lifecycle: SESSION_LIFECYCLES.ONGOING,
-    name: yield* getDefaultSessionName(sessionProject.name, storedSessions),
-    projectId: project.id
+    name: newSessionDraft.sessionName,
+    projectId: newSessionDraft.project.id,
+    worktreePath
+  });
+});
+
+// Each is named after the session: "jsTester #3" works in jstester-3, on aggregor/jstester-3.
+const createSessionWorktree = Effect.fn("SessionService.createSessionWorktree")(function* (
+  newSessionDraft: NewSessionDraft
+) {
+  const worktreeInfraService = yield* IWorktreeInfraService;
+  const worktreeName = yield* getWorktreeName(newSessionDraft.sessionName);
+  const sessionWorktree = yield* worktreeInfraService.createWorktree({
+    branchName: yield* getWorktreeBranchName(worktreeName),
+    projectPath: newSessionDraft.project.path,
+    worktreeName,
+    worktreesFolderName: yield* getWorktreesFolderName(newSessionDraft.projectName, newSessionDraft.project.id),
+    worktreesFolderPath: newSessionDraft.project.settings.worktreeFolder
+  });
+  yield* worktreeInfraService.copyIncludedFiles({
+    filePatterns: newSessionDraft.project.settings.filesToCopy,
+    projectPath: newSessionDraft.project.path,
+    worktreePath: sessionWorktree.worktreePath
+  });
+
+  return sessionWorktree.worktreePath;
+});
+
+const findExistingWorktree = Effect.fn("SessionService.findExistingWorktree")(
+  function* (projectPath: ProjectPathValueObject, worktreePath: ProjectPathValueObject) {
+    const projectWorktrees = yield* IWorktreeInfraService.use((worktreeInfraService) =>
+      worktreeInfraService.listWorktrees(projectPath)
+    );
+    if (!Array.some(projectWorktrees, (projectWorktree) => projectWorktree.worktreePath === worktreePath))
+      return yield* WorktreeNotFoundError.make();
+
+    return worktreePath;
+  },
+  Effect.catchTag("NotGitRepositoryError", () => Effect.fail(WorktreeNotFoundError.make()))
+);
+
+const prepareSessionWorkingTree = Effect.fn("SessionService.prepareSessionWorkingTree")(function* (
+  newSessionDraft: NewSessionDraft,
+  workingTree: NewSessionRequestDto["workingTree"]
+) {
+  return yield* Match.valueTags(workingTree, {
+    [NEW_SESSION_WORKING_TREE_TAGS.EXISTING_WORKTREE]: (existingWorktree) =>
+      Effect.map(findExistingWorktree(newSessionDraft.project.path, existingWorktree.worktreePath), (worktreePath) => ({
+        setupScript: undefined,
+        worktreePath
+      })),
+    [NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE]: () =>
+      Effect.map(createSessionWorktree(newSessionDraft), (worktreePath) => ({
+        setupScript: newSessionDraft.project.settings.setupScript,
+        worktreePath
+      })),
+    [NEW_SESSION_WORKING_TREE_TAGS.PROJECT_ROOT]: () =>
+      Effect.succeed({setupScript: undefined, worktreePath: undefined})
   });
 });
 
@@ -92,14 +179,18 @@ const findSessionAgent = Effect.fn("SessionService.findSessionAgent")(function* 
   return yield* IAgentRepository.use((agentRepository) => agentRepository.findById(session.agentId));
 });
 
-const openSessionTab = Effect.fn("SessionService.openSessionTab")(function* (session: SessionEntity) {
+const openSessionTab = Effect.fn("SessionService.openSessionTab")(function* (
+  session: SessionEntity,
+  setupScript: string | undefined
+) {
   const tmuxInfraService = yield* ITmuxInfraService;
   const sessionAgent = yield* findSessionAgent(session);
   const launchPlan = yield* prepareLaunchPlan(sessionAgent, session);
   const tabCommand = yield* tmuxInfraService.prepareSessionTabCommand({
     launchPlan,
-    projectPath: session.projectPath,
-    sessionId: session.id
+    sessionId: session.id,
+    setupScript,
+    workingFolderPath: session.workingFolderPath
   });
   const sessionTabRequest: SessionTabRequest = {icon: sessionAgent.icon, tabCommand, tabName: session.displayName};
 
@@ -111,8 +202,8 @@ const openSessionTab = Effect.fn("SessionService.openSessionTab")(function* (ses
 
 // A new session whose tab fails to open is removed again, with any agent it started, so no dead row stays behind.
 const launchNewSession = Effect.fn("SessionService.launchNewSession")(
-  function* (addedSession: SessionEntity) {
-    yield* openSessionTab(addedSession);
+  function* (addedSession: SessionEntity, setupScript: string | undefined) {
+    yield* openSessionTab(addedSession, setupScript);
   },
   (effect, addedSession) =>
     Effect.tapError(effect, () =>
@@ -126,7 +217,7 @@ const launchNewSession = Effect.fn("SessionService.launchNewSession")(
 const reopenSession = Effect.fn("SessionService.reopenSession")(function* (sessionId: EntityIdValueObject) {
   const session = yield* findSession(sessionId);
 
-  yield* openSessionTab(session);
+  yield* openSessionTab(session, undefined);
 });
 
 // A tab that closed meanwhile has nothing left to close.
@@ -145,10 +236,11 @@ const stopAgentAndCloseTab = Effect.fn("SessionService.stopAgentAndCloseTab")(fu
   yield* closeSessionTab(sessionId);
 });
 
-// The session is forgotten before its agent stops, so a failed write never kills the agent for nothing.
+// The worktree goes first and the session is forgotten next, so a refusal or a failed write never kills the agent.
 const removeSessionAndStopAgent = Effect.fn("SessionService.removeSessionAndStopAgent")(function* (
   session: SessionEntity
 ) {
+  yield* removeSessionWorktree(session);
   yield* removeEntity(ISessionRepository, session.id);
   yield* stopAgentAndCloseTab(session.id);
 });
@@ -184,10 +276,17 @@ const archiveSessionsKeepingAgents = Effect.fn("SessionService.archiveSessionsKe
 export const newSession = Effect.fn("SessionService.newSession")(
   function* (request: NewSessionRequestDto) {
     const sessionProject = yield* findProjectListItem(request.projectPath);
-    const sessionAgent = yield* findAgentToStart(request.agentId);
-    const addedSession = yield* addSession(sessionProject, sessionAgent);
+    const storedSessions = yield* findEntities(ISessionRepository, {});
+    const newSessionDraft: NewSessionDraft = {
+      project: yield* findOrAddProject(sessionProject.path),
+      projectName: sessionProject.name,
+      sessionAgent: yield* findAgentToStart(request.agentId),
+      sessionName: yield* getDefaultSessionName(sessionProject.name, storedSessions)
+    };
+    const sessionWorkingTree = yield* prepareSessionWorkingTree(newSessionDraft, request.workingTree);
+    const addedSession = yield* addSession(newSessionDraft, sessionWorkingTree.worktreePath);
 
-    yield* launchNewSession(addedSession);
+    yield* launchNewSession(addedSession, sessionWorkingTree.setupScript);
   },
   Effect.catchTag("ProjectNotListedError", () => Effect.void)
 );
@@ -201,7 +300,7 @@ export const openSession = Effect.fn("SessionService.openSession")(
   (effect, request) => Effect.catchTag(effect, "TerminalNotFoundError", () => reopenSession(request.sessionId))
 );
 
-// The agent's transcript on disk is left alone.
+// The agent's transcript on disk and the worktree's branch are left alone.
 export const removeSession = Effect.fn("SessionService.removeSession")(
   function* (request: RemoveSessionRequestDto) {
     const session = yield* findSession(request.sessionId);
@@ -226,6 +325,21 @@ export const unarchiveSession = Effect.fn("SessionService.unarchiveSession")(
     if (session.lifecycle === SESSION_LIFECYCLES.ONGOING) return;
 
     yield* moveSessionsToLifecycle([session.id], SESSION_LIFECYCLES.ONGOING);
+  },
+  Effect.catchTags({EntityNotFoundError: () => Effect.void, SessionNotFoundError: () => Effect.void})
+);
+
+// The rename writes nothing of the session's, so touching its row is what makes the change feed redraw it.
+export const renameSessionBranch = Effect.fn("SessionService.renameSessionBranch")(
+  function* (request: RenameSessionBranchRequestDto) {
+    const session = yield* findSession(request.sessionId);
+    const worktreePath = session.worktreePath;
+    if (worktreePath === undefined) return yield* SessionNotInWorktreeError.make();
+    yield* IWorktreeInfraService.use((worktreeInfraService) =>
+      worktreeInfraService.renameBranch(worktreePath, String.trim(request.branchName))
+    );
+
+    return yield* updateEntity(ISessionRepository, session.id, {});
   },
   Effect.catchTags({EntityNotFoundError: () => Effect.void, SessionNotFoundError: () => Effect.void})
 );
@@ -296,6 +410,16 @@ const findSessionMoves = Effect.fn("SessionService.findSessionMoves")(function* 
   };
 });
 
+const findSessionBranchFields = Effect.fn("SessionService.findSessionBranchFields")(function* (session: SessionEntity) {
+  const worktreePath = session.worktreePath;
+  if (worktreePath === undefined) return {};
+  const branchNameResult = yield* Effect.result(
+    IWorktreeInfraService.use((worktreeInfraService) => worktreeInfraService.readBranchName(worktreePath))
+  );
+
+  return Result.match(branchNameResult, {onFailure: () => ({}), onSuccess: (branchName) => ({branchName})});
+});
+
 const findSessionAgentFields = Effect.fn("SessionService.findSessionAgentFields")(function* (session: SessionEntity) {
   const agentResult = yield* Effect.result(findSessionAgent(session));
 
@@ -321,6 +445,7 @@ const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function
   return SessionListItemDtoSchema.make({
     ...(yield* findSessionMoves(session, orderedSessions)),
     ...(yield* findSessionAgentFields(session)),
+    ...(yield* findSessionBranchFields(session)),
     displayName: session.displayName,
     isAgentRunning: runningSessionIds.has(session.id),
     isArchived: session.lifecycle === SESSION_LIFECYCLES.ARCHIVED,
@@ -331,7 +456,8 @@ const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function
     status,
     statusKind: status === SESSION_STATUSES.BLOCKED ? session.statusKind : undefined,
     statusMessage: status === SESSION_STATUSES.EXITED ? undefined : session.statusMessage,
-    statusProgress: isTurnRunning ? session.statusProgress : undefined
+    statusProgress: isTurnRunning ? session.statusProgress : undefined,
+    worktreePath: session.worktreePath
   });
 });
 
@@ -365,17 +491,38 @@ const findListedSessions = Effect.fn("SessionService.findListedSessions")(functi
   return Array.filter(sessions, (session) => listedProjectPaths.has(session.projectPath));
 });
 
-export const listProjectSessions = Effect.fn("SessionService.listProjectSessions")(function* (
-  request: ListProjectSessionsRequestDto
+const findProjectWorktrees = Effect.fn("SessionService.findProjectWorktrees")(function* (
+  projectListItem: ProjectListItemDto,
+  lifecycle: SessionLifecycleValueObject
 ) {
-  const projectSessions = yield* findProjectSessions(request.projectPath, SESSION_LIFECYCLES.ONGOING);
+  if (lifecycle === SESSION_LIFECYCLES.ARCHIVED) return {};
+  const projectWorktreesResult = yield* Effect.result(
+    IWorktreeInfraService.use((worktreeInfraService) => worktreeInfraService.listWorktrees(projectListItem.path))
+  );
+  const hasLeftovers = yield* hasProjectLeftovers(projectListItem);
+  const worktreesRootPath = yield* IWorktreeInfraService.use((worktreeInfraService) =>
+    worktreeInfraService.findWorktreesRootPath(projectListItem.settings.worktreeFolder)
+  );
 
-  return yield* Effect.forEach(projectSessions, (projectSession) => toSessionListItem(projectSession, projectSessions));
+  return Result.match(projectWorktreesResult, {
+    onFailure: () => ({}),
+    onSuccess: (projectWorktrees) => ({
+      hasLeftovers,
+      worktrees: Array.map(projectWorktrees, (projectWorktree) =>
+        WorktreeListItemDtoSchema.make({
+          branchName: projectWorktree.branchName,
+          worktreePath: projectWorktree.worktreePath
+        })
+      ),
+      worktreesRootPath
+    })
+  });
 });
 
 const toProjectSessions = Effect.fn("SessionService.toProjectSessions")(function* (
   projectListItem: ProjectListItemDto,
-  lifecycleSessions: readonly SessionEntity[]
+  lifecycleSessions: readonly SessionEntity[],
+  lifecycle: SessionLifecycleValueObject
 ) {
   const projectSessions = Array.filter(
     lifecycleSessions,
@@ -383,6 +530,7 @@ const toProjectSessions = Effect.fn("SessionService.toProjectSessions")(function
   );
 
   return ProjectSessionsDtoSchema.make({
+    ...(yield* findProjectWorktrees(projectListItem, lifecycle)),
     projectListItem,
     sessionListItems: yield* Effect.forEach(projectSessions, (projectSession) =>
       toSessionListItem(projectSession, projectSessions)
@@ -397,8 +545,18 @@ const listProjectsWithLifecycleSessions = Effect.fn("SessionService.listProjects
   const lifecycleSessions = yield* findEntities(ISessionRepository, {lifecycle});
 
   return yield* Effect.forEach(projectListItems, (projectListItem) =>
-    toProjectSessions(projectListItem, lifecycleSessions)
+    toProjectSessions(projectListItem, lifecycleSessions, lifecycle)
   );
+});
+
+// A project no longer listed draws nothing: the change that unlisted it redraws every project.
+export const getProjectSessions = Effect.fn("SessionService.getProjectSessions")(function* (
+  request: GetProjectSessionsRequestDto
+) {
+  const projectListItem = yield* findProjectListItem(request.projectPath);
+  const ongoingSessions = yield* findEntities(ISessionRepository, {lifecycle: SESSION_LIFECYCLES.ONGOING});
+
+  return yield* toProjectSessions(projectListItem, ongoingSessions, SESSION_LIFECYCLES.ONGOING);
 });
 
 export const listProjectsWithSessions = Effect.fn("SessionService.listProjectsWithSessions")(function* () {
@@ -474,6 +632,19 @@ export const listSessionsWaitingOnUser = Effect.fn("SessionService.listSessionsW
   return yield* Effect.filter(sessionListItems, (sessionListItem) => isSessionWaitingOnUser(sessionListItem.status));
 });
 
+// An archived session's worktree is left over once its agent stops, which changes its project's cleanup dot.
+const toAgentRunChange = Effect.fn("SessionService.toAgentRunChange")(function* (sessionId: EntityIdValueObject) {
+  const sessionResult = yield* Effect.result(findSession(sessionId));
+  const sessionChanged = SessionListChangeDtoSchema.cases.SessionChanged.make({sessionId});
+  if (Result.isFailure(sessionResult)) return sessionChanged;
+  const session = sessionResult.success;
+  const isWorktreeLeftOver = session.lifecycle === SESSION_LIFECYCLES.ARCHIVED && session.worktreePath !== undefined;
+
+  return isWorktreeLeftOver
+    ? SessionListChangeDtoSchema.cases.ProjectSessionsChanged.make({projectPath: session.projectPath})
+    : sessionChanged;
+});
+
 // Coming into or leaving view writes viewedAt, so it arrives as a write.
 export const watchSessionListChanges = Effect.fn("SessionService.watchSessionListChanges")(function* () {
   const projectRepository = yield* IProjectRepository;
@@ -490,8 +661,8 @@ export const watchSessionListChanges = Effect.fn("SessionService.watchSessionLis
         ? SessionListChangeDtoSchema.cases.SessionChanged.make({sessionId: sessionChange.entity.id})
         : SessionListChangeDtoSchema.cases.ProjectSessionsChanged.make({projectPath: sessionChange.entity.projectPath})
     ),
-    Stream.map(tmuxInfraService.startedOrStoppedSessionIds, (sessionId) =>
-      SessionListChangeDtoSchema.cases.SessionChanged.make({sessionId})
+    Stream.mapEffect(tmuxInfraService.startedOrStoppedSessionIds, (sessionId) =>
+      Effect.provideService(toAgentRunChange(sessionId), ISessionRepository, sessionRepository)
     )
   ];
 
@@ -521,9 +692,26 @@ const findSessionTitleToSave = Effect.fn("SessionService.findSessionTitleToSave"
   return yield* getSessionTitleToSave(session, sessionAgent, path.basename(session.projectPath));
 });
 
-// Nothing shows the failure: no command started this, so it is logged.
+// Only a branch with the name Aggregor gave it, never pushed, takes the title, so this renames it once.
+const renameBranchAfterTitle = Effect.fn("SessionService.renameBranchAfterTitle")(
+  function* (worktreePath: ProjectPathValueObject, sessionTitle: string) {
+    const worktreeInfraService = yield* IWorktreeInfraService;
+    const path = yield* Path;
+    const branchName = yield* worktreeInfraService.readBranchName(worktreePath);
+    const hasFirstName = yield* hasWorktreeBranchFirstName(branchName, path.basename(worktreePath));
+    if (!hasFirstName || (yield* worktreeInfraService.hasUpstream(worktreePath))) return;
+    const titledBranchName = yield* getTitledBranchName(sessionTitle);
+    const freeBranchName = yield* worktreeInfraService.findFreeBranchName(worktreePath, titledBranchName);
+
+    yield* worktreeInfraService.renameBranch(worktreePath, freeBranchName);
+  },
+  Effect.catch((renameError) => Effect.logWarning("Could not name the session's branch after its title", renameError))
+);
+
+// Nothing shows the failure: no command started this, so it is logged; the branch goes first, so one redraw shows both.
 const saveSessionTitle = Effect.fn("SessionService.saveSessionTitle")(
   function* (session: SessionEntity, sessionTitle: string) {
+    if (session.worktreePath !== undefined) yield* renameBranchAfterTitle(session.worktreePath, sessionTitle);
     yield* updateEntity(ISessionRepository, session.id, {name: sessionTitle});
   },
   Effect.catchTag("EntityNotFoundError", () => Effect.void),

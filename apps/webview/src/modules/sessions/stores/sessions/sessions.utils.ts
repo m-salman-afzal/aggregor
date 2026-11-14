@@ -1,19 +1,21 @@
-import {SESSION_LISTS} from "@/modules/sessions/sessions.constant.ts";
+import {SESSION_LISTS, USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 import {SESSIONS_VIEW_MESSAGE_TAGS} from "@pkg/constants/src/sessionsView.constant.ts";
 
-import type {SessionListId} from "@/modules/sessions/sessions.type.ts";
+import type {SessionListId, UserInput} from "@/modules/sessions/sessions.type.ts";
 import type {HostMessagesByTag, SessionsData} from "@/modules/sessions/stores/sessions/sessions.type.ts";
+import type {ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
 import type {ProjectRowData, SessionRowData, SessionsViewMessage} from "@views/sessions/sessions.view.type.ts";
 
-const replaceProjectSessionRows = (
-  projectRows: readonly ProjectRowData[],
-  projectSessions: HostMessagesByTag[typeof SESSIONS_VIEW_MESSAGE_TAGS.PROJECT_SESSIONS_DRAWN]
-) =>
+const replaceProjectRow = (projectRows: readonly ProjectRowData[], changedProjectRow: ProjectRowData) =>
   projectRows.map((projectRow) =>
-    projectRow.projectListItem.path === projectSessions.projectPath
-      ? {...projectRow, sessionRows: projectSessions.sessionRows}
-      : projectRow
+    projectRow.projectListItem.path === changedProjectRow.projectListItem.path ? changedProjectRow : projectRow
   );
+
+// Leftovers listed for a dialog already closed, or for another project, are dropped.
+const fillLeftovers = (userInput: undefined | UserInput, leftovers: ProjectLeftoversDto) =>
+  userInput?._tag === USER_INPUT_TAGS.CLEAN_UP && userInput.projectPath === leftovers.projectPath
+    ? {...userInput, leftovers}
+    : userInput;
 
 // Only the session's project gets a new object, so the other projects don't draw again.
 const replaceSessionRow = (projectRows: readonly ProjectRowData[], changedSessionRow: SessionRowData) =>
@@ -41,6 +43,7 @@ const hostMessageReducers: {
   [SESSIONS_VIEW_MESSAGE_TAGS.AGENTS_DRAWN]: (sessionsData, agentsDrawn) => ({
     ...sessionsData,
     agentRows: agentsDrawn.agentRows,
+    isWorkspaceTrustEnabled: agentsDrawn.isWorkspaceTrustEnabled,
     skipAgentPicker: agentsDrawn.skipAgentPicker
   }),
   [SESSIONS_VIEW_MESSAGE_TAGS.APPEARANCE_DRAWN]: (sessionsData, appearanceDrawn) => ({
@@ -51,9 +54,13 @@ const hostMessageReducers: {
     ...sessionsData,
     archiveProjectRows: archiveDrawn.projectRows
   }),
-  [SESSIONS_VIEW_MESSAGE_TAGS.PROJECT_SESSIONS_DRAWN]: (sessionsData, projectSessionsDrawn) => ({
+  [SESSIONS_VIEW_MESSAGE_TAGS.LEFTOVERS_DRAWN]: (sessionsData, leftoversDrawn) => ({
     ...sessionsData,
-    projectRows: replaceProjectSessionRows(sessionsData.projectRows, projectSessionsDrawn)
+    userInput: fillLeftovers(sessionsData.userInput, leftoversDrawn.leftovers)
+  }),
+  [SESSIONS_VIEW_MESSAGE_TAGS.PROJECT_DRAWN]: (sessionsData, projectDrawn) => ({
+    ...sessionsData,
+    projectRows: replaceProjectRow(sessionsData.projectRows, projectDrawn.projectRow)
   }),
   [SESSIONS_VIEW_MESSAGE_TAGS.PROJECTS_DRAWN]: (sessionsData, projectsDrawn) => ({
     ...sessionsData,

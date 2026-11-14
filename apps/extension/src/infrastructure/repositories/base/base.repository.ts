@@ -114,7 +114,10 @@ const updateRow = Effect.fn("BaseRepository.updateRow")(function* <Entity>(
   entityId: EntityIdValueObject,
   changes: StoredColumns
 ) {
-  const changedColumns = {...(yield* encodeStoredColumns(changes)), updatedAt: yield* formatCurrentTimestamp()};
+  const encodedChanges = yield* Effect.mapError(encodeStoredColumns(changes), (cause) =>
+    DatabaseWriteError.make({cause})
+  );
+  const changedColumns = {...encodedChanges, updatedAt: yield* formatCurrentTimestamp()};
   const updatedRows = Effect.mapError(
     repositoryTable.database
       .update(repositoryTable.tableModel)

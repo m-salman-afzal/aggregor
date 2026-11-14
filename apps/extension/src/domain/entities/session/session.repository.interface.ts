@@ -5,7 +5,7 @@ import type {SessionEntity} from "@entities/session/session.entity.ts";
 
 export type AddSessionRequest = Pick<
   SessionEntity,
-  "agentId" | "customName" | "lifecycle" | "name" | "projectId" | "viewedAt"
+  "agentId" | "customName" | "lifecycle" | "name" | "projectId" | "viewedAt" | "worktreePath"
 >;
 
 export class ISessionRepository extends Context.Service<

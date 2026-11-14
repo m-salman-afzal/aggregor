@@ -31,11 +31,11 @@ const showSessionProject = Effect.fn("WorkspaceService.showSessionProject")(
     const projectListItems = yield* listProjects();
     if (!Array.some(projectListItems, (projectListItem) => projectListItem.path === session.projectPath)) return;
 
-    yield* keepWorkspaceFoldersListed(projectListItems, session.projectPath);
+    yield* keepWorkspaceFoldersListed(projectListItems, session.workingFolderPath);
     // Opened before the swap closes the old one, so Source Control never shows a workspace with no repository.
-    yield* IGitInfraService.use((gitInfraService) => gitInfraService.openInSourceControl(session.projectPath));
+    yield* IGitInfraService.use((gitInfraService) => gitInfraService.openInSourceControl(session.workingFolderPath));
     yield* IWorkspaceInfraService.use((workspaceInfraService) =>
-      workspaceInfraService.showOnlyProjectFolder(session.projectPath, session.id)
+      workspaceInfraService.showOnlyProjectFolder(session.workingFolderPath, session.id)
     );
   },
   // A tab left running by a removed session has no project to show.

@@ -1,4 +1,5 @@
 import {APP_COMMANDS, APP_LABELS} from "@pkg/constants/src/app.constant.ts";
+import {LEFTOVER_LABELS, WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
 import {PROJECT_COMMANDS, PROJECT_LABELS} from "@pkg/constants/src/project.constant.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {SESSIONS_WEBVIEW} from "@pkg/constants/src/sessionsView.constant.ts";
@@ -8,12 +9,15 @@ import {
   ArchiveRestoreIcon,
   ArrowDownIcon,
   ArrowUpIcon,
+  BroomIcon,
   CircleStopIcon,
   FolderMinusIcon,
   FolderPlusIcon,
+  GitBranchIcon,
   PencilIcon,
   PlusIcon,
   SettingsIcon,
+  SlidersHorizontalIcon,
   SquareTerminalIcon,
   Trash2Icon
 } from "lucide-react";
@@ -47,7 +51,9 @@ export const APPEARANCE = {
 } as const;
 
 export const USER_INPUT_TAGS = {
-  CHOICE: "ChoiceInput",
+  CLEAN_UP: "CleanUpInput",
+  NEW_SESSION: "NewSessionInput",
+  PROJECT_SETTINGS: "ProjectSettingsInput",
   QUESTION: "QuestionInput",
   TEXT: "TextInput"
 } as const;
@@ -67,6 +73,12 @@ export const ROW_ACTIONS = {
     commandId: SESSION_COMMANDS.ARCHIVE_PROJECT_SESSIONS,
     icon: ArchiveIcon,
     label: "Archive Sessions"
+  },
+  CLEAN_UP_LEFTOVERS: {
+    commandId: WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS,
+    hasAttentionDot: true,
+    icon: BroomIcon,
+    label: LEFTOVER_LABELS.CLEAN_UP
   },
   MOVE_PROJECT_DOWN: {
     commandId: PROJECT_COMMANDS.MOVE_DOWN,
@@ -100,6 +112,11 @@ export const ROW_ACTIONS = {
   },
   NEW_TERMINAL: {commandId: TERMINAL_COMMANDS.NEW_PROJECT_TERMINAL, icon: SquareTerminalIcon, label: "New Terminal"},
   OPEN_SETTINGS: {commandId: APP_COMMANDS.OPEN_SETTINGS, icon: SettingsIcon, label: APP_LABELS.OPEN_SETTINGS},
+  PROJECT_SETTINGS: {
+    commandId: PROJECT_COMMANDS.SAVE_SETTINGS,
+    icon: SlidersHorizontalIcon,
+    label: "Project Settings…"
+  },
   REMOVE_PROJECT: {
     commandId: PROJECT_COMMANDS.REMOVE,
     icon: FolderMinusIcon,
@@ -107,6 +124,7 @@ export const ROW_ACTIONS = {
     label: "Remove Project"
   },
   REMOVE_SESSION: {commandId: SESSION_COMMANDS.REMOVE, icon: Trash2Icon, isDestructive: true, label: "Remove"},
+  RENAME_BRANCH: {commandId: SESSION_COMMANDS.RENAME_BRANCH, icon: GitBranchIcon, label: "Rename Branch…"},
   RENAME_SESSION: {commandId: SESSION_COMMANDS.RENAME, icon: PencilIcon, label: "Rename"},
   STOP_AGENT: {commandId: SESSION_COMMANDS.STOP_AGENT, icon: CircleStopIcon, label: "Stop Agent"},
   STOP_ARCHIVED_AGENTS: {

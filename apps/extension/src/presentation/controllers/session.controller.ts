@@ -1,13 +1,14 @@
 import {
   ArchiveProjectSessionsRequestDtoSchema,
   ArchiveSessionRequestDtoSchema,
+  GetProjectSessionsRequestDtoSchema,
   GetSessionListItemRequestDtoSchema,
-  ListProjectSessionsRequestDtoSchema,
   MoveSessionDownRequestDtoSchema,
   MoveSessionUpRequestDtoSchema,
   NewSessionRequestDtoSchema,
   OpenSessionRequestDtoSchema,
   RemoveSessionRequestDtoSchema,
+  RenameSessionBranchRequestDtoSchema,
   RenameSessionRequestDtoSchema,
   StopArchivedProjectSessionAgentsRequestDtoSchema,
   StopProjectSessionAgentsRequestDtoSchema,
@@ -20,8 +21,8 @@ import {
   archiveProjectSessions,
   archiveSession,
   findViewedSessionId,
+  getProjectSessions,
   getSessionListItem,
-  listProjectSessions,
   listProjectsWithArchivedSessions,
   listProjectsWithSessions,
   listSessionsWaitingOnUser,
@@ -31,6 +32,7 @@ import {
   openSession,
   removeSession,
   renameSession,
+  renameSessionBranch,
   stopArchivedProjectSessionAgents,
   stopArchivedSessionAgents,
   stopOngoingSessionAgents,
@@ -122,6 +124,13 @@ export const renameChosenSession = Effect.fn("SessionController.renameChosenSess
   yield* renameSession(request);
 });
 
+export const renameChosenSessionBranch = Effect.fn("SessionController.renameChosenSessionBranch")(function* (
+  chosenSession: unknown
+) {
+  const request = yield* decodeVsCodeArgument(RenameSessionBranchRequestDtoSchema, chosenSession);
+  yield* renameSessionBranch(request);
+});
+
 export const moveChosenSessionUp = Effect.fn("SessionController.moveChosenSessionUp")(function* (
   chosenSession: unknown
 ) {
@@ -144,11 +153,11 @@ export const getSessionListItemForSessionsView = Effect.fn("SessionController.ge
   }
 );
 
-export const listProjectSessionsForSessionsView = Effect.fn("SessionController.listProjectSessionsForSessionsView")(
+export const getProjectSessionsForSessionsView = Effect.fn("SessionController.getProjectSessionsForSessionsView")(
   function* (projectPath: string) {
-    const request = yield* decodeVsCodeArgument(ListProjectSessionsRequestDtoSchema, {projectPath});
+    const request = yield* decodeVsCodeArgument(GetProjectSessionsRequestDtoSchema, {projectPath});
 
-    return yield* listProjectSessions(request);
+    return yield* getProjectSessions(request);
   }
 );
 

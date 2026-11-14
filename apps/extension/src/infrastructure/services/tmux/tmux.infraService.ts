@@ -116,7 +116,7 @@ const prepareTmuxArguments = Effect.fn("TmuxInfraService.prepareTmuxArguments")(
       sessionTabCommandRequest.sessionId
     ],
     ...environmentFlags,
-    ...["-c", sessionTabCommandRequest.projectPath]
+    ...["-c", sessionTabCommandRequest.workingFolderPath]
   ];
 });
 
@@ -138,6 +138,16 @@ const preparePtyArguments = Effect.fn("TmuxInfraService.preparePtyArguments")(fu
   ];
 });
 
+// The script's output stays in the tab above the agent's, and the agent starts whether or not the script succeeds.
+const prepareSetupArguments = Effect.fn("TmuxInfraService.prepareSetupArguments")(function* (
+  sessionTabCommandRequest: SessionTabCommandRequest
+) {
+  const setupScript = sessionTabCommandRequest.setupScript;
+  if (setupScript === undefined || String.trim(setupScript) === "") return [];
+
+  return [TMUX.SETUP_SHELL, "-c", `${setupScript}\nexec "$@"`, TMUX.SETUP_SHELL];
+});
+
 // The tab runs tmux itself: tmux answers an agent's query about the terminal's colours only through an attached client.
 const prepareSessionTabCommand = Effect.fn("TmuxInfraService.prepareSessionTabCommand")(function* (
   tmuxDependencies: TmuxDependencies,
@@ -150,6 +160,7 @@ const prepareSessionTabCommand = Effect.fn("TmuxInfraService.prepareSessionTabCo
     commandArguments: [
       ...(yield* prepareTmuxArguments(tmuxDependencies, sessionTabCommandRequest)),
       "--",
+      ...(yield* prepareSetupArguments(sessionTabCommandRequest)),
       ...(yield* preparePtyArguments(tmuxDependencies, ptyBinaryPath, sessionTabCommandRequest))
     ]
   };

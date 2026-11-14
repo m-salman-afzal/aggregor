@@ -23,5 +23,6 @@ export const SessionTableModel = sqliteTable("sessions", {
   statusMessage: text(),
   statusProgress: integer(),
   terminalTitle: text(),
-  viewedAt: text()
+  viewedAt: text(),
+  worktreePath: text()
 });

@@ -58,7 +58,7 @@ const launchSessionTerminal = Effect.fn("TerminalInfraService.launchSessionTermi
     catch: (cause) => TerminalLaunchFailedError.make({cause}),
     try: () =>
       terminalDependencies.window.createTerminal({
-        cwd: session.projectPath,
+        cwd: session.workingFolderPath,
         env: {[SESSION_ID_ENV]: session.id},
         iconPath: terminalDependencies.Uri.file(sessionTabRequest.icon),
         isTransient: true,

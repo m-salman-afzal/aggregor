@@ -1,8 +1,10 @@
 import {AGENT_COMMANDS} from "@pkg/constants/src/agent.constant.ts";
 import {APP_COMMANDS} from "@pkg/constants/src/app.constant.ts";
+import {WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
 import {PROJECT_COMMANDS} from "@pkg/constants/src/project.constant.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {TERMINAL_COMMANDS} from "@pkg/constants/src/terminal.constant.ts";
+import {VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
 
 export const SESSIONS_VIEW = {
   ID: "aggregorApp.sessions"
@@ -24,7 +26,8 @@ export const SESSIONS_VIEW_MESSAGE_TAGS = {
   AGENTS_DRAWN: "AgentsDrawn",
   APPEARANCE_DRAWN: "AppearanceDrawn",
   ARCHIVE_DRAWN: "ArchiveDrawn",
-  PROJECT_SESSIONS_DRAWN: "ProjectSessionsDrawn",
+  LEFTOVERS_DRAWN: "LeftoversDrawn",
+  PROJECT_DRAWN: "ProjectDrawn",
   PROJECTS_DRAWN: "ProjectsDrawn",
   SESSION_DRAWN: "SessionDrawn",
   VIEWED_SESSION_CHANGED: "ViewedSessionChanged",
@@ -32,6 +35,7 @@ export const SESSIONS_VIEW_MESSAGE_TAGS = {
 } as const;
 
 export const SESSIONS_WEBVIEW_MESSAGE_TAGS = {
+  LIST_LEFTOVERS: "ListLeftovers",
   READY: "Ready",
   RUN_COMMAND: "RunCommand"
 } as const;
@@ -44,6 +48,7 @@ export const SESSIONS_WEBVIEW_COMMANDS = [
   PROJECT_COMMANDS.MOVE_DOWN,
   PROJECT_COMMANDS.MOVE_UP,
   PROJECT_COMMANDS.REMOVE,
+  PROJECT_COMMANDS.SAVE_SETTINGS,
   SESSION_COMMANDS.ARCHIVE,
   SESSION_COMMANDS.ARCHIVE_ONGOING,
   SESSION_COMMANDS.ARCHIVE_PROJECT_SESSIONS,
@@ -53,13 +58,16 @@ export const SESSIONS_WEBVIEW_COMMANDS = [
   SESSION_COMMANDS.OPEN,
   SESSION_COMMANDS.REMOVE,
   SESSION_COMMANDS.RENAME,
+  SESSION_COMMANDS.RENAME_BRANCH,
   SESSION_COMMANDS.STOP_AGENT,
   SESSION_COMMANDS.STOP_ARCHIVED_AGENTS,
   SESSION_COMMANDS.STOP_ARCHIVED_PROJECT_AGENTS,
   SESSION_COMMANDS.STOP_ONGOING_AGENTS,
   SESSION_COMMANDS.STOP_PROJECT_AGENTS,
   SESSION_COMMANDS.UNARCHIVE,
-  TERMINAL_COMMANDS.NEW_PROJECT_TERMINAL
+  TERMINAL_COMMANDS.NEW_PROJECT_TERMINAL,
+  VS_CODE_COMMANDS.MANAGE_WORKSPACE_TRUST,
+  WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS
 ] as const;
 
 // Scripts and inline styles need the page's nonce, or come from the dev server; React's refresh runtime goes in first.

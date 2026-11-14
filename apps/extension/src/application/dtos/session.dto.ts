@@ -1,4 +1,5 @@
 import {ProjectListItemDtoSchema} from "@dtos/project.dto.ts";
+import {NEW_SESSION_WORKING_TREE_TAGS} from "@pkg/constants/src/session.constant.ts";
 import {AgentIconValueObjectSchema} from "@valueObjects/agentIcon.valueObject.ts";
 import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
@@ -10,6 +11,7 @@ import {Schema} from "effect";
 // The wait kind and progress exist only at the agent's turn; no agent name or icon means it left the settings.
 export const SessionListItemDtoSchema = Schema.Struct({
   agentName: Schema.optional(Schema.String),
+  branchName: Schema.optional(Schema.String),
   canMoveDown: Schema.Boolean,
   canMoveUp: Schema.Boolean,
   displayName: Schema.String,
@@ -23,14 +25,26 @@ export const SessionListItemDtoSchema = Schema.Struct({
   status: SessionStatusValueObjectSchema,
   statusKind: Schema.optional(StatusKindValueObjectSchema),
   statusMessage: Schema.optional(Schema.String),
-  statusProgress: Schema.optional(Schema.Int)
+  statusProgress: Schema.optional(Schema.Int),
+  worktreePath: Schema.optional(ProjectPathValueObjectSchema)
 });
 
 export type SessionListItemDto = typeof SessionListItemDtoSchema.Type;
 
+export const WorktreeListItemDtoSchema = Schema.Struct({
+  branchName: Schema.String,
+  worktreePath: ProjectPathValueObjectSchema
+});
+
+export type WorktreeListItemDto = typeof WorktreeListItemDtoSchema.Type;
+
+// Without worktrees, the project is no git repository, or the list doesn't read them (the Archive).
 export const ProjectSessionsDtoSchema = Schema.Struct({
+  hasLeftovers: Schema.optional(Schema.Boolean),
   projectListItem: ProjectListItemDtoSchema,
-  sessionListItems: Schema.Array(SessionListItemDtoSchema)
+  sessionListItems: Schema.Array(SessionListItemDtoSchema),
+  worktrees: Schema.optional(Schema.Array(WorktreeListItemDtoSchema)),
+  worktreesRootPath: Schema.optional(Schema.String)
 });
 
 export type ProjectSessionsDto = typeof ProjectSessionsDtoSchema.Type;
@@ -46,7 +60,12 @@ export type SessionListChangeDto = typeof SessionListChangeDtoSchema.Type;
 // Without an agent, the default one starts, or the only one installed.
 export const NewSessionRequestDtoSchema = Schema.Struct({
   agentId: Schema.optional(AgentIdValueObjectSchema),
-  projectPath: ProjectPathValueObjectSchema
+  projectPath: ProjectPathValueObjectSchema,
+  workingTree: Schema.TaggedUnion({
+    [NEW_SESSION_WORKING_TREE_TAGS.EXISTING_WORKTREE]: {worktreePath: ProjectPathValueObjectSchema},
+    [NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE]: {},
+    [NEW_SESSION_WORKING_TREE_TAGS.PROJECT_ROOT]: {}
+  })
 });
 
 export type NewSessionRequestDto = typeof NewSessionRequestDtoSchema.Type;
@@ -93,6 +112,13 @@ export const RenameSessionRequestDtoSchema = Schema.Struct({
 
 export type RenameSessionRequestDto = typeof RenameSessionRequestDtoSchema.Type;
 
+export const RenameSessionBranchRequestDtoSchema = Schema.Struct({
+  branchName: Schema.NonEmptyString,
+  sessionId: EntityIdValueObjectSchema
+});
+
+export type RenameSessionBranchRequestDto = typeof RenameSessionBranchRequestDtoSchema.Type;
+
 export const MoveSessionUpRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
 
 export type MoveSessionUpRequestDto = typeof MoveSessionUpRequestDtoSchema.Type;
@@ -105,6 +131,6 @@ export const GetSessionListItemRequestDtoSchema = Schema.Struct({sessionId: Enti
 
 export type GetSessionListItemRequestDto = typeof GetSessionListItemRequestDtoSchema.Type;
 
-export const ListProjectSessionsRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
+export const GetProjectSessionsRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
 
-export type ListProjectSessionsRequestDto = typeof ListProjectSessionsRequestDtoSchema.Type;
+export type GetProjectSessionsRequestDto = typeof GetProjectSessionsRequestDtoSchema.Type;

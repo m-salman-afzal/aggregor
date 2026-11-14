@@ -1,35 +1,36 @@
 import {
-  isDestructiveUserInput,
-  pickUserInputIcon
+  describeUserInput,
+  makeFormAnswers
 } from "@/modules/sessions/components/userInputDialog/userInputDialog.utils.ts";
-import {SESSIONS_LABELS, USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
+import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.store.ts";
 
-import type {SubmitEvent} from "react";
+import type {ChosenLeftovers} from "@/modules/sessions/sessions.type.ts";
+import type {CommandRequest} from "@views/sessions/sessions.view.type.ts";
 
 export const useUserInputDialog = () => {
   const userInput = useSessionsStore({selectFromState: (sessionsState) => sessionsState.userInput});
   const closeUserInput = useSessionsStore({selectFromState: (sessionsState) => sessionsState.closeUserInput});
 
   return {
-    cancel: closeUserInput,
-    choose: (choiceId: string, isSecondaryAction: boolean) => {
+    choose: () => {
       closeUserInput();
-      if (userInput?._tag === USER_INPUT_TAGS.CHOICE) userInput.onChoose(choiceId, isSecondaryAction);
       if (userInput?._tag === USER_INPUT_TAGS.QUESTION) userInput.onConfirm();
+    },
+    cleanUp: (chosenLeftovers: ChosenLeftovers) => {
+      closeUserInput();
+      if (userInput?._tag === USER_INPUT_TAGS.CLEAN_UP) userInput.onDelete(chosenLeftovers);
     },
     closeOnDismiss: (isOpen: boolean) => {
       if (!isOpen) closeUserInput();
     },
-    enterText: (formEvent: SubmitEvent<HTMLFormElement>) => {
-      formEvent.preventDefault();
-      const enteredText = new FormData(formEvent.currentTarget).get(SESSIONS_LABELS.USER_INPUT_TEXT_FIELD);
+    closeUserInput,
+    ...makeFormAnswers(userInput, closeUserInput),
+    startSession: (newSessionRequest: CommandRequest) => {
       closeUserInput();
-      if (userInput?._tag === USER_INPUT_TAGS.TEXT)
-        userInput.onEnterText(typeof enteredText === "string" ? enteredText : "");
+      if (userInput?._tag === USER_INPUT_TAGS.NEW_SESSION) userInput.onStart(newSessionRequest);
     },
-    isDestructive: userInput !== undefined && isDestructiveUserInput(userInput),
     userInput,
-    UserInputIcon: userInput === undefined ? undefined : pickUserInputIcon(userInput)
+    ...describeUserInput(userInput)
   };
 };

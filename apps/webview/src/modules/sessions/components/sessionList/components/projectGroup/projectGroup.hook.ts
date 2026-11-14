@@ -23,7 +23,8 @@ export const useProjectGroup = (props: UseProjectGroupProps) => {
   return {
     actionGroups: listProjectActionGroups(props.projectRow.projectListItem, props.listId),
     commandArgument: {projectPath: props.projectRow.projectListItem.path},
-    inlineActions: listProjectInlineActions(props.listId),
+    hasLeftovers: props.projectRow.hasLeftovers === true,
+    inlineActions: listProjectInlineActions(props.listId, props.projectRow.hasLeftovers === true),
     isOpen,
     sessionCount: props.projectRow.sessionRows.length,
     setOpen: (isNowOpen: boolean) => {

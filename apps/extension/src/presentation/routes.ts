@@ -5,7 +5,8 @@ import {
   moveChosenProjectDown,
   moveChosenProjectUp,
   newTerminalInChosenProject,
-  removeChosenProject
+  removeChosenProject,
+  saveChosenProjectSettings
 } from "@controllers/project.controller.ts";
 import {
   archiveAllOngoingSessions,
@@ -17,6 +18,7 @@ import {
   openChosenSession,
   removeChosenSession,
   renameChosenSession,
+  renameChosenSessionBranch,
   stopAllArchivedSessionAgents,
   stopAllOngoingSessionAgents,
   stopChosenArchivedProjectSessionAgents,
@@ -24,10 +26,12 @@ import {
   stopChosenSessionAgent,
   unarchiveChosenSession
 } from "@controllers/session.controller.ts";
+import {cleanUpChosenProjectLeftovers} from "@controllers/worktree.controller.ts";
 import {registerCommand} from "@middlewares/registerCommand.middleware.ts";
 import {AGENT_COMMANDS} from "@pkg/constants/src/agent.constant.ts";
 import {APP_COMMANDS} from "@pkg/constants/src/app.constant.ts";
 import {COMMIT_MESSAGE_COMMANDS} from "@pkg/constants/src/commitMessage.constant.ts";
+import {WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
 import {PROJECT_COMMANDS} from "@pkg/constants/src/project.constant.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {TERMINAL_COMMANDS} from "@pkg/constants/src/terminal.constant.ts";
@@ -36,6 +40,7 @@ import {presentAppCommandError} from "@presenters/app.presenter.ts";
 import {presentCommitMessageCommandError} from "@presenters/commitMessage.presenter.ts";
 import {presentProjectCommandError} from "@presenters/project.presenter.ts";
 import {presentSessionCommandError} from "@presenters/session.presenter.ts";
+import {presentWorktreeCommandError} from "@presenters/worktree.presenter.ts";
 import {Effect, Layer} from "effect";
 
 // Open Settings only drives VS Code, so it goes straight to the helper, with no controller or use case.
@@ -52,6 +57,7 @@ export const RoutesLayer = Layer.effectDiscard(
     registerCommand(PROJECT_COMMANDS.MOVE_DOWN, moveChosenProjectDown, presentProjectCommandError),
     registerCommand(PROJECT_COMMANDS.MOVE_UP, moveChosenProjectUp, presentProjectCommandError),
     registerCommand(PROJECT_COMMANDS.REMOVE, removeChosenProject, presentProjectCommandError),
+    registerCommand(PROJECT_COMMANDS.SAVE_SETTINGS, saveChosenProjectSettings, presentProjectCommandError),
     registerCommand(SESSION_COMMANDS.ARCHIVE, archiveChosenSession, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.ARCHIVE_ONGOING, archiveAllOngoingSessions, presentSessionCommandError),
     registerCommand(
@@ -65,6 +71,7 @@ export const RoutesLayer = Layer.effectDiscard(
     registerCommand(SESSION_COMMANDS.OPEN, openChosenSession, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.REMOVE, removeChosenSession, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.RENAME, renameChosenSession, presentSessionCommandError),
+    registerCommand(SESSION_COMMANDS.RENAME_BRANCH, renameChosenSessionBranch, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.STOP_AGENT, stopChosenSessionAgent, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.STOP_ARCHIVED_AGENTS, stopAllArchivedSessionAgents, presentSessionCommandError),
     registerCommand(
@@ -75,6 +82,7 @@ export const RoutesLayer = Layer.effectDiscard(
     registerCommand(SESSION_COMMANDS.STOP_ONGOING_AGENTS, stopAllOngoingSessionAgents, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.STOP_PROJECT_AGENTS, stopChosenProjectSessionAgents, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.UNARCHIVE, unarchiveChosenSession, presentSessionCommandError),
-    registerCommand(TERMINAL_COMMANDS.NEW_PROJECT_TERMINAL, newTerminalInChosenProject, presentProjectCommandError)
+    registerCommand(TERMINAL_COMMANDS.NEW_PROJECT_TERMINAL, newTerminalInChosenProject, presentProjectCommandError),
+    registerCommand(WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS, cleanUpChosenProjectLeftovers, presentWorktreeCommandError)
   ])
 );

@@ -203,10 +203,11 @@ apps/extension/src/
         session.entity.ts                  SessionEntity (BaseEntity and projectId, projectPath, name, customName,
                                            agentId, viewedAt, lifecycle, and aggregor-pty's status, statusKind,
                                            statusMessage, statusProgress, statusChangedAt, hasWorked, reportedTitle,
-                                           terminalTitle and agentSessionId; displayName)
+                                           terminalTitle and agentSessionId, worktreePath; displayName, and
+                                           workingFolderPath: its worktree, or else its project's root)
         session.repository.interface.ts    ISessionRepository: the base calls
       project/
-        project.entity.ts                  ProjectEntity (BaseEntity and path, isAdded)
+        project.entity.ts                  ProjectEntity (BaseEntity and path, isAdded, settings)
         project.repository.interface.ts    IProjectRepository: the base calls
       agent/
         agent.entity.ts                  AgentEntity (id, name, command, args, resumeArgs, environmentVariables,
@@ -221,7 +222,9 @@ apps/extension/src/
                                            key), AgentIconValueObject (an image file's path),
                                            EnvironmentVariablesValueObject (names to values),
                                            LaunchPlanValueObject (a command, its arguments and its variables),
-                                           EntityChangeKindValueObject (literals: placed, updated, removed)
+                                           EntityChangeKindValueObject (literals: placed, updated, removed),
+                                           ProjectSettingsValueObject (a project's settings, every key with its
+                                           default), SessionWorkingTreeValueObject (literals: projectRoot, worktree)
     services/
       session.domainService.ts             prepareLaunchPlan, getDefaultSessionName, getSessionTitle,
                                            getSessionTitleToSave, getSessionStatus, isSessionTurnRunning,
@@ -229,18 +232,22 @@ apps/extension/src/
       entityId.domainService.ts            makeEntityId, getEntityIdCreatedAt: the entity id's factory
       sortOrder.domainService.ts           findEntityIdsToPlaceAtEnd, canMoveUpInOrder, canMoveDownInOrder: how
                                            rows move within an order
+      worktree.domainService.ts            getWorktreeName, getWorktreeBranchName, getWorktreesFolderName,
+                                           getTitledBranchName, hasWorktreeBranchFirstName: what a session's
+                                           worktree, its branch and its project's worktrees folder are called
   application/
     services/
       base.service.ts                      addEntity, findEntityById, findEntities, updateEntity, upsertEntity,
                                            removeEntity, placeEntitiesAtEnd, on any repository
-      session.service.ts                   newSession (in a project, with an agent or the default one),
+      session.service.ts                   newSession (in a project, with an agent or the default one, at the
+                                           project's root, in a new worktree or in an existing one),
                                            openSession, archiveSession, unarchiveSession, removeSession,
-                                           renameSession, stopSessionAgent, stopProjectSessionAgents,
+                                           renameSession, renameSessionBranch, stopSessionAgent, stopProjectSessionAgents,
                                            stopArchivedProjectSessionAgents, stopOngoingSessionAgents,
                                            stopArchivedSessionAgents, moveSessionUp, moveSessionDown (each session
                                            moves among its project's sessions in its own list);
                                            the lists: listProjectsWithSessions and listProjectsWithArchivedSessions
-                                           (each project with its sessions' rows), listProjectSessions,
+                                           (each project with its sessions' rows), getProjectSessions,
                                            getSessionListItem,
                                            watchSessionListChanges, watchViewedSessionIds, findViewedSessionId,
                                            listSessionsWaitingOnUser (the badge and each view's count);
@@ -251,17 +258,24 @@ apps/extension/src/
                                            as notifyOn picks them; notifyOnDesktop
       project.service.ts                   listProjects, getProjectListItem, findProjectListItem, addProject
                                            (asks for folders), addProjectPaths, findOrAddProject, removeProject,
-                                           moveProjectUp, moveProjectDown, newProjectTerminal;
-                                           ProjectNotListedError
+                                           moveProjectUp, moveProjectDown, newProjectTerminal,
+                                           saveProjectSettings; ProjectNotListedError
+      worktree.service.ts                  listProjectLeftovers, cleanUpProjectLeftovers (a project's worktrees and
+                                           aggregor/* branches left over), hasProjectLeftovers (its row's dot),
+                                           removeSessionWorktree (Remove's first step); LeftoversKeptError
       commitMessage.service.ts             generateCommitMessage: writes the message with Source Control's progress
       workspace.service.ts                 startShownProjectSync: the viewed session's project as the only
                                            project folder; startSessionReopenAfterReload
     dtos/
       session.dto.ts                       SessionListItemDto, ProjectSessionsDto (a project's row with its sessions'
-                                           rows), SessionListChangeDto, and a request DTO per session use case
+                                           rows, and its worktrees in the Sessions list), WorktreeListItemDto,
+                                           SessionListChangeDto, and a request DTO per session use case
       sessionAlert.dto.ts                  SessionAlertDto, NotifyOnDesktopRequestDto
       agent.dto.ts                         AgentListItemDto: a row of the agent picker; SetDefaultAgentRequestDto
-      project.dto.ts                       ProjectListItemDto, and a request DTO per project use case
+      project.dto.ts                       ProjectListItemDto with its ProjectSettingsDto, and a request DTO per
+                                           project use case
+      worktree.dto.ts                      ProjectLeftoversDto (LeftoverWorktreeDto, LeftoverBranchDto), and a
+                                           request DTO per worktree use case
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
     interfaces/                            each with the errors and types its signatures name
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
@@ -285,12 +299,17 @@ apps/extension/src/
                                            WorkspaceFolderProject, NoSessionToReopenError
       git.infraService.interface.ts        getStagedDiff, setCommitMessageInput, commit,
                                            openInSourceControl
+      worktree.infraService.interface.ts   createWorktree, listWorktrees, copyIncludedFiles, readBranchName,
+                                           hasUpstream, findFreeBranchName, renameBranch, hasChanges,
+                                           removeWorktree, isMadeByAggregor, listAggregorBranches, pruneRemote,
+                                           findBaseBranch, isBranchMerged, deleteBranch,
+                                           findWorktreesRootPath; GitWorktree,
+                                           WorktreeBranch, NotGitRepositoryError, WorktreeCreateFailedError,
+                                           BranchRenameFailedError, WorktreeHasChangesError,
+                                           WorktreeRemoveFailedError, BranchDeleteFailedError
       commitCli.infraService.interface.ts  generateCommitMessage; CommitMessageRequest
       settings.config.interface.ts         readSettings, readSessionSettings, readAlertSettings,
                                            saveDefaultAgentId; Settings, SessionSettings, AlertSettings
-    utils/sessionQuestion.utils.ts         makeStopAgentsQuestion, makeArchiveQuestion: the questions that stopping
-                                           or archiving an agent asks, worded for one agent or several, and for a
-                                           turn cut short
   infrastructure/
     database/models/                       a Drizzle table per file (SessionTableModel...); base.model.ts:
                                            BASE_COLUMNS, the shared columns
@@ -305,6 +324,9 @@ apps/extension/src/
       agent.repository.ts                AgentRepository: the aggregorApp.agents setting, decoded with its
                                            defaults, read again when it changes
     services/
+      git/worktree.infraService.ts         WorktreeInfraService: worktrees and their branches on the git command
+                                           line: add, list, remove, rename, merge checks and deletion, and the
+                                           untracked files a new worktree gets
       os/shellCommand.infraService.ts      ShellCommandInfraService: looks commands up on PATH
       os/desktopNotification.infraService.ts
                                            DesktopNotificationInfraService: notify-send, filed under VS Code, on Linux,
@@ -340,9 +362,9 @@ apps/extension/src/
     middlewares/registerCommand.middleware.ts
                                            registerCommand: root span per command; shows the presenter's message
                                            for a failure, and logs a crash
-    controllers/                           session, agent, sessionAlert, project, commitMessage: decode the input into a
+    controllers/                           session, agent, sessionAlert, project, worktree, commitMessage: decode the input into a
                                            request DTO and call one service; the views' reads
-    presenters/                            session, project, commitMessage: a failed command's message, and the
+    presenters/                            session, project, worktree, commitMessage: a failed command's message, and the
                                            setting that fixes it; app: none, for commands that cannot fail
     views/sessions/                        SessionsView (sessions.view.ts): the webview view provider, the webview's
                                            messages and the commands it asks for; sessionsDrawing.utils.ts what it
@@ -467,8 +489,9 @@ apps/extension/tests/
   neither knows the other.
 - **The agent and its tab are apart:** `ITmuxInfraService` starts and stops agents and says which run;
   `ITerminalInfraService` only opens, focuses, names and closes the tabs attached to them.
-- **Planned with their roadmap items:** a `Hosts` LayerMap keyed by host id for SSH, and a worktree infra service for
-  M3.
+- **Worktrees on the git command line:** `IWorktreeInfraService` runs `git worktree` itself rather than through the Git
+  extension, whose API reaches only repositories open in Source Control.
+- **Planned with their roadmap items:** a `Hosts` LayerMap keyed by host id for SSH.
 
 ## Repositories, models and transformers
 
@@ -495,6 +518,10 @@ apps/extension/tests/
 
 - **One column per dimension.** A column holds one thing about its row that changes on its own, and one program writes
   it: the extension or `aggregor-pty`, never both.
+  - Settings are the exception: a project's settings are one JSON text column, `settings`, read and written whole by the
+    extension and decoded by `ProjectSettingsValueObject`, whose every key has a default and falls back to it when a
+    stored value no longer decodes. A new setting is a schema field, not a migration; the repository stores an object
+    column as its JSON text.
   - A stage a row moves through, such as an agent's status, is one text column backed by an enum value object, even with
     two values, rather than a boolean per stage. Each action checks the stage it starts from and ends quietly when the
     row is already where the action would move it. A row's context value carries its stage, so the menus offer only what

@@ -1,18 +1,22 @@
 import {TURN_RUNNING_STATUSES} from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.constant.ts";
+import {
+  findDefaultWorkingTree,
+  isAgentChoiceShown,
+  makeNewSessionRequest
+} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.utils.ts";
 import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
-import {runCommandOnHost} from "@/modules/sessions/sessions.service.ts";
-import {AGENT_COMMANDS, AGENT_LABELS} from "@pkg/constants/src/agent.constant.ts";
-import {PROJECT_COMMANDS} from "@pkg/constants/src/project.constant.ts";
+import {askHostForLeftovers, runCommandOnHost} from "@/modules/sessions/sessions.service.ts";
+import {LEFTOVER_LABELS, WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
+import {PROJECT_COMMANDS, PROJECT_SETTINGS_LABELS} from "@pkg/constants/src/project.constant.ts";
 import {SESSION_COMMANDS, SESSION_LABELS, SESSION_NOTICES} from "@pkg/constants/src/session.constant.ts";
-import {StarIcon} from "lucide-react";
 
 import type {
   AskingAction,
   AskingContext,
   MenuGroup
 } from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.type.ts";
-import type {RowAction, UserInputChoice} from "@/modules/sessions/sessions.type.ts";
-import type {AgentRowData, ProjectRowData, RowCommandArgument} from "@views/sessions/sessions.view.type.ts";
+import type {RowAction} from "@/modules/sessions/sessions.type.ts";
+import type {CommandRequest, ProjectRowData, RowCommandArgument} from "@views/sessions/sessions.view.type.ts";
 
 const findSharedRowLabel = (actionGroup: readonly RowAction[]) => {
   const [firstAction] = actionGroup;
@@ -151,105 +155,94 @@ const renameSessionAsking = (askingContext: AskingContext, commandArgument: RowC
   });
 };
 
-const startSession = (projectPath: string, agentId?: string) => {
-  runCommandOnHost(
-    SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT,
-    agentId === undefined ? {projectPath} : {agentId, projectPath}
-  );
-};
+const renameBranchAsking = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
+  const sessionListItem = findSessionListItem(askingContext, commandArgument.sessionId);
+  if (sessionListItem === undefined) return;
 
-const toAgentChoice = (agentRow: AgentRowData): UserInputChoice => ({
-  choiceId: agentRow.agentListItem.agentId,
-  description: agentRow.agentListItem.command,
-  iconUri: agentRow.iconUri,
-  label: agentRow.agentListItem.name,
-  ...(agentRow.agentListItem.isDefault
-    ? {badge: AGENT_LABELS.DEFAULT}
-    : {SecondaryActionIcon: StarIcon, secondaryActionLabel: AGENT_LABELS.SET_AS_DEFAULT})
-});
-
-// The new default moves to the top at once, before the host sends the agents again.
-const markDefaultAgent = (agentRows: readonly AgentRowData[], defaultAgentId: string) => {
-  const markedAgentRows = agentRows.map((agentRow) => ({
-    ...agentRow,
-    agentListItem: {...agentRow.agentListItem, isDefault: agentRow.agentListItem.agentId === defaultAgentId}
-  }));
-
-  return [
-    ...markedAgentRows.filter((agentRow) => agentRow.agentListItem.isDefault),
-    ...markedAgentRows.filter((agentRow) => !agentRow.agentListItem.isDefault)
-  ];
-};
-
-const showAgentPicker = (askingContext: AskingContext, projectPath: string, agentRows: readonly AgentRowData[]) => {
   askingContext.showUserInput({
-    _tag: USER_INPUT_TAGS.CHOICE,
-    choices: agentRows.map((agentRow) => toAgentChoice(agentRow)),
-    onChoose: (agentId, isSecondaryAction) => {
-      if (!isSecondaryAction) {
-        startSession(projectPath, agentId);
-
-        return;
-      }
-      runCommandOnHost(AGENT_COMMANDS.SET_DEFAULT, {agentId});
-      showAgentPicker(askingContext, projectPath, markDefaultAgent(agentRows, agentId));
+    _tag: USER_INPUT_TAGS.TEXT,
+    onEnterText: (enteredText) => {
+      if (enteredText.trim() === "") return;
+      runCommandOnHost(SESSION_COMMANDS.RENAME_BRANCH, {branchName: enteredText, sessionId: sessionListItem.sessionId});
     },
-    title: AGENT_LABELS.PICK
+    title: SESSION_LABELS.RENAME_BRANCH,
+    value: sessionListItem.branchName ?? ""
   });
 };
 
-// With one agent or none, or the picker skipped for a default, the host starts the default agent.
-const startSessionAskingForAgent = (askingContext: AskingContext, projectPath: string) => {
-  const hasDefaultAgent = askingContext.agentRows.some((agentRow) => agentRow.agentListItem.isDefault);
-  if (askingContext.agentRows.length <= 1 || (askingContext.skipAgentPicker && hasDefaultAgent)) {
-    startSession(projectPath);
+const findListedProject = (askingContext: AskingContext, commandArgument: RowCommandArgument) =>
+  askingContext.projectRows
+    .map((projectRow) => projectRow.projectListItem)
+    .find((listedProject) => listedProject.path === commandArgument.projectPath);
 
-    return;
-  }
+const editProjectSettings = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
+  const projectListItem = findListedProject(askingContext, commandArgument);
+  if (projectListItem === undefined) return;
 
-  showAgentPicker(askingContext, projectPath, askingContext.agentRows);
+  askingContext.showUserInput({
+    _tag: USER_INPUT_TAGS.PROJECT_SETTINGS,
+    onSave: (settings) => {
+      runCommandOnHost(PROJECT_COMMANDS.SAVE_SETTINGS, {projectPath: projectListItem.path, settings});
+    },
+    settings: projectListItem.settings,
+    title: PROJECT_SETTINGS_LABELS.TITLE(projectListItem.name)
+  });
 };
 
-// With no project yet, New Session adds one first.
-const startSessionAskingForProject = (askingContext: AskingContext) => {
-  const projectListItems = askingContext.projectRows.map((projectRow) => projectRow.projectListItem);
-  const [onlyProjectListItem] = projectListItems;
-  if (onlyProjectListItem === undefined) {
+// The dialog opens at once and fills in when the host has pruned origin and listed the leftovers.
+const cleanUpLeftoversAsking = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
+  const projectListItem = findListedProject(askingContext, commandArgument);
+  if (projectListItem === undefined) return;
+
+  askingContext.showUserInput({
+    _tag: USER_INPUT_TAGS.CLEAN_UP,
+    leftovers: undefined,
+    onDelete: (chosenLeftovers) => {
+      runCommandOnHost(WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS, {...chosenLeftovers, projectPath: projectListItem.path});
+    },
+    projectPath: projectListItem.path,
+    title: LEFTOVER_LABELS.TITLE(projectListItem.name)
+  });
+  askHostForLeftovers(projectListItem.path);
+};
+
+// No choice to make, as in a folder outside git with one agent, starts at once; with no project, Add Project comes first.
+const startSessionAsking = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
+  const [onlyProjectRow] = askingContext.projectRows;
+  if (onlyProjectRow === undefined) {
     runCommandOnHost(PROJECT_COMMANDS.ADD);
 
     return;
   }
-  if (projectListItems.length === 1) {
-    startSessionAskingForAgent(askingContext, onlyProjectListItem.path);
+  const projectPath =
+    commandArgument.projectPath ??
+    (askingContext.projectRows.length === 1 ? onlyProjectRow.projectListItem.path : undefined);
+  const projectRow = askingContext.projectRows.find((listedRow) => listedRow.projectListItem.path === projectPath);
+  const isChoiceLeft =
+    projectRow === undefined ||
+    projectRow.worktrees !== undefined ||
+    isAgentChoiceShown(askingContext.agentRows, askingContext.skipAgentPicker);
+  const startSession = (newSessionRequest: CommandRequest) => {
+    runCommandOnHost(SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT, newSessionRequest);
+  };
+  if (!isChoiceLeft) {
+    startSession(makeNewSessionRequest(projectRow.projectListItem.path, undefined, findDefaultWorkingTree(projectRow)));
 
     return;
   }
 
   askingContext.showUserInput({
-    _tag: USER_INPUT_TAGS.CHOICE,
-    choices: projectListItems.map((projectListItem) => ({
-      choiceId: projectListItem.path,
-      description: projectListItem.path,
-      label: projectListItem.name
-    })),
-    onChoose: (projectPath) => {
-      startSessionAskingForAgent(askingContext, projectPath);
-    },
-    title: SESSION_LABELS.PICK_PROJECT
+    _tag: USER_INPUT_TAGS.NEW_SESSION,
+    chosenProjectPath: projectPath,
+    onStart: startSession,
+    title: SESSION_LABELS.NEW_SESSION
   });
 };
 
-const startSessionAsking = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
-  if (commandArgument.projectPath === undefined) {
-    startSessionAskingForProject(askingContext);
-
-    return;
-  }
-
-  startSessionAskingForAgent(askingContext, commandArgument.projectPath);
-};
-
 const askingActions: Partial<Record<RowAction["commandId"], AskingAction>> = {
+  [PROJECT_COMMANDS.SAVE_SETTINGS]: (askingContext, _rowAction, commandArgument) => {
+    editProjectSettings(askingContext, commandArgument);
+  },
   [SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT]: (askingContext, _rowAction, commandArgument) => {
     startSessionAsking(askingContext, commandArgument);
   },
@@ -259,11 +252,17 @@ const askingActions: Partial<Record<RowAction["commandId"], AskingAction>> = {
   [SESSION_COMMANDS.RENAME]: (askingContext, _rowAction, commandArgument) => {
     renameSessionAsking(askingContext, commandArgument);
   },
+  [SESSION_COMMANDS.RENAME_BRANCH]: (askingContext, _rowAction, commandArgument) => {
+    renameBranchAsking(askingContext, commandArgument);
+  },
   [SESSION_COMMANDS.STOP_AGENT]: stopAgentsAsking,
   [SESSION_COMMANDS.STOP_ARCHIVED_AGENTS]: stopAgentsAsking,
   [SESSION_COMMANDS.STOP_ARCHIVED_PROJECT_AGENTS]: stopAgentsAsking,
   [SESSION_COMMANDS.STOP_ONGOING_AGENTS]: stopAgentsAsking,
-  [SESSION_COMMANDS.STOP_PROJECT_AGENTS]: stopAgentsAsking
+  [SESSION_COMMANDS.STOP_PROJECT_AGENTS]: stopAgentsAsking,
+  [WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS]: (askingContext, _rowAction, commandArgument) => {
+    cleanUpLeftoversAsking(askingContext, commandArgument);
+  }
 };
 
 // What needs the user's answer asks it here, then sends the host a request it can run without asking.

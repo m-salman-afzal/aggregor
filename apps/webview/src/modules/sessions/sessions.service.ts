@@ -2,16 +2,13 @@ import {APPEARANCE, SESSION_LISTS} from "@/modules/sessions/sessions.constant.ts
 import {SESSIONS_WEBVIEW_MESSAGE_TAGS} from "@pkg/constants/src/sessionsView.constant.ts";
 
 import type {SessionListId} from "@/modules/sessions/sessions.type.ts";
-import type {
-  RowCommandArgument,
-  SessionsViewMessage,
-  SessionsWebviewMessage
-} from "@views/sessions/sessions.view.type.ts";
+import type {CommandRequest, SessionsViewMessage, SessionsWebviewMessage} from "@views/sessions/sessions.view.type.ts";
 
 // A folded project is keyed by its list and its path, since a project shows in both lists.
 interface WebviewState {
   readonly collapsedListIds: readonly SessionListId[];
   readonly collapsedProjectKeys: readonly string[];
+  readonly isWorktreeTrustHintHidden: boolean;
   readonly viewedSessionId?: string | undefined;
 }
 
@@ -22,6 +19,10 @@ const postToHost = (sessionsWebviewMessage: SessionsWebviewMessage) => {
   vsCodeWebviewApi.postMessage(sessionsWebviewMessage);
 };
 
+export const askHostForLeftovers = (projectPath: string) => {
+  postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_LEFTOVERS, projectPath});
+};
+
 export const askHostToDraw = () => {
   postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.READY});
 };
@@ -30,7 +31,7 @@ export const askHostToDraw = () => {
 export const readStyleNonce = () =>
   document.querySelector<HTMLMetaElement>(APPEARANCE.STYLE_NONCE_META_SELECTOR)?.nonce;
 
-export const runCommandOnHost = (commandId: string, commandArgument?: RowCommandArgument) => {
+export const runCommandOnHost = (commandId: string, commandArgument?: CommandRequest) => {
   postToHost(
     commandArgument === undefined
       ? {_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND, commandId}
@@ -51,6 +52,7 @@ export const readWebviewState = (): WebviewState => {
   return {
     collapsedListIds: savedState?.collapsedListIds ?? [SESSION_LISTS.ARCHIVE],
     collapsedProjectKeys: savedState?.collapsedProjectKeys ?? [],
+    isWorktreeTrustHintHidden: savedState?.isWorktreeTrustHintHidden ?? false,
     viewedSessionId: savedState?.viewedSessionId
   };
 };
