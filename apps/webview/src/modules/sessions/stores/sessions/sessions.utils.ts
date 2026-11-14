@@ -43,6 +43,7 @@ const hostMessageReducers: {
   [SESSIONS_VIEW_MESSAGE_TAGS.AGENTS_DRAWN]: (sessionsData, agentsDrawn) => ({
     ...sessionsData,
     agentRows: agentsDrawn.agentRows,
+    isWorkspaceTrustEnabled: agentsDrawn.isWorkspaceTrustEnabled,
     skipAgentPicker: agentsDrawn.skipAgentPicker
   }),
   [SESSIONS_VIEW_MESSAGE_TAGS.APPEARANCE_DRAWN]: (sessionsData, appearanceDrawn) => ({

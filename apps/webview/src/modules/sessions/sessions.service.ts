@@ -8,6 +8,7 @@ import type {CommandRequest, SessionsViewMessage, SessionsWebviewMessage} from "
 interface WebviewState {
   readonly collapsedListIds: readonly SessionListId[];
   readonly collapsedProjectKeys: readonly string[];
+  readonly isWorktreeTrustHintHidden: boolean;
   readonly viewedSessionId?: string | undefined;
 }
 
@@ -51,6 +52,7 @@ export const readWebviewState = (): WebviewState => {
   return {
     collapsedListIds: savedState?.collapsedListIds ?? [SESSION_LISTS.ARCHIVE],
     collapsedProjectKeys: savedState?.collapsedProjectKeys ?? [],
+    isWorktreeTrustHintHidden: savedState?.isWorktreeTrustHintHidden ?? false,
     viewedSessionId: savedState?.viewedSessionId
   };
 };

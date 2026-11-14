@@ -92,3 +92,23 @@ Where a session works: its project's root, or a git worktree of its own.
   only, which misses squash merges, and only `gdrb`'s gone-upstream check, which misses local merges; pruning on every
   draw, which waits on the network; a cleanup item in the project's … menu for every git project, shown even with
   nothing to clean.
+
+## New Session points to trusting the worktrees folder once
+
+- **Problem:** VS Code asks to trust each new worktree: the window shows it as a workspace folder, and it sits outside
+  every folder the user trusted, while a project sits inside one. The dialog trusts only that worktree, so the next one
+  asks again. VS Code trusts a folder with everything under it, but gives extensions no way to trust one.
+- **Decision:** worktrees stay in `~/.aggregor/worktrees` (or the project's worktree folder setting), and the user
+  trusts that folder once. While New worktree is chosen in New Session and VS Code's workspace trust is on, a hint names
+  the folder; **Trust Worktrees Folder…** copies its path and opens Manage Workspace Trust, where Add Folder takes it,
+  and **Don't show again** hides the hint.
+- **Solution:** `IWorktreeInfraService.findWorktreesRootPath` gives the folder: the project's setting, home-expanded,
+  else `<Aggregor folder>/worktrees`, which holds every project's worktrees. `ProjectSessionsDto.worktreesRootPath`
+  carries it on a git project's row, and `AGENTS_DRAWN` carries `security.workspace.trust.enabled` beside
+  `skipAgentPicker`, the dialog's other setting. The webview copies the path itself, before running
+  `workbench.trust.manage` through `RUN_COMMAND`, since the copy fails once the page loses focus; the hidden hint is
+  kept in the webview's saved state.
+- **Alternatives considered:** worktrees inside the project (`<project>/.aggregor/worktrees`, Claude Code's layout),
+  trusted with it, which puts extra checkouts in front of every tool that walks the project folder; worktrees inside the
+  anchor folder, trusted in every anchored window, which fails in a window without an anchor; writing VS Code's trust
+  store, which VS Code owns and keeps in memory; a banner after the session starts, by when the dialog has asked.

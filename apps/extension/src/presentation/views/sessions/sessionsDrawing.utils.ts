@@ -16,6 +16,7 @@ import {
   STATUS_LABELS,
   VIEW_BADGE_LABELS
 } from "@pkg/constants/src/sessionsView.constant.ts";
+import {WORKSPACE_TRUST_SETTINGS} from "@pkg/constants/src/vscode.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {getAgentIconUri, makeIconWebviewUri} from "@views/sessions/sessionsPage.utils.ts";
 import {Array, Effect, Match, Schema} from "effect";
@@ -58,6 +59,7 @@ const toProjectRow = Effect.fn("SessionsView.toProjectRow")(function* (
   const projectRow: ProjectRowData = {
     ...(projectSessions.hasLeftovers === undefined ? {} : {hasLeftovers: projectSessions.hasLeftovers}),
     ...(projectSessions.worktrees === undefined ? {} : {worktrees: projectSessions.worktrees}),
+    ...(projectSessions.worktreesRootPath === undefined ? {} : {worktreesRootPath: projectSessions.worktreesRootPath}),
     projectListItem: projectSessions.projectListItem,
     sessionRows: yield* Effect.forEach(projectSessions.sessionListItems, (sessionListItem) =>
       toSessionRow(webview, sessionListItem)
@@ -194,6 +196,17 @@ const toAgentRow = Effect.fn("SessionsView.toAgentRow")(function* (webview: Webv
   return agentRow;
 });
 
+// VS Code's own default turns trust on.
+const readWorkspaceTrustEnabled = Effect.fn("SessionsView.readWorkspaceTrustEnabled")(function* () {
+  const vsCodeApi = yield* VsCodeApi;
+  const trustSettings = yield* vsCodeApi.getConfiguration(WORKSPACE_TRUST_SETTINGS.SECTION);
+
+  return yield* Effect.orElseSucceed(
+    Schema.decodeUnknownEffect(Schema.Boolean)(trustSettings.get(WORKSPACE_TRUST_SETTINGS.ENABLED)),
+    () => true
+  );
+});
+
 export const drawAgents = Effect.fn("SessionsView.drawAgents")(function* (webviewView: WebviewView) {
   const vsCodeApi = yield* VsCodeApi;
   const configuredSettings = yield* vsCodeApi.getConfiguration(SETTINGS_SECTION);
@@ -206,7 +219,12 @@ export const drawAgents = Effect.fn("SessionsView.drawAgents")(function* (webvie
     toAgentRow(webviewView.webview, agentListItem)
   );
 
-  yield* postToWebview(webviewView, {_tag: SESSIONS_VIEW_MESSAGE_TAGS.AGENTS_DRAWN, agentRows, skipAgentPicker});
+  yield* postToWebview(webviewView, {
+    _tag: SESSIONS_VIEW_MESSAGE_TAGS.AGENTS_DRAWN,
+    agentRows,
+    isWorkspaceTrustEnabled: yield* readWorkspaceTrustEnabled(),
+    skipAgentPicker
+  });
 });
 
 // The look first, so the rows draw in it.

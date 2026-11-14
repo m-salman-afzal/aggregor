@@ -302,7 +302,8 @@ apps/extension/src/
       worktree.infraService.interface.ts   createWorktree, listWorktrees, copyIncludedFiles, readBranchName,
                                            hasUpstream, findFreeBranchName, renameBranch, hasChanges,
                                            removeWorktree, isMadeByAggregor, listAggregorBranches, pruneRemote,
-                                           findBaseBranch, isBranchMerged, deleteBranch; GitWorktree,
+                                           findBaseBranch, isBranchMerged, deleteBranch,
+                                           findWorktreesRootPath; GitWorktree,
                                            WorktreeBranch, NotGitRepositoryError, WorktreeCreateFailedError,
                                            BranchRenameFailedError, WorktreeHasChangesError,
                                            WorktreeRemoveFailedError, BranchDeleteFailedError

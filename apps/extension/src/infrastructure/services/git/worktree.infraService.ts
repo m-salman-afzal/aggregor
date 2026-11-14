@@ -124,6 +124,15 @@ const findWorktreesFolderPath = Effect.fn("WorktreeInfraService.findWorktreesFol
   );
 });
 
+const findWorktreesRootPath = Effect.fn("WorktreeInfraService.findWorktreesRootPath")(function* (
+  worktreeDependencies: WorktreeDependencies,
+  worktreesFolderPath: string
+) {
+  if (worktreesFolderPath !== "") return yield* expandHomeFolder(worktreeDependencies, worktreesFolderPath);
+
+  return worktreeDependencies.path.join(worktreeDependencies.aggregorFolderPath, WORKTREES.FOLDER_NAME);
+});
+
 const isBranchTaken = Effect.fn("WorktreeInfraService.isBranchTaken")(function* (
   worktreeDependencies: WorktreeDependencies,
   repositoryPath: string,
@@ -469,6 +478,8 @@ const wireWorktreeMembers = Effect.fn("WorktreeInfraService.wireWorktreeMembers"
       copyIncludedFiles(worktreeDependencies, copyIncludedFilesRequest),
     createWorktree: (createWorktreeRequest: CreateWorktreeRequest) =>
       createWorktree(worktreeDependencies, createWorktreeRequest),
+    findWorktreesRootPath: (worktreesFolderPath: string) =>
+      findWorktreesRootPath(worktreeDependencies, worktreesFolderPath),
     hasChanges: (worktreePath: ProjectPathValueObject) => hasChanges(worktreeDependencies, worktreePath),
     isMadeByAggregor: (worktreePath: ProjectPathValueObject, worktreesFolderPath: string) =>
       isMadeByAggregor(worktreeDependencies, worktreePath, worktreesFolderPath),

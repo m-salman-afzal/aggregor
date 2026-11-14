@@ -43,7 +43,8 @@ export const ProjectSessionsDtoSchema = Schema.Struct({
   hasLeftovers: Schema.optional(Schema.Boolean),
   projectListItem: ProjectListItemDtoSchema,
   sessionListItems: Schema.Array(SessionListItemDtoSchema),
-  worktrees: Schema.optional(Schema.Array(WorktreeListItemDtoSchema))
+  worktrees: Schema.optional(Schema.Array(WorktreeListItemDtoSchema)),
+  worktreesRootPath: Schema.optional(Schema.String)
 });
 
 export type ProjectSessionsDto = typeof ProjectSessionsDtoSchema.Type;

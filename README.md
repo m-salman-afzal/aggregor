@@ -37,7 +37,8 @@ terminals, tree views, Source Control and diffs.
   (`aggregor/login-fix`) unless it was pushed, shows on the session's row, and Rename Branch in its menu renames it.
   Remove deletes the session's worktree and keeps its branch; a worktree with changes is kept until you commit or
   discard them. When a project has worktrees or `aggregor/*` branches left over, a red dot shows on its row and its
-  broom button lists them, with merged branches ticked, to delete the ones you pick.
+  broom button lists them, with merged branches ticked, to delete the ones you pick. VS Code asks to trust each new
+  worktree until you trust the folder they go in; New Session's hint copies its path and opens Manage Workspace Trust.
 - **Agents.** New Session asks which agent to start, among those whose command is on `PATH`, with your default first;
   each one's **Set as Default** button changes the default, and `aggregorApp.skipAgentPicker` starts the default without
   asking. Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot are built in. `aggregorApp.agents` in your user

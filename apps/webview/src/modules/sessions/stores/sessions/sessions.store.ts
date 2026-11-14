@@ -25,6 +25,8 @@ let sessionsData: SessionsData = {
   collapsedListIds: new Set(savedWebviewState.collapsedListIds),
   collapsedProjectKeys: new Set(savedWebviewState.collapsedProjectKeys),
   isDrawn: false,
+  isWorkspaceTrustEnabled: false,
+  isWorktreeTrustHintHidden: savedWebviewState.isWorktreeTrustHintHidden,
   projectRows: [],
   skipAgentPicker: false,
   styleNonce: readStyleNonce(),
@@ -37,12 +39,14 @@ const setSessionsData = (nextSessionsData: SessionsData) => {
   const isKeptStateChanged =
     nextSessionsData.collapsedListIds !== sessionsData.collapsedListIds ||
     nextSessionsData.collapsedProjectKeys !== sessionsData.collapsedProjectKeys ||
+    nextSessionsData.isWorktreeTrustHintHidden !== sessionsData.isWorktreeTrustHintHidden ||
     nextSessionsData.viewedSessionId !== sessionsData.viewedSessionId;
   sessionsData = nextSessionsData;
   if (isKeptStateChanged)
     saveWebviewState({
       collapsedListIds: [...nextSessionsData.collapsedListIds],
       collapsedProjectKeys: [...nextSessionsData.collapsedProjectKeys],
+      isWorktreeTrustHintHidden: nextSessionsData.isWorktreeTrustHintHidden,
       viewedSessionId: nextSessionsData.viewedSessionId
     });
   for (const stateListener of stateListeners) stateListener();
@@ -67,6 +71,10 @@ const closeUserInput = () => {
   setSessionsData({...sessionsData, userInput: undefined});
 };
 
+const hideWorktreeTrustHint = () => {
+  setSessionsData({...sessionsData, isWorktreeTrustHintHidden: true});
+};
+
 const subscribeToSessionsData = (stateListener: () => void) => {
   stateListeners.add(stateListener);
 
@@ -83,5 +91,12 @@ askHostToDraw();
 
 export const useSessionsStore = <Selected>(props: UseSessionsStoreProps<Selected>) =>
   useSyncExternalStore(subscribeToSessionsData, () =>
-    props.selectFromState({...sessionsData, closeUserInput, setListOpen, setProjectOpen, showUserInput})
+    props.selectFromState({
+      ...sessionsData,
+      closeUserInput,
+      hideWorktreeTrustHint,
+      setListOpen,
+      setProjectOpen,
+      showUserInput
+    })
   );

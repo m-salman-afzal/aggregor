@@ -32,6 +32,12 @@ export const findDefaultWorkingTree = (projectRow: ProjectRowData | undefined) =
     ? NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE
     : NEW_SESSION_WORKING_TREE_TAGS.PROJECT_ROOT;
 
+// Only a new worktree goes in the worktrees folder; an existing one stays where it was made.
+export const findNewWorktreesRootPath = (projectRows: readonly ProjectRowData[], choices: NewSessionChoices) =>
+  choices.workingTree === NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE
+    ? findProjectRow(projectRows, choices.projectPath)?.worktreesRootPath
+    : undefined;
+
 export const makeNewSessionRequest = (projectPath: string, agentId: string | undefined, workingTree: string) => {
   const isNamedWorkingTree =
     workingTree === NEW_SESSION_WORKING_TREE_TAGS.PROJECT_ROOT ||

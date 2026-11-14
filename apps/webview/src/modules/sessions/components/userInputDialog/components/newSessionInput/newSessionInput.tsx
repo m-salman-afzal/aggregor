@@ -1,5 +1,6 @@
 import {FormButtons} from "@/modules/sessions/components/userInputDialog/components/formButtons.tsx";
 import {OptionGroup} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/components/optionGroup.tsx";
+import {WorktreeTrustHint} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/components/worktreeTrustHint/worktreeTrustHint.tsx";
 import {useNewSessionInput} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.hook.ts";
 import {SESSION_LABELS} from "@pkg/constants/src/session.constant.ts";
 
@@ -30,6 +31,9 @@ export const NewSessionInput = (props: NewSessionInputProps) => {
           />
         ))}
       </div>
+      {newSessionView.newWorktreesRootPath !== undefined && (
+        <WorktreeTrustHint folderPath={newSessionView.newWorktreesRootPath} />
+      )}
       <FormButtons onCancel={props.onCancel} submitLabel={SESSION_LABELS.START} />
     </form>
   );

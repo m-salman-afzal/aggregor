@@ -1,5 +1,6 @@
 import {
   findDefaultChoices,
+  findNewWorktreesRootPath,
   isAgentChoiceShown,
   makeNewSessionRequest,
   makeOptionGroups
@@ -27,6 +28,7 @@ export const useNewSessionInput = (props: UseNewSessionInputProps) => {
   const isAgentShown = isAgentChoiceShown(agentRows, skipAgentPicker);
 
   return {
+    newWorktreesRootPath: findNewWorktreesRootPath(projectRows, choices),
     optionGroups: makeOptionGroups({
       agentRows,
       allProjectRows: [...projectRows, ...archiveProjectRows],

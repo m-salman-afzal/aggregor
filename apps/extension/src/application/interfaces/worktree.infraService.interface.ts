@@ -82,6 +82,7 @@ export class IWorktreeInfraService extends Context.Service<
       worktreePath: ProjectPathValueObject,
       branchName: string
     ) => Effect.Effect<string, BranchRenameFailedError>;
+    readonly findWorktreesRootPath: (worktreesFolderPath: string) => Effect.Effect<string>;
     readonly hasChanges: (worktreePath: ProjectPathValueObject) => Effect.Effect<boolean>;
     readonly hasUpstream: (worktreePath: ProjectPathValueObject) => Effect.Effect<boolean>;
     readonly isBranchMerged: (branchMergeCheck: BranchMergeCheck) => Effect.Effect<boolean>;

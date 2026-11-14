@@ -15,8 +15,8 @@ heading there. Update this file in the same commit as a change that adds, remove
   editor-tab `location`, `env`, `iconPath`), `createQuickPick`, `showInputBox`, `withProgress`, `registerUriHandler`
   with `env.asExternalUri`, a log `createOutputChannel` for the trace, `workspace.updateWorkspaceFolders` (only for a
   window without a saved workspace file), `openTextDocument`, `applyEdit` and `TextDocument.save`, and the
-  `vscode.openFolder` and `workbench.action.reloadWindow` commands. `packages/vscode` holds `VsCodeApi`, the one runtime
-  `vscode` import.
+  `vscode.openFolder`, `workbench.action.reloadWindow` and `workbench.trust.manage` commands. `packages/vscode` holds
+  `VsCodeApi`, the one runtime `vscode` import.
 - **Why:** terminals, trees, Source Control and diffs already exist in VS Code, through stable APIs only.
 - **Alternatives:** "Agents run in their own terminal UIs": an ACP client with a webview chat UI; VS Code's chat
   sessions API, a proposed API. "Every session's agent runs in tmux": tabs drawn as `Pseudoterminal`s over one tmux

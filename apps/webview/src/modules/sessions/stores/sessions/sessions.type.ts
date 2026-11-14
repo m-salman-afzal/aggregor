@@ -11,6 +11,8 @@ export interface SessionsData {
   readonly collapsedListIds: ReadonlySet<SessionListId>;
   readonly collapsedProjectKeys: ReadonlySet<string>;
   readonly isDrawn: boolean;
+  readonly isWorkspaceTrustEnabled: boolean;
+  readonly isWorktreeTrustHintHidden: boolean;
   readonly projectRows: readonly ProjectRowData[];
   readonly skipAgentPicker: boolean;
   readonly styleNonce: string | undefined;
@@ -21,6 +23,7 @@ export interface SessionsData {
 
 export interface SessionsState extends SessionsData {
   readonly closeUserInput: () => void;
+  readonly hideWorktreeTrustHint: () => void;
   readonly setListOpen: (listId: SessionListId, isOpen: boolean) => void;
   readonly setProjectOpen: (projectKey: string, isOpen: boolean) => void;
   readonly showUserInput: (userInput: UserInput) => void;

@@ -500,6 +500,9 @@ const findProjectWorktrees = Effect.fn("SessionService.findProjectWorktrees")(fu
     IWorktreeInfraService.use((worktreeInfraService) => worktreeInfraService.listWorktrees(projectListItem.path))
   );
   const hasLeftovers = yield* hasProjectLeftovers(projectListItem);
+  const worktreesRootPath = yield* IWorktreeInfraService.use((worktreeInfraService) =>
+    worktreeInfraService.findWorktreesRootPath(projectListItem.settings.worktreeFolder)
+  );
 
   return Result.match(projectWorktreesResult, {
     onFailure: () => ({}),
@@ -510,7 +513,8 @@ const findProjectWorktrees = Effect.fn("SessionService.findProjectWorktrees")(fu
           branchName: projectWorktree.branchName,
           worktreePath: projectWorktree.worktreePath
         })
-      )
+      ),
+      worktreesRootPath
     })
   });
 });

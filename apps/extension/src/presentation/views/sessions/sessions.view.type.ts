@@ -19,6 +19,7 @@ export interface ProjectRowData {
   readonly projectListItem: ProjectListItemDto;
   readonly sessionRows: readonly SessionRowData[];
   readonly worktrees?: readonly WorktreeListItemDto[];
+  readonly worktreesRootPath?: string;
 }
 
 export interface AgentRowData {
@@ -36,6 +37,7 @@ export type SessionsViewMessage =
   | {
       readonly _tag: typeof SESSIONS_VIEW_MESSAGE_TAGS.AGENTS_DRAWN;
       readonly agentRows: readonly AgentRowData[];
+      readonly isWorkspaceTrustEnabled: boolean;
       readonly skipAgentPicker: boolean;
     }
   | {

@@ -4,6 +4,7 @@ import {WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
 import {PROJECT_COMMANDS} from "@pkg/constants/src/project.constant.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {TERMINAL_COMMANDS} from "@pkg/constants/src/terminal.constant.ts";
+import {VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
 
 export const SESSIONS_VIEW = {
   ID: "aggregorApp.sessions"
@@ -65,6 +66,7 @@ export const SESSIONS_WEBVIEW_COMMANDS = [
   SESSION_COMMANDS.STOP_PROJECT_AGENTS,
   SESSION_COMMANDS.UNARCHIVE,
   TERMINAL_COMMANDS.NEW_PROJECT_TERMINAL,
+  VS_CODE_COMMANDS.MANAGE_WORKSPACE_TRUST,
   WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS
 ] as const;
 

@@ -56,3 +56,10 @@ export const LEFTOVER_LABELS = {
   TITLE: (projectName: string) => `Clean up ${projectName}`,
   WORKTREES_SECTION: "Worktrees"
 } as const;
+
+export const WORKTREE_TRUST_LABELS = {
+  EXPLANATION: "VS Code asks to trust each new worktree. Trust the folder they go in once:",
+  HIDE: "Don't show again",
+  PATH_COPIED: "Path copied. In Manage Workspace Trust, choose Add Folder and paste it.",
+  TRUST_FOLDER: "Trust Worktrees Folder…"
+} as const;
