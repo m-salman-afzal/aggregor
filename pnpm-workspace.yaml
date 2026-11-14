@@ -17,7 +17,7 @@ catalog:
   "@e18e/eslint-plugin": 0.8.1
   "@effect/platform-node": 4.1.4
   "@effect/sql-sqlite-node": 4.1.4
-  "@effect/tsgo": 0.68.1
+  "@effect/tsgo": 0.69.0
   "@eslint/js": 10.0.1
   "@eslint/json": 2.1.1
   "@eslint/markdown": 8.0.3
