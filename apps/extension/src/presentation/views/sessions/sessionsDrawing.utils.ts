@@ -1,12 +1,13 @@
 import {listAgentsForSessionsView} from "@controllers/agent.controller.ts";
 import {
   findViewedSessionIdForSessionsView,
+  getProjectSessionsForSessionsView,
   getSessionListItemForSessionsView,
-  listProjectSessionsForSessionsView,
   listProjectsWithArchivedSessionsForSessionsView,
   listProjectsWithSessionsForSessionsView,
   listSessionsWaitingOnUserForSessionsView
 } from "@controllers/session.controller.ts";
+import {listProjectLeftoversForSessionsView} from "@controllers/worktree.controller.ts";
 import {AGENT_SETTINGS} from "@pkg/constants/src/agent.constant.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/app.constant.ts";
 import {
@@ -55,6 +56,7 @@ const toProjectRow = Effect.fn("SessionsView.toProjectRow")(function* (
   projectSessions: ProjectSessionsDto
 ) {
   const projectRow: ProjectRowData = {
+    ...(projectSessions.hasLeftovers === undefined ? {} : {hasLeftovers: projectSessions.hasLeftovers}),
     ...(projectSessions.worktrees === undefined ? {} : {worktrees: projectSessions.worktrees}),
     projectListItem: projectSessions.projectListItem,
     sessionRows: yield* Effect.forEach(projectSessions.sessionListItems, (sessionListItem) =>
@@ -84,21 +86,26 @@ const drawArchive = Effect.fn("SessionsView.drawArchive")(function* (webviewView
   yield* postToWebview(webviewView, {_tag: SESSIONS_VIEW_MESSAGE_TAGS.ARCHIVE_DRAWN, projectRows});
 });
 
-const drawProjectSessions = Effect.fn("SessionsView.drawProjectSessions")(function* (
-  webviewView: WebviewView,
-  projectPath: string
-) {
-  const sessionListItems = yield* listProjectSessionsForSessionsView(projectPath);
-  const sessionRows = yield* Effect.forEach(sessionListItems, (sessionListItem) =>
-    toSessionRow(webviewView.webview, sessionListItem)
-  );
+// A project no longer listed draws nothing: the change that unlisted it redraws every project.
+const drawProject = Effect.fn("SessionsView.drawProject")(
+  function* (webviewView: WebviewView, projectPath: string) {
+    const projectSessions = yield* getProjectSessionsForSessionsView(projectPath);
+    const projectRow = yield* toProjectRow(webviewView.webview, projectSessions);
 
-  yield* postToWebview(webviewView, {
-    _tag: SESSIONS_VIEW_MESSAGE_TAGS.PROJECT_SESSIONS_DRAWN,
-    projectPath,
-    sessionRows
-  });
-});
+    yield* postToWebview(webviewView, {_tag: SESSIONS_VIEW_MESSAGE_TAGS.PROJECT_DRAWN, projectRow});
+  },
+  Effect.catchTag("ProjectNotListedError", () => Effect.void)
+);
+
+// A project no longer listed, or no git repository, draws no list; the webview's dialog keeps waiting until closed.
+export const drawLeftovers = Effect.fn("SessionsView.drawLeftovers")(
+  function* (webviewView: WebviewView, projectPath: string) {
+    const leftovers = yield* listProjectLeftoversForSessionsView(projectPath);
+
+    yield* postToWebview(webviewView, {_tag: SESSIONS_VIEW_MESSAGE_TAGS.LEFTOVERS_DRAWN, leftovers});
+  },
+  Effect.catch((leftoversError) => Effect.logWarning("Could not list the project's leftovers", leftoversError))
+);
 
 // A session removed meanwhile draws nothing: the change that removed it redraws its project.
 const drawSession = Effect.fn("SessionsView.drawSession")(
@@ -118,7 +125,7 @@ export const drawChange = Effect.fn("SessionsView.drawChange")(function* (
   yield* Match.valueTags(sessionListChange, {
     ProjectListChanged: () => Effect.andThen(drawAllProjects(webviewView), drawArchive(webviewView)),
     ProjectSessionsChanged: (projectSessionsChanged) =>
-      Effect.andThen(drawProjectSessions(webviewView, projectSessionsChanged.projectPath), drawArchive(webviewView)),
+      Effect.andThen(drawProject(webviewView, projectSessionsChanged.projectPath), drawArchive(webviewView)),
     SessionChanged: (sessionChanged) => drawSession(webviewView, sessionChanged.sessionId)
   });
 });

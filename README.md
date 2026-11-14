@@ -35,6 +35,9 @@ terminals, tree views, Source Control and diffs.
   files copied in and its setup script run first), or in a worktree that already exists. While that session is in front,
   the window shows its worktree, so Source Control shows its changes. The branch takes the session's first title
   (`aggregor/login-fix`) unless it was pushed, shows on the session's row, and Rename Branch in its menu renames it.
+  Remove deletes the session's worktree and keeps its branch; a worktree with changes is kept until you commit or
+  discard them. When a project has worktrees or `aggregor/*` branches left over, a red dot shows on its row and its
+  broom button lists them, with merged branches ticked, to delete the ones you pick.
 - **Agents.** New Session asks which agent to start, among those whose command is on `PATH`, with your default first;
   each one's **Set as Default** button changes the default, and `aggregorApp.skipAgentPicker` starts the default without
   asking. Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot are built in. `aggregorApp.agents` in your user
@@ -94,8 +97,8 @@ solution and what was turned down.
 - [x] Archive sessions you are done with, in an Archive view under Sessions
 - [ ] Sessions sidebar as a webview of our own design: one view with a dropdown per list (Sessions, Archive, later SSH
       and snoozed), rows of up to three lines, menus, drag and drop and keyboard
-- [ ] Worktree mode: start a session in the project root or in a new git worktree; archiving removes the worktree and
-      keeps an unmerged branch
+- [x] Worktree mode: start a session in the project root or in a new git worktree; Remove deletes the worktree, and each
+      project's cleanup deletes the leftover worktrees and the branches you pick, merged ones first
 - [ ] Changed files under each session, opening git's diff with per-hunk staging
 - [ ] Bookmarks
 - [ ] Create/Link a pull request from a session

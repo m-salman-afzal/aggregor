@@ -247,7 +247,7 @@ apps/extension/src/
                                            stopArchivedSessionAgents, moveSessionUp, moveSessionDown (each session
                                            moves among its project's sessions in its own list);
                                            the lists: listProjectsWithSessions and listProjectsWithArchivedSessions
-                                           (each project with its sessions' rows), listProjectSessions,
+                                           (each project with its sessions' rows), getProjectSessions,
                                            getSessionListItem,
                                            watchSessionListChanges, watchViewedSessionIds, findViewedSessionId,
                                            listSessionsWaitingOnUser (the badge and each view's count);
@@ -260,6 +260,9 @@ apps/extension/src/
                                            (asks for folders), addProjectPaths, findOrAddProject, removeProject,
                                            moveProjectUp, moveProjectDown, newProjectTerminal,
                                            saveProjectSettings; ProjectNotListedError
+      worktree.service.ts                  listProjectLeftovers, cleanUpProjectLeftovers (a project's worktrees and
+                                           aggregor/* branches left over), hasProjectLeftovers (its row's dot),
+                                           removeSessionWorktree (Remove's first step); LeftoversKeptError
       commitMessage.service.ts             generateCommitMessage: writes the message with Source Control's progress
       workspace.service.ts                 startShownProjectSync: the viewed session's project as the only
                                            project folder; startSessionReopenAfterReload
@@ -271,6 +274,8 @@ apps/extension/src/
       agent.dto.ts                         AgentListItemDto: a row of the agent picker; SetDefaultAgentRequestDto
       project.dto.ts                       ProjectListItemDto with its ProjectSettingsDto, and a request DTO per
                                            project use case
+      worktree.dto.ts                      ProjectLeftoversDto (LeftoverWorktreeDto, LeftoverBranchDto), and a
+                                           request DTO per worktree use case
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
     interfaces/                            each with the errors and types its signatures name
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
@@ -295,8 +300,12 @@ apps/extension/src/
       git.infraService.interface.ts        getStagedDiff, setCommitMessageInput, commit,
                                            openInSourceControl
       worktree.infraService.interface.ts   createWorktree, listWorktrees, copyIncludedFiles, readBranchName,
-                                           hasUpstream, findFreeBranchName, renameBranch; GitWorktree,
-                                           NotGitRepositoryError, WorktreeCreateFailedError, BranchRenameFailedError
+                                           hasUpstream, findFreeBranchName, renameBranch, hasChanges,
+                                           removeWorktree, isMadeByAggregor, listAggregorBranches, pruneRemote,
+                                           findBaseBranch, isBranchMerged, deleteBranch; GitWorktree,
+                                           WorktreeBranch, NotGitRepositoryError, WorktreeCreateFailedError,
+                                           BranchRenameFailedError, WorktreeHasChangesError,
+                                           WorktreeRemoveFailedError, BranchDeleteFailedError
       commitCli.infraService.interface.ts  generateCommitMessage; CommitMessageRequest
       settings.config.interface.ts         readSettings, readSessionSettings, readAlertSettings,
                                            saveDefaultAgentId; Settings, SessionSettings, AlertSettings
@@ -314,8 +323,9 @@ apps/extension/src/
       agent.repository.ts                AgentRepository: the aggregorApp.agents setting, decoded with its
                                            defaults, read again when it changes
     services/
-      git/worktree.infraService.ts         WorktreeInfraService: git worktree add and list, on the git command
-                                           line, and the untracked files a new worktree gets
+      git/worktree.infraService.ts         WorktreeInfraService: worktrees and their branches on the git command
+                                           line: add, list, remove, rename, merge checks and deletion, and the
+                                           untracked files a new worktree gets
       os/shellCommand.infraService.ts      ShellCommandInfraService: looks commands up on PATH
       os/desktopNotification.infraService.ts
                                            DesktopNotificationInfraService: notify-send, filed under VS Code, on Linux,
@@ -351,9 +361,9 @@ apps/extension/src/
     middlewares/registerCommand.middleware.ts
                                            registerCommand: root span per command; shows the presenter's message
                                            for a failure, and logs a crash
-    controllers/                           session, agent, sessionAlert, project, commitMessage: decode the input into a
+    controllers/                           session, agent, sessionAlert, project, worktree, commitMessage: decode the input into a
                                            request DTO and call one service; the views' reads
-    presenters/                            session, project, commitMessage: a failed command's message, and the
+    presenters/                            session, project, worktree, commitMessage: a failed command's message, and the
                                            setting that fixes it; app: none, for commands that cannot fail
     views/sessions/                        SessionsView (sessions.view.ts): the webview view provider, the webview's
                                            messages and the commands it asks for; sessionsDrawing.utils.ts what it

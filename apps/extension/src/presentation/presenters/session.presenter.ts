@@ -68,6 +68,8 @@ export const presentSessionCommandError = Effect.fn("SessionPresenter.presentSes
       pageToOpen: {label: TMUX_LABELS.INSTALL, url: TMUX.INSTALL_PAGE}
     }),
     WorktreeCreateFailedError: (error) => ({message: WORKTREE_ERRORS.CREATE_FAILED(error.gitError)}),
-    WorktreeNotFoundError: () => ({message: WORKTREE_ERRORS.NOT_FOUND})
+    WorktreeHasChangesError: () => ({message: WORKTREE_ERRORS.HAS_CHANGES}),
+    WorktreeNotFoundError: () => ({message: WORKTREE_ERRORS.NOT_FOUND}),
+    WorktreeRemoveFailedError: (error) => ({message: WORKTREE_ERRORS.REMOVE_FAILED(error.gitError)})
   });
 });

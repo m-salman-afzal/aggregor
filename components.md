@@ -166,9 +166,11 @@ heading there. Update this file in the same commit as a change that adds, remove
 ### The git command line
 
 - **What it is:** git itself, the `git` the user has on `PATH`.
-- **What we use:** `git worktree add` and `git worktree list --porcelain`, `git rev-parse --verify` for a free branch
-  name, and `git ls-files --others --ignored` for the files a new worktree gets
-  (`infrastructure/services/git/worktree.infraService.ts`).
+- **What we use:** `git worktree add`, `list --porcelain`, `remove` and `prune`, `git rev-parse --verify` for a free
+  branch name, `git ls-files --others --ignored` for the files a new worktree gets, `git status --porcelain` for a
+  worktree's changes, and for cleanup `git for-each-ref` (each `aggregor/*` branch's upstream and worktree),
+  `git remote prune origin`, `git symbolic-ref refs/remotes/origin/HEAD` for the base branch,
+  `git merge-base --is-ancestor` and `git branch -D` (`infrastructure/services/git/worktree.infraService.ts`).
 - **Why:** the Git extension's API reaches only repositories open in Source Control, and opening each project's would
   list them all there; the command line works on any project's folder.
 - **Alternatives:** the Git extension's `createWorktree` and `state.worktrees` (see `decisions/sessions/worktrees.md`).

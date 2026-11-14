@@ -40,6 +40,7 @@ export type WorktreeListItemDto = typeof WorktreeListItemDtoSchema.Type;
 
 // Without worktrees, the project is no git repository, or the list doesn't read them (the Archive).
 export const ProjectSessionsDtoSchema = Schema.Struct({
+  hasLeftovers: Schema.optional(Schema.Boolean),
   projectListItem: ProjectListItemDtoSchema,
   sessionListItems: Schema.Array(SessionListItemDtoSchema),
   worktrees: Schema.optional(Schema.Array(WorktreeListItemDtoSchema))
@@ -129,6 +130,6 @@ export const GetSessionListItemRequestDtoSchema = Schema.Struct({sessionId: Enti
 
 export type GetSessionListItemRequestDto = typeof GetSessionListItemRequestDtoSchema.Type;
 
-export const ListProjectSessionsRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
+export const GetProjectSessionsRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
 
-export type ListProjectSessionsRequestDto = typeof ListProjectSessionsRequestDtoSchema.Type;
+export type GetProjectSessionsRequestDto = typeof GetProjectSessionsRequestDtoSchema.Type;

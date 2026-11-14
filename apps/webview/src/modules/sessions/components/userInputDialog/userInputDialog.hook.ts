@@ -1,13 +1,12 @@
 import {
   describeUserInput,
-  takeEnteredText,
-  takeProjectSettings
+  makeFormAnswers
 } from "@/modules/sessions/components/userInputDialog/userInputDialog.utils.ts";
 import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.store.ts";
 
+import type {ChosenLeftovers} from "@/modules/sessions/sessions.type.ts";
 import type {CommandRequest} from "@views/sessions/sessions.view.type.ts";
-import type {SubmitEvent} from "react";
 
 export const useUserInputDialog = () => {
   const userInput = useSessionsStore({selectFromState: (sessionsState) => sessionsState.userInput});
@@ -18,20 +17,15 @@ export const useUserInputDialog = () => {
       closeUserInput();
       if (userInput?._tag === USER_INPUT_TAGS.QUESTION) userInput.onConfirm();
     },
+    cleanUp: (chosenLeftovers: ChosenLeftovers) => {
+      closeUserInput();
+      if (userInput?._tag === USER_INPUT_TAGS.CLEAN_UP) userInput.onDelete(chosenLeftovers);
+    },
     closeOnDismiss: (isOpen: boolean) => {
       if (!isOpen) closeUserInput();
     },
     closeUserInput,
-    enterText: (formEvent: SubmitEvent<HTMLFormElement>) => {
-      const enteredText = takeEnteredText(formEvent);
-      closeUserInput();
-      if (userInput?._tag === USER_INPUT_TAGS.TEXT) userInput.onEnterText(enteredText);
-    },
-    saveSettings: (formEvent: SubmitEvent<HTMLFormElement>) => {
-      const settings = takeProjectSettings(formEvent);
-      closeUserInput();
-      if (userInput?._tag === USER_INPUT_TAGS.PROJECT_SETTINGS) userInput.onSave(settings);
-    },
+    ...makeFormAnswers(userInput, closeUserInput),
     startSession: (newSessionRequest: CommandRequest) => {
       closeUserInput();
       if (userInput?._tag === USER_INPUT_TAGS.NEW_SESSION) userInput.onStart(newSessionRequest);

@@ -42,6 +42,7 @@ import {
   updateEntity
 } from "@services/base.service.ts";
 import {findOrAddProject, findProjectListItem, listProjects} from "@services/project.service.ts";
+import {hasProjectLeftovers, removeSessionWorktree} from "@services/worktree.service.ts";
 import {ENTITY_CHANGE_KINDS} from "@valueObjects/entityChangeKind.valueObject.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {SESSION_LIFECYCLES} from "@valueObjects/sessionLifecycle.valueObject.ts";
@@ -53,8 +54,8 @@ import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {
   ArchiveProjectSessionsRequestDto,
   ArchiveSessionRequestDto,
+  GetProjectSessionsRequestDto,
   GetSessionListItemRequestDto,
-  ListProjectSessionsRequestDto,
   MoveSessionDownRequestDto,
   MoveSessionUpRequestDto,
   NewSessionRequestDto,
@@ -235,10 +236,11 @@ const stopAgentAndCloseTab = Effect.fn("SessionService.stopAgentAndCloseTab")(fu
   yield* closeSessionTab(sessionId);
 });
 
-// The session is forgotten before its agent stops, so a failed write never kills the agent for nothing.
+// The worktree goes first and the session is forgotten next, so a refusal or a failed write never kills the agent.
 const removeSessionAndStopAgent = Effect.fn("SessionService.removeSessionAndStopAgent")(function* (
   session: SessionEntity
 ) {
+  yield* removeSessionWorktree(session);
   yield* removeEntity(ISessionRepository, session.id);
   yield* stopAgentAndCloseTab(session.id);
 });
@@ -298,7 +300,7 @@ export const openSession = Effect.fn("SessionService.openSession")(
   (effect, request) => Effect.catchTag(effect, "TerminalNotFoundError", () => reopenSession(request.sessionId))
 );
 
-// The agent's transcript on disk is left alone.
+// The agent's transcript on disk and the worktree's branch are left alone.
 export const removeSession = Effect.fn("SessionService.removeSession")(
   function* (request: RemoveSessionRequestDto) {
     const session = yield* findSession(request.sessionId);
@@ -489,26 +491,20 @@ const findListedSessions = Effect.fn("SessionService.findListedSessions")(functi
   return Array.filter(sessions, (session) => listedProjectPaths.has(session.projectPath));
 });
 
-export const listProjectSessions = Effect.fn("SessionService.listProjectSessions")(function* (
-  request: ListProjectSessionsRequestDto
-) {
-  const projectSessions = yield* findProjectSessions(request.projectPath, SESSION_LIFECYCLES.ONGOING);
-
-  return yield* Effect.forEach(projectSessions, (projectSession) => toSessionListItem(projectSession, projectSessions));
-});
-
 const findProjectWorktrees = Effect.fn("SessionService.findProjectWorktrees")(function* (
-  projectPath: ProjectPathValueObject,
+  projectListItem: ProjectListItemDto,
   lifecycle: SessionLifecycleValueObject
 ) {
   if (lifecycle === SESSION_LIFECYCLES.ARCHIVED) return {};
   const projectWorktreesResult = yield* Effect.result(
-    IWorktreeInfraService.use((worktreeInfraService) => worktreeInfraService.listWorktrees(projectPath))
+    IWorktreeInfraService.use((worktreeInfraService) => worktreeInfraService.listWorktrees(projectListItem.path))
   );
+  const hasLeftovers = yield* hasProjectLeftovers(projectListItem);
 
   return Result.match(projectWorktreesResult, {
     onFailure: () => ({}),
     onSuccess: (projectWorktrees) => ({
+      hasLeftovers,
       worktrees: Array.map(projectWorktrees, (projectWorktree) =>
         WorktreeListItemDtoSchema.make({
           branchName: projectWorktree.branchName,
@@ -530,7 +526,7 @@ const toProjectSessions = Effect.fn("SessionService.toProjectSessions")(function
   );
 
   return ProjectSessionsDtoSchema.make({
-    ...(yield* findProjectWorktrees(projectListItem.path, lifecycle)),
+    ...(yield* findProjectWorktrees(projectListItem, lifecycle)),
     projectListItem,
     sessionListItems: yield* Effect.forEach(projectSessions, (projectSession) =>
       toSessionListItem(projectSession, projectSessions)
@@ -547,6 +543,16 @@ const listProjectsWithLifecycleSessions = Effect.fn("SessionService.listProjects
   return yield* Effect.forEach(projectListItems, (projectListItem) =>
     toProjectSessions(projectListItem, lifecycleSessions, lifecycle)
   );
+});
+
+// A project no longer listed draws nothing: the change that unlisted it redraws every project.
+export const getProjectSessions = Effect.fn("SessionService.getProjectSessions")(function* (
+  request: GetProjectSessionsRequestDto
+) {
+  const projectListItem = yield* findProjectListItem(request.projectPath);
+  const ongoingSessions = yield* findEntities(ISessionRepository, {lifecycle: SESSION_LIFECYCLES.ONGOING});
+
+  return yield* toProjectSessions(projectListItem, ongoingSessions, SESSION_LIFECYCLES.ONGOING);
 });
 
 export const listProjectsWithSessions = Effect.fn("SessionService.listProjectsWithSessions")(function* () {
@@ -622,6 +628,19 @@ export const listSessionsWaitingOnUser = Effect.fn("SessionService.listSessionsW
   return yield* Effect.filter(sessionListItems, (sessionListItem) => isSessionWaitingOnUser(sessionListItem.status));
 });
 
+// An archived session's worktree is left over once its agent stops, which changes its project's cleanup dot.
+const toAgentRunChange = Effect.fn("SessionService.toAgentRunChange")(function* (sessionId: EntityIdValueObject) {
+  const sessionResult = yield* Effect.result(findSession(sessionId));
+  const sessionChanged = SessionListChangeDtoSchema.cases.SessionChanged.make({sessionId});
+  if (Result.isFailure(sessionResult)) return sessionChanged;
+  const session = sessionResult.success;
+  const isWorktreeLeftOver = session.lifecycle === SESSION_LIFECYCLES.ARCHIVED && session.worktreePath !== undefined;
+
+  return isWorktreeLeftOver
+    ? SessionListChangeDtoSchema.cases.ProjectSessionsChanged.make({projectPath: session.projectPath})
+    : sessionChanged;
+});
+
 // Coming into or leaving view writes viewedAt, so it arrives as a write.
 export const watchSessionListChanges = Effect.fn("SessionService.watchSessionListChanges")(function* () {
   const projectRepository = yield* IProjectRepository;
@@ -638,8 +657,8 @@ export const watchSessionListChanges = Effect.fn("SessionService.watchSessionLis
         ? SessionListChangeDtoSchema.cases.SessionChanged.make({sessionId: sessionChange.entity.id})
         : SessionListChangeDtoSchema.cases.ProjectSessionsChanged.make({projectPath: sessionChange.entity.projectPath})
     ),
-    Stream.map(tmuxInfraService.startedOrStoppedSessionIds, (sessionId) =>
-      SessionListChangeDtoSchema.cases.SessionChanged.make({sessionId})
+    Stream.mapEffect(tmuxInfraService.startedOrStoppedSessionIds, (sessionId) =>
+      Effect.provideService(toAgentRunChange(sessionId), ISessionRepository, sessionRepository)
     )
   ];
 

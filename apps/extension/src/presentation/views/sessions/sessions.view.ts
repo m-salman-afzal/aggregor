@@ -18,6 +18,7 @@ import {
   drawAppearance,
   drawChange,
   drawEverything,
+  drawLeftovers,
   drawViewedSession,
   drawWaitingCounts
 } from "@views/sessions/sessionsDrawing.utils.ts";
@@ -42,6 +43,7 @@ class RowCommandFailedError extends Schema.TaggedError<RowCommandFailedError, {r
 type WebviewViewReference = Ref.Ref<Result.Result<WebviewView, WebviewNotShownError>>;
 
 const SessionsWebviewMessageSchema = Schema.TaggedUnion({
+  [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_LEFTOVERS]: {projectPath: Schema.String},
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.READY]: {},
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND]: {
     commandArgument: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
@@ -125,6 +127,8 @@ const handleWebviewMessage = Effect.fn("SessionsView.handleWebviewMessage", {roo
     const sessionsWebviewMessage = yield* decodeVsCodeArgument(SessionsWebviewMessageSchema, webviewMessage);
 
     yield* Match.valueTags(sessionsWebviewMessage, {
+      [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_LEFTOVERS]: (listLeftovers) =>
+        drawLeftovers(webviewView, listLeftovers.projectPath),
       [SESSIONS_WEBVIEW_MESSAGE_TAGS.READY]: () => drawEverything(webviewView),
       [SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND]: (runCommand) =>
         runRowCommand(runCommand.commandId, runCommand.commandArgument)

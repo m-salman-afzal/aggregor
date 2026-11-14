@@ -16,6 +16,7 @@ export const pickUserInputIcon = (userInput: UserInput) => {
   if (userInput._tag === USER_INPUT_TAGS.NEW_SESSION) return USER_INPUT_ICONS.NEW_SESSION;
   if (userInput._tag === USER_INPUT_TAGS.TEXT) return USER_INPUT_ICONS.TEXT;
   if (userInput._tag === USER_INPUT_TAGS.PROJECT_SETTINGS) return USER_INPUT_ICONS.PROJECT_SETTINGS;
+  if (userInput._tag === USER_INPUT_TAGS.CLEAN_UP) return USER_INPUT_ICONS.CLEAN_UP;
 
   return isDestructiveUserInput(userInput) ? USER_INPUT_ICONS.DESTRUCTIVE_QUESTION : USER_INPUT_ICONS.QUESTION;
 };
@@ -50,6 +51,20 @@ export const takeEnteredText = (formEvent: SubmitEvent<HTMLFormElement>) => {
 
   return typeof enteredText === "string" ? enteredText : "";
 };
+
+// The dialog closes before the answer runs, so an answer may open the next one.
+export const makeFormAnswers = (userInput: undefined | UserInput, closeUserInput: () => void) => ({
+  enterText: (formEvent: SubmitEvent<HTMLFormElement>) => {
+    const enteredText = takeEnteredText(formEvent);
+    closeUserInput();
+    if (userInput?._tag === USER_INPUT_TAGS.TEXT) userInput.onEnterText(enteredText);
+  },
+  saveSettings: (formEvent: SubmitEvent<HTMLFormElement>) => {
+    const settings = takeProjectSettings(formEvent);
+    closeUserInput();
+    if (userInput?._tag === USER_INPUT_TAGS.PROJECT_SETTINGS) userInput.onSave(settings);
+  }
+});
 
 export const describeUserInput = (userInput: undefined | UserInput) => ({
   isDestructive: userInput !== undefined && isDestructiveUserInput(userInput),

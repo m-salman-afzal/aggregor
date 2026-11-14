@@ -1,4 +1,4 @@
-import {AGENT_ICON} from "@/modules/sessions/components/sessionList/components/projectGroup/sessionRow/sessionRow.constant.ts";
+import {AGENT_ICON} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/sessionRow.constant.ts";
 import {GitBranchIcon, TriangleAlertIcon} from "lucide-react";
 
 interface SessionDetailProps {

@@ -1,4 +1,5 @@
 import {APP_COMMANDS, APP_LABELS} from "@pkg/constants/src/app.constant.ts";
+import {LEFTOVER_LABELS, WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
 import {PROJECT_COMMANDS, PROJECT_LABELS} from "@pkg/constants/src/project.constant.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {SESSIONS_WEBVIEW} from "@pkg/constants/src/sessionsView.constant.ts";
@@ -8,6 +9,7 @@ import {
   ArchiveRestoreIcon,
   ArrowDownIcon,
   ArrowUpIcon,
+  BroomIcon,
   CircleStopIcon,
   FolderMinusIcon,
   FolderPlusIcon,
@@ -49,6 +51,7 @@ export const APPEARANCE = {
 } as const;
 
 export const USER_INPUT_TAGS = {
+  CLEAN_UP: "CleanUpInput",
   NEW_SESSION: "NewSessionInput",
   PROJECT_SETTINGS: "ProjectSettingsInput",
   QUESTION: "QuestionInput",
@@ -70,6 +73,12 @@ export const ROW_ACTIONS = {
     commandId: SESSION_COMMANDS.ARCHIVE_PROJECT_SESSIONS,
     icon: ArchiveIcon,
     label: "Archive Sessions"
+  },
+  CLEAN_UP_LEFTOVERS: {
+    commandId: WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS,
+    hasAttentionDot: true,
+    icon: BroomIcon,
+    label: LEFTOVER_LABELS.CLEAN_UP
   },
   MOVE_PROJECT_DOWN: {
     commandId: PROJECT_COMMANDS.MOVE_DOWN,

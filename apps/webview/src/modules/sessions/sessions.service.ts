@@ -18,6 +18,10 @@ const postToHost = (sessionsWebviewMessage: SessionsWebviewMessage) => {
   vsCodeWebviewApi.postMessage(sessionsWebviewMessage);
 };
 
+export const askHostForLeftovers = (projectPath: string) => {
+  postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_LEFTOVERS, projectPath});
+};
+
 export const askHostToDraw = () => {
   postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.READY});
 };

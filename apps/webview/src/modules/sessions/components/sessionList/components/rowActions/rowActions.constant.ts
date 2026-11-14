@@ -22,5 +22,7 @@ export const ACTION_BUTTON =
 
 export const ACTION_ICON = "size-4";
 
+export const ATTENTION_DOT = "absolute top-1 right-1 size-1.5 rounded-full bg-destructive";
+
 // An agent in one of these is mid-turn, so stopping it cuts the turn short and asks first.
 export const TURN_RUNNING_STATUSES: readonly SessionListItemDto["status"][] = ["working", "blocked"];

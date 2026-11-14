@@ -33,11 +33,11 @@ DDD.md's layers: what each holds and how they talk.
     its badge.
   - Each list reaches the view whole from one use case: `listProjectsWithSessions` and
     `listProjectsWithArchivedSessions` return a `ProjectSessionsDto` per project, its `ProjectListItemDto` with its
-    sessions' `SessionListItemDto`s; `listProjectSessions` returns one project's rows and `getSessionListItem` one row.
-    A session's row has the status the user sees (`SessionStatusValueObject`, picked from the stored
-    `AgentStatusValueObject` by `getSessionStatus`), its kind and progress only while the turn runs, its message unless
-    the agent is gone, its agent's icon and its project's name. `SessionService` assembles them, and the view adds only
-    each agent icon's webview URI, which VS Code alone can make.
+    sessions' `SessionListItemDto`s; `getProjectSessions` returns one project's (its row, worktrees and cleanup dot
+    included) and `getSessionListItem` one row. A session's row has the status the user sees
+    (`SessionStatusValueObject`, picked from the stored `AgentStatusValueObject` by `getSessionStatus`), its kind and
+    progress only while the turn runs, its message unless the agent is gone, its agent's icon and its project's name.
+    `SessionService` assembles them, and the view adds only each agent icon's webview URI, which VS Code alone can make.
   - No window keeps a copy: every read is a query, and each repository's `entityChanges` reads only the rows written
     since its last check (see the `data_version` entry). The spinner reads the working sessions each frame while the
     view is visible.

@@ -1,8 +1,10 @@
 import {
   ACTION_BUTTON,
-  ACTION_ICON
+  ACTION_ICON,
+  ATTENTION_DOT
 } from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.constant.ts";
 import {Button} from "@pkg/ui/src/components/base/button.tsx";
+import {cn} from "cn";
 
 import type {RowAction} from "@/modules/sessions/sessions.type.ts";
 
@@ -15,7 +17,7 @@ export const InlineActionButtons = (props: InlineActionButtonsProps) =>
   props.inlineActions.map((rowAction) => (
     <Button
       aria-label={rowAction.label}
-      className={ACTION_BUTTON}
+      className={cn(ACTION_BUTTON, "relative")}
       key={rowAction.commandId}
       onClick={() => {
         props.onRunAction(rowAction);
@@ -24,5 +26,6 @@ export const InlineActionButtons = (props: InlineActionButtonsProps) =>
       title={rowAction.label}
       variant="soft">
       <rowAction.icon aria-hidden className={ACTION_ICON} />
+      {rowAction.hasAttentionDot === true && <span aria-hidden className={ATTENTION_DOT} />}
     </Button>
   ));

@@ -5,7 +5,8 @@ import {
   makeNewSessionRequest
 } from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.utils.ts";
 import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
-import {runCommandOnHost} from "@/modules/sessions/sessions.service.ts";
+import {askHostForLeftovers, runCommandOnHost} from "@/modules/sessions/sessions.service.ts";
+import {LEFTOVER_LABELS, WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
 import {PROJECT_COMMANDS, PROJECT_SETTINGS_LABELS} from "@pkg/constants/src/project.constant.ts";
 import {SESSION_COMMANDS, SESSION_LABELS, SESSION_NOTICES} from "@pkg/constants/src/session.constant.ts";
 
@@ -169,10 +170,13 @@ const renameBranchAsking = (askingContext: AskingContext, commandArgument: RowCo
   });
 };
 
-const editProjectSettings = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
-  const projectListItem = askingContext.projectRows
+const findListedProject = (askingContext: AskingContext, commandArgument: RowCommandArgument) =>
+  askingContext.projectRows
     .map((projectRow) => projectRow.projectListItem)
     .find((listedProject) => listedProject.path === commandArgument.projectPath);
+
+const editProjectSettings = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
+  const projectListItem = findListedProject(askingContext, commandArgument);
   if (projectListItem === undefined) return;
 
   askingContext.showUserInput({
@@ -183,6 +187,23 @@ const editProjectSettings = (askingContext: AskingContext, commandArgument: RowC
     settings: projectListItem.settings,
     title: PROJECT_SETTINGS_LABELS.TITLE(projectListItem.name)
   });
+};
+
+// The dialog opens at once and fills in when the host has pruned origin and listed the leftovers.
+const cleanUpLeftoversAsking = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
+  const projectListItem = findListedProject(askingContext, commandArgument);
+  if (projectListItem === undefined) return;
+
+  askingContext.showUserInput({
+    _tag: USER_INPUT_TAGS.CLEAN_UP,
+    leftovers: undefined,
+    onDelete: (chosenLeftovers) => {
+      runCommandOnHost(WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS, {...chosenLeftovers, projectPath: projectListItem.path});
+    },
+    projectPath: projectListItem.path,
+    title: LEFTOVER_LABELS.TITLE(projectListItem.name)
+  });
+  askHostForLeftovers(projectListItem.path);
 };
 
 // No choice to make, as in a folder outside git with one agent, starts at once; with no project, Add Project comes first.
@@ -238,7 +259,10 @@ const askingActions: Partial<Record<RowAction["commandId"], AskingAction>> = {
   [SESSION_COMMANDS.STOP_ARCHIVED_AGENTS]: stopAgentsAsking,
   [SESSION_COMMANDS.STOP_ARCHIVED_PROJECT_AGENTS]: stopAgentsAsking,
   [SESSION_COMMANDS.STOP_ONGOING_AGENTS]: stopAgentsAsking,
-  [SESSION_COMMANDS.STOP_PROJECT_AGENTS]: stopAgentsAsking
+  [SESSION_COMMANDS.STOP_PROJECT_AGENTS]: stopAgentsAsking,
+  [WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS]: (askingContext, _rowAction, commandArgument) => {
+    cleanUpLeftoversAsking(askingContext, commandArgument);
+  }
 };
 
 // What needs the user's answer asks it here, then sends the host a request it can run without asking.

@@ -18,6 +18,7 @@ export const UserInputDialog = () => {
           <UserInputBody
             onCancel={userInputDialogView.closeUserInput}
             onChoose={userInputDialogView.choose}
+            onCleanUp={userInputDialogView.cleanUp}
             onEnterText={userInputDialogView.enterText}
             onSaveSettings={userInputDialogView.saveSettings}
             onStart={userInputDialogView.startSession}

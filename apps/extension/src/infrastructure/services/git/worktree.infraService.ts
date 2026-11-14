@@ -1,9 +1,12 @@
 import {getAggregorFolderPath} from "@infraUtils/aggregorFolder.utils.ts";
 import {
+  BranchDeleteFailedError,
   BranchRenameFailedError,
   IWorktreeInfraService,
   NotGitRepositoryError,
-  WorktreeCreateFailedError
+  WorktreeCreateFailedError,
+  WorktreeHasChangesError,
+  WorktreeRemoveFailedError
 } from "@interfaces/worktree.infraService.interface.ts";
 import {GIT_COMMAND, WORKTREES} from "@pkg/constants/src/git.constant.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
@@ -15,9 +18,11 @@ import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 import {homedir} from "node:os";
 
 import type {
+  BranchMergeCheck,
   CopyIncludedFilesRequest,
   CreateWorktreeRequest,
-  GitWorktree
+  GitWorktree,
+  WorktreeBranch
 } from "@interfaces/worktree.infraService.interface.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
@@ -304,6 +309,175 @@ const copyIncludedFiles = Effect.fn("WorktreeInfraService.copyIncludedFiles")(
   Effect.catch((copyError) => Effect.logWarning("Could not copy the included files into the worktree", copyError))
 );
 
+const isMadeByAggregor = Effect.fn("WorktreeInfraService.isMadeByAggregor")(function* (
+  worktreeDependencies: WorktreeDependencies,
+  worktreePath: ProjectPathValueObject,
+  worktreesFolderPath: string
+) {
+  const settingsFolderPath =
+    worktreesFolderPath === "" ? "" : yield* expandHomeFolder(worktreeDependencies, worktreesFolderPath);
+  const madeFolderPaths = [
+    worktreeDependencies.path.join(worktreeDependencies.aggregorFolderPath, WORKTREES.FOLDER_NAME),
+    ...(settingsFolderPath === "" ? [] : [settingsFolderPath])
+  ];
+
+  return Array.some(madeFolderPaths, (madeFolderPath) => {
+    const relativePath = worktreeDependencies.path.relative(madeFolderPath, worktreePath);
+
+    return (
+      relativePath !== "" &&
+      !String.startsWith("..")(relativePath) &&
+      !worktreeDependencies.path.isAbsolute(relativePath)
+    );
+  });
+});
+
+const hasChanges = Effect.fn("WorktreeInfraService.hasChanges")(function* (
+  worktreeDependencies: WorktreeDependencies,
+  worktreePath: ProjectPathValueObject
+) {
+  const statusResult = yield* Effect.result(
+    runGitCommand(worktreeDependencies, worktreePath, ["status", "--porcelain"])
+  );
+
+  return Result.match(statusResult, {
+    onFailure: () => true,
+    onSuccess: (statusOutput) => String.trim(statusOutput) !== ""
+  });
+});
+
+const removeWorktree = Effect.fn("WorktreeInfraService.removeWorktree")(
+  function* (
+    worktreeDependencies: WorktreeDependencies,
+    projectPath: ProjectPathValueObject,
+    worktreePath: ProjectPathValueObject
+  ) {
+    const isFolderThere = yield* Effect.orElseSucceed(worktreeDependencies.fileSystem.exists(worktreePath), () => true);
+    if (!isFolderThere) return yield* runGitCommand(worktreeDependencies, projectPath, ["worktree", "prune"]);
+    if (yield* hasChanges(worktreeDependencies, worktreePath))
+      return yield* WorktreeHasChangesError.make({worktreePath});
+
+    return yield* runGitCommand(worktreeDependencies, projectPath, ["worktree", "remove", worktreePath]);
+  },
+  Effect.catchTag("GitCommandFailedError", (gitCommandFailed) =>
+    Effect.fail(WorktreeRemoveFailedError.make({gitError: gitCommandFailed.gitError}))
+  )
+);
+
+const toWorktreeBranch = Effect.fn("WorktreeInfraService.toWorktreeBranch")(function* (referenceLine: string) {
+  const [branchName, upstreamTrack = "", worktreePath = ""] = String.split("\t")(referenceLine);
+  const worktreeBranch: WorktreeBranch = {
+    branchName,
+    isUpstreamGone: String.includes("gone")(upstreamTrack),
+    worktreePath
+  };
+
+  return worktreeBranch;
+});
+
+const listAggregorBranches = Effect.fn("WorktreeInfraService.listAggregorBranches")(
+  function* (worktreeDependencies: WorktreeDependencies, projectPath: ProjectPathValueObject) {
+    const referenceOutput = yield* runGitCommand(worktreeDependencies, projectPath, [
+      "for-each-ref",
+      "--format=%(refname:short)%09%(upstream:track)%09%(worktreepath)",
+      `${GIT_COMMAND.BRANCH_REF_PREFIX}${WORKTREES.BRANCH_PREFIX}`
+    ]);
+    const referenceLines = Array.filter(String.split("\n")(referenceOutput), String.isNonEmpty);
+
+    return yield* Effect.forEach(referenceLines, (referenceLine) => toWorktreeBranch(referenceLine));
+  },
+  Effect.mapError(() => NotGitRepositoryError.make())
+);
+
+const findBaseBranch = Effect.fn("WorktreeInfraService.findBaseBranch")(
+  function* (worktreeDependencies: WorktreeDependencies, projectPath: ProjectPathValueObject) {
+    const originHead = yield* Effect.result(
+      runGitCommand(worktreeDependencies, projectPath, [
+        "symbolic-ref",
+        "--quiet",
+        "--short",
+        "refs/remotes/origin/HEAD"
+      ])
+    );
+    if (Result.isSuccess(originHead)) return String.trim(originHead.success);
+    const projectHead = yield* runGitCommand(worktreeDependencies, projectPath, ["rev-parse", "--abbrev-ref", "HEAD"]);
+
+    return String.trim(projectHead);
+  },
+  Effect.mapError(() => NotGitRepositoryError.make())
+);
+
+const isBranchMerged = Effect.fn("WorktreeInfraService.isBranchMerged")(function* (
+  worktreeDependencies: WorktreeDependencies,
+  branchMergeCheck: BranchMergeCheck
+) {
+  const ancestorCheck = yield* Effect.result(
+    runGitCommand(worktreeDependencies, branchMergeCheck.projectPath, [
+      "merge-base",
+      "--is-ancestor",
+      branchMergeCheck.branchName,
+      branchMergeCheck.baseBranchName
+    ])
+  );
+
+  return Result.isSuccess(ancestorCheck);
+});
+
+const pruneRemote = Effect.fn("WorktreeInfraService.pruneRemote")(
+  function* (worktreeDependencies: WorktreeDependencies, projectPath: ProjectPathValueObject) {
+    yield* runGitCommand(worktreeDependencies, projectPath, ["remote", "prune", "origin"]);
+  },
+  Effect.timeout(GIT_COMMAND.PRUNE_TIMEOUT),
+  Effect.ignore({log: "Debug", message: "Could not prune origin's branches"})
+);
+
+// -D, since a squash-merged branch never looks merged to git; the user picked it.
+const deleteBranch = Effect.fn("WorktreeInfraService.deleteBranch")(
+  function* (worktreeDependencies: WorktreeDependencies, projectPath: ProjectPathValueObject, branchName: string) {
+    yield* runGitCommand(worktreeDependencies, projectPath, ["branch", "-D", branchName]);
+  },
+  Effect.catchTag("GitCommandFailedError", (gitCommandFailed) =>
+    Effect.fail(BranchDeleteFailedError.make({gitError: gitCommandFailed.gitError}))
+  )
+);
+
+const wireBranchMembers = Effect.fn("WorktreeInfraService.wireBranchMembers")(function* (
+  worktreeDependencies: WorktreeDependencies
+) {
+  return {
+    deleteBranch: (projectPath: ProjectPathValueObject, branchName: string) =>
+      deleteBranch(worktreeDependencies, projectPath, branchName),
+    findBaseBranch: (projectPath: ProjectPathValueObject) => findBaseBranch(worktreeDependencies, projectPath),
+    findFreeBranchName: (worktreePath: ProjectPathValueObject, branchName: string) =>
+      findFreeBranchName(worktreeDependencies, worktreePath, branchName),
+    hasUpstream: (worktreePath: ProjectPathValueObject) => hasUpstream(worktreeDependencies, worktreePath),
+    isBranchMerged: (branchMergeCheck: BranchMergeCheck) => isBranchMerged(worktreeDependencies, branchMergeCheck),
+    listAggregorBranches: (projectPath: ProjectPathValueObject) =>
+      listAggregorBranches(worktreeDependencies, projectPath),
+    pruneRemote: (projectPath: ProjectPathValueObject) => pruneRemote(worktreeDependencies, projectPath),
+    readBranchName: (worktreePath: ProjectPathValueObject) => readBranchName(worktreeDependencies, worktreePath),
+    renameBranch: (worktreePath: ProjectPathValueObject, branchName: string) =>
+      renameBranch(worktreeDependencies, worktreePath, branchName)
+  };
+});
+
+const wireWorktreeMembers = Effect.fn("WorktreeInfraService.wireWorktreeMembers")(function* (
+  worktreeDependencies: WorktreeDependencies
+) {
+  return {
+    copyIncludedFiles: (copyIncludedFilesRequest: CopyIncludedFilesRequest) =>
+      copyIncludedFiles(worktreeDependencies, copyIncludedFilesRequest),
+    createWorktree: (createWorktreeRequest: CreateWorktreeRequest) =>
+      createWorktree(worktreeDependencies, createWorktreeRequest),
+    hasChanges: (worktreePath: ProjectPathValueObject) => hasChanges(worktreeDependencies, worktreePath),
+    isMadeByAggregor: (worktreePath: ProjectPathValueObject, worktreesFolderPath: string) =>
+      isMadeByAggregor(worktreeDependencies, worktreePath, worktreesFolderPath),
+    listWorktrees: (projectPath: ProjectPathValueObject) => listWorktrees(worktreeDependencies, projectPath),
+    removeWorktree: (projectPath: ProjectPathValueObject, worktreePath: ProjectPathValueObject) =>
+      removeWorktree(worktreeDependencies, projectPath, worktreePath)
+  };
+});
+
 const makeWorktreeInfraService = Effect.fn("WorktreeInfraService.make")(function* () {
   const worktreeDependencies: WorktreeDependencies = {
     aggregorFolderPath: yield* getAggregorFolderPath(),
@@ -312,19 +486,7 @@ const makeWorktreeInfraService = Effect.fn("WorktreeInfraService.make")(function
     path: yield* Path
   };
 
-  return {
-    copyIncludedFiles: (copyIncludedFilesRequest: CopyIncludedFilesRequest) =>
-      copyIncludedFiles(worktreeDependencies, copyIncludedFilesRequest),
-    createWorktree: (createWorktreeRequest: CreateWorktreeRequest) =>
-      createWorktree(worktreeDependencies, createWorktreeRequest),
-    findFreeBranchName: (worktreePath: ProjectPathValueObject, branchName: string) =>
-      findFreeBranchName(worktreeDependencies, worktreePath, branchName),
-    hasUpstream: (worktreePath: ProjectPathValueObject) => hasUpstream(worktreeDependencies, worktreePath),
-    listWorktrees: (projectPath: ProjectPathValueObject) => listWorktrees(worktreeDependencies, projectPath),
-    readBranchName: (worktreePath: ProjectPathValueObject) => readBranchName(worktreeDependencies, worktreePath),
-    renameBranch: (worktreePath: ProjectPathValueObject, branchName: string) =>
-      renameBranch(worktreeDependencies, worktreePath, branchName)
-  };
+  return {...(yield* wireBranchMembers(worktreeDependencies)), ...(yield* wireWorktreeMembers(worktreeDependencies))};
 });
 
 export const WorktreeInfraService = Layer.effect(IWorktreeInfraService, makeWorktreeInfraService());

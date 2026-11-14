@@ -1,4 +1,4 @@
-import {SessionStatusIcon} from "@/modules/sessions/components/sessionList/components/projectGroup/sessionRow/components/sessionStatusIcon/sessionStatusIcon.tsx";
+import {SessionStatusIcon} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionStatusIcon/sessionStatusIcon.tsx";
 
 import type {SessionListItemDto} from "@dtos/session.dto.ts";
 

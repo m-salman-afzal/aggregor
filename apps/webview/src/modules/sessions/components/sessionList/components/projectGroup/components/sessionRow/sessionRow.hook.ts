@@ -1,10 +1,10 @@
-import {VIEWED_ROW} from "@/modules/sessions/components/sessionList/components/projectGroup/sessionRow/sessionRow.constant.ts";
+import {VIEWED_ROW} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/sessionRow.constant.ts";
 import {
   listSessionActionGroups,
   listSessionInlineActions,
   makeSessionDetail,
   makeSessionTooltip
-} from "@/modules/sessions/components/sessionList/components/projectGroup/sessionRow/sessionRow.utils.ts";
+} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/sessionRow.utils.ts";
 import {SESSIONS_LABELS} from "@/modules/sessions/sessions.constant.ts";
 import {runCommandOnHost} from "@/modules/sessions/sessions.service.ts";
 import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.store.ts";

@@ -95,7 +95,11 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
   front.
 - **Renamed:** the branch, never the folder: to `aggregor/<title>` when the agent gives the session its first title,
   while the branch keeps its first name and was never pushed, and by Rename Branch in the session's menu.
-- **Cleaned up:** not yet; a removed session leaves its worktree and branch behind.
+- **Cleaned up:** Remove deletes a session's worktree, when Aggregor made it and no other session works there, and keeps
+  its branch; git refuses a worktree with changes, and nothing is removed. Archive keeps the worktree. The project row's
+  cleanup dialog deletes the worktrees and `aggregor/*` branches the user ticks, among those left over: worktrees
+  Aggregor made that no ongoing session works in and no archived session's agent still runs in, and branches with no
+  worktree or a leftover one. The archived sessions of a deleted worktree are forgotten with it.
 
 ## `anchor/`
 

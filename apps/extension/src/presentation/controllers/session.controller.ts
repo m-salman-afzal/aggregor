@@ -1,8 +1,8 @@
 import {
   ArchiveProjectSessionsRequestDtoSchema,
   ArchiveSessionRequestDtoSchema,
+  GetProjectSessionsRequestDtoSchema,
   GetSessionListItemRequestDtoSchema,
-  ListProjectSessionsRequestDtoSchema,
   MoveSessionDownRequestDtoSchema,
   MoveSessionUpRequestDtoSchema,
   NewSessionRequestDtoSchema,
@@ -21,8 +21,8 @@ import {
   archiveProjectSessions,
   archiveSession,
   findViewedSessionId,
+  getProjectSessions,
   getSessionListItem,
-  listProjectSessions,
   listProjectsWithArchivedSessions,
   listProjectsWithSessions,
   listSessionsWaitingOnUser,
@@ -153,11 +153,11 @@ export const getSessionListItemForSessionsView = Effect.fn("SessionController.ge
   }
 );
 
-export const listProjectSessionsForSessionsView = Effect.fn("SessionController.listProjectSessionsForSessionsView")(
+export const getProjectSessionsForSessionsView = Effect.fn("SessionController.getProjectSessionsForSessionsView")(
   function* (projectPath: string) {
-    const request = yield* decodeVsCodeArgument(ListProjectSessionsRequestDtoSchema, {projectPath});
+    const request = yield* decodeVsCodeArgument(GetProjectSessionsRequestDtoSchema, {projectPath});
 
-    return yield* listProjectSessions(request);
+    return yield* getProjectSessions(request);
   }
 );
 

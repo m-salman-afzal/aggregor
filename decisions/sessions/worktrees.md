@@ -31,7 +31,7 @@ Where a session works: its project's root, or a git worktree of its own.
   the worktree while the session is in front, so Explorer, search and Source Control show the session's own changes. A
   worktree shown is not listed as a project.
 - **Solution:** `IWorktreeInfraService` (`infrastructure/services/git/`) runs `git worktree` on the command line.
-  Renaming the branch from the session's title, cleanup and the branch on the row come with the next steps.
+
 - **Alternatives considered:** the Git extension's `createWorktree` and `state.worktrees`, agreed first: its API reaches
   only repositories open in Source Control, so every project would have to be opened there to list or create its
   worktrees. Worktrees beside the repository or inside it (`.worktrees/`, which needs a `.gitignore` entry). The
@@ -62,3 +62,33 @@ Where a session works: its project's root, or a git worktree of its own.
   touch, more machinery for the same redraw; renaming the folder too, which moves the agent's working folder from under
   it; a temporary hashed name renamed by an LLM in the background (T3 Code); telling the agent to rename its branch
   (Conductor).
+
+## Remove deletes a session's worktree, and each project's cleanup lists what is left over
+
+- **Problem:** worktrees and `aggregor/*` branches pile up once their sessions are done, and the user wants to clear the
+  merged ones without losing work.
+- **Decision:** Archive keeps the worktree, since the agent may still be finishing its turn. Remove deletes it first,
+  then forgets the session and stops its agent; git refuses a worktree with changes ("commit or discard them in Source
+  Control, then remove it"), nothing is removed and nothing is forced. The branch is kept. Only a worktree Aggregor made
+  (under its worktrees folder or the project's worktree folder setting) that no other session works in is deleted; a
+  linked worktree is only forgotten. Leftovers are the worktrees Aggregor made that no ongoing session works in and no
+  archived session's agent still runs in, and the `aggregor/*` branches with no worktree or a leftover one. A red dot
+  shows on the project's row while it has any, and its broom button, beside New Session, opens a dialog listing them: it
+  prunes origin first (`gdrb`'s step, at most 10 seconds), then counts a branch as merged when its upstream is gone or
+  its last commit is in the base branch (origin's default branch, else the project's checked-out one). Merged rows start
+  ticked, never-pushed and unmerged ones are listed but not ticked, and a worktree with changes, with its branch, can't
+  be ticked. Delete removes the ticked worktrees first, forgetting their archived sessions, then deletes the ticked
+  branches with `git branch -D`, since a squash-merged branch never looks merged to git; anything kept is named in one
+  message.
+- **Solution:** `worktree.service.ts` holds the leftover rules; `IWorktreeInfraService` gained `hasChanges`,
+  `removeWorktree`, `isMadeByAggregor`, `listAggregorBranches` (`git for-each-ref` with each branch's upstream track and
+  worktree), `pruneRemote`, `findBaseBranch`, `isBranchMerged` and `deleteBranch`. The dot reads local refs only, on
+  each project draw, which now sends the project's whole row (`PROJECT_DRAWN`) rather than its sessions; an archived
+  worktree session's agent starting or stopping redraws its project, so the dot follows it. The dialog asks the host
+  with a `LIST_LEFTOVERS` message and fills in when `LEFTOVERS_DRAWN` comes back. Cleanup changes no session row when it
+  only deletes branches, so it touches the project row and the change feed redraws the list.
+- **Alternatives considered:** removing the worktree on archive, which pulls the folder from under an agent still at
+  work; forcing removal of a worktree with changes; deleting the branch on Remove; a merge check against the base branch
+  only, which misses squash merges, and only `gdrb`'s gone-upstream check, which misses local merges; pruning on every
+  draw, which waits on the network; a cleanup item in the project's … menu for every git project, shown even with
+  nothing to clean.

@@ -1,6 +1,6 @@
-import {SessionDetail} from "@/modules/sessions/components/sessionList/components/projectGroup/sessionRow/components/sessionDetail.tsx";
-import {SessionTitle} from "@/modules/sessions/components/sessionList/components/projectGroup/sessionRow/components/sessionTitle.tsx";
-import {useSessionRow} from "@/modules/sessions/components/sessionList/components/projectGroup/sessionRow/sessionRow.hook.ts";
+import {SessionDetail} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDetail.tsx";
+import {SessionTitle} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionTitle.tsx";
+import {useSessionRow} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/sessionRow.hook.ts";
 import {RowActions} from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.tsx";
 
 import type {SessionRowData} from "@views/sessions/sessions.view.type.ts";
