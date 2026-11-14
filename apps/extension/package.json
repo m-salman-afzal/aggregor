@@ -7,7 +7,7 @@
   "type": "module",
   "main": "./dist/extension.js",
   "engines": {
-    "vscode": "^1.145.0"
+    "vscode": "^1.146.0"
   },
   "scripts": {
     "vscode:prepublish": "vite build --mode production && pnpm --filter=aggregor-webview build",
@@ -37,7 +37,7 @@
   "devDependencies": {
     "@pkg/tsconfigs": "workspace:*",
     "@types/node": "catalog:",
-    "@types/vscode": "1.145.0",
+    "@types/vscode": "1.146.0",
     "@vscode/vsce": "catalog:",
     "drizzle-kit": "catalog:",
     "npm-run-all2": "catalog:",
