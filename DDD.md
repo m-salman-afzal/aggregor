@@ -232,9 +232,9 @@ apps/extension/src/
       entityId.domainService.ts            makeEntityId, getEntityIdCreatedAt: the entity id's factory
       sortOrder.domainService.ts           findEntityIdsToPlaceAtEnd, canMoveUpInOrder, canMoveDownInOrder: how
                                            rows move within an order
-      worktree.domainService.ts            getWorktreeName, getWorktreeBranchName, getWorktreesFolderName: what a
-                                           session's worktree, its branch and its project's worktrees folder are
-                                           called
+      worktree.domainService.ts            getWorktreeName, getWorktreeBranchName, getWorktreesFolderName,
+                                           getTitledBranchName, hasWorktreeBranchFirstName: what a session's
+                                           worktree, its branch and its project's worktrees folder are called
   application/
     services/
       base.service.ts                      addEntity, findEntityById, findEntities, updateEntity, upsertEntity,
@@ -242,7 +242,7 @@ apps/extension/src/
       session.service.ts                   newSession (in a project, with an agent or the default one, at the
                                            project's root, in a new worktree or in an existing one),
                                            openSession, archiveSession, unarchiveSession, removeSession,
-                                           renameSession, stopSessionAgent, stopProjectSessionAgents,
+                                           renameSession, renameSessionBranch, stopSessionAgent, stopProjectSessionAgents,
                                            stopArchivedProjectSessionAgents, stopOngoingSessionAgents,
                                            stopArchivedSessionAgents, moveSessionUp, moveSessionDown (each session
                                            moves among its project's sessions in its own list);
@@ -294,8 +294,9 @@ apps/extension/src/
                                            WorkspaceFolderProject, NoSessionToReopenError
       git.infraService.interface.ts        getStagedDiff, setCommitMessageInput, commit,
                                            openInSourceControl
-      worktree.infraService.interface.ts   createWorktree, listWorktrees, copyIncludedFiles; GitWorktree,
-                                           NotGitRepositoryError, WorktreeCreateFailedError
+      worktree.infraService.interface.ts   createWorktree, listWorktrees, copyIncludedFiles, readBranchName,
+                                           hasUpstream, findFreeBranchName, renameBranch; GitWorktree,
+                                           NotGitRepositoryError, WorktreeCreateFailedError, BranchRenameFailedError
       commitCli.infraService.interface.ts  generateCommitMessage; CommitMessageRequest
       settings.config.interface.ts         readSettings, readSessionSettings, readAlertSettings,
                                            saveDefaultAgentId; Settings, SessionSettings, AlertSettings

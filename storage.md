@@ -93,6 +93,8 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
   tab before the agent.
 - **Read by:** the session's tab and agent, which work in it, and the window, which shows it while the session is in
   front.
+- **Renamed:** the branch, never the folder: to `aggregor/<title>` when the agent gives the session its first title,
+  while the branch keeps its first name and was never pushed, and by Rename Branch in the session's menu.
 - **Cleaned up:** not yet; a removed session leaves its worktree and branch behind.
 
 ## `anchor/`

@@ -18,6 +18,7 @@ import {
   openChosenSession,
   removeChosenSession,
   renameChosenSession,
+  renameChosenSessionBranch,
   stopAllArchivedSessionAgents,
   stopAllOngoingSessionAgents,
   stopChosenArchivedProjectSessionAgents,
@@ -67,6 +68,7 @@ export const RoutesLayer = Layer.effectDiscard(
     registerCommand(SESSION_COMMANDS.OPEN, openChosenSession, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.REMOVE, removeChosenSession, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.RENAME, renameChosenSession, presentSessionCommandError),
+    registerCommand(SESSION_COMMANDS.RENAME_BRANCH, renameChosenSessionBranch, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.STOP_AGENT, stopChosenSessionAgent, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.STOP_ARCHIVED_AGENTS, stopAllArchivedSessionAgents, presentSessionCommandError),
     registerCommand(

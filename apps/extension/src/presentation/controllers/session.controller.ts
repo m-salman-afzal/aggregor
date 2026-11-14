@@ -8,6 +8,7 @@ import {
   NewSessionRequestDtoSchema,
   OpenSessionRequestDtoSchema,
   RemoveSessionRequestDtoSchema,
+  RenameSessionBranchRequestDtoSchema,
   RenameSessionRequestDtoSchema,
   StopArchivedProjectSessionAgentsRequestDtoSchema,
   StopProjectSessionAgentsRequestDtoSchema,
@@ -31,6 +32,7 @@ import {
   openSession,
   removeSession,
   renameSession,
+  renameSessionBranch,
   stopArchivedProjectSessionAgents,
   stopArchivedSessionAgents,
   stopOngoingSessionAgents,
@@ -120,6 +122,13 @@ export const renameChosenSession = Effect.fn("SessionController.renameChosenSess
 ) {
   const request = yield* decodeVsCodeArgument(RenameSessionRequestDtoSchema, chosenSession);
   yield* renameSession(request);
+});
+
+export const renameChosenSessionBranch = Effect.fn("SessionController.renameChosenSessionBranch")(function* (
+  chosenSession: unknown
+) {
+  const request = yield* decodeVsCodeArgument(RenameSessionBranchRequestDtoSchema, chosenSession);
+  yield* renameSessionBranch(request);
 });
 
 export const moveChosenSessionUp = Effect.fn("SessionController.moveChosenSessionUp")(function* (

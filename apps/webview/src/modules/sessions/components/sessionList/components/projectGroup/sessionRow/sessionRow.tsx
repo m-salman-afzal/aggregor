@@ -29,6 +29,7 @@ export const SessionRow = (props: SessionRowProps) => {
           <SessionDetail
             agentIconUri={props.sessionRow.agentIconUri}
             agentLabel={sessionRowView.agentLabel}
+            branchName={props.sessionRow.sessionListItem.branchName}
             detail={sessionRowView.detail}
           />
         </button>

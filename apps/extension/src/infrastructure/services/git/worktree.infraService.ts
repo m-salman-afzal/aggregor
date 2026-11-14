@@ -1,5 +1,6 @@
 import {getAggregorFolderPath} from "@infraUtils/aggregorFolder.utils.ts";
 import {
+  BranchRenameFailedError,
   IWorktreeInfraService,
   NotGitRepositoryError,
   WorktreeCreateFailedError
@@ -118,6 +119,23 @@ const findWorktreesFolderPath = Effect.fn("WorktreeInfraService.findWorktreesFol
   );
 });
 
+const isBranchTaken = Effect.fn("WorktreeInfraService.isBranchTaken")(function* (
+  worktreeDependencies: WorktreeDependencies,
+  repositoryPath: string,
+  branchName: string
+) {
+  const branchCheck = yield* Effect.result(
+    runGitCommand(worktreeDependencies, repositoryPath, [
+      "rev-parse",
+      "--verify",
+      "--quiet",
+      `${GIT_COMMAND.BRANCH_REF_PREFIX}${branchName}`
+    ])
+  );
+
+  return Result.isSuccess(branchCheck);
+});
+
 const isNameTaken = Effect.fn("WorktreeInfraService.isNameTaken")(function* (
   worktreeDependencies: WorktreeDependencies,
   projectPath: ProjectPathValueObject,
@@ -127,17 +145,73 @@ const isNameTaken = Effect.fn("WorktreeInfraService.isNameTaken")(function* (
     worktreeDependencies.fileSystem.exists(worktree.worktreePath),
     () => true
   );
-  const branchCheck = yield* Effect.result(
-    runGitCommand(worktreeDependencies, projectPath, [
+  const isTakenAsBranch = yield* isBranchTaken(worktreeDependencies, projectPath, worktree.branchName);
+
+  return isFolderTaken || isTakenAsBranch;
+});
+
+const findFreeBranchName = Effect.fn("WorktreeInfraService.findFreeBranchName")(function* (
+  worktreeDependencies: WorktreeDependencies,
+  worktreePath: ProjectPathValueObject,
+  branchName: string
+) {
+  const candidates = Array.map(Array.range(1, WORKTREES.MAX_NAME_SUFFIX), (suffix) =>
+    suffix === 1 ? branchName : `${branchName}-${suffix}`
+  );
+  const freeBranchName = yield* Effect.findFirst(candidates, (candidate) =>
+    Effect.map(isBranchTaken(worktreeDependencies, worktreePath, candidate), (isTaken) => !isTaken)
+  );
+
+  return yield* Effect.fromResult(
+    Result.fromOption(freeBranchName, () =>
+      BranchRenameFailedError.make({gitError: `${branchName} and its numbered names are taken`})
+    )
+  );
+});
+
+const hasUpstream = Effect.fn("WorktreeInfraService.hasUpstream")(function* (
+  worktreeDependencies: WorktreeDependencies,
+  worktreePath: ProjectPathValueObject
+) {
+  const upstreamCheck = yield* Effect.result(
+    runGitCommand(worktreeDependencies, worktreePath, [
       "rev-parse",
-      "--verify",
-      "--quiet",
-      `refs/heads/${worktree.branchName}`
+      "--abbrev-ref",
+      "--symbolic-full-name",
+      "@{upstream}"
     ])
   );
 
-  return isFolderTaken || Result.isSuccess(branchCheck);
+  return Result.isSuccess(upstreamCheck);
 });
+
+// Two small reads and no git process, since a session's row reads its branch on every redraw.
+const readBranchName = Effect.fn("WorktreeInfraService.readBranchName")(
+  function* (worktreeDependencies: WorktreeDependencies, worktreePath: ProjectPathValueObject) {
+    const gitFile = yield* worktreeDependencies.fileSystem.readFileString(
+      worktreeDependencies.path.join(worktreePath, ".git")
+    );
+    const gitDirectoryPath = String.trim(String.replace(GIT_COMMAND.GITDIR_PREFIX, "")(String.trim(gitFile)));
+    const headFile = yield* worktreeDependencies.fileSystem.readFileString(
+      worktreeDependencies.path.resolve(worktreePath, gitDirectoryPath, GIT_COMMAND.HEAD_FILE_NAME)
+    );
+    const head = String.trim(headFile);
+
+    return String.startsWith(GIT_COMMAND.HEAD_REF_PREFIX)(head)
+      ? String.slice(GIT_COMMAND.HEAD_REF_PREFIX.length)(head)
+      : String.slice(0, GIT_COMMAND.SHORT_HASH_LENGTH)(head);
+  },
+  Effect.mapError(() => NotGitRepositoryError.make())
+);
+
+const renameBranch = Effect.fn("WorktreeInfraService.renameBranch")(
+  function* (worktreeDependencies: WorktreeDependencies, worktreePath: ProjectPathValueObject, branchName: string) {
+    yield* runGitCommand(worktreeDependencies, worktreePath, ["branch", "-m", branchName]);
+  },
+  Effect.catchTag("GitCommandFailedError", (gitCommandFailed) =>
+    Effect.fail(BranchRenameFailedError.make({gitError: gitCommandFailed.gitError}))
+  )
+);
 
 const findFreeWorktree = Effect.fn("WorktreeInfraService.findFreeWorktree")(function* (
   worktreeDependencies: WorktreeDependencies,
@@ -243,7 +317,13 @@ const makeWorktreeInfraService = Effect.fn("WorktreeInfraService.make")(function
       copyIncludedFiles(worktreeDependencies, copyIncludedFilesRequest),
     createWorktree: (createWorktreeRequest: CreateWorktreeRequest) =>
       createWorktree(worktreeDependencies, createWorktreeRequest),
-    listWorktrees: (projectPath: ProjectPathValueObject) => listWorktrees(worktreeDependencies, projectPath)
+    findFreeBranchName: (worktreePath: ProjectPathValueObject, branchName: string) =>
+      findFreeBranchName(worktreeDependencies, worktreePath, branchName),
+    hasUpstream: (worktreePath: ProjectPathValueObject) => hasUpstream(worktreeDependencies, worktreePath),
+    listWorktrees: (projectPath: ProjectPathValueObject) => listWorktrees(worktreeDependencies, projectPath),
+    readBranchName: (worktreePath: ProjectPathValueObject) => readBranchName(worktreeDependencies, worktreePath),
+    renameBranch: (worktreePath: ProjectPathValueObject, branchName: string) =>
+      renameBranch(worktreeDependencies, worktreePath, branchName)
   };
 });
 

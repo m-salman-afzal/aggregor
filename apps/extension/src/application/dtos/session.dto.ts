@@ -11,6 +11,7 @@ import {Schema} from "effect";
 // The wait kind and progress exist only at the agent's turn; no agent name or icon means it left the settings.
 export const SessionListItemDtoSchema = Schema.Struct({
   agentName: Schema.optional(Schema.String),
+  branchName: Schema.optional(Schema.String),
   canMoveDown: Schema.Boolean,
   canMoveUp: Schema.Boolean,
   displayName: Schema.String,
@@ -108,6 +109,13 @@ export const RenameSessionRequestDtoSchema = Schema.Struct({
 });
 
 export type RenameSessionRequestDto = typeof RenameSessionRequestDtoSchema.Type;
+
+export const RenameSessionBranchRequestDtoSchema = Schema.Struct({
+  branchName: Schema.NonEmptyString,
+  sessionId: EntityIdValueObjectSchema
+});
+
+export type RenameSessionBranchRequestDto = typeof RenameSessionBranchRequestDtoSchema.Type;
 
 export const MoveSessionUpRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
 

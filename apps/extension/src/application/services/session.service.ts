@@ -12,9 +12,11 @@ import {
   findEntityIdsToPlaceAtEnd
 } from "@domainServices/sortOrder.domainService.ts";
 import {
+  getTitledBranchName,
   getWorktreeBranchName,
   getWorktreeName,
-  getWorktreesFolderName
+  getWorktreesFolderName,
+  hasWorktreeBranchFirstName
 } from "@domainServices/worktree.domainService.ts";
 import {
   ProjectSessionsDtoSchema,
@@ -58,6 +60,7 @@ import type {
   NewSessionRequestDto,
   OpenSessionRequestDto,
   RemoveSessionRequestDto,
+  RenameSessionBranchRequestDto,
   RenameSessionRequestDto,
   SessionListChangeDto,
   StopArchivedProjectSessionAgentsRequestDto,
@@ -79,6 +82,11 @@ interface NewSessionDraft {
   readonly sessionAgent: AgentEntity;
   readonly sessionName: string;
 }
+
+export class SessionNotInWorktreeError extends Schema.TaggedError<
+  SessionNotInWorktreeError,
+  {readonly brand: unique symbol}
+>()("SessionNotInWorktreeError", {}) {}
 
 export class WorktreeNotFoundError extends Schema.TaggedError<WorktreeNotFoundError, {readonly brand: unique symbol}>()(
   "WorktreeNotFoundError",
@@ -319,6 +327,21 @@ export const unarchiveSession = Effect.fn("SessionService.unarchiveSession")(
   Effect.catchTags({EntityNotFoundError: () => Effect.void, SessionNotFoundError: () => Effect.void})
 );
 
+// The rename writes nothing of the session's, so touching its row is what makes the change feed redraw it.
+export const renameSessionBranch = Effect.fn("SessionService.renameSessionBranch")(
+  function* (request: RenameSessionBranchRequestDto) {
+    const session = yield* findSession(request.sessionId);
+    const worktreePath = session.worktreePath;
+    if (worktreePath === undefined) return yield* SessionNotInWorktreeError.make();
+    yield* IWorktreeInfraService.use((worktreeInfraService) =>
+      worktreeInfraService.renameBranch(worktreePath, String.trim(request.branchName))
+    );
+
+    return yield* updateEntity(ISessionRepository, session.id, {});
+  },
+  Effect.catchTags({EntityNotFoundError: () => Effect.void, SessionNotFoundError: () => Effect.void})
+);
+
 export const renameSession = Effect.fn("SessionService.renameSession")(
   function* (request: RenameSessionRequestDto) {
     const trimmedName = String.trim(request.customName);
@@ -385,6 +408,16 @@ const findSessionMoves = Effect.fn("SessionService.findSessionMoves")(function* 
   };
 });
 
+const findSessionBranchFields = Effect.fn("SessionService.findSessionBranchFields")(function* (session: SessionEntity) {
+  const worktreePath = session.worktreePath;
+  if (worktreePath === undefined) return {};
+  const branchNameResult = yield* Effect.result(
+    IWorktreeInfraService.use((worktreeInfraService) => worktreeInfraService.readBranchName(worktreePath))
+  );
+
+  return Result.match(branchNameResult, {onFailure: () => ({}), onSuccess: (branchName) => ({branchName})});
+});
+
 const findSessionAgentFields = Effect.fn("SessionService.findSessionAgentFields")(function* (session: SessionEntity) {
   const agentResult = yield* Effect.result(findSessionAgent(session));
 
@@ -410,6 +443,7 @@ const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function
   return SessionListItemDtoSchema.make({
     ...(yield* findSessionMoves(session, orderedSessions)),
     ...(yield* findSessionAgentFields(session)),
+    ...(yield* findSessionBranchFields(session)),
     displayName: session.displayName,
     isAgentRunning: runningSessionIds.has(session.id),
     isArchived: session.lifecycle === SESSION_LIFECYCLES.ARCHIVED,
@@ -635,9 +669,26 @@ const findSessionTitleToSave = Effect.fn("SessionService.findSessionTitleToSave"
   return yield* getSessionTitleToSave(session, sessionAgent, path.basename(session.projectPath));
 });
 
-// Nothing shows the failure: no command started this, so it is logged.
+// Only a branch with the name Aggregor gave it, never pushed, takes the title, so this renames it once.
+const renameBranchAfterTitle = Effect.fn("SessionService.renameBranchAfterTitle")(
+  function* (worktreePath: ProjectPathValueObject, sessionTitle: string) {
+    const worktreeInfraService = yield* IWorktreeInfraService;
+    const path = yield* Path;
+    const branchName = yield* worktreeInfraService.readBranchName(worktreePath);
+    const hasFirstName = yield* hasWorktreeBranchFirstName(branchName, path.basename(worktreePath));
+    if (!hasFirstName || (yield* worktreeInfraService.hasUpstream(worktreePath))) return;
+    const titledBranchName = yield* getTitledBranchName(sessionTitle);
+    const freeBranchName = yield* worktreeInfraService.findFreeBranchName(worktreePath, titledBranchName);
+
+    yield* worktreeInfraService.renameBranch(worktreePath, freeBranchName);
+  },
+  Effect.catch((renameError) => Effect.logWarning("Could not name the session's branch after its title", renameError))
+);
+
+// Nothing shows the failure: no command started this, so it is logged; the branch goes first, so one redraw shows both.
 const saveSessionTitle = Effect.fn("SessionService.saveSessionTitle")(
   function* (session: SessionEntity, sessionTitle: string) {
+    if (session.worktreePath !== undefined) yield* renameBranchAfterTitle(session.worktreePath, sessionTitle);
     yield* updateEntity(ISessionRepository, session.id, {name: sessionTitle});
   },
   Effect.catchTag("EntityNotFoundError", () => Effect.void),

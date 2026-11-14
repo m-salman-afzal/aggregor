@@ -11,6 +11,7 @@ import {
   CircleStopIcon,
   FolderMinusIcon,
   FolderPlusIcon,
+  GitBranchIcon,
   PencilIcon,
   PlusIcon,
   SettingsIcon,
@@ -114,6 +115,7 @@ export const ROW_ACTIONS = {
     label: "Remove Project"
   },
   REMOVE_SESSION: {commandId: SESSION_COMMANDS.REMOVE, icon: Trash2Icon, isDestructive: true, label: "Remove"},
+  RENAME_BRANCH: {commandId: SESSION_COMMANDS.RENAME_BRANCH, icon: GitBranchIcon, label: "Rename Branch…"},
   RENAME_SESSION: {commandId: SESSION_COMMANDS.RENAME, icon: PencilIcon, label: "Rename"},
   STOP_AGENT: {commandId: SESSION_COMMANDS.STOP_AGENT, icon: CircleStopIcon, label: "Stop Agent"},
   STOP_ARCHIVED_AGENTS: {

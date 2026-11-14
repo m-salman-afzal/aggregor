@@ -36,3 +36,29 @@ Where a session works: its project's root, or a git worktree of its own.
   only repositories open in Source Control, so every project would have to be opened there to list or create its
   worktrees. Worktrees beside the repository or inside it (`.worktrees/`, which needs a `.gitignore` entry). The
   repository's default branch as the base.
+
+## A worktree's branch takes the session's first title, and its menu renames it
+
+- **Problem:** a new worktree's branch is named after the session's default name (`aggregor/jstester-8`), which says
+  nothing about the work, and the user wants to rename it or have it follow the title.
+- **Decision:** when the agent gives the session its first title, the title sync renames the branch to
+  `aggregor/<title>` (lowercase, words joined by `-`, at most 50 characters cut at a word, numbered when taken), but
+  only while it still has its first name (`aggregor/<its worktree folder>`) and was never pushed (no upstream), so it
+  happens once and never to a linked worktree's branch or one renamed by hand. The folder keeps its name, since the
+  agent works in it. Rename Branch, in a worktree session's menu, renames whatever branch the worktree has checked out
+  to the name typed; git refuses a bad or taken name and its message is shown; a pushed branch may be renamed too. The
+  row's second line shows the branch after the agent's icon, under a git-branch icon, or a short commit hash when the
+  worktree is detached. Rename Session leaves the branch alone.
+- **Solution:** the branch name is never stored: each draw of a row reads the worktree's `.git` file and the `HEAD` it
+  points to, two small reads and no git process, so a branch the agent switches to shows on its next redraw. The title
+  sync renames the branch before it saves the name, so one write redraws both. Rename Branch writes nothing of the
+  session's, so it touches the row (`updatedAt`), and the change feed redraws it. `IWorktreeInfraService` gained
+  `readBranchName`, `hasUpstream`, `findFreeBranchName` and `renameBranch` (`git branch -m`). Explainer:
+  [Aggregor Titles and Branches](https://claude.ai/artifact/25cQsgG1j3EHJRmCAW2qpZ), a 30-second film of a title's way
+  from the agent's tab through `aggregor-pty`, SQLite and the change feed to the title sync, the branch and the row, and
+  of a rename by hand.
+- **Alternatives considered:** storing the branch on the session's row, which can disagree with git once the agent or
+  the user changes it (T3 Code's known bug); a stream of renamed branches from the worktree service in place of the
+  touch, more machinery for the same redraw; renaming the folder too, which moves the agent's working folder from under
+  it; a temporary hashed name renamed by an LLM in the background (T3 Code); telling the agent to rename its branch
+  (Conductor).

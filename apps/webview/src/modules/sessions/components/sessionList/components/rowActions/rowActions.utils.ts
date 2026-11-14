@@ -154,6 +154,21 @@ const renameSessionAsking = (askingContext: AskingContext, commandArgument: RowC
   });
 };
 
+const renameBranchAsking = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
+  const sessionListItem = findSessionListItem(askingContext, commandArgument.sessionId);
+  if (sessionListItem === undefined) return;
+
+  askingContext.showUserInput({
+    _tag: USER_INPUT_TAGS.TEXT,
+    onEnterText: (enteredText) => {
+      if (enteredText.trim() === "") return;
+      runCommandOnHost(SESSION_COMMANDS.RENAME_BRANCH, {branchName: enteredText, sessionId: sessionListItem.sessionId});
+    },
+    title: SESSION_LABELS.RENAME_BRANCH,
+    value: sessionListItem.branchName ?? ""
+  });
+};
+
 const editProjectSettings = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
   const projectListItem = askingContext.projectRows
     .map((projectRow) => projectRow.projectListItem)
@@ -215,6 +230,9 @@ const askingActions: Partial<Record<RowAction["commandId"], AskingAction>> = {
   },
   [SESSION_COMMANDS.RENAME]: (askingContext, _rowAction, commandArgument) => {
     renameSessionAsking(askingContext, commandArgument);
+  },
+  [SESSION_COMMANDS.RENAME_BRANCH]: (askingContext, _rowAction, commandArgument) => {
+    renameBranchAsking(askingContext, commandArgument);
   },
   [SESSION_COMMANDS.STOP_AGENT]: stopAgentsAsking,
   [SESSION_COMMANDS.STOP_ARCHIVED_AGENTS]: stopAgentsAsking,

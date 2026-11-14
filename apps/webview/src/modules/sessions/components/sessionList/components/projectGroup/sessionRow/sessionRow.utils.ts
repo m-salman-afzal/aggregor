@@ -11,7 +11,11 @@ export const listSessionActionGroups = (sessionListItem: SessionListItemDto) =>
       sessionListItem.canMoveDown && ROW_ACTIONS.MOVE_SESSION_DOWN
     ],
     [sessionListItem.isAgentRunning && ROW_ACTIONS.STOP_AGENT],
-    [ROW_ACTIONS.RENAME_SESSION, ROW_ACTIONS.REMOVE_SESSION]
+    [
+      ROW_ACTIONS.RENAME_SESSION,
+      sessionListItem.worktreePath !== undefined && ROW_ACTIONS.RENAME_BRANCH,
+      ROW_ACTIONS.REMOVE_SESSION
+    ]
   ]);
 
 export const listSessionInlineActions = (sessionListItem: SessionListItemDto) => [
