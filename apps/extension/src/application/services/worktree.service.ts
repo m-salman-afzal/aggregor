@@ -1,6 +1,7 @@
 import {ProjectBranchesDtoSchema, ProjectLeftoversDtoSchema} from "@dtos/worktree.dto.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
+import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
 import {findEntities, findEntityById, removeEntity, updateEntity} from "@services/base.service.ts";
@@ -162,6 +163,9 @@ const removeLeftoverWorktree = Effect.fn("WorktreeService.removeLeftoverWorktree
     )
   );
   if (Result.isFailure(removeResult)) return [worktreeName];
+  yield* ITerminalInfraService.use((terminalInfraService) =>
+    terminalInfraService.closeFolderTerminal(leftoverWorktree.worktreePath)
+  );
   const worktreeSessions = yield* findEntities(ISessionRepository, {worktreePath: leftoverWorktree.worktreePath});
   yield* Effect.forEach(worktreeSessions, (worktreeSession) => removeEntity(ISessionRepository, worktreeSession.id));
   const keptNames: readonly string[] = [];
@@ -232,6 +236,7 @@ export const removeSessionWorktree = Effect.fn("WorktreeService.removeSessionWor
     if (!(yield* worktreeInfraService.isMadeByAggregor(worktreePath, sessionProject.settings.worktreeFolder))) return;
 
     yield* worktreeInfraService.removeWorktree(sessionProject.path, worktreePath);
+    yield* ITerminalInfraService.use((terminalInfraService) => terminalInfraService.closeFolderTerminal(worktreePath));
   },
   Effect.catchTag("EntityNotFoundError", () => Effect.void)
 );

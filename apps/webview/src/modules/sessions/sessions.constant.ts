@@ -1,5 +1,6 @@
 import {APP_COMMANDS, APP_LABELS} from "@pkg/constants/src/app.constant.ts";
 import {LEFTOVER_LABELS, WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
+import {GITHUB_CLI_COMMANDS} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {PROJECT_COMMANDS, PROJECT_LABELS} from "@pkg/constants/src/project.constant.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {SESSION_LISTS, SESSIONS_WEBVIEW} from "@pkg/constants/src/sessionsView.constant.ts";
@@ -14,6 +15,7 @@ import {
   FolderMinusIcon,
   FolderPlusIcon,
   GitBranchIcon,
+  GitPullRequestIcon,
   PencilIcon,
   PlusIcon,
   SettingsIcon,
@@ -108,8 +110,22 @@ export const ROW_ACTIONS = {
     icon: PlusIcon,
     label: "New Session…"
   },
+  OPEN_PROJECT_TERMINAL: {
+    commandId: TERMINAL_COMMANDS.OPEN_PROJECT_TERMINAL,
+    icon: SquareTerminalIcon,
+    label: "Open Terminal"
+  },
+  OPEN_PULL_REQUEST: {
+    commandId: GITHUB_CLI_COMMANDS.OPEN_SESSION_PULL_REQUEST,
+    icon: GitPullRequestIcon,
+    label: "Open Pull Request"
+  },
+  OPEN_SESSION_FOLDER_TERMINAL: {
+    commandId: TERMINAL_COMMANDS.OPEN_SESSION_FOLDER_TERMINAL,
+    icon: SquareTerminalIcon,
+    label: "Open Terminal"
+  },
   OPEN_SETTINGS: {commandId: APP_COMMANDS.OPEN_SETTINGS, icon: SettingsIcon, label: APP_LABELS.OPEN_SETTINGS},
-  OPEN_TERMINAL: {commandId: TERMINAL_COMMANDS.OPEN_PROJECT_TERMINAL, icon: SquareTerminalIcon, label: "Open Terminal"},
   PROJECT_SETTINGS: {
     commandId: PROJECT_COMMANDS.SAVE_SETTINGS,
     icon: SlidersHorizontalIcon,

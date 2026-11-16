@@ -55,6 +55,10 @@
   --color-status-working: var(--status-working);
   --color-diff-added: var(--diff-added);
   --color-diff-deleted: var(--diff-deleted);
+  --color-pull-request-closed: var(--pull-request-closed);
+  --color-pull-request-draft: var(--pull-request-draft);
+  --color-pull-request-merged: var(--pull-request-merged);
+  --color-pull-request-open: var(--pull-request-open);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -101,6 +105,11 @@
   /* Source Control's own colours for added and deleted files. */
   --diff-added: var(--vscode-gitDecoration-addedResourceForeground);
   --diff-deleted: var(--vscode-gitDecoration-deletedResourceForeground);
+  /* GitHub's own hues for a pull request's state, from the theme's terminal palette. */
+  --pull-request-closed: var(--vscode-terminal-ansiRed);
+  --pull-request-draft: var(--vscode-descriptionForeground);
+  --pull-request-merged: var(--vscode-terminal-ansiMagenta);
+  --pull-request-open: var(--vscode-terminal-ansiGreen);
 }
 
 /* The two colours keep their hue but are held to a lightness that shows against the theme kind's background. */

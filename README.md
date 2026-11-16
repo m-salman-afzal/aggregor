@@ -48,14 +48,17 @@ terminals, tree views, Source Control and diffs.
   settings adds a CLI, changes a built-in's name, command, arguments, environment variables (`env`) or icon, or hides
   one with `null`; the gear on the Sessions title opens Aggregor's settings. A session's tab shows the same name as its
   row, whose second line shows the agent's icon, and the session in front stays marked in the view.
-- **Terminals.** The Terminal panel's + opens in the shown project without asking. Each project has one terminal of its
-  own, opened from its row's terminal button, and when the window switches project the panel switches to that project's
-  terminal, as long as the panel showed another project's terminal.
+- **Terminals.** The Terminal panel's + opens in the shown project without asking. Each project, and each worktree a
+  session works in, has one terminal of its own, opened from the terminal button on the project's or the session's row,
+  and when the window switches session the panel switches to that session's worktree's terminal, or its project's, as
+  long as the panel showed another folder's terminal. Removing a worktree closes its terminal.
 - **Persistent sessions.** Every agent runs in tmux (3.2 or newer), so it keeps working when you close its tab, reload
   the window or quit VS Code; those close the tab, and clicking the session attaches a new one. An agent that has
   stopped shows exited, and clicking it resumes the conversation; one that was running when the computer restarted shows
   interrupted, with a restart icon, until it is resumed. Every window that lists a project shows its sessions. The row's
-  … menu removes a session and stops its agent.
+  … menu removes a session and stops its agent. When memory runs out on Linux, agents are killed before VS Code; with
+  systemd, each agent runs in a cgroup of its own, so only that session goes, and `aggregorApp.sessionMemoryLimit` caps
+  each one.
 - **Session titles.** Each tab and row shows the title the agent gives its terminal, as it changes (for Claude, its own
   title for the conversation or the one set with `/rename`); a closed session keeps the last one. Rename in the row's …
   menu gives a session your own name in the row and the tab; an empty name hands both back to the agent.
@@ -72,6 +75,11 @@ terminals, tree views, Source Control and diffs.
   forward is the one that sent it (`notify-send` on Linux; a PowerShell toast from WSL and `osascript` on macOS, both
   untested). The Sessions icon's badge counts the sessions waiting on you, and hovering it lists them; the Sessions and
   Archive titles show how many of them each list holds.
+- **Pull requests.** A worktree session's row shows its branch's pull request, `#123` coloured by whether it is open, a
+  draft, merged or closed, as the GitHub CLI (`gh`) finds it, looked up again when the window regains focus and when the
+  session's turn ends. Clicking it, or Open Pull Request in the row's … menu, opens it in the browser, or in the GitHub
+  Pull Requests extension with `aggregorApp.openPullRequestIn` set to `vscode`. Without `gh`, or signed out, a
+  notification offers to run the install command for the system's package manager, or `gh auth login`, in a terminal.
 - **AI commit messages.** A Source Control button writes the commit message for the staged diff.
 - **Trace logging.** `aggregorApp.traceLogging` writes every step Aggregor runs, with the fields of every error it
   meets, to the **Aggregor App** output channel and its log file, to attach to a bug report.
@@ -107,7 +115,8 @@ solution and what was turned down.
       project's cleanup deletes the leftover worktrees and the branches you pick, merged ones first
 - [x] Changed files and lines on each worktree session's row
 - [ ] Bookmarks
-- [ ] Create/Link a pull request from a session
+- [x] A session's pull request on its row, from the GitHub CLI
+- [ ] Create a pull request from a session
 
 ### M4: SSH
 

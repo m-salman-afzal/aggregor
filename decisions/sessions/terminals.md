@@ -93,6 +93,33 @@ Where a session's agent runs, its tab, and resuming it.
   - Bundling tmux in the VSIX: it means shipping and patching tmux, and macOS has no fully static build. The README's M5
     plans to bundle it after all, with libevent and ncurses linked in.
 
+## Each agent runs in a systemd scope of its own, and goes first when memory runs out
+
+- **Problem:** the tmux server stays in the cgroup of the process that starts it, the first session tab, which is VS
+  Code's (`app-com.microsoft.VSCode-‹pid›.scope`). Every agent and everything it started counted as VS Code's memory,
+  and systemd-oomd kills a whole cgroup: one agent's runaway dev server killed VS Code, tmux and every other agent.
+- **Decision:** on Linux with a systemd user manager, a session's tab runs
+  `systemd-run --user --scope --quiet --collect -- tmux …`, so the tmux server lands in a scope of its own, and inside
+  tmux each agent runs as `systemd-run … -- aggregor-pty …`, its setup script included, in a scope of its own. An
+  out-of-memory kill then takes that one session. `aggregorApp.sessionMemoryLimit` (empty by default) sets the scope's
+  `MemoryMax`, a size such as `8G` or a share such as `25%`, read when an agent starts; over it, the kernel kills that
+  session alone. The scopes are named by systemd, so a leftover scope never blocks a start. On every Linux, systemd or
+  not (WSL without systemd, a container), `aggregor-pty` raises its own `oom_score_adj` to 500 before it starts the
+  agent, which passes it on to everything it starts, so the kernel's out-of-memory killer picks them before VS Code's
+  processes, which run at 200 to 300. macOS needs neither: tmux runs detached from VS Code, and macOS never kills a
+  group of processes together.
+- **Solution:** `TmuxInfraService` probes `systemd-run --user --scope -- true` once at start and annotates its span with
+  `canRunInOwnScope`; when it fails (macOS, WSL without systemd, a container) sessions start as before. A tmux server
+  already running keeps its cgroup until it next starts. The setting is checked against a pattern in `package.json` and
+  in `SessionSettings`, so an invalid value fails the start with the settings error instead of an agent that exits.
+- **Alternatives considered:** moving only the tmux server out of VS Code's cgroup, which leaves every agent in one, so
+  one agent's OOM still kills them all; a scope named by the session's id, which fails to start while an earlier one
+  lives on through a leftover child; moving a running server with systemd's `AttachProcesses`, more code for a state
+  that ends with the next restart; `MemoryHigh`, which throttles instead of killing and leaves the machine slow. A
+  watchdog in `aggregor-pty` that adds up the agent's processes' memory and stops them over the limit, the only cap for
+  macOS, WSL without systemd and containers: a fair amount of Rust for platforms nobody runs yet. A one-time hint in WSL
+  without systemd to set `[boot] systemd=true` in `/etc/wsl.conf`: the trace's `canRunInOwnScope=false` says it already.
+
 ## Codex resumes its own conversation by id
 
 - **Problem:** Codex can't start a conversation under an id we give it, and plain `codex resume` opens a picker of the

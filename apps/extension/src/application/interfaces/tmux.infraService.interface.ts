@@ -9,6 +9,7 @@ import type {Effect, Stream, SubscriptionRef} from "effect";
 export interface SessionTabCommandRequest {
   readonly launchPlan: LaunchPlanValueObject;
   readonly sessionId: EntityIdValueObject;
+  readonly sessionMemoryLimit: string | undefined;
   readonly setupScript?: string | undefined;
   readonly workingFolderPath: ProjectPathValueObject;
 }

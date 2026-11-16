@@ -11,6 +11,7 @@ export const listSessionActionGroups = (sessionListItem: SessionListItemDto) =>
       sessionListItem.canMoveDown && ROW_ACTIONS.MOVE_SESSION_DOWN
     ],
     [sessionListItem.isAgentRunning && ROW_ACTIONS.STOP_AGENT],
+    [sessionListItem.pullRequest !== undefined && ROW_ACTIONS.OPEN_PULL_REQUEST],
     [
       ROW_ACTIONS.RENAME_SESSION,
       sessionListItem.worktreePath !== undefined && ROW_ACTIONS.RENAME_BRANCH,
@@ -18,9 +19,10 @@ export const listSessionActionGroups = (sessionListItem: SessionListItemDto) =>
     ]
   ]);
 
-export const listSessionInlineActions = (sessionListItem: SessionListItemDto) => [
-  sessionListItem.isArchived ? ROW_ACTIONS.UNARCHIVE : ROW_ACTIONS.ARCHIVE
-];
+export const listSessionInlineActions = (sessionListItem: SessionListItemDto) =>
+  sessionListItem.isArchived
+    ? [ROW_ACTIONS.UNARCHIVE]
+    : [ROW_ACTIONS.OPEN_SESSION_FOLDER_TERMINAL, ROW_ACTIONS.ARCHIVE];
 
 const getStatusLabel = (sessionListItem: SessionListItemDto) =>
   sessionListItem.statusKind === undefined
