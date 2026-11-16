@@ -75,6 +75,11 @@ terminals, tree views, Source Control and diffs.
   forward is the one that sent it (`notify-send` on Linux; a PowerShell toast from WSL and `osascript` on macOS, both
   untested). The Sessions icon's badge counts the sessions waiting on you, and hovering it lists them; the Sessions and
   Archive titles show how many of them each list holds.
+- **Pull requests.** A worktree session's row shows its branch's pull request, `#123` coloured by whether it is open, a
+  draft, merged or closed, as the GitHub CLI (`gh`) finds it, looked up again when the window regains focus and when the
+  session's turn ends. Clicking it, or Open Pull Request in the row's … menu, opens it in the browser, or in the GitHub
+  Pull Requests extension with `aggregorApp.openPullRequestIn` set to `vscode`. Without `gh`, or signed out, a
+  notification offers to run the install command for the system's package manager, or `gh auth login`, in a terminal.
 - **AI commit messages.** A Source Control button writes the commit message for the staged diff.
 - **Trace logging.** `aggregorApp.traceLogging` writes every step Aggregor runs, with the fields of every error it
   meets, to the **Aggregor App** output channel and its log file, to attach to a bug report.
@@ -110,7 +115,8 @@ solution and what was turned down.
       project's cleanup deletes the leftover worktrees and the branches you pick, merged ones first
 - [x] Changed files and lines on each worktree session's row
 - [ ] Bookmarks
-- [ ] Create/Link a pull request from a session
+- [x] A session's pull request on its row, from the GitHub CLI
+- [ ] Create a pull request from a session
 
 ### M4: SSH
 

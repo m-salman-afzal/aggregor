@@ -25,10 +25,15 @@ export const useNewSessionInput = (props: UseNewSessionInputProps) => {
   const archiveProjectRows = useSessionsStore({selectFromState: (sessionsState) => sessionsState.archiveProjectRows});
   const agentRows = useSessionsStore({selectFromState: (sessionsState) => sessionsState.agentRows});
   const skipAgentPicker = useSessionsStore({selectFromState: (sessionsState) => sessionsState.skipAgentPicker});
-  const [choices, setChoices] = useState<NewSessionChoices>(() =>
-    findDefaultChoices(props.chosenProjectPath, projectRows, agentRows)
-  );
+  const [choices, setChoices] = useState(() => findDefaultChoices(props.chosenProjectPath, projectRows, agentRows));
   const isAgentShown = isAgentChoiceShown(agentRows, skipAgentPicker);
+  const choose = (chosenParts: Partial<NewSessionChoices>) => {
+    chooseNewSessionParts(choices, chosenParts, setChoices);
+  };
+  const start = (formEvent: SubmitEvent<HTMLFormElement>) => {
+    formEvent.preventDefault();
+    props.onStart(makeNewSessionRequest(choices, isAgentShown ? choices.agentId : undefined));
+  };
 
   return {
     newWorktreesRootPath: findNewWorktreesRootPath(projectRows, choices),
@@ -37,16 +42,11 @@ export const useNewSessionInput = (props: UseNewSessionInputProps) => {
       allProjectRows: [...projectRows, ...archiveProjectRows],
       branches: props.branches,
       choices,
-      choose: (chosenParts) => {
-        chooseNewSessionParts(choices, chosenParts, setChoices);
-      },
+      choose,
       isAgentShown,
       isProjectShown: props.chosenProjectPath === undefined && projectRows.length > 1,
       projectRows
     }),
-    start: (formEvent: SubmitEvent<HTMLFormElement>) => {
-      formEvent.preventDefault();
-      props.onStart(makeNewSessionRequest(choices, isAgentShown ? choices.agentId : undefined));
-    }
+    start
   };
 };

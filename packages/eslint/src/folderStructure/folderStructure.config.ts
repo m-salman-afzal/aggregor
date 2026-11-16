@@ -84,6 +84,14 @@ const EFFECTS_LAST_BAN = {
     `:not(ExpressionStatement[expression.callee.name=${EFFECT_HOOKS}], ReturnStatement)`
 };
 
+const HOOK_RETURN_FUNCTION_BAN = {
+  message:
+    "A hook returns names, not functions: declare each handler it returns as a const above its return and return " +
+    "that const, so the return reads as the hook's whole surface at a glance and every handler has a name to find. " +
+    "Move this function above the return as `const <name> = …` and return `<name>`.",
+  selector: "ReturnStatement ObjectExpression > Property > :function"
+};
+
 const COMPONENT_DATA_IMPORT_PATTERN = {
   group: ["*.service.ts", "*.store.ts"],
   message: LOGIC_IN_COMPONENT_MESSAGE
@@ -136,6 +144,10 @@ export const FOLDER_STRUCTURE_CONFIGS: Config[] = [
         ...COMPONENT_LOGIC_BANS
       ]
     }
+  },
+  {
+    files: ["apps/webview/src/**/*.hook.ts"],
+    rules: {"no-restricted-syntax": ["error", ...GENERAL_SYNTAX_BANS, EFFECTS_LAST_BAN, HOOK_RETURN_FUNCTION_BAN]}
   },
   {
     files: ["apps/webview/src/**/*.constant.ts"],

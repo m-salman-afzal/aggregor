@@ -23,22 +23,25 @@ export const useLeftoverChecklist = (props: UseLeftoverChecklistProps) => {
     () => new Set(selectableRows.filter((leftoverRow) => leftoverRow.isMerged).map((leftoverRow) => leftoverRow.rowKey))
   );
   const areAllTicked = selectableRows.every((leftoverRow) => tickedRowKeys.has(leftoverRow.rowKey));
+  const deleteTicked = () => {
+    props.onDelete(takeChosenLeftovers(props.leftovers, tickedRowKeys));
+  };
+  const toggleAll = () => {
+    setTickedRowKeys(new Set(areAllTicked ? [] : selectableRows.map((leftoverRow) => leftoverRow.rowKey)));
+  };
+  const toggleRow = (rowKey: string) => {
+    setTickedRowKeys(toggleRowKey(tickedRowKeys, rowKey));
+  };
 
   return {
     areAllTicked,
     branchRows,
-    deleteTicked: () => {
-      props.onDelete(takeChosenLeftovers(props.leftovers, tickedRowKeys));
-    },
+    deleteTicked,
     isEmpty: worktreeRows.length + branchRows.length === 0,
     isNothingTicked: tickedRowKeys.size === 0,
     tickedRowKeys,
-    toggleAll: () => {
-      setTickedRowKeys(new Set(areAllTicked ? [] : selectableRows.map((leftoverRow) => leftoverRow.rowKey)));
-    },
-    toggleRow: (rowKey: string) => {
-      setTickedRowKeys(toggleRowKey(tickedRowKeys, rowKey));
-    },
+    toggleAll,
+    toggleRow,
     worktreeRows
   };
 };

@@ -115,6 +115,19 @@ What lint checks, where its setup lives, and how its messages read.
 - **Solution:** `no-restricted-syntax` in `folderStructure.config.ts` reports any statement after a hook's first effect
   other than another effect or the return.
 
+## A hook returns names, never functions written in its return
+
+- **Problem:** hooks wrote their handlers inline in the object they return, so the return mixed what the hook gives its
+  component with how each handler works, and a handler had no name of its own to find.
+- **Decision:** a hook declares each handler it returns as a `const` above its return, and the return lists names and
+  values only. A handler that only answers a store's state, as the user-input dialog's answers do, is a store action the
+  hook selects, so the hook holds no copy of that logic.
+- **Solution:** `no-restricted-syntax` in `folderStructure.config.ts`, for `*.hook.ts` files, reports a function written
+  as a property's value anywhere inside a returned object (`ReturnStatement ObjectExpression > Property > :function`). A
+  callback passed to a call in the return, such as `rows.map(…)`, is not a property's value and stays allowed.
+- **Alternatives considered:** handlers built by a helper and spread into the return (`makeFormAnswers`), which only
+  moved the inline functions out of sight.
+
 ## A `_tag` is a constant, never a string written in place
 
 - **Problem:** the Sessions view's messages and the agent picker's result wrote their tags as strings at the sender, in

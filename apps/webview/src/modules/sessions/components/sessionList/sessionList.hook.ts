@@ -22,18 +22,20 @@ export const useSessionList = (props: UseSessionListProps) => {
     selectFromState: (sessionsState) => sessionsState.waitingCounts[props.listId]
   });
   const setListOpen = useSessionsStore({selectFromState: (sessionsState) => sessionsState.setListOpen});
+  const addProject = () => {
+    runCommandOnHost(PROJECT_COMMANDS.ADD);
+  };
+  const setOpen = (isNowOpen: boolean) => {
+    setListOpen(props.listId, isNowOpen);
+  };
 
   return {
     actionGroups: LIST_ACTION_GROUPS[props.listId],
-    addProject: () => {
-      runCommandOnHost(PROJECT_COMMANDS.ADD);
-    },
+    addProject,
     inlineActions: LIST_INLINE_ACTIONS[props.listId],
     isOpen,
     projectRows,
-    setOpen: (isNowOpen: boolean) => {
-      setListOpen(props.listId, isNowOpen);
-    },
+    setOpen,
     title: isArchive ? SESSIONS_LABELS.ARCHIVE_TITLE : SESSIONS_LABELS.SESSIONS_TITLE,
     waitingCount
   };

@@ -53,19 +53,6 @@ export const takeEnteredText = (formEvent: SubmitEvent<HTMLFormElement>) => {
 };
 
 // The dialog closes before the answer runs, so an answer may open the next one.
-export const makeFormAnswers = (userInput: undefined | UserInput, closeUserInput: () => void) => ({
-  enterText: (formEvent: SubmitEvent<HTMLFormElement>) => {
-    const enteredText = takeEnteredText(formEvent);
-    closeUserInput();
-    if (userInput?._tag === USER_INPUT_TAGS.TEXT) userInput.onEnterText(enteredText);
-  },
-  saveSettings: (formEvent: SubmitEvent<HTMLFormElement>) => {
-    const settings = takeProjectSettings(formEvent);
-    closeUserInput();
-    if (userInput?._tag === USER_INPUT_TAGS.PROJECT_SETTINGS) userInput.onSave(settings);
-  }
-});
-
 export const describeUserInput = (userInput: undefined | UserInput) => ({
   isDestructive: userInput !== undefined && isDestructiveUserInput(userInput),
   UserInputIcon: userInput === undefined ? undefined : pickUserInputIcon(userInput)

@@ -1,6 +1,7 @@
 import {AGENT_COMMANDS} from "@pkg/constants/src/agent.constant.ts";
 import {APP_COMMANDS} from "@pkg/constants/src/app.constant.ts";
 import {WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
+import {GITHUB_CLI_COMMANDS} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {PROJECT_COMMANDS} from "@pkg/constants/src/project.constant.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {TERMINAL_COMMANDS} from "@pkg/constants/src/terminal.constant.ts";
@@ -51,6 +52,7 @@ export const SESSION_LISTS = {
 // The view runs no other command the webview asks for.
 export const SESSIONS_WEBVIEW_COMMANDS = [
   AGENT_COMMANDS.SET_DEFAULT,
+  GITHUB_CLI_COMMANDS.OPEN_SESSION_PULL_REQUEST,
   APP_COMMANDS.OPEN_SETTINGS,
   PROJECT_COMMANDS.ADD,
   PROJECT_COMMANDS.MOVE_DOWN,
@@ -138,6 +140,13 @@ export const STATUS_LABELS = {
   working: "working"
 } as const;
 
+export const PULL_REQUEST_STATE_LABELS = {
+  closed: "closed",
+  draft: "draft",
+  merged: "merged",
+  open: "open"
+} as const;
+
 export const STATUS_KIND_LABELS = {
   auth: "needs sign-in",
   permission: "needs permission",
@@ -151,5 +160,8 @@ export const VIEW_BADGE_LABELS = {
 export const SESSION_ROW_LABELS = {
   DIFF_STATS_TOOLTIP: (changedFileCount: number, insertionCount: number, deletionCount: number) =>
     `Since the base branch: files changed ${changedFileCount}, lines added ${insertionCount}, lines deleted ${deletionCount}`,
+  PULL_REQUEST: (pullRequestNumber: number) => `#${pullRequestNumber}`,
+  PULL_REQUEST_TOOLTIP: (pullRequestTitle: string, stateLabel: string) =>
+    `${pullRequestTitle} · ${stateLabel} · click to open`,
   TOOLTIP_HEADING: (sessionName: string, statusLabel: string) => `${sessionName} · ${statusLabel}`
 } as const;
