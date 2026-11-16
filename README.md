@@ -53,8 +53,9 @@ terminals, tree views, Source Control and diffs.
   terminal, as long as the panel showed another project's terminal.
 - **Persistent sessions.** Every agent runs in tmux (3.2 or newer), so it keeps working when you close its tab, reload
   the window or quit VS Code; those close the tab, and clicking the session attaches a new one. An agent that has
-  stopped, as after a reboot, shows exited, and clicking it resumes the conversation. Every window that lists a project
-  shows its sessions. The row's … menu removes a session and stops its agent.
+  stopped shows exited, and clicking it resumes the conversation; one that was running when the computer restarted shows
+  interrupted, with a restart icon, until it is resumed. Every window that lists a project shows its sessions. The row's
+  … menu removes a session and stops its agent.
 - **Session titles.** Each tab and row shows the title the agent gives its terminal, as it changes (for Claude, its own
   title for the conversation or the one set with `/rename`); a closed session keeps the last one. Rename in the row's …
   menu gives a session your own name in the row and the tab; an empty name hands both back to the agent.

@@ -203,7 +203,7 @@ apps/extension/src/
         session.entity.ts                  SessionEntity (BaseEntity and projectId, projectPath, name, customName,
                                            agentId, viewedAt, lifecycle, and aggregor-pty's status, statusKind,
                                            statusMessage, statusProgress, statusChangedAt, hasWorked, reportedTitle,
-                                           terminalTitle and agentSessionId, worktreePath; displayName, and
+                                           terminalTitle and agentSessionId, worktreePath, runState; displayName, and
                                            workingFolderPath: its worktree, or else its project's root)
         session.repository.interface.ts    ISessionRepository: the base calls
       project/
@@ -225,6 +225,7 @@ apps/extension/src/
                                            EntityChangeKindValueObject (literals: placed, updated, removed),
                                            ProjectSettingsValueObject (a project's settings, every key with its
                                            default), SessionWorkingTreeValueObject (literals: projectRoot, worktree),
+                                           SessionRunStateValueObject (literals: running, interrupted),
                                            PaginationValueObject (one page of a list: its size and the cursor it
                                            follows, its number, the total pages and rows, the rows before and after
                                            it, the next cursor)
@@ -255,7 +256,8 @@ apps/extension/src/
                                            getSessionListItem,
                                            watchSessionListChanges, watchViewedSessionIds, findViewedSessionId,
                                            listSessionsWaitingOnUser (the badge and each view's count);
-                                           startSessionTitleSync, startSessionTabNameSync, startViewedAtSync
+                                           startSessionTitleSync, startSessionTabNameSync, startViewedAtSync,
+                                           startRunStateSync
       agent.service.ts                     listAgents (the installed agents, the default first), setDefaultAgent,
                                            findAgentToStart; NoAgentInstalledError
       sessionAlert.service.ts              watchSessionAlerts: the states sessions out of view hold for 3 seconds,

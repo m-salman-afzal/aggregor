@@ -131,6 +131,7 @@ export const STATUS_LABELS = {
   error: "failed",
   exited: "exited",
   idle: "idle",
+  interrupted: "stopped by a restart · click to resume",
   working: "working"
 } as const;
 

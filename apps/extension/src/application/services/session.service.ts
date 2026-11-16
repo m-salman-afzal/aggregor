@@ -32,7 +32,7 @@ import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
-import {NEW_SESSION_WORKING_TREE_TAGS, SESSION_PAGES} from "@pkg/constants/src/session.constant.ts";
+import {NEW_SESSION_WORKING_TREE_TAGS, SESSION_PAGES, SESSION_RUN_STATE} from "@pkg/constants/src/session.constant.ts";
 import {findAgentToStart} from "@services/agent.service.ts";
 import {
   addEntity,
@@ -48,6 +48,7 @@ import {hasProjectLeftovers, removeSessionWorktree} from "@services/worktree.ser
 import {ENTITY_CHANGE_KINDS} from "@valueObjects/entityChangeKind.valueObject.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {SESSION_LIFECYCLES} from "@valueObjects/sessionLifecycle.valueObject.ts";
+import {SESSION_RUN_STATES} from "@valueObjects/sessionRunState.valueObject.ts";
 import {SESSION_STATUSES} from "@valueObjects/sessionStatus.valueObject.ts";
 import {Array, DateTime, Effect, Match, Predicate, Result, Schema, Stream, String, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
@@ -508,7 +509,7 @@ const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function
     sessionId: session.id,
     status,
     statusKind: status === SESSION_STATUSES.BLOCKED ? session.statusKind : undefined,
-    statusMessage: status === SESSION_STATUSES.EXITED ? undefined : session.statusMessage,
+    statusMessage: sessionStatus.isAgentRunning ? session.statusMessage : undefined,
     statusProgress: isTurnRunning ? session.statusProgress : undefined,
     worktreePath: session.worktreePath
   });
@@ -948,4 +949,65 @@ export const startViewedAtSync = Effect.fn("SessionService.startViewedAtSync")(f
   );
 
   yield* Effect.forkScoped(Stream.runForEach(enteringAndLeavingSessionIds, recordViewedAt));
+});
+
+const markSessionsRunning = Effect.fn("SessionService.markSessionsRunning")(
+  function* (runningSessionIds: ReadonlySet<EntityIdValueObject>) {
+    const storedSessions = yield* findEntities(ISessionRepository, {});
+    const newlyRunningSessions = Array.filter(
+      storedSessions,
+      (storedSession) =>
+        runningSessionIds.has(storedSession.id) && storedSession.runState !== SESSION_RUN_STATES.RUNNING
+    );
+
+    yield* Effect.forEach(newlyRunningSessions, (newlyRunningSession) =>
+      updateEntity(ISessionRepository, newlyRunningSession.id, {runState: SESSION_RUN_STATES.RUNNING})
+    );
+  },
+  Effect.catch((databaseError) => Effect.logWarning("Could not mark the running sessions", databaseError))
+);
+
+const clearStoppedRunStates = Effect.fn("SessionService.clearStoppedRunStates")(
+  function* () {
+    const tmuxInfraService = yield* ITmuxInfraService;
+    const runningSessionIds = yield* SubscriptionRef.get(tmuxInfraService.runningSessionIds);
+    const sessionsSeenRunning = yield* findEntities(ISessionRepository, {runState: SESSION_RUN_STATES.RUNNING});
+    const stoppedSessions = Array.filter(
+      sessionsSeenRunning,
+      (sessionSeenRunning) => !runningSessionIds.has(sessionSeenRunning.id)
+    );
+
+    yield* Effect.forEach(stoppedSessions, (stoppedSession) =>
+      updateEntity(ISessionRepository, stoppedSession.id, {runState: undefined})
+    );
+  },
+  Effect.catch((databaseError) => Effect.logWarning("Could not clear the stopped sessions' marks", databaseError))
+);
+
+// With no agent running as the window starts, the tmux server went away with them, as when the computer restarts.
+const markInterruptedSessions = Effect.fn("SessionService.markInterruptedSessions")(
+  function* (runningSessionIds: ReadonlySet<EntityIdValueObject>) {
+    if (runningSessionIds.size > 0) return;
+    const sessionsSeenRunning = yield* findEntities(ISessionRepository, {runState: SESSION_RUN_STATES.RUNNING});
+
+    yield* Effect.forEach(sessionsSeenRunning, (sessionSeenRunning) =>
+      updateEntity(ISessionRepository, sessionSeenRunning.id, {runState: SESSION_RUN_STATES.INTERRUPTED})
+    );
+  },
+  Effect.catch((databaseError) => Effect.logWarning("Could not mark the interrupted sessions", databaseError))
+);
+
+// aggregor-pty writes exited however its agent ends, a shutdown included, so the mark comes from what tmux runs.
+export const startRunStateSync = Effect.fn("SessionService.startRunStateSync")(function* () {
+  const tmuxInfraService = yield* ITmuxInfraService;
+  const runningSessionIdChanges = SubscriptionRef.changes(tmuxInfraService.runningSessionIds);
+  const startRunningSessionIds = yield* SubscriptionRef.get(tmuxInfraService.runningSessionIds);
+  yield* markInterruptedSessions(startRunningSessionIds);
+
+  yield* Effect.forkScoped(Stream.runForEach(runningSessionIdChanges, markSessionsRunning));
+  yield* Effect.forkScoped(
+    Stream.runForEach(Stream.debounce(runningSessionIdChanges, SESSION_RUN_STATE.STOP_SETTLE_INTERVAL), () =>
+      clearStoppedRunStates()
+    )
+  );
 });

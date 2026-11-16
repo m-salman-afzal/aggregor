@@ -23,6 +23,11 @@ export const SESSION_PAGES = {
   PAGE_SIZE: 10
 } as const;
 
+// An agent that stopped keeps its running mark this long, so one stopped by a shutdown, which ends VS Code too, keeps it.
+export const SESSION_RUN_STATE = {
+  STOP_SETTLE_INTERVAL: "10 seconds"
+} as const;
+
 // What a new session's request says about the working tree it runs in.
 export const NEW_SESSION_WORKING_TREE_TAGS = {
   EXISTING_WORKTREE: "ExistingWorktree",
