@@ -8,7 +8,6 @@ interface SessionDetailProps {
   readonly agentIconUri?: string | undefined;
   readonly agentLabel: string;
   readonly branchName?: string | undefined;
-  readonly detail: string;
   readonly diffStats?: SessionDiffStatsDto | undefined;
 }
 
@@ -30,6 +29,5 @@ export const SessionDetail = (props: SessionDetailProps) => (
     {props.diffStats !== undefined && props.diffStats.changedFileCount > 0 && (
       <SessionDiffStats diffStats={props.diffStats} />
     )}
-    {props.detail !== "" && <span className="truncate">{props.detail}</span>}
   </span>
 );

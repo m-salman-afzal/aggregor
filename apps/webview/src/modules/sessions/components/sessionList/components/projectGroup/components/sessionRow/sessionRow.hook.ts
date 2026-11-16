@@ -2,7 +2,7 @@ import {VIEWED_ROW} from "@/modules/sessions/components/sessionList/components/p
 import {
   listSessionActionGroups,
   listSessionInlineActions,
-  makeSessionDetail,
+  makeAgentActivity,
   makeSessionTooltip
 } from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/sessionRow.utils.ts";
 import {SESSIONS_LABELS} from "@/modules/sessions/sessions.constant.ts";
@@ -24,16 +24,15 @@ export const useSessionRow = (props: UseSessionRowProps) => {
 
   return {
     actionGroups: listSessionActionGroups(sessionListItem),
+    agentActivity: makeAgentActivity(sessionListItem),
     agentLabel: sessionListItem.agentName ?? SESSIONS_LABELS.MISSING_AGENT,
     commandArgument: {sessionId: sessionListItem.sessionId},
-    detail: makeSessionDetail(sessionListItem),
     inlineActions: listSessionInlineActions(sessionListItem),
     isViewed,
     openSession: () => {
       runCommandOnHost(SESSION_COMMANDS.OPEN, {sessionId: sessionListItem.sessionId});
     },
     rowClassName: isViewed ? VIEWED_ROW : undefined,
-    title: sessionListItem.displayName,
     tooltip: makeSessionTooltip(sessionListItem)
   };
 };

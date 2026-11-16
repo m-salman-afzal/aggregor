@@ -202,14 +202,26 @@ const hasUpstream = Effect.fn("WorktreeInfraService.hasUpstream")(function* (
 });
 
 // Two small reads and no git process, since a session's row reads its branch on every redraw.
+const findGitDirectoryPath = Effect.fn("WorktreeInfraService.findGitDirectoryPath")(function* (
+  worktreeDependencies: WorktreeDependencies,
+  checkoutPath: ProjectPathValueObject
+) {
+  const gitPath = worktreeDependencies.path.join(checkoutPath, GIT_COMMAND.GIT_PATH_NAME);
+  const gitPathInfo = yield* worktreeDependencies.fileSystem.stat(gitPath);
+  if (gitPathInfo.type === "Directory") return gitPath;
+  const gitFile = yield* worktreeDependencies.fileSystem.readFileString(gitPath);
+
+  return worktreeDependencies.path.resolve(
+    checkoutPath,
+    String.trim(String.replace(GIT_COMMAND.GITDIR_PREFIX, "")(String.trim(gitFile)))
+  );
+});
+
 const readBranchName = Effect.fn("WorktreeInfraService.readBranchName")(
   function* (worktreeDependencies: WorktreeDependencies, worktreePath: ProjectPathValueObject) {
-    const gitFile = yield* worktreeDependencies.fileSystem.readFileString(
-      worktreeDependencies.path.join(worktreePath, ".git")
-    );
-    const gitDirectoryPath = String.trim(String.replace(GIT_COMMAND.GITDIR_PREFIX, "")(String.trim(gitFile)));
+    const gitDirectoryPath = yield* findGitDirectoryPath(worktreeDependencies, worktreePath);
     const headFile = yield* worktreeDependencies.fileSystem.readFileString(
-      worktreeDependencies.path.resolve(worktreePath, gitDirectoryPath, GIT_COMMAND.HEAD_FILE_NAME)
+      worktreeDependencies.path.join(gitDirectoryPath, GIT_COMMAND.HEAD_FILE_NAME)
     );
     const head = String.trim(headFile);
 
