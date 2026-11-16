@@ -1,65 +1,46 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: [
-    // config:recommended (Dependency Dashboard issue, monorepo groups like effect and typescript-eslint, deprecated
-    // package replacements) plus config migration PRs, abandoned package warnings and weekly lock file maintenance.
     "config:best-practices",
     "schedule:weekly",
-    // Dependency bumps land as `build(deps): ...`, in the `deps` scope the PR Title check accepts. Forced on because
-    // auto-detection reads the latest commits, which on dev are mostly "Merge pull request" merges.
     ":semanticCommits",
     ":semanticCommitTypeAll(build)",
-    // All minor and patch bumps share one PR, as with Dependabot. Majors still get a PR each.
-    "group:allNonMajor"
+    "group:allNonMajor",
   ],
-  // Workflows reference actions by their version tag (`@v7`), not a commit SHA.
   ignorePresets: ["helpers:pinGitHubActionDigests"],
-  // schedule:weekly means early Monday morning, local time. Security fixes skip the schedule.
   timezone: "Asia/Karachi",
-  // Runs `pnpm dedupe` after each lockfile update, so older duplicate versions drop out where a newer one fits.
   postUpdateOptions: ["pnpmDedupe"],
-  // Also raise fix PRs for vulnerabilities in osv.dev, on top of GitHub's Dependabot alerts, and list the open ones on
-  // the dashboard.
   osvVulnerabilityAlerts: true,
-  dependencyDashboardOSVVulnerabilitySummary: "unresolved",
+  dependencyDashboard: {
+    osvVulnerabilitySummary: "unresolved",
+  },
   packageRules: [
     {
-      // Wait 1 day after a release before proposing it, matching pnpm's own minimumReleaseAge default, so compromised
-      // releases have time to be pulled. Covers every manager and replaces config:best-practices' 3 days for npm. Pins,
-      // digests and lock file maintenance are left out: they have no release date to age against.
       matchUpdateTypes: ["major", "minor", "patch"],
-      minimumReleaseAge: "1 day"
+      minimumReleaseAge: "1 day",
     },
     {
-      // husky is a finished shell shim with no release since Nov 2024, and portable-pty has none since Feb 2025 but is
-      // kept for native Windows; don't flag either as abandoned. Every other package still gets the 1-year abandonment
-      // warning from config:best-practices.
       matchDepNames: ["husky", "portable-pty"],
-      abandonmentThreshold: null
+      abandonmentThreshold: null,
     },
     {
-      // Workflow actions in one PR, majors included, with `ci` commits.
       groupName: "GitHub Actions",
       matchManagers: ["github-actions"],
-      semanticCommitType: "ci"
+      semanticCommitType: "ci",
     },
     {
-      // vsce refuses to package when @types/vscode is newer than engines.vscode, so the two move together. `bump` raises
-      // the ^ range even though the new release already satisfies it, which is what keeps the minimum VS Code current.
       groupName: "VS Code",
       matchDepNames: ["vscode", "@types/vscode"],
-      rangeStrategy: "bump"
+      rangeStrategy: "bump",
     },
     {
-      // VS Code patch releases add no API, so raising the minimum for them would only lock users out.
       matchDepNames: ["vscode"],
       matchUpdateTypes: ["patch"],
-      enabled: false
+      enabled: false,
     },
     {
-      // Drizzle publishes a build of each branch commit as `<version>-<hash>`, which semver ranks above the release.
       matchDepNames: ["drizzle-orm", "drizzle-kit"],
-      allowedVersions: "!/-[0-9a-f]{7}$/"
-    }
-  ]
+      allowedVersions: "!/-[0-9a-f]{7}$/",
+    },
+  ],
 }
