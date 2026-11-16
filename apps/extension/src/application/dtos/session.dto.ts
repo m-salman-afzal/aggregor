@@ -82,7 +82,8 @@ export const NewSessionRequestDtoSchema = Schema.Struct({
   projectPath: ProjectPathValueObjectSchema,
   workingTree: Schema.TaggedUnion({
     [NEW_SESSION_WORKING_TREE_TAGS.EXISTING_WORKTREE]: {worktreePath: ProjectPathValueObjectSchema},
-    [NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE]: {},
+    // Without a base branch, the worktree starts from the project's current commit.
+    [NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE]: {baseBranchName: Schema.optional(Schema.NonEmptyString)},
     [NEW_SESSION_WORKING_TREE_TAGS.PROJECT_ROOT]: {}
   })
 });

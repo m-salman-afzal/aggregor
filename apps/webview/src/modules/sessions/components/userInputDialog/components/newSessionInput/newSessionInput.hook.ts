@@ -1,4 +1,5 @@
 import {
+  chooseNewSessionParts,
   findDefaultChoices,
   findNewWorktreesRootPath,
   isAgentChoiceShown,
@@ -9,10 +10,12 @@ import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.stor
 import {useState} from "react";
 
 import type {NewSessionChoices} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.type.ts";
+import type {ProjectBranchesDto} from "@dtos/worktree.dto.ts";
 import type {CommandRequest} from "@views/sessions/sessions.view.type.ts";
 import type {SubmitEvent} from "react";
 
 interface UseNewSessionInputProps {
+  readonly branches: ProjectBranchesDto | undefined;
   readonly chosenProjectPath?: string | undefined;
   readonly onStart: (newSessionRequest: CommandRequest) => void;
 }
@@ -32,9 +35,10 @@ export const useNewSessionInput = (props: UseNewSessionInputProps) => {
     optionGroups: makeOptionGroups({
       agentRows,
       allProjectRows: [...projectRows, ...archiveProjectRows],
+      branches: props.branches,
       choices,
       choose: (chosenParts) => {
-        setChoices({...choices, ...chosenParts});
+        chooseNewSessionParts(choices, chosenParts, setChoices);
       },
       isAgentShown,
       isProjectShown: props.chosenProjectPath === undefined && projectRows.length > 1,
@@ -42,9 +46,7 @@ export const useNewSessionInput = (props: UseNewSessionInputProps) => {
     }),
     start: (formEvent: SubmitEvent<HTMLFormElement>) => {
       formEvent.preventDefault();
-      props.onStart(
-        makeNewSessionRequest(choices.projectPath, isAgentShown ? choices.agentId : undefined, choices.workingTree)
-      );
+      props.onStart(makeNewSessionRequest(choices, isAgentShown ? choices.agentId : undefined));
     }
   };
 };

@@ -23,15 +23,23 @@ Archiving sessions, and stopping or keeping their agents.
   project's archived sessions while its others stay hidden; redrawing one project's row, which misses a project row that
   arrives or goes.
 
-## Archiving never asks, and the agent keeps running
+## Archiving never asks, and only an agent mid-turn keeps running
 
-- **Problem:** archiving asked whether to keep a running agent or stop it, a question on the commonest action.
-- **Decision:** Archive, Archive Sessions and Archive All Sessions move the sessions to the Archive at once, whatever
-  their agents are doing: each agent runs on in tmux and finishes its turn, and its tab closes. Stop Agent in the
-  Archive stops it. Unarchive moves a session back, so nothing is lost by not asking.
-- **Solution:** `archiveSessionsKeepingAgents` in `session.service.ts`, for one session or many.
+- **Problem:** archiving asked whether to keep a running agent or stop it, a question on the commonest action; then,
+  with every agent kept, an idle one ran on in the Archive for nothing and held its worktree out of the project's
+  cleanup.
+- **Decision:** Archive, Archive Sessions and Archive All Sessions move the sessions to the Archive at once and close
+  their tabs. An agent mid-turn (working, or waiting on a permission, a question or a sign-in) runs on in tmux and
+  finishes its turn, and Stop Agent in the Archive stops it; every other running agent, idle, done, errored or
+  interrupted, stops. Opening an archived session starts its agent again, and Unarchive moves it back, so nothing is
+  lost by not asking.
+- **Solution:** `archiveSessions` in `session.service.ts`, for one session or many, reads each session's status before
+  it moves, with the rule the stop questions use (`isSessionTurnRunning`). An agent that finishes its turn in the
+  Archive keeps running until it is stopped.
 - **Alternatives considered:** asking whether to keep or stop a running agent, first so Enter kept it, which was built
-  and dropped as one question too many; asking only while a turn runs and stopping the agent, which cut turns short.
+  and dropped as one question too many; asking only while a turn runs and stopping the agent, which cut turns short;
+  keeping every agent running (the first version without the question), which left idle agents and their worktrees
+  behind; stopping an archived agent once its turn ends, which needs a watcher on the Archive.
 
 ## Agents stop from the session, project and list menus, asking only mid-turn
 
@@ -54,9 +62,8 @@ Archiving sessions, and stopping or keeping their agents.
 - **Decision:** Archive Sessions in a Sessions-list project row's … menu archives the project's sessions, and Archive
   All Sessions in the Sessions list's … menu archives every session it lists. Each sits under its Stop Agents item; the
   Archive has neither. Like a row's Archive, neither asks: every session is archived in its order, placed at the end of
-  the Archive together, and its tab closes while its agent runs on.
-- **Solution:** `aggregorApp.archiveProjectSessions` and `aggregorApp.archiveOngoingSessions`, over
-  `archiveSessionsKeepingAgents`.
+  the Archive together, and its tab closes, its agent stopping unless it is mid-turn.
+- **Solution:** `aggregorApp.archiveProjectSessions` and `aggregorApp.archiveOngoingSessions`, over `archiveSessions`.
 - **Alternatives considered:** Unarchive Sessions and Unarchive All Sessions in the Archive's menus too: left until they
   are missed. One question for them all, which was built and dropped with the row's question.
 

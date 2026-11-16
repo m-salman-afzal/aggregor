@@ -3,7 +3,7 @@ import {SESSION_LISTS, SESSIONS_VIEW_MESSAGE_TAGS} from "@pkg/constants/src/sess
 
 import type {SessionListId, UserInput} from "@/modules/sessions/sessions.type.ts";
 import type {HostMessagesByTag, SessionsData} from "@/modules/sessions/stores/sessions/sessions.type.ts";
-import type {ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
+import type {ProjectBranchesDto, ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
 import type {ProjectRowData, SessionRowData, SessionsViewMessage} from "@views/sessions/sessions.view.type.ts";
 
 const replaceProjectRow = (projectRows: readonly ProjectRowData[], changedProjectRow: ProjectRowData) =>
@@ -16,6 +16,10 @@ const fillLeftovers = (userInput: undefined | UserInput, leftovers: ProjectLefto
   userInput?._tag === USER_INPUT_TAGS.CLEAN_UP && userInput.projectPath === leftovers.projectPath
     ? {...userInput, leftovers}
     : userInput;
+
+// The dialog keeps the last project's branches, and offers them only while that project is chosen.
+const fillBranches = (userInput: undefined | UserInput, branches: ProjectBranchesDto) =>
+  userInput?._tag === USER_INPUT_TAGS.NEW_SESSION ? {...userInput, branches} : userInput;
 
 // Only the session's project gets a new object, so the other projects don't draw again.
 const replaceSessionRow = (projectRows: readonly ProjectRowData[], changedSessionRow: SessionRowData) =>
@@ -53,6 +57,10 @@ const hostMessageReducers: {
   [SESSIONS_VIEW_MESSAGE_TAGS.ARCHIVE_DRAWN]: (sessionsData, archiveDrawn) => ({
     ...sessionsData,
     archiveProjectRows: archiveDrawn.projectRows
+  }),
+  [SESSIONS_VIEW_MESSAGE_TAGS.BRANCHES_DRAWN]: (sessionsData, branchesDrawn) => ({
+    ...sessionsData,
+    userInput: fillBranches(sessionsData.userInput, branchesDrawn.branches)
   }),
   [SESSIONS_VIEW_MESSAGE_TAGS.LEFTOVERS_DRAWN]: (sessionsData, leftoversDrawn) => ({
     ...sessionsData,

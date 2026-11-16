@@ -12,6 +12,8 @@ export const GIT_COMMAND = {
   GITDIR_PREFIX: "gitdir: ",
   HEAD_FILE_NAME: "HEAD",
   HEAD_REF_PREFIX: "ref: refs/heads/",
+  // A new worktree's start point when the user picks no branch.
+  HEAD_START_POINT: "HEAD",
   // A new file larger than this, or a binary one, counts as a changed file with no lines.
   MAX_COUNTED_FILE_BYTES: 1_000_000,
   NEW_FILE_READ_CONCURRENCY: 8,
@@ -19,6 +21,7 @@ export const GIT_COMMAND = {
   PORCELAIN_WORKTREE_PREFIX: "worktree ",
   // An unreachable origin, or an ssh key waiting for its passphrase, would hold the cleanup dialog.
   PRUNE_TIMEOUT: "10 seconds",
+  REMOTE_BRANCH_REF_PREFIX: "refs/remotes/origin/",
   SHORT_HASH_LENGTH: 7
 } as const;
 

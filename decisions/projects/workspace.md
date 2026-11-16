@@ -16,6 +16,20 @@ The project in view, and the workspace file Aggregor writes for it.
 - **Alternatives considered:** swap folder 0 on each switch, restarting every extension each time; an extension-owned
   anchor at folder 0.
 
+## Quick switches go straight to the last session viewed
+
+- **Problem:** each change of the session in view switched the window's project in turn, about a second each (Source
+  Control opening the repository, then the folder swap), so clicking through several sessions quickly queued a switch
+  per click, and the window walked through every project in between.
+- **Decision:** a switch already running finishes, and of the sessions viewed meanwhile only the last one is switched to
+  next; the ones in between are skipped. A switch writes the workspace file and syncs settings behind a lock, so it is
+  never cut short.
+- **Solution:** `startShownProjectSync` reads the changes of `viewedSessionId` through a one-slot sliding buffer
+  (`Stream.buffer({capacity: 1, strategy: "sliding"})`). Verified in the headless VS Code: five clicks 250 ms apart over
+  three folders ran three switches and ended on the last session.
+- **Alternatives considered:** a switch per change, in order (the first version); interrupting the running switch for
+  the next one (`Stream.switchMap`), which could stop it mid-write, the way earlier failed writes wedged the window.
+
 ## Aggregor's workspace is a file Aggregor writes
 
 - **Problem:** the first switch turned the window into an unsaved multi-root workspace, named Untitled, which asks to be

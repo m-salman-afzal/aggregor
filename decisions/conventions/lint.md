@@ -72,8 +72,10 @@ What lint checks, where its setup lives, and how its messages read.
   message that says why; ESLint's `func-style` already turned down `function` declarations, without saying why. shadcn's
   generated `button.tsx` and `collapsible.tsx` were rewritten as arrows by hand. The user's call: one shape for every
   component, the same as every other function in the codebase.
-- **Solution:** lint skips `@pkg/ui`'s `components/base`, so a component `shadcn add` writes comes with `function`
-  declarations; rewrite them as arrows when adding it.
+- **Solution:** `@pkg/ui`'s `components/` keep shadcn's style otherwise, so the rest of lint skips them, and
+  `shadcn.config.ts` checks only this rule there: `shadcn add` writes `function` declarations, and lint fails them until
+  they are rewritten as arrows. Without that check, the combobox landed with sixteen `function`s that this note alone
+  didn't stop.
 
 ## No object destructuring
 

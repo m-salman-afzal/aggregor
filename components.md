@@ -270,7 +270,7 @@ the theme and the base components.
 ### Base UI
 
 - **What it is:** unstyled, accessible React primitives from the makers of Radix and Material UI.
-- **What we use:** `@base-ui/react` 1.9.0, under shadcn's button, collapsible, menus, dialog and input.
+- **What we use:** `@base-ui/react` 1.9.0, under shadcn's button, collapsible, menus, dialog, input and combobox.
 - **Why:** "The webview is React with shadcn on Base UI": maintained, where Radix isn't anymore.
 - **Alternatives:** that decision: Radix primitives under shadcn.
 
@@ -279,7 +279,9 @@ the theme and the base components.
 - **What it is:** components copied into the app by a CLI, styled with Tailwind, over a headless library.
 - **What we use:** the CLI (`npx shadcn@4.23.0 add`, run on `packages/ui`) with `packages/ui/components.json`: the
   `base-nova` style on Base UI, its components in `packages/ui/src/components/base` (button, collapsible, dropdown menu,
-  context menu, dialog, input), which lint skips so the CLI can update them; `class-variance-authority` 0.7.1 for the
+  context menu, dialog, input, and the combobox with the input group and textarea it brings), which lint checks only for
+  arrow components, so the CLI can update them and its `function`s are rewritten as arrows; the CLI writes its imports
+  without the `.tsx` the webview's typecheck needs, so they are added by hand; `class-variance-authority` 0.7.1 for the
   button's variants, and `cn` 0.5.2, shadcn's class-name merge, which the webview's own components use too. The theme's
   tokens read VS Code's theme variables (`packages/ui/src/theme.css`).
 - **Why:** "The webview is React with shadcn on Base UI".

@@ -24,6 +24,8 @@ export interface SessionsData {
 export interface SessionsState extends SessionsData {
   readonly closeUserInput: () => void;
   readonly hideWorktreeTrustHint: () => void;
+  readonly markViewedSession: (sessionId: string) => void;
+  readonly revealSessionsProject: (projectPath: string) => void;
   readonly setListOpen: (listId: SessionListId, isOpen: boolean) => void;
   readonly setProjectOpen: (projectKey: string, isOpen: boolean) => void;
   readonly showUserInput: (userInput: UserInput) => void;

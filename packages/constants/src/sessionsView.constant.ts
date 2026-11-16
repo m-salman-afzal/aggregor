@@ -26,6 +26,7 @@ export const SESSIONS_VIEW_MESSAGE_TAGS = {
   AGENTS_DRAWN: "AgentsDrawn",
   APPEARANCE_DRAWN: "AppearanceDrawn",
   ARCHIVE_DRAWN: "ArchiveDrawn",
+  BRANCHES_DRAWN: "BranchesDrawn",
   LEFTOVERS_DRAWN: "LeftoversDrawn",
   PROJECT_DRAWN: "ProjectDrawn",
   PROJECTS_DRAWN: "ProjectsDrawn",
@@ -35,6 +36,7 @@ export const SESSIONS_VIEW_MESSAGE_TAGS = {
 } as const;
 
 export const SESSIONS_WEBVIEW_MESSAGE_TAGS = {
+  LIST_BRANCHES: "ListBranches",
   LIST_LEFTOVERS: "ListLeftovers",
   READY: "Ready",
   RUN_COMMAND: "RunCommand",
