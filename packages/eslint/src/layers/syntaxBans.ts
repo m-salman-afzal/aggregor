@@ -17,7 +17,17 @@ export const EFFECT_SYNTAX_BANS = [
     message: "Match on a tag with Match.valueTags, or Match.tag and Match.exhaustive, instead of comparing _tag.",
     selector: "BinaryExpression[operator=/^[!=]==$/] > MemberExpression[property.name='_tag']"
   },
-  {message: "Use Match instead of switch: it checks that every case has a branch.", selector: "SwitchStatement"}
+  {message: "Use Match instead of switch: it checks that every case has a branch.", selector: "SwitchStatement"},
+  // Math.sumPrecise is behind V8's --js-sum-precise flag in VS Code's extension host and has no TypeScript type yet.
+  {
+    message:
+      "Sum numbers with sumAll from effect/Number (`sumAll(lineCounts)`), not a reduce that adds: its name says " +
+      "what it does. Map the values to numbers first when they need converting.",
+    selector:
+      "CallExpression[callee.property.name='reduce'] > ArrowFunctionExpression > BinaryExpression.body[operator='+'], " +
+      "CallExpression[callee.property.name='reduce'] > :function > BlockStatement > " +
+      "ReturnStatement > BinaryExpression.argument[operator='+']"
+  }
 ];
 
 export const OBJECT_DESTRUCTURING_BAN = {

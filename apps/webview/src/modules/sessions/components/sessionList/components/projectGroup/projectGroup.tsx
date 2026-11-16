@@ -1,6 +1,6 @@
 import {CountBadge} from "@/modules/sessions/components/sessionList/components/countBadge.tsx";
 import {LeftoverDot} from "@/modules/sessions/components/sessionList/components/projectGroup/components/leftoverDot.tsx";
-import {SessionRow} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/sessionRow.tsx";
+import {ProjectSessionRows} from "@/modules/sessions/components/sessionList/components/projectGroup/components/projectSessionRows.tsx";
 import {useProjectGroup} from "@/modules/sessions/components/sessionList/components/projectGroup/projectGroup.hook.ts";
 import {RowActions} from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.tsx";
 import {PROJECT_PANEL} from "@/modules/sessions/components/sessionList/sessionList.constant.ts";
@@ -37,11 +37,7 @@ export const ProjectGroup = (props: ProjectGroupProps) => {
         </CollapsibleTrigger>
       </RowActions>
       <CollapsibleContent className={PROJECT_PANEL}>
-        <ul className="mt-0.5 flex flex-col gap-0.5 empty:hidden">
-          {props.projectRow.sessionRows.map((sessionRow) => (
-            <SessionRow key={sessionRow.sessionListItem.sessionId} sessionRow={sessionRow} />
-          ))}
-        </ul>
+        <ProjectSessionRows listId={props.listId} projectRow={props.projectRow} />
       </CollapsibleContent>
     </Collapsible>
   );

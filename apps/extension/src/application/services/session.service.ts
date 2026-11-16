@@ -22,6 +22,7 @@ import {
   ProjectSessionsDtoSchema,
   SessionListChangeDtoSchema,
   SessionListItemDtoSchema,
+  SessionPageDtoSchema,
   WorktreeListItemDtoSchema
 } from "@dtos/session.dto.ts";
 import {IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
@@ -31,12 +32,13 @@ import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
-import {NEW_SESSION_WORKING_TREE_TAGS} from "@pkg/constants/src/session.constant.ts";
+import {NEW_SESSION_WORKING_TREE_TAGS, SESSION_PAGES, SESSION_RUN_STATE} from "@pkg/constants/src/session.constant.ts";
 import {findAgentToStart} from "@services/agent.service.ts";
 import {
   addEntity,
   findEntities,
   findEntityById,
+  findEntityPage,
   placeEntitiesAtEnd,
   removeEntity,
   updateEntity
@@ -46,6 +48,7 @@ import {hasProjectLeftovers, removeSessionWorktree} from "@services/worktree.ser
 import {ENTITY_CHANGE_KINDS} from "@valueObjects/entityChangeKind.valueObject.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {SESSION_LIFECYCLES} from "@valueObjects/sessionLifecycle.valueObject.ts";
+import {SESSION_RUN_STATES} from "@valueObjects/sessionRunState.valueObject.ts";
 import {SESSION_STATUSES} from "@valueObjects/sessionStatus.valueObject.ts";
 import {Array, DateTime, Effect, Match, Predicate, Result, Schema, Stream, String, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
@@ -56,6 +59,7 @@ import type {
   ArchiveSessionRequestDto,
   GetProjectSessionsRequestDto,
   GetSessionListItemRequestDto,
+  ListProjectSessionsRequestDto,
   MoveSessionDownRequestDto,
   MoveSessionUpRequestDto,
   NewSessionRequestDto,
@@ -70,6 +74,7 @@ import type {
   UnarchiveSessionRequestDto
 } from "@dtos/session.dto.ts";
 import type {AgentEntity} from "@entities/agent/agent.entity.ts";
+import type {EntityPage} from "@entities/base/base.repository.interface.ts";
 import type {ProjectEntity} from "@entities/project/project.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
@@ -82,6 +87,16 @@ interface NewSessionDraft {
   readonly projectName: string;
   readonly sessionAgent: AgentEntity;
   readonly sessionName: string;
+}
+
+interface SessionMoves {
+  readonly canMoveDown: boolean;
+  readonly canMoveUp: boolean;
+}
+
+interface SessionListFilter {
+  readonly lifecycle: SessionLifecycleValueObject;
+  readonly projectId: EntityIdValueObject;
 }
 
 export class SessionNotInWorktreeError extends Schema.TaggedError<
@@ -97,6 +112,11 @@ export class WorktreeNotFoundError extends Schema.TaggedError<WorktreeNotFoundEr
 export class SessionNotFoundError extends Schema.TaggedError<SessionNotFoundError, {readonly brand: unique symbol}>()(
   "SessionNotFoundError",
   {sessionId: EntityIdValueObjectSchema}
+) {}
+
+class ProjectNotStoredError extends Schema.TaggedError<ProjectNotStoredError, {readonly brand: unique symbol}>()(
+  "ProjectNotStoredError",
+  {}
 ) {}
 
 export const findSession = Effect.fn("SessionService.findSession")(
@@ -368,13 +388,14 @@ const findSessionPlaceInProject = Effect.fn("SessionService.findSessionPlaceInPr
   return {projectSessionIds, sessionIndex: projectSessionIds.indexOf(sessionId)};
 });
 
+// Sessions are listed newest first, the reverse of their sortId order, so moving up places one after the next.
 export const moveSessionUp = Effect.fn("SessionService.moveSessionUp")(
   function* (request: MoveSessionUpRequestDto) {
     const sessionPlace = yield* findSessionPlaceInProject(request.sessionId);
     const sessionIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(
       sessionPlace.projectSessionIds,
       sessionPlace.sessionIndex,
-      sessionPlace.sessionIndex - 1
+      sessionPlace.sessionIndex + 1
     );
     yield* placeEntitiesAtEnd(ISessionRepository, sessionIdsToPlaceAtEnd);
   },
@@ -387,37 +408,55 @@ export const moveSessionDown = Effect.fn("SessionService.moveSessionDown")(
     const sessionIdsToPlaceAtEnd = yield* findEntityIdsToPlaceAtEnd(
       sessionPlace.projectSessionIds,
       sessionPlace.sessionIndex,
-      sessionPlace.sessionIndex + 1
+      sessionPlace.sessionIndex - 1
     );
     yield* placeEntitiesAtEnd(ISessionRepository, sessionIdsToPlaceAtEnd);
   },
   Effect.catchTag("SessionNotFoundError", () => Effect.void)
 );
 
+// In the order the list shows, newest first.
 const findSessionMoves = Effect.fn("SessionService.findSessionMoves")(function* (
   session: SessionEntity,
-  orderedSessions: readonly SessionEntity[]
+  storedSessions: readonly SessionEntity[]
 ) {
   const projectSessions = Array.filter(
-    orderedSessions,
-    (orderedSession) => orderedSession.projectId === session.projectId && orderedSession.lifecycle === session.lifecycle
+    storedSessions,
+    (storedSession) => storedSession.projectId === session.projectId && storedSession.lifecycle === session.lifecycle
   );
-  const projectSessionIds = Array.map(projectSessions, (projectSession) => projectSession.id);
-
-  return {
-    canMoveDown: yield* canMoveDownInOrder(projectSessionIds, session.id),
-    canMoveUp: yield* canMoveUpInOrder(projectSessionIds, session.id)
+  const listedSessionIds = Array.reverse(Array.map(projectSessions, (projectSession) => projectSession.id));
+  const sessionMoves: SessionMoves = {
+    canMoveDown: yield* canMoveDownInOrder(listedSessionIds, session.id),
+    canMoveUp: yield* canMoveUpInOrder(listedSessionIds, session.id)
   };
+
+  return sessionMoves;
 });
 
-const findSessionBranchFields = Effect.fn("SessionService.findSessionBranchFields")(function* (session: SessionEntity) {
+const readSessionDiffStats = Effect.fn("SessionService.readSessionDiffStats")(function* (
+  projectPath: ProjectPathValueObject,
+  worktreePath: ProjectPathValueObject
+) {
+  const worktreeInfraService = yield* IWorktreeInfraService;
+  const baseBranchName = yield* worktreeInfraService.findBaseBranch(projectPath);
+
+  return yield* worktreeInfraService.readDiffStats(worktreePath, baseBranchName);
+});
+
+const findSessionWorktreeFields = Effect.fn("SessionService.findSessionWorktreeFields")(function* (
+  session: SessionEntity
+) {
   const worktreePath = session.worktreePath;
   if (worktreePath === undefined) return {};
   const branchNameResult = yield* Effect.result(
     IWorktreeInfraService.use((worktreeInfraService) => worktreeInfraService.readBranchName(worktreePath))
   );
+  const diffStatsResult = yield* Effect.result(readSessionDiffStats(session.projectPath, worktreePath));
 
-  return Result.match(branchNameResult, {onFailure: () => ({}), onSuccess: (branchName) => ({branchName})});
+  return {
+    ...Result.match(branchNameResult, {onFailure: () => ({}), onSuccess: (branchName) => ({branchName})}),
+    ...Result.match(diffStatsResult, {onFailure: () => ({}), onSuccess: (diffStats) => ({diffStats})})
+  };
 });
 
 const findSessionAgentFields = Effect.fn("SessionService.findSessionAgentFields")(function* (session: SessionEntity) {
@@ -429,25 +468,40 @@ const findSessionAgentFields = Effect.fn("SessionService.findSessionAgentFields"
   });
 });
 
-const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function* (
-  session: SessionEntity,
-  orderedSessions: readonly SessionEntity[]
-) {
+const findSessionStatus = Effect.fn("SessionService.findSessionStatus")(function* (session: SessionEntity) {
   const terminalInfraService = yield* ITerminalInfraService;
   const tmuxInfraService = yield* ITmuxInfraService;
-  const path = yield* Path;
   const runningSessionIds = yield* SubscriptionRef.get(tmuxInfraService.runningSessionIds);
   const viewedSessionIdResult = yield* SubscriptionRef.get(terminalInfraService.viewedSessionId);
+  const isAgentRunning = runningSessionIds.has(session.id);
   const isInView = Result.getOrUndefined(viewedSessionIdResult) === session.id;
-  const status = yield* getSessionStatus(session, {isAgentRunning: runningSessionIds.has(session.id), isInView});
+
+  return {isAgentRunning, status: yield* getSessionStatus(session, {isAgentRunning, isInView})};
+});
+
+const isStoredSessionWaitingOnUser = Effect.fn("SessionService.isStoredSessionWaitingOnUser")(function* (
+  storedSession: SessionEntity
+) {
+  const sessionStatus = yield* findSessionStatus(storedSession);
+
+  return yield* isSessionWaitingOnUser(sessionStatus.status);
+});
+
+const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function* (
+  session: SessionEntity,
+  sessionMoves: SessionMoves
+) {
+  const path = yield* Path;
+  const sessionStatus = yield* findSessionStatus(session);
+  const status = sessionStatus.status;
   const isTurnRunning = yield* isSessionTurnRunning(status);
 
   return SessionListItemDtoSchema.make({
-    ...(yield* findSessionMoves(session, orderedSessions)),
+    ...sessionMoves,
     ...(yield* findSessionAgentFields(session)),
-    ...(yield* findSessionBranchFields(session)),
+    ...(yield* findSessionWorktreeFields(session)),
     displayName: session.displayName,
-    isAgentRunning: runningSessionIds.has(session.id),
+    isAgentRunning: sessionStatus.isAgentRunning,
     isArchived: session.lifecycle === SESSION_LIFECYCLES.ARCHIVED,
     name: session.name,
     projectName: path.basename(session.projectPath),
@@ -455,7 +509,7 @@ const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function
     sessionId: session.id,
     status,
     statusKind: status === SESSION_STATUSES.BLOCKED ? session.statusKind : undefined,
-    statusMessage: status === SESSION_STATUSES.EXITED ? undefined : session.statusMessage,
+    statusMessage: sessionStatus.isAgentRunning ? session.statusMessage : undefined,
     statusProgress: isTurnRunning ? session.statusProgress : undefined,
     worktreePath: session.worktreePath
   });
@@ -467,7 +521,9 @@ export const getSessionListItem = Effect.fn("SessionService.getSessionListItem")
   const session = yield* findSession(request.sessionId);
   const projectSessions = yield* findEntities(ISessionRepository, {projectId: session.projectId});
 
-  return yield* toSessionListItem(session, projectSessions);
+  const sessionMoves = yield* findSessionMoves(session, projectSessions);
+
+  return yield* toSessionListItem(session, sessionMoves);
 });
 
 // A workspace folder without a session has no project row yet.
@@ -519,33 +575,117 @@ const findProjectWorktrees = Effect.fn("SessionService.findProjectWorktrees")(fu
   });
 });
 
-const toProjectSessions = Effect.fn("SessionService.toProjectSessions")(function* (
-  projectListItem: ProjectListItemDto,
-  lifecycleSessions: readonly SessionEntity[],
+const loadSessionPages = Effect.fn("SessionService.loadSessionPages")(function* (
+  sessionListFilter: SessionListFilter,
+  shownPageCount: number
+) {
+  let sessionPage = yield* findEntityPage(ISessionRepository, sessionListFilter, {pageSize: SESSION_PAGES.PAGE_SIZE});
+  for (let pageNumber = 1; pageNumber < shownPageCount; pageNumber += 1) {
+    const nextCursor = sessionPage.pagination.nextCursor;
+    if (nextCursor === undefined) break;
+    const nextPage = yield* findEntityPage(ISessionRepository, sessionListFilter, {
+      afterCursor: nextCursor,
+      pageSize: SESSION_PAGES.PAGE_SIZE
+    });
+    sessionPage = {entities: [...sessionPage.entities, ...nextPage.entities], pagination: nextPage.pagination};
+  }
+
+  return sessionPage;
+});
+
+const countHiddenWaitingSessions = Effect.fn("SessionService.countHiddenWaitingSessions")(function* (
+  sessionListFilter: SessionListFilter,
+  shownSessions: readonly SessionEntity[]
+) {
+  const shownSessionIds = new Set(Array.map(shownSessions, (shownSession) => shownSession.id));
+  const listSessions = yield* findEntities(ISessionRepository, sessionListFilter);
+  const hiddenSessions = Array.filter(listSessions, (listSession) => !shownSessionIds.has(listSession.id));
+  const hiddenWaitingSessions = yield* Effect.filter(hiddenSessions, isStoredSessionWaitingOnUser);
+
+  return hiddenWaitingSessions.length;
+});
+
+// The pages shown always start at the newest, so a row's place among them is its place in the whole list.
+const toPagedSessionListItems = Effect.fn("SessionService.toPagedSessionListItems")(function* (
+  sessionPage: EntityPage<SessionEntity>
+) {
+  return yield* Effect.forEach(sessionPage.entities, (shownSession, shownIndex) =>
+    toSessionListItem(shownSession, {
+      canMoveDown: shownIndex < sessionPage.entities.length - 1 || sessionPage.pagination.hasNextPage,
+      canMoveUp: shownIndex > 0
+    })
+  );
+});
+
+const findSessionListFilter = Effect.fn("SessionService.findSessionListFilter")(function* (
+  projectPath: ProjectPathValueObject,
   lifecycle: SessionLifecycleValueObject
 ) {
-  const projectSessions = Array.filter(
-    lifecycleSessions,
-    (lifecycleSession) => lifecycleSession.projectPath === projectListItem.path
-  );
+  const [storedProject] = yield* findEntities(IProjectRepository, {path: projectPath});
+  if (storedProject === undefined) return yield* ProjectNotStoredError.make();
+  const sessionListFilter: SessionListFilter = {lifecycle, projectId: storedProject.id};
+
+  return sessionListFilter;
+});
+
+// A project never stored has no sessions yet.
+const findProjectSessionPage = Effect.fn("SessionService.findProjectSessionPage")(
+  function* (projectPath: ProjectPathValueObject, lifecycle: SessionLifecycleValueObject, shownPageCount: number) {
+    const sessionListFilter = yield* findSessionListFilter(projectPath, lifecycle);
+    const sessionPage = yield* loadSessionPages(sessionListFilter, shownPageCount);
+    const hiddenWaitingCount = yield* countHiddenWaitingSessions(sessionListFilter, sessionPage.entities);
+
+    return {
+      sessionListItems: yield* toPagedSessionListItems(sessionPage),
+      sessionPage: SessionPageDtoSchema.make({
+        hiddenSessionCount: sessionPage.pagination.remainingCount,
+        hiddenWaitingCount,
+        totalSessionCount: sessionPage.pagination.totalCount
+      })
+    };
+  },
+  Effect.catchTag("ProjectNotStoredError", () =>
+    Effect.succeed({
+      sessionListItems: [],
+      sessionPage: SessionPageDtoSchema.make({hiddenSessionCount: 0, hiddenWaitingCount: 0, totalSessionCount: 0})
+    })
+  )
+);
+
+const toProjectSessions = Effect.fn("SessionService.toProjectSessions")(function* (
+  projectListItem: ProjectListItemDto,
+  lifecycle: SessionLifecycleValueObject,
+  shownPageCount: number
+) {
+  const projectSessionPage = yield* findProjectSessionPage(projectListItem.path, lifecycle, shownPageCount);
 
   return ProjectSessionsDtoSchema.make({
     ...(yield* findProjectWorktrees(projectListItem, lifecycle)),
     projectListItem,
-    sessionListItems: yield* Effect.forEach(projectSessions, (projectSession) =>
-      toSessionListItem(projectSession, projectSessions)
-    )
+    sessionListItems: projectSessionPage.sessionListItems,
+    sessionPage: projectSessionPage.sessionPage
   });
 });
 
+const findShownPageCount = Effect.fn("SessionService.findShownPageCount")(function* (
+  request: ListProjectSessionsRequestDto,
+  projectPath: ProjectPathValueObject
+) {
+  const shownPageCount = request.shownPageCounts[projectPath];
+
+  return shownPageCount === undefined ? SESSION_PAGES.FIRST_PAGE_COUNT : shownPageCount;
+});
+
 const listProjectsWithLifecycleSessions = Effect.fn("SessionService.listProjectsWithLifecycleSessions")(function* (
-  lifecycle: SessionLifecycleValueObject
+  lifecycle: SessionLifecycleValueObject,
+  request: ListProjectSessionsRequestDto
 ) {
   const projectListItems = yield* listProjects();
-  const lifecycleSessions = yield* findEntities(ISessionRepository, {lifecycle});
 
   return yield* Effect.forEach(projectListItems, (projectListItem) =>
-    toProjectSessions(projectListItem, lifecycleSessions, lifecycle)
+    Effect.flatMap(findShownPageCount(request, projectListItem.path), (shownPageCount) =>
+      toProjectSessions(projectListItem, lifecycle, shownPageCount)
+    )
   );
 });
 
@@ -554,26 +694,27 @@ export const getProjectSessions = Effect.fn("SessionService.getProjectSessions")
   request: GetProjectSessionsRequestDto
 ) {
   const projectListItem = yield* findProjectListItem(request.projectPath);
-  const ongoingSessions = yield* findEntities(ISessionRepository, {lifecycle: SESSION_LIFECYCLES.ONGOING});
 
-  return yield* toProjectSessions(projectListItem, ongoingSessions, SESSION_LIFECYCLES.ONGOING);
+  return yield* toProjectSessions(projectListItem, SESSION_LIFECYCLES.ONGOING, request.shownPageCount);
 });
 
-export const listProjectsWithSessions = Effect.fn("SessionService.listProjectsWithSessions")(function* () {
-  return yield* listProjectsWithLifecycleSessions(SESSION_LIFECYCLES.ONGOING);
+export const listProjectsWithSessions = Effect.fn("SessionService.listProjectsWithSessions")(function* (
+  request: ListProjectSessionsRequestDto
+) {
+  return yield* listProjectsWithLifecycleSessions(SESSION_LIFECYCLES.ONGOING, request);
 });
 
 // A project no longer listed hides its archived sessions, as it does its others.
-export const listProjectsWithArchivedSessions = Effect.fn("SessionService.listProjectsWithArchivedSessions")(
-  function* () {
-    const projectsWithArchivedSessions = yield* listProjectsWithLifecycleSessions(SESSION_LIFECYCLES.ARCHIVED);
+export const listProjectsWithArchivedSessions = Effect.fn("SessionService.listProjectsWithArchivedSessions")(function* (
+  request: ListProjectSessionsRequestDto
+) {
+  const projectsWithArchivedSessions = yield* listProjectsWithLifecycleSessions(SESSION_LIFECYCLES.ARCHIVED, request);
 
-    return Array.filter(
-      projectsWithArchivedSessions,
-      (projectWithArchivedSessions) => projectWithArchivedSessions.sessionListItems.length > 0
-    );
-  }
-);
+  return Array.filter(
+    projectsWithArchivedSessions,
+    (projectWithArchivedSessions) => projectWithArchivedSessions.sessionPage.totalSessionCount > 0
+  );
+});
 
 export const archiveProjectSessions = Effect.fn("SessionService.archiveProjectSessions")(
   function* (request: ArchiveProjectSessionsRequestDto) {
@@ -623,13 +764,16 @@ export const stopArchivedSessionAgents = Effect.fn("SessionService.stopArchivedS
   yield* stopRunningAgents(listedSessions);
 });
 
+// Only the sessions waiting become list items, so a redraw of the counts reads no worktree's git state.
 export const listSessionsWaitingOnUser = Effect.fn("SessionService.listSessionsWaitingOnUser")(function* () {
   const storedSessions = yield* findEntities(ISessionRepository, {});
-  const sessionListItems = yield* Effect.forEach(storedSessions, (storedSession) =>
-    toSessionListItem(storedSession, storedSessions)
-  );
+  const waitingSessions = yield* Effect.filter(storedSessions, isStoredSessionWaitingOnUser);
 
-  return yield* Effect.filter(sessionListItems, (sessionListItem) => isSessionWaitingOnUser(sessionListItem.status));
+  return yield* Effect.forEach(waitingSessions, (waitingSession) =>
+    Effect.flatMap(findSessionMoves(waitingSession, storedSessions), (sessionMoves) =>
+      toSessionListItem(waitingSession, sessionMoves)
+    )
+  );
 });
 
 // An archived session's worktree is left over once its agent stops, which changes its project's cleanup dot.
@@ -805,4 +949,65 @@ export const startViewedAtSync = Effect.fn("SessionService.startViewedAtSync")(f
   );
 
   yield* Effect.forkScoped(Stream.runForEach(enteringAndLeavingSessionIds, recordViewedAt));
+});
+
+const markSessionsRunning = Effect.fn("SessionService.markSessionsRunning")(
+  function* (runningSessionIds: ReadonlySet<EntityIdValueObject>) {
+    const storedSessions = yield* findEntities(ISessionRepository, {});
+    const newlyRunningSessions = Array.filter(
+      storedSessions,
+      (storedSession) =>
+        runningSessionIds.has(storedSession.id) && storedSession.runState !== SESSION_RUN_STATES.RUNNING
+    );
+
+    yield* Effect.forEach(newlyRunningSessions, (newlyRunningSession) =>
+      updateEntity(ISessionRepository, newlyRunningSession.id, {runState: SESSION_RUN_STATES.RUNNING})
+    );
+  },
+  Effect.catch((databaseError) => Effect.logWarning("Could not mark the running sessions", databaseError))
+);
+
+const clearStoppedRunStates = Effect.fn("SessionService.clearStoppedRunStates")(
+  function* () {
+    const tmuxInfraService = yield* ITmuxInfraService;
+    const runningSessionIds = yield* SubscriptionRef.get(tmuxInfraService.runningSessionIds);
+    const sessionsSeenRunning = yield* findEntities(ISessionRepository, {runState: SESSION_RUN_STATES.RUNNING});
+    const stoppedSessions = Array.filter(
+      sessionsSeenRunning,
+      (sessionSeenRunning) => !runningSessionIds.has(sessionSeenRunning.id)
+    );
+
+    yield* Effect.forEach(stoppedSessions, (stoppedSession) =>
+      updateEntity(ISessionRepository, stoppedSession.id, {runState: undefined})
+    );
+  },
+  Effect.catch((databaseError) => Effect.logWarning("Could not clear the stopped sessions' marks", databaseError))
+);
+
+// With no agent running as the window starts, the tmux server went away with them, as when the computer restarts.
+const markInterruptedSessions = Effect.fn("SessionService.markInterruptedSessions")(
+  function* (runningSessionIds: ReadonlySet<EntityIdValueObject>) {
+    if (runningSessionIds.size > 0) return;
+    const sessionsSeenRunning = yield* findEntities(ISessionRepository, {runState: SESSION_RUN_STATES.RUNNING});
+
+    yield* Effect.forEach(sessionsSeenRunning, (sessionSeenRunning) =>
+      updateEntity(ISessionRepository, sessionSeenRunning.id, {runState: SESSION_RUN_STATES.INTERRUPTED})
+    );
+  },
+  Effect.catch((databaseError) => Effect.logWarning("Could not mark the interrupted sessions", databaseError))
+);
+
+// aggregor-pty writes exited however its agent ends, a shutdown included, so the mark comes from what tmux runs.
+export const startRunStateSync = Effect.fn("SessionService.startRunStateSync")(function* () {
+  const tmuxInfraService = yield* ITmuxInfraService;
+  const runningSessionIdChanges = SubscriptionRef.changes(tmuxInfraService.runningSessionIds);
+  const startRunningSessionIds = yield* SubscriptionRef.get(tmuxInfraService.runningSessionIds);
+  yield* markInterruptedSessions(startRunningSessionIds);
+
+  yield* Effect.forkScoped(Stream.runForEach(runningSessionIdChanges, markSessionsRunning));
+  yield* Effect.forkScoped(
+    Stream.runForEach(Stream.debounce(runningSessionIdChanges, SESSION_RUN_STATE.STOP_SETTLE_INTERVAL), () =>
+      clearStoppedRunStates()
+    )
+  );
 });

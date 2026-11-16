@@ -18,7 +18,7 @@ import {Path} from "effect/Path";
 import type {
   MoveProjectDownRequestDto,
   MoveProjectUpRequestDto,
-  NewProjectTerminalRequestDto,
+  OpenProjectTerminalRequestDto,
   RemoveProjectRequestDto,
   SaveProjectSettingsRequestDto
 } from "@dtos/project.dto.ts";
@@ -148,7 +148,6 @@ export const findOrAddProject = Effect.fn("ProjectService.findOrAddProject")(fun
   return yield* addEntity(IProjectRepository, {isAdded: false, path: projectPath});
 });
 
-// ponytail: any folder counts as a project, no git check. Worktree mode (M3) is where a non-git folder would first break.
 export const addProject = Effect.fn("ProjectService.addProject")(
   function* () {
     const pickedFolderPaths = yield* IUserInputPromptInfraService.use(
@@ -226,8 +225,8 @@ export const removeProject = Effect.fn("ProjectService.removeProject")(
 );
 
 // A project no longer listed opens nothing.
-export const newProjectTerminal = Effect.fn("ProjectService.newProjectTerminal")(
-  function* (request: NewProjectTerminalRequestDto) {
+export const openProjectTerminal = Effect.fn("ProjectService.openProjectTerminal")(
+  function* (request: OpenProjectTerminalRequestDto) {
     const chosenProject = yield* findProjectListItem(request.projectPath);
 
     yield* ITerminalInfraService.use((terminalInfraService) => terminalInfraService.openProjectTerminal(chosenProject));

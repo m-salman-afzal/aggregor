@@ -92,7 +92,8 @@ The Sessions view's buttons and menus, on its lists and its rows, and the questi
 - **Decision:** the webview is how Aggregor is used, so the manifest contributes one command, Generate Commit Message,
   for its Source Control button, and hides it from the Command Palette; every other command is registered without a
   contribution and runs only from the webview or a notification. New Terminal in Project moved from the terminal panel's
-  title to a project row's … menu as New Terminal, which knows its project. The commands come back to the palette when
-  they are missed.
+  title to the project's row, which knows its project (see "A project has one terminal, opened from its row" in
+  `decisions/projects/workspace.md`). The commands come back to the palette when they are missed.
 - **Alternatives considered:** the palette commands opening the webview's dialogs by a message; VS Code's quick pick for
-  them, a second UI for one flow.
+  them, a second UI for one flow; the terminal panel's project button back with Aggregor's icon, turned down again once
+  the row's terminal button opened each project's terminal.

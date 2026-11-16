@@ -37,3 +37,26 @@ How a session's status shows on its row.
 - **Alternatives considered:** codicons (`bell-dot`, `check`, `error`, `circle-outline`, `debug-stop`, as planned): a
   badge takes only up to two characters of text, codicon badges are a proposed API, and as the row's icon they would
   replace the agent's logo.
+
+## A session cut off by a restart shows as interrupted
+
+- **Problem:** after the computer restarts every agent has stopped and every session shows exited, so the user can't
+  tell which ones were at work, the ones to resume, from those long done. Their old status is no help: a running turn
+  was cut off, so it should not come back.
+- **Decision:** a session whose agent was running when it was cut off shows interrupted, with a yellow-orange restart
+  icon and "stopped by a restart · click to resume" in its tooltip, until its agent runs again; clicking it resumes it
+  as clicking an exited session does. It is cut off when a window starts with no agent running at all, since tmux's
+  server went away with them, as it does when the computer restarts, the user logs out or tmux is killed. An agent that
+  stops while VS Code runs, by itself or by Stop Agent, loses the mark.
+- **Solution:** a new `sessions.runState` column (`SessionRunStateValueObject`: `running`, `interrupted`) and a new
+  `interrupted` value of `SessionStatusValueObject`, which `getSessionStatus` gives a stopped agent marked interrupted.
+  `startRunStateSync` in the session service marks each session `running` as tmux lists its agent, clears the mark of
+  one tmux stopped listing once the list has held still for 10 seconds, and, as the window starts with tmux listing no
+  agent, turns every `running` mark into `interrupted`. The wait keeps the mark through a shutdown, which ends VS Code
+  within it. aggregor-pty writes `exited` however its agent ends, a shutdown's SIGTERM included, so the mark can't come
+  from the status columns.
+- **Alternatives considered:** the status columns alone, which a clean shutdown sets to exited like any other end;
+  aggregor-pty recording that a signal ended its agent, which Stop Agent's hangup also sends; the machine's boot id, a
+  platform call per system that still needs to know what ran at the shutdown; restoring each session's last status,
+  which shows a turn running that a restart ended; a Resume Interrupted button for all of them, left until marking them
+  is not enough.

@@ -48,13 +48,15 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 - **Holds:** `projectId`, `agentId` (its `aggregorApp.agents` key), `name` (the agent's latest title, or ours until it
   gives one), `customName` (the user's, from the row menu's Rename, or NULL), `viewedAt` (when the session last came
   into or left the user's view), `lifecycle` (`ongoing`, listed in the Sessions list, or `archived`, listed in the
-  Archive list) and `worktreePath` (the git worktree its agent works in, or NULL for its project's root). The `id` is
-  also the agent's session id.
+  Archive list), `worktreePath` (the git worktree its agent works in, or NULL for its project's root) and `runState`
+  (`running` while Aggregor last saw its agent run, `interrupted` once a window started with every agent gone, as after
+  a restart, else NULL). The `id` is also the agent's session id.
 - **Written by:** `SessionService` through the base service: a row per New Session, `name` when the agent's title in the
   row changes, `customName` on Rename, `viewedAt` as the session comes into and leaves view, `sortId` on Move Up, Move
   Down and a drop on another of its project's sessions in the same list, `lifecycle` and `sortId` on Archive and
-  Unarchive, which place the session last in its new list, and a soft delete on Remove Session. Removing a project keeps
-  its sessions, so adding the project again lists them again.
+  Unarchive, which place the session last in its new list, `runState` as tmux's list of agents changes and as a window
+  starts, and a soft delete on Remove Session. Removing a project keeps its sessions, so adding the project again lists
+  them again.
 - **Read by:** `SessionService`, with the project's path: the Sessions view reads each row of both lists as it draws it.
 - **Status columns:** `status` (`unknown` until a report, `exited` once the agent is gone), `statusKind`,
   `statusMessage`, `statusProgress`, `statusChangedAt` (when the state last changed), `hasWorked` (it has reported

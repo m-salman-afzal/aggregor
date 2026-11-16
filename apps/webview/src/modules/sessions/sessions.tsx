@@ -1,7 +1,7 @@
 import {SessionList} from "@/modules/sessions/components/sessionList/sessionList.tsx";
 import {UserInputDialog} from "@/modules/sessions/components/userInputDialog/userInputDialog.tsx";
-import {SESSION_LISTS} from "@/modules/sessions/sessions.constant.ts";
 import {useSessions} from "@/modules/sessions/sessions.hook.ts";
+import {SESSION_LISTS} from "@pkg/constants/src/sessionsView.constant.ts";
 
 export const Sessions = () => {
   const sessionsView = useSessions();
