@@ -6,6 +6,8 @@ export const GIT_EXTENSION = {
 export const GIT_COMMAND = {
   BRANCH_REF_PREFIX: "refs/heads/",
   COMMAND: "git",
+  // A project's own checkout has the repository folder here instead.
+  GIT_PATH_NAME: ".git",
   // A linked worktree's .git is a file naming its folder in the repository's .git; that folder holds its HEAD.
   GITDIR_PREFIX: "gitdir: ",
   HEAD_FILE_NAME: "HEAD",

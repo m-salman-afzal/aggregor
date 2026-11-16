@@ -42,9 +42,13 @@ How a session out of view gets the user's attention: notifications and badge cou
   session. Each window sends its own, so two windows notify twice. With several VS Code windows, a click brings the most
   recently used one forward, which may not be the one that sent it; that one then opens nothing (see "If the users
   asked" in the README). Focusing the window within 1.5 seconds of dismissing a notification with its X opens the
-  session too. A desktop notification waiting keeps a `notify-send` process until it is clicked or dismissed, and
-  Ubuntu's AppArmor profile for `notify-send` keeps VS Code from stopping it, so it outlives a reload. The WSL toast and
-  macOS notification are untested.
+  session too. A desktop notification waiting keeps a `notify-send` process until it is clicked or dismissed. A
+  session's newer alert interrupts the fiber showing its older one (a `FiberMap` by session id in `SessionAlertsView`),
+  and `extension.ts` exports `deactivate`, which returns the runtime's `dispose()`, since VS Code awaits that promise
+  and drops a subscription's, so the finalizers that stop `notify-send` finish before the host exits. Ubuntu's AppArmor
+  profile for `notify-send` refuses VS Code's signal and GNOME's `NotificationClosed`, so there the processes still
+  outlive their notification and a reload, and a click opens nothing (#117). The WSL toast and macOS notification are
+  untested.
 - **Alternatives considered:**
   - Bringing the window forward from an OS notification by running `code ‹workspace›`: an untitled workspace, which
     Aggregor's window becomes, has no path to pass.

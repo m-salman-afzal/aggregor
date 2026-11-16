@@ -117,15 +117,23 @@ Where a session works: its project's root, or a git worktree of its own.
 
 - **Problem:** a worktree session's row says nothing about how much its agent has changed, and the diff with per-hunk
   staging the roadmap planned is more than the row needs.
-- **Decision:** the row's second line shows a diff icon, the number of files changed, and the lines added in green and
-  deleted in red, after the branch. They count everything the session's branch changed since it split from the base
-  branch (the cleanup's base: origin's default branch, else the project's checked-out one): its commits, its uncommitted
-  edits and its new files. A new file's lines count as added; a binary one, or one over 1 MB, counts as a file only.
-  Nothing shows while nothing changed, and only worktree sessions count, since the project root's sessions share one
-  working tree. No file list and no diff open from it.
+- **Decision:** the row's second line shows a diff icon, the number of files changed, and the lines added in green
+  stacked over those deleted in red, at 10px, after the branch, so large counts take little of the line's width. They
+  count everything the session's branch changed since it split from its base branch: its commits, its uncommitted edits
+  and its new files. The base is the branch the project had checked out when Aggregor made the worktree, since the
+  worktree starts from that HEAD, stored on the session as `baseBranchName` (a detached HEAD stores its short hash). A
+  session without one, from before the column or in a worktree Aggregor didn't make, counts from the branch the project
+  has checked out now. A new file's lines count as added; a binary one, or one over 1 MB, counts as a file only. Nothing
+  shows while nothing changed, and only worktree sessions count, since the project root's sessions share one working
+  tree. No file list and no diff open from it.
 - **Solution:** `IWorktreeInfraService.readDiffStats` runs `git merge-base HEAD <base>`, `git diff --numstat` against
   that commit, and `git ls-files --others --exclude-standard`, reading each new file to count its lines.
   `SessionListItemDto.diffStats` carries the counts, read on each draw of the row, so they follow the agent's turns.
-- **Alternatives considered:** a list of the changed files with their status (M/A/D/R/U) under the row, opening git's
-  diff with per-hunk staging; uncommitted changes only, as Source Control shows them, which drop to nothing once the
-  agent commits; a file watcher, when each turn's end already redraws the row.
+  `createSessionWorktree` reads the project's branch before `git worktree add`; a base branch deleted later leaves the
+  row without counts.
+- **Alternatives considered:** the added and deleted counts side by side, which took the width the branch needs; the
+  cleanup's base, origin's default branch, which counted every unreleased commit on `dev` in a fresh worktree made from
+  `dev` (79 files on a session that had changed none); the branch the project has checked out now, with no column, which
+  goes wrong once the project switches branch; a list of the changed files with their status (M/A/D/R/U) under the row,
+  opening git's diff with per-hunk staging; uncommitted changes only, as Source Control shows them, which drop to
+  nothing once the agent commits; a file watcher, when each turn's end already redraws the row.
