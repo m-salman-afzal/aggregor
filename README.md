@@ -48,9 +48,10 @@ terminals, tree views, Source Control and diffs.
   settings adds a CLI, changes a built-in's name, command, arguments, environment variables (`env`) or icon, or hides
   one with `null`; the gear on the Sessions title opens Aggregor's settings. A session's tab shows the same name as its
   row, whose second line shows the agent's icon, and the session in front stays marked in the view.
-- **Terminals.** The Terminal panel's + opens in the shown project without asking. Each project has one terminal of its
-  own, opened from its row's terminal button, and when the window switches project the panel switches to that project's
-  terminal, as long as the panel showed another project's terminal.
+- **Terminals.** The Terminal panel's + opens in the shown project without asking. Each project, and each worktree a
+  session works in, has one terminal of its own, opened from the terminal button on the project's or the session's row,
+  and when the window switches session the panel switches to that session's worktree's terminal, or its project's, as
+  long as the panel showed another folder's terminal. Removing a worktree closes its terminal.
 - **Persistent sessions.** Every agent runs in tmux (3.2 or newer), so it keeps working when you close its tab, reload
   the window or quit VS Code; those close the tab, and clicking the session attaches a new one. An agent that has
   stopped shows exited, and clicking it resumes the conversation; one that was running when the computer restarted shows

@@ -38,7 +38,7 @@ const showSessionProject = Effect.fn("WorkspaceService.showSessionProject")(
       workspaceInfraService.showOnlyProjectFolder(session.workingFolderPath, session.id)
     );
     yield* ITerminalInfraService.use((terminalInfraService) =>
-      terminalInfraService.switchToProjectTerminal(session.projectPath)
+      terminalInfraService.switchToFolderTerminal(session.workingFolderPath, session.projectPath)
     );
   },
   // A tab left running by a removed session has no project to show.

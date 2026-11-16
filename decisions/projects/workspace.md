@@ -155,24 +155,31 @@ The project in view, and the workspace file Aggregor writes for it.
   indents otherwise; the smallest indentation in the file, which a block comment can set and which keeps a bloated file
   as it is.
 
-## A project has one terminal, opened from its row, and the Terminal panel follows the shown project
+## Each folder has one terminal, opened from its row, and the Terminal panel follows the shown session's folder
 
 - **Problem:** New Terminal sat in a project's … menu and opened a new shell on every click, and after a switch to
-  another project the Terminal panel still showed the old project's shell.
-- **Decision:** each project has one terminal of its own. The terminal button on the project's row, beside New Session,
-  opens it the first time and brings it to the front after that; New Terminal leaves the … menu. When the shown project
-  changes, its terminal comes to the front of the Terminal panel, but only while the panel shows another project's
-  terminal, so a shell the user opened with the panel's + stays in front. A project with no terminal yet opens none. A
-  worktree session's project is its repository, so its terminal works in the project's root, not the worktree.
-- **Solution:** the terminal carries `AGGREGOR_PROJECT_PATH` in its env, as a session's tab carries its session id, so
-  it is found among the window's terminals after an extension restart. `ITerminalInfraService.openProjectTerminal` finds
-  or opens it, and `switchToProjectTerminal` runs after each project switch, showing the terminal without taking the
-  focus. VS Code says which terminal is active but not which one the panel shows, and a session's tab is the active one
-  while it is in front, so the service remembers the last active terminal that is no session's tab as the panel's. The
-  command is `aggregorApp.openProjectTerminal`, Open Terminal on the row.
+  another project the Terminal panel still showed the old project's shell. A worktree session had no shell in its
+  worktree at all: the project's terminal works in the project's root.
+- **Decision:** each folder a session works in has one terminal of its own. The terminal button on a project's row,
+  beside New Session, opens the project's; the same button among a session row's hover buttons opens the session's
+  folder's: its project's for a root session, its worktree's for a worktree session, shared by every session in that
+  worktree and named `‹project› · ‹worktree folder›`. Archived rows have none, and the … menus don't repeat it. Each
+  opens the first time and comes to the front after that. When the shown session changes, its worktree's terminal, or
+  its project's when the worktree has none, comes to the front of the Terminal panel, but only while the panel shows
+  another folder's terminal, so a shell the user opened with the panel's + stays in front. A folder with no terminal yet
+  opens none. Deleting a worktree, by Remove or the leftovers cleanup, closes its terminal.
+- **Solution:** the terminal carries `AGGREGOR_FOLDER_PATH` in its env, as a session's tab carries its session id, so it
+  is found among the window's terminals after an extension restart. `ITerminalInfraService.openFolderTerminal` finds or
+  opens it, `closeFolderTerminal` disposes of it, and `switchToFolderTerminal(workingFolderPath, projectPath)` runs
+  after each switch, showing the terminal without taking the focus. VS Code says which terminal is active but not which
+  one the panel shows, and a session's tab is the active one while it is in front, so the service remembers the last
+  active terminal that is no session's tab as the panel's. The commands are `aggregorApp.openProjectTerminal` and
+  `aggregorApp.openSessionFolderTerminal`, both Open Terminal on their rows. Plain VS Code terminals, not tmux.
 
-  ![How the Terminal panel follows the shown project](projectTerminalFollow.svg)
+  ![How the Terminal panel follows the shown folder](projectTerminalFollow.svg)
 
-- **Alternatives considered:** a new shell on each click, as before; the panel following every switch whatever is
-  active, which would swap out the user's own shells; the terminal panel's project button back with Aggregor's icon and
-  VS Code's project picker, turned down since the row's button covers it.
+- **Alternatives considered:** a new shell on each click, as before; one terminal per session, even for sessions that
+  share a folder; only the project's terminal, which left a worktree session's shell in the project's root (the decision
+  until sessions got terminals of their own); the session's terminal in its … menu too, a second way to the same button;
+  the panel following every switch whatever is active, which would swap out the user's own shells; the terminal panel's
+  project button back with Aggregor's icon and VS Code's project picker, turned down since the row's button covers it.

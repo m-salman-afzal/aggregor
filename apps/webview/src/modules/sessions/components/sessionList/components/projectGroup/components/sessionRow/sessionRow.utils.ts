@@ -18,9 +18,10 @@ export const listSessionActionGroups = (sessionListItem: SessionListItemDto) =>
     ]
   ]);
 
-export const listSessionInlineActions = (sessionListItem: SessionListItemDto) => [
-  sessionListItem.isArchived ? ROW_ACTIONS.UNARCHIVE : ROW_ACTIONS.ARCHIVE
-];
+export const listSessionInlineActions = (sessionListItem: SessionListItemDto) =>
+  sessionListItem.isArchived
+    ? [ROW_ACTIONS.UNARCHIVE]
+    : [ROW_ACTIONS.OPEN_SESSION_FOLDER_TERMINAL, ROW_ACTIONS.ARCHIVE];
 
 const getStatusLabel = (sessionListItem: SessionListItemDto) =>
   sessionListItem.statusKind === undefined

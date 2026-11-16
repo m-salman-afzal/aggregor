@@ -1,7 +1,6 @@
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {Context, Schema} from "effect";
 
-import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {AgentIconValueObject} from "@valueObjects/agentIcon.valueObject.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
@@ -12,6 +11,11 @@ import type {Effect, Result, Stream, SubscriptionRef} from "effect";
 export interface SessionTabCommand {
   readonly command: string;
   readonly commandArguments: readonly string[];
+}
+
+export interface FolderTerminalRequest {
+  readonly folderPath: ProjectPathValueObject;
+  readonly terminalName: string;
 }
 
 export interface SessionTabRequest {
@@ -40,18 +44,24 @@ export class ITerminalInfraService extends Context.Service<
   ITerminalInfraService,
   {
     readonly activatedSessionIds: Stream.Stream<EntityIdValueObject>;
+    readonly closeFolderTerminal: (folderPath: ProjectPathValueObject) => Effect.Effect<void>;
     readonly closeSessionTerminal: (sessionId: EntityIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
     readonly focusSessionTerminal: (sessionId: EntityIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
     // VS Code can rename only the active terminal.
     readonly nameActiveSessionTab: (sessionId: EntityIdValueObject, tabName: string) => Effect.Effect<void>;
-    // A project has one terminal: it opens the first time and comes to the front after that.
-    readonly openProjectTerminal: (project: ProjectListItemDto) => Effect.Effect<void, TerminalLaunchFailedError>;
+    // A folder has one terminal: it opens the first time and comes to the front after that.
+    readonly openFolderTerminal: (
+      folderTerminalRequest: FolderTerminalRequest
+    ) => Effect.Effect<void, TerminalLaunchFailedError>;
     readonly openSessionTerminal: (
       session: SessionEntity,
       sessionTabRequest: SessionTabRequest
     ) => Effect.Effect<void, TerminalLaunchFailedError>;
-    // The Terminal panel follows the shown project while it shows another project's terminal.
-    readonly switchToProjectTerminal: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;
+    // The Terminal panel follows the shown session's folder, or its project's, while it shows another folder's terminal.
+    readonly switchToFolderTerminal: (
+      workingFolderPath: ProjectPathValueObject,
+      projectPath: ProjectPathValueObject
+    ) => Effect.Effect<void>;
     readonly viewedSessionId: SubscriptionRef.SubscriptionRef<Result.Result<EntityIdValueObject, NoViewedSessionError>>;
   }
 >()("aggregor-app/application/interfaces/terminal.infraService.interface/ITerminalInfraService") {}
