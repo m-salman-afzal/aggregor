@@ -140,3 +140,25 @@ The project in view, and the workspace file Aggregor writes for it.
 - **Alternatives considered:** always indenting with 4 spaces, which re-indents a project's own settings file the user
   indents otherwise; the smallest indentation in the file, which a block comment can set and which keeps a bloated file
   as it is.
+
+## A project has one terminal, opened from its row, and the Terminal panel follows the shown project
+
+- **Problem:** New Terminal sat in a project's … menu and opened a new shell on every click, and after a switch to
+  another project the Terminal panel still showed the old project's shell.
+- **Decision:** each project has one terminal of its own. The terminal button on the project's row, beside New Session,
+  opens it the first time and brings it to the front after that; New Terminal leaves the … menu. When the shown project
+  changes, its terminal comes to the front of the Terminal panel, but only while the panel shows another project's
+  terminal, so a shell the user opened with the panel's + stays in front. A project with no terminal yet opens none. A
+  worktree session's project is its repository, so its terminal works in the project's root, not the worktree.
+- **Solution:** the terminal carries `AGGREGOR_PROJECT_PATH` in its env, as a session's tab carries its session id, so
+  it is found among the window's terminals after an extension restart. `ITerminalInfraService.openProjectTerminal` finds
+  or opens it, and `switchToProjectTerminal` runs after each project switch, showing the terminal without taking the
+  focus. VS Code says which terminal is active but not which one the panel shows, and a session's tab is the active one
+  while it is in front, so the service remembers the last active terminal that is no session's tab as the panel's. The
+  command is `aggregorApp.openProjectTerminal`, Open Terminal on the row.
+
+  ![How the Terminal panel follows the shown project](projectTerminalFollow.svg)
+
+- **Alternatives considered:** a new shell on each click, as before; the panel following every switch whatever is
+  active, which would swap out the user's own shells; the terminal panel's project button back with Aggregor's icon and
+  VS Code's project picker, turned down since the row's button covers it.

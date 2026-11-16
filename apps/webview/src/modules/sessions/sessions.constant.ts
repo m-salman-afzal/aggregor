@@ -110,8 +110,8 @@ export const ROW_ACTIONS = {
     icon: PlusIcon,
     label: "New Session…"
   },
-  NEW_TERMINAL: {commandId: TERMINAL_COMMANDS.NEW_PROJECT_TERMINAL, icon: SquareTerminalIcon, label: "New Terminal"},
   OPEN_SETTINGS: {commandId: APP_COMMANDS.OPEN_SETTINGS, icon: SettingsIcon, label: APP_LABELS.OPEN_SETTINGS},
+  OPEN_TERMINAL: {commandId: TERMINAL_COMMANDS.OPEN_PROJECT_TERMINAL, icon: SquareTerminalIcon, label: "Open Terminal"},
   PROJECT_SETTINGS: {
     commandId: PROJECT_COMMANDS.SAVE_SETTINGS,
     icon: SlidersHorizontalIcon,

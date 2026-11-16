@@ -258,7 +258,7 @@ apps/extension/src/
                                            as notifyOn picks them; notifyOnDesktop
       project.service.ts                   listProjects, getProjectListItem, findProjectListItem, addProject
                                            (asks for folders), addProjectPaths, findOrAddProject, removeProject,
-                                           moveProjectUp, moveProjectDown, newProjectTerminal,
+                                           moveProjectUp, moveProjectDown, openProjectTerminal,
                                            saveProjectSettings; ProjectNotListedError
       worktree.service.ts                  listProjectLeftovers, cleanUpProjectLeftovers (a project's worktrees and
                                            aggregor/* branches left over), hasProjectLeftovers (its row's dot),
@@ -279,8 +279,8 @@ apps/extension/src/
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
     interfaces/                            each with the errors and types its signatures name
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
-                                           openProjectTerminal, nameActiveSessionTab, activatedSessionIds,
-                                           viewedSessionId; SessionTabRequest, SessionTabCommand,
+                                           openProjectTerminal, switchToProjectTerminal, nameActiveSessionTab,
+                                           activatedSessionIds, viewedSessionId; SessionTabRequest, SessionTabCommand,
                                            TerminalLaunchFailedError
       tmux.infraService.interface.ts       prepareSessionTabCommand, waitForSessionAgentStart, stopSessionAgent,
                                            runningSessionIds, refreshRunningSessionIds, startedOrStoppedSessionIds;

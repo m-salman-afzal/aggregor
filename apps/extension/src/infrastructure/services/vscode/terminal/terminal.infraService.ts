@@ -1,7 +1,10 @@
 import {
   findOpenSessionTerminals,
+  findProjectTerminal,
   findTrackedSessionId,
-  nameActiveSessionTab
+  isSessionTerminal,
+  nameActiveSessionTab,
+  readTerminalProjectPath
 } from "@infraServices/vscode/terminal/terminal.utils.ts";
 import {
   ITerminalInfraService,
@@ -9,10 +12,14 @@ import {
   TerminalLaunchFailedError,
   TerminalNotFoundError
 } from "@interfaces/terminal.infraService.interface.ts";
-import {SESSION_ID_ENV, VIEWED_SESSION_SETTLE_INTERVAL} from "@pkg/constants/src/terminal.constant.ts";
+import {
+  PROJECT_PATH_ENV,
+  SESSION_ID_ENV,
+  VIEWED_SESSION_SETTLE_INTERVAL
+} from "@pkg/constants/src/terminal.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
-import {Effect, Layer, Result, Schema, Stream, SubscriptionRef} from "effect";
+import {Effect, Layer, Ref, Result, Schema, Stream, SubscriptionRef} from "effect";
 
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
@@ -22,6 +29,7 @@ import type {
 } from "@infraServices/vscode/terminal/terminal.infraService.type.ts";
 import type {SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Terminal} from "vscode";
 
 class NoActiveTerminalError extends Schema.TaggedError<NoActiveTerminalError, {readonly brand: unique symbol}>()(
@@ -76,17 +84,47 @@ const showTerminal = Effect.fn("TerminalInfraService.showTerminal")(function* (t
   });
 });
 
+const launchProjectTerminal = Effect.fn("TerminalInfraService.launchProjectTerminal")(function* (
+  window: TerminalDependencies["window"],
+  project: ProjectListItemDto
+) {
+  return yield* Effect.try({
+    catch: (cause) => TerminalLaunchFailedError.make({cause}),
+    try: () => window.createTerminal({cwd: project.path, env: {[PROJECT_PATH_ENV]: project.path}, name: project.name})
+  });
+});
+
+const findOrLaunchProjectTerminal = Effect.fn("TerminalInfraService.findOrLaunchProjectTerminal")(
+  function* (window: TerminalDependencies["window"], project: ProjectListItemDto) {
+    return yield* findProjectTerminal(window.terminals, project.path);
+  },
+  (effect, window, project) =>
+    Effect.catchTag(effect, "ProjectTerminalNotFoundError", () => launchProjectTerminal(window, project))
+);
+
 const openProjectTerminal = Effect.fn("TerminalInfraService.openProjectTerminal")(function* (
   window: TerminalDependencies["window"],
   project: ProjectListItemDto
 ) {
-  const projectTerminal = yield* Effect.try({
-    catch: (cause) => TerminalLaunchFailedError.make({cause}),
-    try: () => window.createTerminal({cwd: project.path, name: project.name})
-  });
-
+  const projectTerminal = yield* findOrLaunchProjectTerminal(window, project);
   yield* showTerminal(projectTerminal);
 });
+
+// Only in place of another project's terminal, so a shell the user opened stays in front.
+const switchToProjectTerminal = Effect.fn("TerminalInfraService.switchToProjectTerminal")(
+  function* (terminalDependencies: TerminalDependencies, projectPath: string) {
+    const shellTerminal = yield* Ref.get(terminalDependencies.shellTerminal);
+    if (shellTerminal === undefined || shellTerminal.exitStatus !== undefined) return;
+    const shellProjectPath = yield* readTerminalProjectPath(shellTerminal);
+    if (shellProjectPath === undefined || shellProjectPath === projectPath) return;
+    const projectTerminal = yield* findProjectTerminal(terminalDependencies.window.terminals, projectPath);
+
+    yield* Effect.sync(() => {
+      projectTerminal.show(true);
+    });
+  },
+  Effect.catchTag("ProjectTerminalNotFoundError", () => Effect.void)
+);
 
 const focusSessionTerminal = Effect.fn("TerminalInfraService.focusSessionTerminal")(function* (
   sessionTerminals: SessionTerminalsReference,
@@ -231,12 +269,35 @@ const trackViewedSessionId = Effect.fn("TerminalInfraService.trackViewedSessionI
   return viewedSessionId;
 });
 
+const rememberShellTerminal = Effect.fn("TerminalInfraService.rememberShellTerminal")(function* (
+  shellTerminal: Ref.Ref<Terminal | undefined>,
+  activeTerminal: Terminal | undefined
+) {
+  if (activeTerminal === undefined || (yield* isSessionTerminal(activeTerminal))) return;
+
+  yield* Ref.set(shellTerminal, activeTerminal);
+});
+
+const trackShellTerminal = Effect.fn("TerminalInfraService.trackShellTerminal")(function* (
+  window: TerminalDependencies["window"]
+) {
+  const shellTerminal = yield* Ref.make<Terminal | undefined>(undefined);
+  yield* rememberShellTerminal(shellTerminal, window.activeTerminal);
+  const activeTerminalChanges = yield* streamVsCodeEvent(window.onDidChangeActiveTerminal);
+  yield* Effect.forkScoped(
+    Stream.runForEach(activeTerminalChanges, (activeTerminal) => rememberShellTerminal(shellTerminal, activeTerminal))
+  );
+
+  return shellTerminal;
+});
+
 const makeTerminalDependencies = Effect.fn("TerminalInfraService.makeTerminalDependencies")(function* () {
   const vsCodeApi = yield* VsCodeApi;
   const openSessionTerminals = yield* findOpenSessionTerminals(vsCodeApi.window.terminals);
   const terminalDependencies: TerminalDependencies = {
     ...vsCodeApi,
-    sessionTerminals: yield* SubscriptionRef.make(openSessionTerminals)
+    sessionTerminals: yield* SubscriptionRef.make(openSessionTerminals),
+    shellTerminal: yield* trackShellTerminal(vsCodeApi.window)
   };
 
   return terminalDependencies;
@@ -262,6 +323,8 @@ const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function
     openProjectTerminal: (project: ProjectListItemDto) => openProjectTerminal(terminalDependencies.window, project),
     openSessionTerminal: (session: SessionEntity, sessionTabRequest: SessionTabRequest) =>
       openSessionTerminal(terminalDependencies, session, sessionTabRequest),
+    switchToProjectTerminal: (projectPath: ProjectPathValueObject) =>
+      switchToProjectTerminal(terminalDependencies, projectPath),
     viewedSessionId: yield* trackViewedSessionId(terminalDependencies)
   };
 });

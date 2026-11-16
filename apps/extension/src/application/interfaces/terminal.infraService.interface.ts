@@ -5,6 +5,7 @@ import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {AgentIconValueObject} from "@valueObjects/agentIcon.valueObject.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Effect, Result, Stream, SubscriptionRef} from "effect";
 
 // Run as the tab's process, with no shell around it.
@@ -43,11 +44,14 @@ export class ITerminalInfraService extends Context.Service<
     readonly focusSessionTerminal: (sessionId: EntityIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
     // VS Code can rename only the active terminal.
     readonly nameActiveSessionTab: (sessionId: EntityIdValueObject, tabName: string) => Effect.Effect<void>;
+    // A project has one terminal: it opens the first time and comes to the front after that.
     readonly openProjectTerminal: (project: ProjectListItemDto) => Effect.Effect<void, TerminalLaunchFailedError>;
     readonly openSessionTerminal: (
       session: SessionEntity,
       sessionTabRequest: SessionTabRequest
     ) => Effect.Effect<void, TerminalLaunchFailedError>;
+    // The Terminal panel follows the shown project while it shows another project's terminal.
+    readonly switchToProjectTerminal: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;
     readonly viewedSessionId: SubscriptionRef.SubscriptionRef<Result.Result<EntityIdValueObject, NoViewedSessionError>>;
   }
 >()("aggregor-app/application/interfaces/terminal.infraService.interface/ITerminalInfraService") {}

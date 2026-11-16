@@ -6,7 +6,7 @@ import type {
   addProject,
   moveProjectDown,
   moveProjectUp,
-  newProjectTerminal,
+  openProjectTerminal,
   removeProject,
   saveProjectSettings
 } from "@services/project.service.ts";
@@ -16,7 +16,7 @@ type ProjectCommandError = Effect.Error<
     | typeof addProject
     | typeof moveProjectDown
     | typeof moveProjectUp
-    | typeof newProjectTerminal
+    | typeof openProjectTerminal
     | typeof removeProject
     | typeof saveProjectSettings
   >

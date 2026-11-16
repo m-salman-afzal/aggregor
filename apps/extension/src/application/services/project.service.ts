@@ -18,7 +18,7 @@ import {Path} from "effect/Path";
 import type {
   MoveProjectDownRequestDto,
   MoveProjectUpRequestDto,
-  NewProjectTerminalRequestDto,
+  OpenProjectTerminalRequestDto,
   RemoveProjectRequestDto,
   SaveProjectSettingsRequestDto
 } from "@dtos/project.dto.ts";
@@ -225,8 +225,8 @@ export const removeProject = Effect.fn("ProjectService.removeProject")(
 );
 
 // A project no longer listed opens nothing.
-export const newProjectTerminal = Effect.fn("ProjectService.newProjectTerminal")(
-  function* (request: NewProjectTerminalRequestDto) {
+export const openProjectTerminal = Effect.fn("ProjectService.openProjectTerminal")(
+  function* (request: OpenProjectTerminalRequestDto) {
     const chosenProject = yield* findProjectListItem(request.projectPath);
 
     yield* ITerminalInfraService.use((terminalInfraService) => terminalInfraService.openProjectTerminal(chosenProject));

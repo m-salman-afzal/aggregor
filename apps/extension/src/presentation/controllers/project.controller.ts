@@ -1,7 +1,7 @@
 import {
   MoveProjectDownRequestDtoSchema,
   MoveProjectUpRequestDtoSchema,
-  NewProjectTerminalRequestDtoSchema,
+  OpenProjectTerminalRequestDtoSchema,
   RemoveProjectRequestDtoSchema,
   SaveProjectSettingsRequestDtoSchema
 } from "@dtos/project.dto.ts";
@@ -10,7 +10,7 @@ import {
   addProject,
   moveProjectDown,
   moveProjectUp,
-  newProjectTerminal,
+  openProjectTerminal,
   removeProject,
   saveProjectSettings
 } from "@services/project.service.ts";
@@ -41,11 +41,11 @@ export const moveChosenProjectDown = Effect.fn("ProjectController.moveChosenProj
   yield* moveProjectDown(request);
 });
 
-export const newTerminalInChosenProject = Effect.fn("ProjectController.newTerminalInChosenProject")(function* (
+export const openChosenProjectTerminal = Effect.fn("ProjectController.openChosenProjectTerminal")(function* (
   chosenProject: unknown
 ) {
-  const request = yield* decodeVsCodeArgument(NewProjectTerminalRequestDtoSchema, chosenProject);
-  yield* newProjectTerminal(request);
+  const request = yield* decodeVsCodeArgument(OpenProjectTerminalRequestDtoSchema, chosenProject);
+  yield* openProjectTerminal(request);
 });
 
 export const saveChosenProjectSettings = Effect.fn("ProjectController.saveChosenProjectSettings")(function* (

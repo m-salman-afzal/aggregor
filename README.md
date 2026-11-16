@@ -18,10 +18,10 @@ terminals, tree views, Source Control and diffs.
   when it cuts a turn short.
 - **Projects.** The window's workspace folders are always listed; Add Project lists any other folder, and in a window
   showing no project it also shows the first one. Added projects are one list, kept for every window: Aggregor is meant
-  to run in one window. A project row's + starts a session in it, the Sessions title's + asks which project to use, and
-  a project's … menu opens a terminal in it (New Terminal), edits its settings (Project Settings…: where its worktrees
-  go, the files copied into them, a setup script, and whether new sessions start in a worktree) and, for an added
-  project, removes it. Everything runs from the view; the Command Palette lists no Aggregor command.
+  to run in one window. A project row's + starts a session in it, the Sessions title's + asks which project to use, its
+  terminal button opens the project's own terminal, and its … menu edits its settings (Project Settings…: where its
+  worktrees go, the files copied into them, a setup script, and whether new sessions start in a worktree) and, for an
+  added project, removes it. Everything runs from the view; the Command Palette lists no Aggregor command.
 - **One project in view.** Like VS Code's Agents window, the workspace follows the session in front of you: its project
   is the only folder Explorer, search, file watching and Source Control see. Opening a file keeps the project. The first
   switch opens Aggregor's own workspace, `~/.aggregor/anchor/Aggregor.code-workspace`, in the window: a hidden, empty
@@ -47,8 +47,9 @@ terminals, tree views, Source Control and diffs.
   settings adds a CLI, changes a built-in's name, command, arguments, environment variables (`env`) or icon, or hides
   one with `null`; the gear on the Sessions title opens Aggregor's settings. A session's tab shows the same name as its
   row, whose second line shows the agent's icon, and the session in front stays marked in the view.
-- **Terminals.** The Terminal panel's + opens in the shown project without asking. Its project button opens a shell in
-  any of the window's projects, shown or not.
+- **Terminals.** The Terminal panel's + opens in the shown project without asking. Each project has one terminal of its
+  own, opened from its row's terminal button, and when the window switches project the panel switches to that project's
+  terminal, as long as the panel showed another project's terminal.
 - **Persistent sessions.** Every agent runs in tmux (3.2 or newer), so it keeps working when you close its tab, reload
   the window or quit VS Code; those close the tab, and clicking the session attaches a new one. An agent that has
   stopped, as after a reboot, shows exited, and clicking it resumes the conversation. Every window that lists a project
