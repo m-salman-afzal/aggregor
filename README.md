@@ -55,7 +55,9 @@ terminals, tree views, Source Control and diffs.
   the window or quit VS Code; those close the tab, and clicking the session attaches a new one. An agent that has
   stopped shows exited, and clicking it resumes the conversation; one that was running when the computer restarted shows
   interrupted, with a restart icon, until it is resumed. Every window that lists a project shows its sessions. The row's
-  … menu removes a session and stops its agent.
+  … menu removes a session and stops its agent. When memory runs out on Linux, agents are killed before VS Code; with
+  systemd, each agent runs in a cgroup of its own, so only that session goes, and `aggregorApp.sessionMemoryLimit` caps
+  each one.
 - **Session titles.** Each tab and row shows the title the agent gives its terminal, as it changes (for Claude, its own
   title for the conversation or the one set with `/rename`); a closed session keeps the last one. Rename in the row's …
   menu gives a session your own name in the row and the tab; an empty name hands both back to the agent.

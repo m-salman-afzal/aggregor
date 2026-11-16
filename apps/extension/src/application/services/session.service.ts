@@ -28,6 +28,7 @@ import {
 import {IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
+import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
@@ -225,9 +226,11 @@ const openSessionTab = Effect.fn("SessionService.openSessionTab")(function* (
   const tmuxInfraService = yield* ITmuxInfraService;
   const sessionAgent = yield* findSessionAgent(session);
   const launchPlan = yield* prepareLaunchPlan(sessionAgent, session);
+  const sessionSettings = yield* ISettingsConfig.use((settingsConfig) => settingsConfig.readSessionSettings);
   const tabCommand = yield* tmuxInfraService.prepareSessionTabCommand({
     launchPlan,
     sessionId: session.id,
+    sessionMemoryLimit: sessionSettings.sessionMemoryLimit,
     setupScript,
     workingFolderPath: session.workingFolderPath
   });

@@ -7,7 +7,7 @@ import {
 } from "@interfaces/tmux.infraService.interface.ts";
 import {PLATFORMS} from "@pkg/constants/src/process.constant.ts";
 import {PTY_BINARY} from "@pkg/constants/src/terminal.constant.ts";
-import {AGENT_START_WAIT, TMUX} from "@pkg/constants/src/tmux.constant.ts";
+import {AGENT_START_WAIT, SYSTEMD_SCOPE, TMUX} from "@pkg/constants/src/tmux.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
 import {decodeEntityId} from "@valueObjects/entityId.valueObject.ts";
@@ -22,6 +22,7 @@ import type {SessionTabCommandRequest} from "@interfaces/tmux.infraService.inter
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 
 interface TmuxDependencies {
+  readonly canRunInOwnScope: boolean;
   readonly childProcessSpawner: ChildProcessSpawner["Service"];
   readonly databaseFilePath: string;
   readonly ptyBinaryPath: Result.Result<string, PtyBinaryNotFoundError>;
@@ -138,6 +139,33 @@ const preparePtyArguments = Effect.fn("TmuxInfraService.preparePtyArguments")(fu
   ];
 });
 
+// The setup script runs inside the scope too, since it can start memory-hungry installs.
+const prepareScopeArguments = Effect.fn("TmuxInfraService.prepareScopeArguments")(function* (
+  tmuxDependencies: TmuxDependencies,
+  sessionMemoryLimit: string | undefined
+) {
+  if (!tmuxDependencies.canRunInOwnScope) return [];
+  const memoryLimitArguments =
+    sessionMemoryLimit === undefined ? [] : ["-p", `${SYSTEMD_SCOPE.MEMORY_LIMIT_PROPERTY}=${sessionMemoryLimit}`];
+
+  return [SYSTEMD_SCOPE.COMMAND, ...SYSTEMD_SCOPE.OPTIONS, ...memoryLimitArguments, "--"];
+});
+
+// The tab's tmux client starts the tmux server, which stays in the client's cgroup, so the client gets one of its own.
+const prepareTabCommandInScope = Effect.fn("TmuxInfraService.prepareTabCommandInScope")(function* (
+  tmuxDependencies: TmuxDependencies,
+  tmuxArguments: readonly string[]
+) {
+  const sessionTabCommand: SessionTabCommand = tmuxDependencies.canRunInOwnScope
+    ? {
+        command: SYSTEMD_SCOPE.COMMAND,
+        commandArguments: [...SYSTEMD_SCOPE.OPTIONS, "--", TMUX.COMMAND, ...tmuxArguments]
+      }
+    : {command: TMUX.COMMAND, commandArguments: tmuxArguments};
+
+  return sessionTabCommand;
+});
+
 // The script's output stays in the tab above the agent's, and the agent starts whether or not the script succeeds.
 const prepareSetupArguments = Effect.fn("TmuxInfraService.prepareSetupArguments")(function* (
   sessionTabCommandRequest: SessionTabCommandRequest
@@ -155,17 +183,14 @@ const prepareSessionTabCommand = Effect.fn("TmuxInfraService.prepareSessionTabCo
 ) {
   yield* checkTmuxVersion(tmuxDependencies.childProcessSpawner);
   const ptyBinaryPath = yield* Effect.fromResult(tmuxDependencies.ptyBinaryPath);
-  const sessionTabCommand: SessionTabCommand = {
-    command: TMUX.COMMAND,
-    commandArguments: [
-      ...(yield* prepareTmuxArguments(tmuxDependencies, sessionTabCommandRequest)),
-      "--",
-      ...(yield* prepareSetupArguments(sessionTabCommandRequest)),
-      ...(yield* preparePtyArguments(tmuxDependencies, ptyBinaryPath, sessionTabCommandRequest))
-    ]
-  };
 
-  return sessionTabCommand;
+  return yield* prepareTabCommandInScope(tmuxDependencies, [
+    ...(yield* prepareTmuxArguments(tmuxDependencies, sessionTabCommandRequest)),
+    "--",
+    ...(yield* prepareScopeArguments(tmuxDependencies, sessionTabCommandRequest.sessionMemoryLimit)),
+    ...(yield* prepareSetupArguments(sessionTabCommandRequest)),
+    ...(yield* preparePtyArguments(tmuxDependencies, ptyBinaryPath, sessionTabCommandRequest))
+  ]);
 });
 
 const confirmSessionAgentListed = Effect.fn("TmuxInfraService.confirmSessionAgentListed")(function* (
@@ -257,6 +282,22 @@ const findPtyBinaryPath = Effect.fn("TmuxInfraService.findPtyBinaryPath")(functi
   return ptyBinaryPath;
 });
 
+// Without a systemd user manager (macOS, WSL without systemd, a container) sessions run in VS Code's cgroup.
+const probeOwnScope = Effect.fn("TmuxInfraService.probeOwnScope")(function* (
+  childProcessSpawner: ChildProcessSpawner["Service"]
+) {
+  const probeExitCode = yield* Effect.orElseSucceed(
+    childProcessSpawner.exitCode(
+      ChildProcess.make(SYSTEMD_SCOPE.COMMAND, [...SYSTEMD_SCOPE.OPTIONS, "--", SYSTEMD_SCOPE.PROBE_COMMAND])
+    ),
+    () => -1
+  );
+  const canRunInOwnScope = probeExitCode === 0;
+  yield* Effect.annotateCurrentSpan({canRunInOwnScope});
+
+  return canRunInOwnScope;
+});
+
 const makeTmuxDependencies = Effect.fn("TmuxInfraService.makeTmuxDependencies")(function* () {
   const vsCodeApi = yield* VsCodeApi;
   const childProcessSpawner = yield* ChildProcessSpawner;
@@ -264,6 +305,7 @@ const makeTmuxDependencies = Effect.fn("TmuxInfraService.makeTmuxDependencies")(
   const tmuxSocketPath = yield* getTmuxSocketPath();
   const initialSessionIds = yield* readRunningSessionIds({childProcessSpawner, tmuxSocketPath});
   const tmuxDependencies: TmuxDependencies = {
+    canRunInOwnScope: yield* probeOwnScope(childProcessSpawner),
     childProcessSpawner,
     databaseFilePath: yield* getDatabaseFilePath(),
     ptyBinaryPath: yield* Effect.result(findPtyBinaryPath(ptyBinaryPath)),

@@ -24,6 +24,9 @@ const QUERY_REPLY: &[u8] = b"\x1b]7501;?\x1b\\";
 const READ_BUFFER_SIZE: usize = 16 * 1024;
 // Output still in the pty after the agent exits; a background process that keeps the pty open must not keep us waiting.
 const OUTPUT_DRAIN_TIMEOUT: Duration = Duration::from_millis(500);
+// Above VS Code's own 200 to 300, so the kernel's out-of-memory killer picks the agent's processes before the editor.
+#[cfg(target_os = "linux")]
+const OOM_SCORE_ADJUSTMENT: &str = "500";
 
 type SharedWriter = Arc<Mutex<Box<dyn Write + Send>>>;
 
@@ -74,7 +77,18 @@ fn parse_arguments(mut arguments: impl Iterator<Item = OsString>) -> Option<Argu
     })
 }
 
+/// The agent and everything it starts inherit the score.
+#[cfg(target_os = "linux")]
+fn raise_oom_score() {
+    // Any process may raise its own score; one already higher, which only privileges could lower, keeps its own.
+    let _ = std::fs::write("/proc/self/oom_score_adj", OOM_SCORE_ADJUSTMENT);
+}
+
+#[cfg(not(target_os = "linux"))]
+fn raise_oom_score() {}
+
 fn run(arguments: Arguments) -> Result<i32, Box<dyn Error>> {
+    raise_oom_score();
     let pty = native_pty_system().openpty(terminal::read_size())?;
     let mut command = CommandBuilder::from_argv(arguments.command);
     command.cwd(std::env::current_dir()?);

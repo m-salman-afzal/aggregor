@@ -52,6 +52,21 @@ heading there. Update this file in the same commit as a change that adds, remove
   Decided 4: a named server, `-L aggregor`. The harness-foundation plan names psmux for native Windows later.
   - Other options for the multiplexer itself, not weighed in `decisions/`: GNU screen, Zellij, dtach or abduco.
 
+### systemd-run
+
+- **What it is:** systemd's command that runs a process under the user's service manager, here as a transient scope.
+- **What we use:** `systemd-run --user --scope --quiet --collect` (`SYSTEMD_SCOPE` in
+  `packages/constants/src/tmux.constant.ts`, called from `tmux.infraService.ts`), probed once with `-- true` when the
+  extension starts:
+  - A session's tab runs `systemd-run … -- tmux …`, so the tmux server the first tab starts lives in a cgroup of its
+    own, not VS Code's.
+  - Inside tmux, each agent runs as `systemd-run … [-p MemoryMax=‹aggregorApp.sessionMemoryLimit›] -- aggregor-pty …`,
+    one cgroup per agent with everything it starts.
+  - Without a systemd user manager (macOS, WSL without systemd, a container) the probe fails and both run as before.
+- **Why:** systemd-oomd and the kernel kill a whole cgroup, and the tmux server stayed in the cgroup of whichever
+  process started it, VS Code's, so one agent's memory took VS Code and every agent down.
+- **Alternatives:** "Each agent runs in a systemd scope of its own" in `decisions/sessions/terminals.md`.
+
 ### aggregor-pty
 
 - **What it is:** Aggregor's own Rust binary (`apps/pty`), shipped as `bin/aggregor-pty` in the Linux and macOS VSIXs.
@@ -59,8 +74,8 @@ heading there. Update this file in the same commit as a change that adds, remove
   It runs the agent in a pty of its terminal's size and copies bytes both ways (`main.rs`, `terminal.rs`), finds OSC
   7501 and OSC 0/2 in the output (`scanner.rs`) and answers `OSC 7501 ; ?`, checks reports against the spec
   (`report.rs`), and writes the status, title and `agentSessionId` columns onto the session's row from a writer thread
-  (`store.rs`), `exited` when the agent exits. Errors go to `data/aggregor-pty.log`. `build:pty` builds it into
-  `apps/extension/bin/`.
+  (`store.rs`), `exited` when the agent exits. On Linux it first raises its own `oom_score_adj` to 500, which the agent
+  inherits. Errors go to `data/aggregor-pty.log`. `build:pty` builds it into `apps/extension/bin/`.
 - **Why:** status comes from the agent's own OSC 7501 reports and titles, which only a process between the agent and its
   terminal can read; VS Code's terminal API can't.
 - **Alternatives:** "`aggregor-pty` runs each agent and records its status": one `agentTitle` column picked by the
