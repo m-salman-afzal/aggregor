@@ -2,7 +2,7 @@ import {APP_COMMANDS, APP_LABELS} from "@pkg/constants/src/app.constant.ts";
 import {LEFTOVER_LABELS, WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
 import {PROJECT_COMMANDS, PROJECT_LABELS} from "@pkg/constants/src/project.constant.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
-import {SESSIONS_WEBVIEW} from "@pkg/constants/src/sessionsView.constant.ts";
+import {SESSION_LISTS, SESSIONS_WEBVIEW} from "@pkg/constants/src/sessionsView.constant.ts";
 import {TERMINAL_COMMANDS} from "@pkg/constants/src/terminal.constant.ts";
 import {
   ArchiveIcon,
@@ -30,6 +30,8 @@ export const SESSIONS_LABELS = {
     "project's or the list's.",
   ARCHIVE_TITLE: "Archive",
   DETAIL_SEPARATOR: " · ",
+  HIDDEN_SESSIONS: (hiddenSessionCount: number, totalSessionCount: number) =>
+    `${hiddenSessionCount} of ${totalSessionCount} sessions not shown yet`,
 
   MISSING_AGENT: "Agent not in settings",
   MORE_ACTIONS: "More Actions…",
@@ -37,6 +39,7 @@ export const SESSIONS_LABELS = {
   OK: "OK",
   PROGRESS: (statusProgress: number) => `${statusProgress}%`,
   SESSIONS_TITLE: "Sessions",
+  SHOW_MORE_SESSIONS: (shownMoreCount: number) => `Show ${shownMoreCount} more`,
   USER_INPUT_TEXT_FIELD: "userInputText",
   WAITING_COUNT: (waitingCount: number) => `${waitingCount} waiting on you`
 } as const;
@@ -56,11 +59,6 @@ export const USER_INPUT_TAGS = {
   PROJECT_SETTINGS: "ProjectSettingsInput",
   QUESTION: "QuestionInput",
   TEXT: "TextInput"
-} as const;
-
-export const SESSION_LISTS = {
-  ARCHIVE: "archive",
-  SESSIONS: "sessions"
 } as const;
 
 const MOVE_ROW_LABEL = "Move";
@@ -110,8 +108,8 @@ export const ROW_ACTIONS = {
     icon: PlusIcon,
     label: "New Session…"
   },
-  NEW_TERMINAL: {commandId: TERMINAL_COMMANDS.NEW_PROJECT_TERMINAL, icon: SquareTerminalIcon, label: "New Terminal"},
   OPEN_SETTINGS: {commandId: APP_COMMANDS.OPEN_SETTINGS, icon: SettingsIcon, label: APP_LABELS.OPEN_SETTINGS},
+  OPEN_TERMINAL: {commandId: TERMINAL_COMMANDS.OPEN_PROJECT_TERMINAL, icon: SquareTerminalIcon, label: "Open Terminal"},
   PROJECT_SETTINGS: {
     commandId: PROJECT_COMMANDS.SAVE_SETTINGS,
     icon: SlidersHorizontalIcon,

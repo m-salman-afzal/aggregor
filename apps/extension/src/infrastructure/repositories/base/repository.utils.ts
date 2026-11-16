@@ -1,5 +1,5 @@
 import {DATABASE_POLL_INTERVAL} from "@pkg/constants/src/database.constant.ts";
-import {eq, getColumns, isNull} from "drizzle-orm";
+import {count, desc, eq, getColumns, isNull} from "drizzle-orm";
 import {getTableConfig} from "drizzle-orm/sqlite-core";
 import {Array, DateTime, Effect, Predicate, Record, Schedule, Schema, Stream} from "effect";
 import {SqlClient} from "effect/sql/SqlClient";
@@ -79,10 +79,9 @@ export const watchDataVersionChanges = Effect.fn("BaseRepository.watchDataVersio
   return Stream.drop(Stream.changes(dataVersions), 1);
 });
 
-export const selectRows = Effect.fn("BaseRepository.selectRows")(function* <Entity>(
-  repositoryTable: RepositoryTable<Entity>,
-  rowCondition: SQL | undefined,
-  orderColumn: SQLiteColumn
+// Returns the query unrun, for its caller to order and limit.
+const buildJoinedSelect = Effect.fn("BaseRepository.buildJoinedSelect")(function* <Entity>(
+  repositoryTable: RepositoryTable<Entity>
 ) {
   const joinedColumns = repositoryTable.join === undefined ? {} : repositoryTable.join.joinedColumns;
   const selectedRows = repositoryTable.database
@@ -94,5 +93,41 @@ export const selectRows = Effect.fn("BaseRepository.selectRows")(function* <Enti
       ? selectedRows
       : selectedRows.innerJoin(repositoryTable.join.joinedTable, repositoryTable.join.joinCondition);
 
-  return yield* joinedRows.where(rowCondition).orderBy(orderColumn);
+  return {joinedRows};
+});
+
+export const selectRows = Effect.fn("BaseRepository.selectRows")(function* <Entity>(
+  repositoryTable: RepositoryTable<Entity>,
+  rowCondition: SQL | undefined,
+  orderColumn: SQLiteColumn
+) {
+  const joinedSelect = yield* buildJoinedSelect(repositoryTable);
+
+  return yield* joinedSelect.joinedRows.where(rowCondition).orderBy(orderColumn);
+});
+
+// Newest first: the highest sortId leads.
+export const selectRowPage = Effect.fn("BaseRepository.selectRowPage")(function* <Entity>(
+  repositoryTable: RepositoryTable<Entity>,
+  rowCondition: SQL | undefined,
+  pageSize: number
+) {
+  const joinedSelect = yield* buildJoinedSelect(repositoryTable);
+
+  return yield* joinedSelect.joinedRows
+    .where(rowCondition)
+    .orderBy(desc(repositoryTable.tableModel.sortId))
+    .limit(pageSize);
+});
+
+export const countRows = Effect.fn("BaseRepository.countRows")(function* <Entity>(
+  repositoryTable: RepositoryTable<Entity>,
+  rowCondition: SQL | undefined
+) {
+  const [countRow] = yield* repositoryTable.database
+    .select({rowCount: count()})
+    .from(repositoryTable.tableModel)
+    .where(rowCondition);
+
+  return countRow === undefined ? 0 : countRow.rowCount;
 });

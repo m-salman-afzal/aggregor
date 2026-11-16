@@ -1,5 +1,5 @@
-import {APPEARANCE, SESSION_LISTS} from "@/modules/sessions/sessions.constant.ts";
-import {SESSIONS_WEBVIEW_MESSAGE_TAGS} from "@pkg/constants/src/sessionsView.constant.ts";
+import {APPEARANCE} from "@/modules/sessions/sessions.constant.ts";
+import {SESSION_LISTS, SESSIONS_WEBVIEW_MESSAGE_TAGS} from "@pkg/constants/src/sessionsView.constant.ts";
 
 import type {SessionListId} from "@/modules/sessions/sessions.type.ts";
 import type {CommandRequest, SessionsViewMessage, SessionsWebviewMessage} from "@views/sessions/sessions.view.type.ts";
@@ -21,6 +21,10 @@ const postToHost = (sessionsWebviewMessage: SessionsWebviewMessage) => {
 
 export const askHostForLeftovers = (projectPath: string) => {
   postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_LEFTOVERS, projectPath});
+};
+
+export const askHostForMoreSessions = (listId: SessionListId, projectPath: string) => {
+  postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.SHOW_MORE_SESSIONS, listId, projectPath});
 };
 
 export const askHostToDraw = () => {

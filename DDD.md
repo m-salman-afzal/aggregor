@@ -196,14 +196,14 @@ apps/extension/src/
       base/
         base.entity.ts                     BaseEntity (Schema.Class: id, sortId, updatedAt, deletedAt; fromRow, the
                                            factory every stored row goes through)
-        base.repository.interface.ts       IBaseRepository<Entity, AddRequest>: add, findById, findMany, update,
-                                           upsert, softDelete, placeAtEnd, entityChanges; EntityChange;
-                                           DatabaseReadError, DatabaseWriteError, EntityNotFoundError
+        base.repository.interface.ts       IBaseRepository<Entity, AddRequest>: add, findById, findMany, findPage,
+                                           update, upsert, softDelete, placeAtEnd, entityChanges; EntityChange,
+                                           EntityPage; DatabaseReadError, DatabaseWriteError, EntityNotFoundError
       session/
         session.entity.ts                  SessionEntity (BaseEntity and projectId, projectPath, name, customName,
                                            agentId, viewedAt, lifecycle, and aggregor-pty's status, statusKind,
                                            statusMessage, statusProgress, statusChangedAt, hasWorked, reportedTitle,
-                                           terminalTitle and agentSessionId, worktreePath; displayName, and
+                                           terminalTitle and agentSessionId, worktreePath, runState; displayName, and
                                            workingFolderPath: its worktree, or else its project's root)
         session.repository.interface.ts    ISessionRepository: the base calls
       project/
@@ -224,7 +224,11 @@ apps/extension/src/
                                            LaunchPlanValueObject (a command, its arguments and its variables),
                                            EntityChangeKindValueObject (literals: placed, updated, removed),
                                            ProjectSettingsValueObject (a project's settings, every key with its
-                                           default), SessionWorkingTreeValueObject (literals: projectRoot, worktree)
+                                           default), SessionWorkingTreeValueObject (literals: projectRoot, worktree),
+                                           SessionRunStateValueObject (literals: running, interrupted),
+                                           PaginationValueObject (one page of a list: its size and the cursor it
+                                           follows, its number, the total pages and rows, the rows before and after
+                                           it, the next cursor)
     services/
       session.domainService.ts             prepareLaunchPlan, getDefaultSessionName, getSessionTitle,
                                            getSessionTitleToSave, getSessionStatus, isSessionTurnRunning,
@@ -232,13 +236,14 @@ apps/extension/src/
       entityId.domainService.ts            makeEntityId, getEntityIdCreatedAt: the entity id's factory
       sortOrder.domainService.ts           findEntityIdsToPlaceAtEnd, canMoveUpInOrder, canMoveDownInOrder: how
                                            rows move within an order
+      pagination.domainService.ts          makePagination: what a page is, from its request and the row counts
       worktree.domainService.ts            getWorktreeName, getWorktreeBranchName, getWorktreesFolderName,
                                            getTitledBranchName, hasWorktreeBranchFirstName: what a session's
                                            worktree, its branch and its project's worktrees folder are called
   application/
     services/
-      base.service.ts                      addEntity, findEntityById, findEntities, updateEntity, upsertEntity,
-                                           removeEntity, placeEntitiesAtEnd, on any repository
+      base.service.ts                      addEntity, findEntityById, findEntities, findEntityPage, updateEntity,
+                                           upsertEntity, removeEntity, placeEntitiesAtEnd, on any repository
       session.service.ts                   newSession (in a project, with an agent or the default one, at the
                                            project's root, in a new worktree or in an existing one),
                                            openSession, archiveSession, unarchiveSession, removeSession,
@@ -251,14 +256,15 @@ apps/extension/src/
                                            getSessionListItem,
                                            watchSessionListChanges, watchViewedSessionIds, findViewedSessionId,
                                            listSessionsWaitingOnUser (the badge and each view's count);
-                                           startSessionTitleSync, startSessionTabNameSync, startViewedAtSync
+                                           startSessionTitleSync, startSessionTabNameSync, startViewedAtSync,
+                                           startRunStateSync
       agent.service.ts                     listAgents (the installed agents, the default first), setDefaultAgent,
                                            findAgentToStart; NoAgentInstalledError
       sessionAlert.service.ts              watchSessionAlerts: the states sessions out of view hold for 3 seconds,
                                            as notifyOn picks them; notifyOnDesktop
       project.service.ts                   listProjects, getProjectListItem, findProjectListItem, addProject
                                            (asks for folders), addProjectPaths, findOrAddProject, removeProject,
-                                           moveProjectUp, moveProjectDown, newProjectTerminal,
+                                           moveProjectUp, moveProjectDown, openProjectTerminal,
                                            saveProjectSettings; ProjectNotListedError
       worktree.service.ts                  listProjectLeftovers, cleanUpProjectLeftovers (a project's worktrees and
                                            aggregor/* branches left over), hasProjectLeftovers (its row's dot),
@@ -279,8 +285,8 @@ apps/extension/src/
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
     interfaces/                            each with the errors and types its signatures name
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
-                                           openProjectTerminal, nameActiveSessionTab, activatedSessionIds,
-                                           viewedSessionId; SessionTabRequest, SessionTabCommand,
+                                           openProjectTerminal, switchToProjectTerminal, nameActiveSessionTab,
+                                           activatedSessionIds, viewedSessionId; SessionTabRequest, SessionTabCommand,
                                            TerminalLaunchFailedError
       tmux.infraService.interface.ts       prepareSessionTabCommand, waitForSessionAgentStart, stopSessionAgent,
                                            runningSessionIds, refreshRunningSessionIds, startedOrStoppedSessionIds;
@@ -303,8 +309,8 @@ apps/extension/src/
                                            hasUpstream, findFreeBranchName, renameBranch, hasChanges,
                                            removeWorktree, isMadeByAggregor, listAggregorBranches, pruneRemote,
                                            findBaseBranch, isBranchMerged, deleteBranch,
-                                           findWorktreesRootPath; GitWorktree,
-                                           WorktreeBranch, NotGitRepositoryError, WorktreeCreateFailedError,
+                                           findWorktreesRootPath, readDiffStats; GitWorktree,
+                                           WorktreeBranch, WorktreeDiffStats, NotGitRepositoryError, WorktreeCreateFailedError,
                                            BranchRenameFailedError, WorktreeHasChangesError,
                                            WorktreeRemoveFailedError, BranchDeleteFailedError
       commitCli.infraService.interface.ts  generateCommitMessage; CommitMessageRequest
@@ -317,7 +323,8 @@ apps/extension/src/
       base/                                makeBaseRepository: the base calls on one table, on Drizzle's query
                                            builder; its types in base.repository.type.ts; repository.utils.ts its
                                            helpers (formatCurrentTimestamp, encodeStoredColumns, findUniqueColumns,
-                                           selectRows, watchDataVersionChanges); entityChange.utils.ts
+                                           selectRows, selectRowPage, countRows, watchDataVersionChanges);
+                                           entityChange.utils.ts
                                            startEntityChangeFeed, which reads the rows written since its last check
       session.repository.ts                SessionRepository: sessions with their project's path
       project.repository.ts                ProjectRepository: projects
@@ -508,6 +515,11 @@ apps/extension/tests/
   on. A repository passes `makeBaseRepository` a join for the columns it reads from the rows it points at, such as a
   session's `projectPath`. After changing a model, `pnpm db:generate --name <change>` writes its migration (see Tables
   and migrations). `storage.md` lists every stored table and key.
+- A list read a page at a time goes through `findPage(filter, pageRequest)`: newest first (highest `sortId` first), the
+  rows after the request's cursor, at most its page size, with a `PaginationValueObject` that `makePagination` works out
+  from two counts, the rows in all and the rows before the page. The cursor is the page's last row's `sortId`, opaque
+  outside the repository, so a row placed meanwhile shifts no page after it. A use case that shows several pages reads
+  them one cursor after the other.
 - `AgentRepository` reads VS Code's settings, not a table: it decodes `aggregorApp.agents` when the window starts and
   again each time the setting changes, so an invalid entry is warned about once per change, and keeps the result for its
   reads.

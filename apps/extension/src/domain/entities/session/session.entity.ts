@@ -4,6 +4,7 @@ import {AgentStatusValueObjectSchema} from "@valueObjects/agentStatus.valueObjec
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {SessionLifecycleValueObjectSchema} from "@valueObjects/sessionLifecycle.valueObject.ts";
+import {SessionRunStateValueObjectSchema} from "@valueObjects/sessionRunState.valueObject.ts";
 import {StatusKindValueObjectSchema} from "@valueObjects/statusKind.valueObject.ts";
 import {Schema} from "effect";
 
@@ -20,6 +21,7 @@ export class SessionEntity extends BaseEntity.extend<SessionEntity>("Session")({
   projectId: EntityIdValueObjectSchema,
   projectPath: ProjectPathValueObjectSchema,
   reportedTitle: Schema.optional(Schema.String),
+  runState: Schema.optional(SessionRunStateValueObjectSchema),
   status: AgentStatusValueObjectSchema,
   statusChangedAt: Schema.optional(Schema.DateTimeUtcFromString),
   statusKind: Schema.optional(StatusKindValueObjectSchema),

@@ -37,7 +37,13 @@ export const SESSIONS_VIEW_MESSAGE_TAGS = {
 export const SESSIONS_WEBVIEW_MESSAGE_TAGS = {
   LIST_LEFTOVERS: "ListLeftovers",
   READY: "Ready",
-  RUN_COMMAND: "RunCommand"
+  RUN_COMMAND: "RunCommand",
+  SHOW_MORE_SESSIONS: "ShowMoreSessions"
+} as const;
+
+export const SESSION_LISTS = {
+  ARCHIVE: "archive",
+  SESSIONS: "sessions"
 } as const;
 
 // The view runs no other command the webview asks for.
@@ -65,7 +71,7 @@ export const SESSIONS_WEBVIEW_COMMANDS = [
   SESSION_COMMANDS.STOP_ONGOING_AGENTS,
   SESSION_COMMANDS.STOP_PROJECT_AGENTS,
   SESSION_COMMANDS.UNARCHIVE,
-  TERMINAL_COMMANDS.NEW_PROJECT_TERMINAL,
+  TERMINAL_COMMANDS.OPEN_PROJECT_TERMINAL,
   VS_CODE_COMMANDS.MANAGE_WORKSPACE_TRUST,
   WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS
 ] as const;
@@ -125,6 +131,7 @@ export const STATUS_LABELS = {
   error: "failed",
   exited: "exited",
   idle: "idle",
+  interrupted: "stopped by a restart · click to resume",
   working: "working"
 } as const;
 
@@ -139,5 +146,7 @@ export const VIEW_BADGE_LABELS = {
 } as const;
 
 export const SESSION_ROW_LABELS = {
+  DIFF_STATS_TOOLTIP: (changedFileCount: number, insertionCount: number, deletionCount: number) =>
+    `Since the base branch: files changed ${changedFileCount}, lines added ${insertionCount}, lines deleted ${deletionCount}`,
   TOOLTIP_HEADING: (sessionName: string, statusLabel: string) => `${sessionName} · ${statusLabel}`
 } as const;

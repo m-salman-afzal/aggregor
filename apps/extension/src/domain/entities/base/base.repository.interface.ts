@@ -3,11 +3,19 @@ import {Schema} from "effect";
 
 import type {EntityChangeKindValueObject} from "@valueObjects/entityChangeKind.valueObject.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import type {PaginationValueObject} from "@valueObjects/pagination.valueObject.ts";
 import type {Effect, Stream} from "effect";
 
 export interface EntityChange<Entity> {
   readonly entity: Entity;
   readonly kind: EntityChangeKindValueObject;
+}
+
+export type PageRequest = Pick<PaginationValueObject, "afterCursor" | "pageSize">;
+
+export interface EntityPage<Entity> {
+  readonly entities: readonly Entity[];
+  readonly pagination: PaginationValueObject;
 }
 
 export class DatabaseReadError extends Schema.TaggedError<DatabaseReadError, {readonly brand: unique symbol}>()(
@@ -29,6 +37,11 @@ export interface IBaseRepository<Entity, AddRequest> {
   readonly entityChanges: Stream.Stream<EntityChange<Entity>>;
   readonly findById: (entityId: EntityIdValueObject) => Effect.Effect<Entity, DatabaseReadError | EntityNotFoundError>;
   readonly findMany: (filter: Partial<AddRequest>) => Effect.Effect<readonly Entity[], DatabaseReadError>;
+  // Newest first, the reverse of findMany's order: the highest sortId leads.
+  readonly findPage: (
+    filter: Partial<AddRequest>,
+    pageRequest: PageRequest
+  ) => Effect.Effect<EntityPage<Entity>, DatabaseReadError>;
   readonly placeAtEnd: (entityIds: readonly EntityIdValueObject[]) => Effect.Effect<void, DatabaseWriteError>;
   readonly softDelete: (entityId: EntityIdValueObject) => Effect.Effect<void, DatabaseWriteError>;
   readonly update: (

@@ -3,6 +3,7 @@ import {
   ArchiveSessionRequestDtoSchema,
   GetProjectSessionsRequestDtoSchema,
   GetSessionListItemRequestDtoSchema,
+  ListProjectSessionsRequestDtoSchema,
   MoveSessionDownRequestDtoSchema,
   MoveSessionUpRequestDtoSchema,
   NewSessionRequestDtoSchema,
@@ -154,8 +155,8 @@ export const getSessionListItemForSessionsView = Effect.fn("SessionController.ge
 );
 
 export const getProjectSessionsForSessionsView = Effect.fn("SessionController.getProjectSessionsForSessionsView")(
-  function* (projectPath: string) {
-    const request = yield* decodeVsCodeArgument(GetProjectSessionsRequestDtoSchema, {projectPath});
+  function* (projectPath: string, shownPageCount: number) {
+    const request = yield* decodeVsCodeArgument(GetProjectSessionsRequestDtoSchema, {projectPath, shownPageCount});
 
     return yield* getProjectSessions(request);
   }
@@ -163,14 +164,18 @@ export const getProjectSessionsForSessionsView = Effect.fn("SessionController.ge
 
 export const listProjectsWithSessionsForSessionsView = Effect.fn(
   "SessionController.listProjectsWithSessionsForSessionsView"
-)(function* () {
-  return yield* listProjectsWithSessions();
+)(function* (shownPageCounts: Readonly<Record<string, number>>) {
+  const request = yield* decodeVsCodeArgument(ListProjectSessionsRequestDtoSchema, {shownPageCounts});
+
+  return yield* listProjectsWithSessions(request);
 });
 
 export const listProjectsWithArchivedSessionsForSessionsView = Effect.fn(
   "SessionController.listProjectsWithArchivedSessionsForSessionsView"
-)(function* () {
-  return yield* listProjectsWithArchivedSessions();
+)(function* (shownPageCounts: Readonly<Record<string, number>>) {
+  const request = yield* decodeVsCodeArgument(ListProjectSessionsRequestDtoSchema, {shownPageCounts});
+
+  return yield* listProjectsWithArchivedSessions(request);
 });
 
 export const listSessionsWaitingOnUserForSessionsView = Effect.fn(

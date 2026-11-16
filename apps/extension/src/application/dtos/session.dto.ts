@@ -8,12 +8,21 @@ import {SessionStatusValueObjectSchema} from "@valueObjects/sessionStatus.valueO
 import {StatusKindValueObjectSchema} from "@valueObjects/statusKind.valueObject.ts";
 import {Schema} from "effect";
 
+export const SessionDiffStatsDtoSchema = Schema.Struct({
+  changedFileCount: Schema.Int,
+  deletionCount: Schema.Int,
+  insertionCount: Schema.Int
+});
+
+export type SessionDiffStatsDto = typeof SessionDiffStatsDtoSchema.Type;
+
 // The wait kind and progress exist only at the agent's turn; no agent name or icon means it left the settings.
 export const SessionListItemDtoSchema = Schema.Struct({
   agentName: Schema.optional(Schema.String),
   branchName: Schema.optional(Schema.String),
   canMoveDown: Schema.Boolean,
   canMoveUp: Schema.Boolean,
+  diffStats: Schema.optional(SessionDiffStatsDtoSchema),
   displayName: Schema.String,
   icon: Schema.optional(AgentIconValueObjectSchema),
   isAgentRunning: Schema.Boolean,
@@ -38,11 +47,21 @@ export const WorktreeListItemDtoSchema = Schema.Struct({
 
 export type WorktreeListItemDto = typeof WorktreeListItemDtoSchema.Type;
 
+// The hidden sessions are those on the pages not yet shown; the waiting ones among them still count in the badge.
+export const SessionPageDtoSchema = Schema.Struct({
+  hiddenSessionCount: Schema.Int,
+  hiddenWaitingCount: Schema.Int,
+  totalSessionCount: Schema.Int
+});
+
+export type SessionPageDto = typeof SessionPageDtoSchema.Type;
+
 // Without worktrees, the project is no git repository, or the list doesn't read them (the Archive).
 export const ProjectSessionsDtoSchema = Schema.Struct({
   hasLeftovers: Schema.optional(Schema.Boolean),
   projectListItem: ProjectListItemDtoSchema,
   sessionListItems: Schema.Array(SessionListItemDtoSchema),
+  sessionPage: SessionPageDtoSchema,
   worktrees: Schema.optional(Schema.Array(WorktreeListItemDtoSchema)),
   worktreesRootPath: Schema.optional(Schema.String)
 });
@@ -131,6 +150,18 @@ export const GetSessionListItemRequestDtoSchema = Schema.Struct({sessionId: Enti
 
 export type GetSessionListItemRequestDto = typeof GetSessionListItemRequestDtoSchema.Type;
 
-export const GetProjectSessionsRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
+const ShownPageCountSchema = Schema.Int.check(Schema.isGreaterThanOrEqualTo(1));
+
+export const GetProjectSessionsRequestDtoSchema = Schema.Struct({
+  projectPath: ProjectPathValueObjectSchema,
+  shownPageCount: ShownPageCountSchema
+});
 
 export type GetProjectSessionsRequestDto = typeof GetProjectSessionsRequestDtoSchema.Type;
+
+// A project with no count shows its first page.
+export const ListProjectSessionsRequestDtoSchema = Schema.Struct({
+  shownPageCounts: Schema.Record(Schema.String, ShownPageCountSchema)
+});
+
+export type ListProjectSessionsRequestDto = typeof ListProjectSessionsRequestDtoSchema.Type;

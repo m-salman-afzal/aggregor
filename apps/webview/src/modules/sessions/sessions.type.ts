@@ -1,7 +1,7 @@
-import type {SESSION_LISTS, USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
+import type {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
 import type {ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
-import type {SESSIONS_WEBVIEW_COMMANDS} from "@pkg/constants/src/sessionsView.constant.ts";
+import type {SESSION_LISTS, SESSIONS_WEBVIEW_COMMANDS} from "@pkg/constants/src/sessionsView.constant.ts";
 import type {CommandRequest} from "@views/sessions/sessions.view.type.ts";
 import type {LucideIcon} from "lucide-react";
 

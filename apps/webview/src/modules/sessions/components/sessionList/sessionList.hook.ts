@@ -1,12 +1,8 @@
-import {
-  LIST_ACTION_GROUPS,
-  LIST_INLINE_ACTIONS,
-  SESSION_LISTS,
-  SESSIONS_LABELS
-} from "@/modules/sessions/sessions.constant.ts";
+import {LIST_ACTION_GROUPS, LIST_INLINE_ACTIONS, SESSIONS_LABELS} from "@/modules/sessions/sessions.constant.ts";
 import {runCommandOnHost} from "@/modules/sessions/sessions.service.ts";
 import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.store.ts";
 import {PROJECT_COMMANDS} from "@pkg/constants/src/project.constant.ts";
+import {SESSION_LISTS} from "@pkg/constants/src/sessionsView.constant.ts";
 
 import type {SessionListId} from "@/modules/sessions/sessions.type.ts";
 

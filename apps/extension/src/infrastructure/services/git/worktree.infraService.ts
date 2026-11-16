@@ -12,6 +12,7 @@ import {GIT_COMMAND, WORKTREES} from "@pkg/constants/src/git.constant.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {Array, Effect, Layer, Result, Schema, Stream, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
+import {sumAll} from "effect/Number";
 import {Path} from "effect/Path";
 import {ChildProcess} from "effect/process";
 import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
@@ -22,7 +23,8 @@ import type {
   CopyIncludedFilesRequest,
   CreateWorktreeRequest,
   GitWorktree,
-  WorktreeBranch
+  WorktreeBranch,
+  WorktreeDiffStats
 } from "@interfaces/worktree.infraService.interface.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
@@ -450,6 +452,85 @@ const deleteBranch = Effect.fn("WorktreeInfraService.deleteBranch")(
   )
 );
 
+const sumNumstatLines = Effect.fn("WorktreeInfraService.sumNumstatLines")(function* (numstatOutput: string) {
+  const numstatLines = Array.filter(String.split(numstatOutput, "\n"), (numstatLine) => numstatLine !== "");
+  const lineCounts = Array.map(numstatLines, (numstatLine) => String.split(numstatLine, "\t"));
+
+  return {
+    changedFileCount: numstatLines.length,
+    deletionCount: sumAll(Array.map(lineCounts, (lineCount) => Number(lineCount[1]) || 0)),
+    insertionCount: sumAll(Array.map(lineCounts, (lineCount) => Number(lineCount[0]) || 0))
+  };
+});
+
+const readTrackedDiffStats = Effect.fn("WorktreeInfraService.readTrackedDiffStats")(function* (
+  worktreeDependencies: WorktreeDependencies,
+  worktreePath: ProjectPathValueObject,
+  baseBranchName: string
+) {
+  const mergeBase = yield* runGitCommand(worktreeDependencies, worktreePath, ["merge-base", "HEAD", baseBranchName]);
+  const numstatOutput = yield* runGitCommand(worktreeDependencies, worktreePath, [
+    "diff",
+    "--numstat",
+    String.trim(mergeBase)
+  ]);
+
+  return yield* sumNumstatLines(numstatOutput);
+});
+
+// Counted as git counts an added file: one line per newline, plus a last line without one.
+const countNewFileLines = Effect.fn("WorktreeInfraService.countNewFileLines")(
+  function* (worktreeDependencies: WorktreeDependencies, newFilePath: string) {
+    const newFileInfo = yield* worktreeDependencies.fileSystem.stat(newFilePath);
+    if (Number(newFileInfo.size) > GIT_COMMAND.MAX_COUNTED_FILE_BYTES) return 0;
+    const newFileBytes = yield* worktreeDependencies.fileSystem.readFile(newFilePath);
+    if (newFileBytes.includes(0)) return 0;
+    const newlineCount = newFileBytes.reduce((total, fileByte) => (fileByte === 10 ? total + 1 : total), 0);
+
+    return newFileBytes.length > 0 && newFileBytes.at(-1) !== 10 ? newlineCount + 1 : newlineCount;
+  },
+  Effect.orElseSucceed(() => 0)
+);
+
+const readNewFileDiffStats = Effect.fn("WorktreeInfraService.readNewFileDiffStats")(function* (
+  worktreeDependencies: WorktreeDependencies,
+  worktreePath: ProjectPathValueObject
+) {
+  const newFilesOutput = yield* runGitCommand(worktreeDependencies, worktreePath, [
+    "ls-files",
+    "--others",
+    "--exclude-standard",
+    "-z"
+  ]);
+  const newFilePaths = Array.filter(String.split(newFilesOutput, "\0"), (newFilePath) => newFilePath !== "");
+  const newFileLineCounts = yield* Effect.forEach(
+    newFilePaths,
+    (newFilePath) => countNewFileLines(worktreeDependencies, worktreeDependencies.path.join(worktreePath, newFilePath)),
+    {concurrency: GIT_COMMAND.NEW_FILE_READ_CONCURRENCY}
+  );
+
+  return {
+    changedFileCount: newFilePaths.length,
+    insertionCount: sumAll(newFileLineCounts)
+  };
+});
+
+const readDiffStats = Effect.fn("WorktreeInfraService.readDiffStats")(
+  function* (worktreeDependencies: WorktreeDependencies, worktreePath: ProjectPathValueObject, baseBranchName: string) {
+    const trackedDiffStats = yield* readTrackedDiffStats(worktreeDependencies, worktreePath, baseBranchName);
+    const newFileDiffStats = yield* readNewFileDiffStats(worktreeDependencies, worktreePath);
+
+    const worktreeDiffStats: WorktreeDiffStats = {
+      changedFileCount: trackedDiffStats.changedFileCount + newFileDiffStats.changedFileCount,
+      deletionCount: trackedDiffStats.deletionCount,
+      insertionCount: trackedDiffStats.insertionCount + newFileDiffStats.insertionCount
+    };
+
+    return worktreeDiffStats;
+  },
+  Effect.mapError(() => NotGitRepositoryError.make())
+);
+
 const wireBranchMembers = Effect.fn("WorktreeInfraService.wireBranchMembers")(function* (
   worktreeDependencies: WorktreeDependencies
 ) {
@@ -465,6 +546,8 @@ const wireBranchMembers = Effect.fn("WorktreeInfraService.wireBranchMembers")(fu
       listAggregorBranches(worktreeDependencies, projectPath),
     pruneRemote: (projectPath: ProjectPathValueObject) => pruneRemote(worktreeDependencies, projectPath),
     readBranchName: (worktreePath: ProjectPathValueObject) => readBranchName(worktreeDependencies, worktreePath),
+    readDiffStats: (worktreePath: ProjectPathValueObject, baseBranchName: string) =>
+      readDiffStats(worktreeDependencies, worktreePath, baseBranchName),
     renameBranch: (worktreePath: ProjectPathValueObject, branchName: string) =>
       renameBranch(worktreeDependencies, worktreePath, branchName)
   };

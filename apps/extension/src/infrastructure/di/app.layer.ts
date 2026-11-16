@@ -14,7 +14,12 @@ import {WorkspaceInfraService} from "@infraServices/vscode/workspace.infraServic
 import {AgentRepository} from "@repositories/agent.repository.ts";
 import {ProjectRepository} from "@repositories/project.repository.ts";
 import {SessionRepository} from "@repositories/session.repository.ts";
-import {startSessionTabNameSync, startSessionTitleSync, startViewedAtSync} from "@services/session.service.ts";
+import {
+  startRunStateSync,
+  startSessionTabNameSync,
+  startSessionTitleSync,
+  startViewedAtSync
+} from "@services/session.service.ts";
 import {startSessionReopenAfterReload, startShownProjectSync} from "@services/workspace.service.ts";
 import {Layer} from "effect";
 import {SecureRandom} from "effect/crypto";
@@ -32,6 +37,7 @@ const BackgroundLayer = Layer.mergeAll(
   Layer.effectDiscard(startSessionTitleSync()),
   Layer.effectDiscard(startSessionTabNameSync()),
   Layer.effectDiscard(startViewedAtSync()),
+  Layer.effectDiscard(startRunStateSync()),
   Layer.effectDiscard(startShownProjectSync()),
   Layer.effectDiscard(startSessionReopenAfterReload())
 );

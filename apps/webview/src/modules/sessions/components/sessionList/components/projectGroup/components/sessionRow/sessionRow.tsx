@@ -31,6 +31,7 @@ export const SessionRow = (props: SessionRowProps) => {
             agentLabel={sessionRowView.agentLabel}
             branchName={props.sessionRow.sessionListItem.branchName}
             detail={sessionRowView.detail}
+            diffStats={props.sessionRow.sessionListItem.diffStats}
           />
         </button>
       </RowActions>

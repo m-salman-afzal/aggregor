@@ -1,23 +1,27 @@
 import {makeEntityId} from "@domainServices/entityId.domainService.ts";
+import {makePagination} from "@domainServices/pagination.domainService.ts";
 import {BaseEntity} from "@entities/base/base.entity.ts";
 import {DatabaseReadError, DatabaseWriteError, EntityNotFoundError} from "@entities/base/base.repository.interface.ts";
 import {startEntityChangeFeed} from "@repositories/base/entityChange.utils.ts";
 import {
+  countRows,
   encodeStoredColumns,
   findUniqueColumns,
   formatCurrentTimestamp,
   makeFilterClauses,
+  selectRowPage,
   selectRows
 } from "@repositories/base/repository.utils.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
-import {and, eq, inArray, isNull, sql} from "drizzle-orm";
+import {and, eq, gte, inArray, isNull, lt, sql} from "drizzle-orm";
 import {makeWithDefaults} from "drizzle-orm/effect-sqlite-node";
 import {Array, Context, Effect, Queue, Record, Schema} from "effect";
 import {SecureRandom} from "effect/crypto";
 
-import type {IBaseRepository} from "@entities/base/base.repository.interface.ts";
+import type {EntityPage, IBaseRepository, PageRequest} from "@entities/base/base.repository.interface.ts";
 import type {EntityTable, RepositoryTable, StoredColumns} from "@repositories/base/base.repository.type.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import type {SQL} from "drizzle-orm";
 import type {SQLiteColumn} from "drizzle-orm/sqlite-core";
 
 const findRows = Effect.fn("BaseRepository.findRows")(
@@ -32,6 +36,57 @@ const findRows = Effect.fn("BaseRepository.findRows")(
     return yield* Effect.forEach(storedRows, (storedRow) =>
       BaseEntity.fromRow(repositoryTable.entitySchema, storedRow)
     );
+  },
+  Effect.mapError((cause) => DatabaseReadError.make({cause}))
+);
+
+// The cursor is the page's last row's sortId, so a row placed or moved meanwhile never shifts a page that follows.
+const CursorSortIdSchema = Schema.NumberFromString.check(Schema.isInt());
+
+const decodeCursorSortId = Effect.fn("BaseRepository.decodeCursorSortId")(function* (afterCursor: string | undefined) {
+  return afterCursor === undefined ? undefined : yield* Schema.decodeEffect(CursorSortIdSchema)(afterCursor);
+});
+
+const countPageRows = Effect.fn("BaseRepository.countPageRows")(function* <Entity>(
+  repositoryTable: RepositoryTable<Entity>,
+  listedCondition: SQL | undefined,
+  afterSortId: number | undefined
+) {
+  const totalCount = yield* countRows(repositoryTable, listedCondition);
+  const precedingCount =
+    afterSortId === undefined
+      ? 0
+      : yield* countRows(repositoryTable, and(listedCondition, gte(repositoryTable.tableModel.sortId, afterSortId)));
+
+  return {precedingCount, totalCount};
+});
+
+const findRowPage = Effect.fn("BaseRepository.findRowPage")(
+  function* <Entity extends BaseEntity>(
+    repositoryTable: RepositoryTable<Entity>,
+    filter: StoredColumns,
+    pageRequest: PageRequest
+  ) {
+    const filterClauses = yield* makeFilterClauses(repositoryTable.tableModel, filter);
+    const listedCondition = and(isNull(repositoryTable.tableModel.deletedAt), ...filterClauses);
+    const afterSortId = yield* decodeCursorSortId(pageRequest.afterCursor);
+    const pageCounts = yield* countPageRows(repositoryTable, listedCondition, afterSortId);
+    const pageCondition =
+      afterSortId === undefined
+        ? listedCondition
+        : and(listedCondition, lt(repositoryTable.tableModel.sortId, afterSortId));
+    const pageRows = yield* selectRowPage(repositoryTable, pageCondition, pageRequest.pageSize);
+    const entities = yield* Effect.forEach(pageRows, (pageRow) =>
+      BaseEntity.fromRow(repositoryTable.entitySchema, pageRow)
+    );
+    const lastEntity = entities.at(-1);
+    const lastCursor = lastEntity === undefined ? undefined : String(lastEntity.sortId);
+    const entityPage: EntityPage<Entity> = {
+      entities,
+      pagination: yield* makePagination(pageRequest, pageCounts, lastCursor)
+    };
+
+    return entityPage;
   },
   Effect.mapError((cause) => DatabaseReadError.make({cause}))
 );
@@ -178,6 +233,7 @@ export const makeBaseRepository = Effect.fn("BaseRepository.make")(function* <
     entityChanges: entityChangeFeed.entityChanges,
     findById: (entityId) => findRowById(repositoryTable, entityId),
     findMany: (filter) => findRows(repositoryTable, filter),
+    findPage: (filter, pageRequest) => findRowPage(repositoryTable, filter, pageRequest),
     placeAtEnd: (entityIds) => notifyChangeFeedAfter(placeRowsAtEnd(repositoryTable, entityIds)),
     softDelete: (entityId) => notifyChangeFeedAfter(softDeleteRow(repositoryTable, entityId)),
     update: (entityId, changes) => notifyChangeFeedAfter(updateRow(repositoryTable, entityId, changes)),

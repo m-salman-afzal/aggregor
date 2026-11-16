@@ -8,20 +8,21 @@ terminals, tree views, Source Control and diffs.
 
 - **Sessions sidebar.** The Sessions activity-bar view lists the window's projects, each with its sessions, and starts
   an agent in an editor-tab terminal. The Archive, the sessions you are done with, is a drawer docked at the bottom that
-  opens upward. `aggregorApp.fontSize` sets the view's text size, and its spacing scales with it;
-  `aggregorApp.accentColor` its accent (`neutral`, `theme`, `palette` or a `#rrggbb` colour). Clicking a session focuses
-  its tab; switching tabs marks the session. Every row shows its buttons and a … menu on hover (a session's Archive is a
-  button of its own), and right-clicking it opens the same menu; Move Up and Move Down there put a session or an added
-  project in another place. The Sessions title holds New Session…, Add Project and Open Settings. What a command asks (a
-  confirmation, a name, which project or agent) opens as a dialog in the view, over its blurred lists, rather than at
-  the window's top. Archiving never asks: the agent runs on in the Archive, where Stop Agent stops it; a stop asks only
-  when it cuts a turn short.
+  opens upward. Each project lists its sessions newest first, its 10 newest at a time, with Show more for the next 10.
+  `aggregorApp.fontSize` sets the view's text size, and its spacing scales with it; `aggregorApp.accentColor` its accent
+  (`neutral`, `theme`, `palette` or a `#rrggbb` colour). Clicking a session focuses its tab; switching tabs marks the
+  session. Every row shows its buttons and a … menu on hover (a session's Archive is a button of its own), and
+  right-clicking it opens the same menu; Move Up and Move Down there put a session or an added project in another place.
+  The Sessions title holds New Session…, Add Project and Open Settings. What a command asks (a confirmation, a name,
+  which project or agent) opens as a dialog in the view, over its blurred lists, rather than at the window's top.
+  Archiving never asks: the agent runs on in the Archive, where Stop Agent stops it; a stop asks only when it cuts a
+  turn short.
 - **Projects.** The window's workspace folders are always listed; Add Project lists any other folder, and in a window
   showing no project it also shows the first one. Added projects are one list, kept for every window: Aggregor is meant
-  to run in one window. A project row's + starts a session in it, the Sessions title's + asks which project to use, and
-  a project's … menu opens a terminal in it (New Terminal), edits its settings (Project Settings…: where its worktrees
-  go, the files copied into them, a setup script, and whether new sessions start in a worktree) and, for an added
-  project, removes it. Everything runs from the view; the Command Palette lists no Aggregor command.
+  to run in one window. A project row's + starts a session in it, the Sessions title's + asks which project to use, its
+  terminal button opens the project's own terminal, and its … menu edits its settings (Project Settings…: where its
+  worktrees go, the files copied into them, a setup script, and whether new sessions start in a worktree) and, for an
+  added project, removes it. Everything runs from the view; the Command Palette lists no Aggregor command.
 - **One project in view.** Like VS Code's Agents window, the workspace follows the session in front of you: its project
   is the only folder Explorer, search, file watching and Source Control see. Opening a file keeps the project. The first
   switch opens Aggregor's own workspace, `~/.aggregor/anchor/Aggregor.code-workspace`, in the window: a hidden, empty
@@ -37,20 +38,24 @@ terminals, tree views, Source Control and diffs.
   (`aggregor/login-fix`) unless it was pushed, shows on the session's row, and Rename Branch in its menu renames it.
   Remove deletes the session's worktree and keeps its branch; a worktree with changes is kept until you commit or
   discard them. When a project has worktrees or `aggregor/*` branches left over, a red dot shows on its row and its
-  broom button lists them, with merged branches ticked, to delete the ones you pick. VS Code asks to trust each new
-  worktree until you trust the folder they go in; New Session's hint copies its path and opens Manage Workspace Trust.
+  broom button lists them, with merged branches ticked, to delete the ones you pick. A worktree session's row counts the
+  files and lines its branch changed since the base branch, its uncommitted edits and new files included. VS Code asks
+  to trust each new worktree until you trust the folder they go in; New Session's hint copies its path and opens Manage
+  Workspace Trust.
 - **Agents.** New Session asks which agent to start, among those whose command is on `PATH`, with your default first;
   each one's **Set as Default** button changes the default, and `aggregorApp.skipAgentPicker` starts the default without
   asking. Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot are built in. `aggregorApp.agents` in your user
   settings adds a CLI, changes a built-in's name, command, arguments, environment variables (`env`) or icon, or hides
   one with `null`; the gear on the Sessions title opens Aggregor's settings. A session's tab shows the same name as its
   row, whose second line shows the agent's icon, and the session in front stays marked in the view.
-- **Terminals.** The Terminal panel's + opens in the shown project without asking. Its project button opens a shell in
-  any of the window's projects, shown or not.
+- **Terminals.** The Terminal panel's + opens in the shown project without asking. Each project has one terminal of its
+  own, opened from its row's terminal button, and when the window switches project the panel switches to that project's
+  terminal, as long as the panel showed another project's terminal.
 - **Persistent sessions.** Every agent runs in tmux (3.2 or newer), so it keeps working when you close its tab, reload
   the window or quit VS Code; those close the tab, and clicking the session attaches a new one. An agent that has
-  stopped, as after a reboot, shows exited, and clicking it resumes the conversation. Every window that lists a project
-  shows its sessions. The row's … menu removes a session and stops its agent.
+  stopped shows exited, and clicking it resumes the conversation; one that was running when the computer restarted shows
+  interrupted, with a restart icon, until it is resumed. Every window that lists a project shows its sessions. The row's
+  … menu removes a session and stops its agent.
 - **Session titles.** Each tab and row shows the title the agent gives its terminal, as it changes (for Claude, its own
   title for the conversation or the one set with `/rename`); a closed session keeps the last one. Rename in the row's …
   menu gives a session your own name in the row and the tab; an empty name hands both back to the agent.
@@ -100,7 +105,7 @@ solution and what was turned down.
       and snoozed), rows of up to three lines, menus, drag and drop and keyboard
 - [x] Worktree mode: start a session in the project root or in a new git worktree; Remove deletes the worktree, and each
       project's cleanup deletes the leftover worktrees and the branches you pick, merged ones first
-- [ ] Changed files under each session, opening git's diff with per-hunk staging
+- [x] Changed files and lines on each worktree session's row
 - [ ] Bookmarks
 - [ ] Create/Link a pull request from a session
 
@@ -136,25 +141,15 @@ solution and what was turned down.
 
 ### If the users asked
 
-- [ ] Accept (stage), reject (restore) and review all changes
-- [ ] A desktop notification's click lands on the right window when several VS Code windows are open
-  - Problem: GNOME brings forward the VS Code window used most recently, not the one that sent the notification. Only
-    GNOME may bring a window forward without a click in it, and it can't target one of VS Code's windows: it hands a
-    token to the program that sent the notification, and VS Code has no way to take one from outside. A click inside VS
-    Code does let it switch to another of its windows (checked with `code ‹file›` from another window's terminal).
-  - Proposal: a `sessionAlerts` table the windows share, one row per alert with its session, the state change, the link
-    of the window that showed it and when its notification closed. One window claims each alert: a focused window at
-    once, the one holding the session's tab after 300 ms, any other after 600 ms, so several windows no longer notify
-    twice. The claiming window records when its notification closed. The window that comes into focus within 1.5 seconds
-    of that opens the session if it claimed the alert; otherwise it shows "‹session› finished · Open", whose click opens
-    the claiming window's link, which brings that window forward with the session. Costs a schema change; the focus
-    timing can misfire as it does now.
+Each is an `enhancement` issue, built when users ask for it:
 
-- [ ] sub agents view in the sidebar (need to research on how is that possible for each kind of agent)
-
-- [ ] A terminal client, light like neovim: the sessions in a side pane and the chosen agent in the main one, for
-      working without VS Code. A tmux layout in Aggregor's tmux server can do it, as opensessions, tmux-agent-sidebar
-      and agent-deck do.
+- [ ] Accept (stage), reject (restore) and review all changes (#139)
+- [ ] A desktop notification's click lands on the right window when several VS Code windows are open (#101)
+- [ ] Sub agents view in the sidebar (#140)
+- [ ] A terminal client, light like neovim, for working without VS Code (#141)
+- [ ] Show a project in the window without opening a session (#136)
+- [ ] Import an agent's earlier conversations into a project (#137)
+- [ ] A session that belongs to no project, working in the home folder (#138)
 
 ### Later
 

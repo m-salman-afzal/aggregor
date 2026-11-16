@@ -1,5 +1,6 @@
 import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
 import {LaunchPlanValueObjectSchema} from "@valueObjects/launchPlan.valueObject.ts";
+import {SESSION_RUN_STATES} from "@valueObjects/sessionRunState.valueObject.ts";
 import {SESSION_STATUSES} from "@valueObjects/sessionStatus.valueObject.ts";
 import {Array, DateTime, Effect, Predicate, Result, Schema, String} from "effect";
 
@@ -154,7 +155,8 @@ export const getSessionStatus = Effect.fn("SessionDomainService.getSessionStatus
   session: SessionEntity,
   sessionViewingFacts: SessionViewingFacts
 ) {
-  if (!sessionViewingFacts.isAgentRunning) return SESSION_STATUSES.EXITED;
+  if (!sessionViewingFacts.isAgentRunning)
+    return session.runState === SESSION_RUN_STATES.INTERRUPTED ? SESSION_STATUSES.INTERRUPTED : SESSION_STATUSES.EXITED;
   if (session.status === AGENT_STATUSES.UNKNOWN) return SESSION_STATUSES.IDLE;
   if (session.status === AGENT_STATUSES.DONE && !(yield* isFinishedTurnUnseen(session, sessionViewingFacts.isInView)))
     return SESSION_STATUSES.IDLE;
