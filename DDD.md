@@ -303,8 +303,8 @@ apps/extension/src/
                                            hasUpstream, findFreeBranchName, renameBranch, hasChanges,
                                            removeWorktree, isMadeByAggregor, listAggregorBranches, pruneRemote,
                                            findBaseBranch, isBranchMerged, deleteBranch,
-                                           findWorktreesRootPath; GitWorktree,
-                                           WorktreeBranch, NotGitRepositoryError, WorktreeCreateFailedError,
+                                           findWorktreesRootPath, readDiffStats; GitWorktree,
+                                           WorktreeBranch, WorktreeDiffStats, NotGitRepositoryError, WorktreeCreateFailedError,
                                            BranchRenameFailedError, WorktreeHasChangesError,
                                            WorktreeRemoveFailedError, BranchDeleteFailedError
       commitCli.infraService.interface.ts  generateCommitMessage; CommitMessageRequest

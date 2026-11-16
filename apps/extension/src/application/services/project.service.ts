@@ -148,7 +148,6 @@ export const findOrAddProject = Effect.fn("ProjectService.findOrAddProject")(fun
   return yield* addEntity(IProjectRepository, {isAdded: false, path: projectPath});
 });
 
-// ponytail: any folder counts as a project, no git check. Worktree mode (M3) is where a non-git folder would first break.
 export const addProject = Effect.fn("ProjectService.addProject")(
   function* () {
     const pickedFolderPaths = yield* IUserInputPromptInfraService.use(

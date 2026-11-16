@@ -112,3 +112,20 @@ Where a session works: its project's root, or a git worktree of its own.
   trusted with it, which puts extra checkouts in front of every tool that walks the project folder; worktrees inside the
   anchor folder, trusted in every anchored window, which fails in a window without an anchor; writing VS Code's trust
   store, which VS Code owns and keeps in memory; a banner after the session starts, by when the dialog has asked.
+
+## A worktree session's row counts what its branch changed
+
+- **Problem:** a worktree session's row says nothing about how much its agent has changed, and the diff with per-hunk
+  staging the roadmap planned is more than the row needs.
+- **Decision:** the row's second line shows a diff icon, the number of files changed, and the lines added in green and
+  deleted in red, after the branch. They count everything the session's branch changed since it split from the base
+  branch (the cleanup's base: origin's default branch, else the project's checked-out one): its commits, its uncommitted
+  edits and its new files. A new file's lines count as added; a binary one, or one over 1 MB, counts as a file only.
+  Nothing shows while nothing changed, and only worktree sessions count, since the project root's sessions share one
+  working tree. No file list and no diff open from it.
+- **Solution:** `IWorktreeInfraService.readDiffStats` runs `git merge-base HEAD <base>`, `git diff --numstat` against
+  that commit, and `git ls-files --others --exclude-standard`, reading each new file to count its lines.
+  `SessionListItemDto.diffStats` carries the counts, read on each draw of the row, so they follow the agent's turns.
+- **Alternatives considered:** a list of the changed files with their status (M/A/D/R/U) under the row, opening git's
+  diff with per-hunk staging; uncommitted changes only, as Source Control shows them, which drop to nothing once the
+  agent commits; a file watcher, when each turn's end already redraws the row.

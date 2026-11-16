@@ -139,5 +139,7 @@ export const VIEW_BADGE_LABELS = {
 } as const;
 
 export const SESSION_ROW_LABELS = {
+  DIFF_STATS_TOOLTIP: (changedFileCount: number, insertionCount: number, deletionCount: number) =>
+    `Since the base branch: files changed ${changedFileCount}, lines added ${insertionCount}, lines deleted ${deletionCount}`,
   TOOLTIP_HEADING: (sessionName: string, statusLabel: string) => `${sessionName} · ${statusLabel}`
 } as const;

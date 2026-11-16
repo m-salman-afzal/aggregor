@@ -410,14 +410,30 @@ const findSessionMoves = Effect.fn("SessionService.findSessionMoves")(function* 
   };
 });
 
-const findSessionBranchFields = Effect.fn("SessionService.findSessionBranchFields")(function* (session: SessionEntity) {
+const readSessionDiffStats = Effect.fn("SessionService.readSessionDiffStats")(function* (
+  projectPath: ProjectPathValueObject,
+  worktreePath: ProjectPathValueObject
+) {
+  const worktreeInfraService = yield* IWorktreeInfraService;
+  const baseBranchName = yield* worktreeInfraService.findBaseBranch(projectPath);
+
+  return yield* worktreeInfraService.readDiffStats(worktreePath, baseBranchName);
+});
+
+const findSessionWorktreeFields = Effect.fn("SessionService.findSessionWorktreeFields")(function* (
+  session: SessionEntity
+) {
   const worktreePath = session.worktreePath;
   if (worktreePath === undefined) return {};
   const branchNameResult = yield* Effect.result(
     IWorktreeInfraService.use((worktreeInfraService) => worktreeInfraService.readBranchName(worktreePath))
   );
+  const diffStatsResult = yield* Effect.result(readSessionDiffStats(session.projectPath, worktreePath));
 
-  return Result.match(branchNameResult, {onFailure: () => ({}), onSuccess: (branchName) => ({branchName})});
+  return {
+    ...Result.match(branchNameResult, {onFailure: () => ({}), onSuccess: (branchName) => ({branchName})}),
+    ...Result.match(diffStatsResult, {onFailure: () => ({}), onSuccess: (diffStats) => ({diffStats})})
+  };
 });
 
 const findSessionAgentFields = Effect.fn("SessionService.findSessionAgentFields")(function* (session: SessionEntity) {
@@ -429,25 +445,32 @@ const findSessionAgentFields = Effect.fn("SessionService.findSessionAgentFields"
   });
 });
 
+const findSessionStatus = Effect.fn("SessionService.findSessionStatus")(function* (session: SessionEntity) {
+  const terminalInfraService = yield* ITerminalInfraService;
+  const tmuxInfraService = yield* ITmuxInfraService;
+  const runningSessionIds = yield* SubscriptionRef.get(tmuxInfraService.runningSessionIds);
+  const viewedSessionIdResult = yield* SubscriptionRef.get(terminalInfraService.viewedSessionId);
+  const isAgentRunning = runningSessionIds.has(session.id);
+  const isInView = Result.getOrUndefined(viewedSessionIdResult) === session.id;
+
+  return {isAgentRunning, status: yield* getSessionStatus(session, {isAgentRunning, isInView})};
+});
+
 const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function* (
   session: SessionEntity,
   orderedSessions: readonly SessionEntity[]
 ) {
-  const terminalInfraService = yield* ITerminalInfraService;
-  const tmuxInfraService = yield* ITmuxInfraService;
   const path = yield* Path;
-  const runningSessionIds = yield* SubscriptionRef.get(tmuxInfraService.runningSessionIds);
-  const viewedSessionIdResult = yield* SubscriptionRef.get(terminalInfraService.viewedSessionId);
-  const isInView = Result.getOrUndefined(viewedSessionIdResult) === session.id;
-  const status = yield* getSessionStatus(session, {isAgentRunning: runningSessionIds.has(session.id), isInView});
+  const sessionStatus = yield* findSessionStatus(session);
+  const status = sessionStatus.status;
   const isTurnRunning = yield* isSessionTurnRunning(status);
 
   return SessionListItemDtoSchema.make({
     ...(yield* findSessionMoves(session, orderedSessions)),
     ...(yield* findSessionAgentFields(session)),
-    ...(yield* findSessionBranchFields(session)),
+    ...(yield* findSessionWorktreeFields(session)),
     displayName: session.displayName,
-    isAgentRunning: runningSessionIds.has(session.id),
+    isAgentRunning: sessionStatus.isAgentRunning,
     isArchived: session.lifecycle === SESSION_LIFECYCLES.ARCHIVED,
     name: session.name,
     projectName: path.basename(session.projectPath),
@@ -623,13 +646,20 @@ export const stopArchivedSessionAgents = Effect.fn("SessionService.stopArchivedS
   yield* stopRunningAgents(listedSessions);
 });
 
+const isStoredSessionWaitingOnUser = Effect.fn("SessionService.isStoredSessionWaitingOnUser")(function* (
+  storedSession: SessionEntity
+) {
+  const sessionStatus = yield* findSessionStatus(storedSession);
+
+  return yield* isSessionWaitingOnUser(sessionStatus.status);
+});
+
+// Only the sessions waiting become list items, so a redraw of the counts reads no worktree's git state.
 export const listSessionsWaitingOnUser = Effect.fn("SessionService.listSessionsWaitingOnUser")(function* () {
   const storedSessions = yield* findEntities(ISessionRepository, {});
-  const sessionListItems = yield* Effect.forEach(storedSessions, (storedSession) =>
-    toSessionListItem(storedSession, storedSessions)
-  );
+  const waitingSessions = yield* Effect.filter(storedSessions, isStoredSessionWaitingOnUser);
 
-  return yield* Effect.filter(sessionListItems, (sessionListItem) => isSessionWaitingOnUser(sessionListItem.status));
+  return yield* Effect.forEach(waitingSessions, (waitingSession) => toSessionListItem(waitingSession, storedSessions));
 });
 
 // An archived session's worktree is left over once its agent stops, which changes its project's cleanup dot.

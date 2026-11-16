@@ -8,12 +8,21 @@ import {SessionStatusValueObjectSchema} from "@valueObjects/sessionStatus.valueO
 import {StatusKindValueObjectSchema} from "@valueObjects/statusKind.valueObject.ts";
 import {Schema} from "effect";
 
+export const SessionDiffStatsDtoSchema = Schema.Struct({
+  changedFileCount: Schema.Int,
+  deletionCount: Schema.Int,
+  insertionCount: Schema.Int
+});
+
+export type SessionDiffStatsDto = typeof SessionDiffStatsDtoSchema.Type;
+
 // The wait kind and progress exist only at the agent's turn; no agent name or icon means it left the settings.
 export const SessionListItemDtoSchema = Schema.Struct({
   agentName: Schema.optional(Schema.String),
   branchName: Schema.optional(Schema.String),
   canMoveDown: Schema.Boolean,
   canMoveUp: Schema.Boolean,
+  diffStats: Schema.optional(SessionDiffStatsDtoSchema),
   displayName: Schema.String,
   icon: Schema.optional(AgentIconValueObjectSchema),
   isAgentRunning: Schema.Boolean,

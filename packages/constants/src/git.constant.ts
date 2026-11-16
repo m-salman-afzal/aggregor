@@ -10,6 +10,9 @@ export const GIT_COMMAND = {
   GITDIR_PREFIX: "gitdir: ",
   HEAD_FILE_NAME: "HEAD",
   HEAD_REF_PREFIX: "ref: refs/heads/",
+  // A new file larger than this, or a binary one, counts as a changed file with no lines.
+  MAX_COUNTED_FILE_BYTES: 1_000_000,
+  NEW_FILE_READ_CONCURRENCY: 8,
   PORCELAIN_BRANCH_PREFIX: "branch refs/heads/",
   PORCELAIN_WORKTREE_PREFIX: "worktree ",
   // An unreachable origin, or an ssh key waiting for its passphrase, would hold the cleanup dialog.

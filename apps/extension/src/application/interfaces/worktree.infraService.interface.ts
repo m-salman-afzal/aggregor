@@ -29,6 +29,13 @@ export interface BranchMergeCheck {
   readonly projectPath: ProjectPathValueObject;
 }
 
+// What the worktree changed since it split from the base branch: its commits, its uncommitted edits and its new files.
+export interface WorktreeDiffStats {
+  readonly changedFileCount: number;
+  readonly deletionCount: number;
+  readonly insertionCount: number;
+}
+
 export interface CopyIncludedFilesRequest {
   readonly filePatterns: readonly string[];
   readonly projectPath: ProjectPathValueObject;
@@ -101,6 +108,10 @@ export class IWorktreeInfraService extends Context.Service<
     readonly pruneRemote: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;
     // A detached worktree gives its commit's short hash.
     readonly readBranchName: (worktreePath: ProjectPathValueObject) => Effect.Effect<string, NotGitRepositoryError>;
+    readonly readDiffStats: (
+      worktreePath: ProjectPathValueObject,
+      baseBranchName: string
+    ) => Effect.Effect<WorktreeDiffStats, NotGitRepositoryError>;
     // A folder already gone is only forgotten by git.
     readonly removeWorktree: (
       projectPath: ProjectPathValueObject,

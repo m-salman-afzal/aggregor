@@ -37,8 +37,10 @@ terminals, tree views, Source Control and diffs.
   (`aggregor/login-fix`) unless it was pushed, shows on the session's row, and Rename Branch in its menu renames it.
   Remove deletes the session's worktree and keeps its branch; a worktree with changes is kept until you commit or
   discard them. When a project has worktrees or `aggregor/*` branches left over, a red dot shows on its row and its
-  broom button lists them, with merged branches ticked, to delete the ones you pick. VS Code asks to trust each new
-  worktree until you trust the folder they go in; New Session's hint copies its path and opens Manage Workspace Trust.
+  broom button lists them, with merged branches ticked, to delete the ones you pick. A worktree session's row counts the
+  files and lines its branch changed since the base branch, its uncommitted edits and new files included. VS Code asks
+  to trust each new worktree until you trust the folder they go in; New Session's hint copies its path and opens Manage
+  Workspace Trust.
 - **Agents.** New Session asks which agent to start, among those whose command is on `PATH`, with your default first;
   each one's **Set as Default** button changes the default, and `aggregorApp.skipAgentPicker` starts the default without
   asking. Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot are built in. `aggregorApp.agents` in your user
@@ -100,7 +102,7 @@ solution and what was turned down.
       and snoozed), rows of up to three lines, menus, drag and drop and keyboard
 - [x] Worktree mode: start a session in the project root or in a new git worktree; Remove deletes the worktree, and each
       project's cleanup deletes the leftover worktrees and the branches you pick, merged ones first
-- [ ] Changed files under each session, opening git's diff with per-hunk staging
+- [x] Changed files and lines on each worktree session's row
 - [ ] Bookmarks
 - [ ] Create/Link a pull request from a session
 
@@ -136,25 +138,15 @@ solution and what was turned down.
 
 ### If the users asked
 
-- [ ] Accept (stage), reject (restore) and review all changes
-- [ ] A desktop notification's click lands on the right window when several VS Code windows are open
-  - Problem: GNOME brings forward the VS Code window used most recently, not the one that sent the notification. Only
-    GNOME may bring a window forward without a click in it, and it can't target one of VS Code's windows: it hands a
-    token to the program that sent the notification, and VS Code has no way to take one from outside. A click inside VS
-    Code does let it switch to another of its windows (checked with `code ‹file›` from another window's terminal).
-  - Proposal: a `sessionAlerts` table the windows share, one row per alert with its session, the state change, the link
-    of the window that showed it and when its notification closed. One window claims each alert: a focused window at
-    once, the one holding the session's tab after 300 ms, any other after 600 ms, so several windows no longer notify
-    twice. The claiming window records when its notification closed. The window that comes into focus within 1.5 seconds
-    of that opens the session if it claimed the alert; otherwise it shows "‹session› finished · Open", whose click opens
-    the claiming window's link, which brings that window forward with the session. Costs a schema change; the focus
-    timing can misfire as it does now.
+Each is an `enhancement` issue, built when users ask for it:
 
-- [ ] sub agents view in the sidebar (need to research on how is that possible for each kind of agent)
-
-- [ ] A terminal client, light like neovim: the sessions in a side pane and the chosen agent in the main one, for
-      working without VS Code. A tmux layout in Aggregor's tmux server can do it, as opensessions, tmux-agent-sidebar
-      and agent-deck do.
+- [ ] Accept (stage), reject (restore) and review all changes (#139)
+- [ ] A desktop notification's click lands on the right window when several VS Code windows are open (#101)
+- [ ] Sub agents view in the sidebar (#140)
+- [ ] A terminal client, light like neovim, for working without VS Code (#141)
+- [ ] Show a project in the window without opening a session (#136)
+- [ ] Import an agent's earlier conversations into a project (#137)
+- [ ] A session that belongs to no project, working in the home folder (#138)
 
 ### Later
 

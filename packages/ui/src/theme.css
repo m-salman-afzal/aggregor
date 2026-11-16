@@ -52,6 +52,8 @@
   --color-status-exited: var(--status-exited);
   --color-status-idle: var(--status-idle);
   --color-status-working: var(--status-working);
+  --color-diff-added: var(--diff-added);
+  --color-diff-deleted: var(--diff-deleted);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -94,6 +96,9 @@
   --status-exited: var(--vscode-disabledForeground);
   --status-idle: var(--vscode-descriptionForeground);
   --status-working: var(--vscode-terminal-ansiCyan);
+  /* Source Control's own colours for added and deleted files. */
+  --diff-added: var(--vscode-gitDecoration-addedResourceForeground);
+  --diff-deleted: var(--vscode-gitDecoration-deletedResourceForeground);
 }
 
 /* The two colours keep their hue but are held to a lightness that shows against the theme kind's background. */
