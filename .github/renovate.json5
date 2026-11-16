@@ -5,42 +5,42 @@
     "schedule:weekly",
     ":semanticCommits",
     ":semanticCommitTypeAll(build)",
-    "group:allNonMajor",
+    "group:allNonMajor"
   ],
   ignorePresets: ["helpers:pinGitHubActionDigests"],
   timezone: "Asia/Karachi",
   postUpdateOptions: ["pnpmDedupe"],
   osvVulnerabilityAlerts: true,
   dependencyDashboard: {
-    osvVulnerabilitySummary: "unresolved",
+    osvVulnerabilitySummary: "unresolved"
   },
   packageRules: [
     {
       matchUpdateTypes: ["major", "minor", "patch"],
-      minimumReleaseAge: "1 day",
+      minimumReleaseAge: "1 day"
     },
     {
       matchDepNames: ["husky", "portable-pty"],
-      abandonmentThreshold: null,
+      abandonmentThreshold: null
     },
     {
       groupName: "GitHub Actions",
       matchManagers: ["github-actions"],
-      semanticCommitType: "ci",
+      semanticCommitType: "ci"
     },
     {
       groupName: "VS Code",
       matchDepNames: ["vscode", "@types/vscode"],
-      rangeStrategy: "bump",
+      rangeStrategy: "bump"
     },
     {
       matchDepNames: ["vscode"],
       matchUpdateTypes: ["patch"],
-      enabled: false,
+      enabled: false
     },
     {
       matchDepNames: ["drizzle-orm", "drizzle-kit"],
-      allowedVersions: "!/-[0-9a-f]{7}$/",
-    },
-  ],
+      allowedVersions: "!/-[0-9a-f]{7}$/"
+    }
+  ]
 }
