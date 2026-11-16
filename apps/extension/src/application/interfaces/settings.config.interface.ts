@@ -10,6 +10,7 @@ export interface AlertSettings {
 
 export interface SessionSettings {
   readonly defaultAgentId: AgentIdValueObject;
+  readonly sessionMemoryLimit: string | undefined;
   readonly skipAgentPicker: boolean;
 }
 

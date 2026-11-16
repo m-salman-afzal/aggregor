@@ -229,7 +229,9 @@ export const openProjectTerminal = Effect.fn("ProjectService.openProjectTerminal
   function* (request: OpenProjectTerminalRequestDto) {
     const chosenProject = yield* findProjectListItem(request.projectPath);
 
-    yield* ITerminalInfraService.use((terminalInfraService) => terminalInfraService.openProjectTerminal(chosenProject));
+    yield* ITerminalInfraService.use((terminalInfraService) =>
+      terminalInfraService.openFolderTerminal({folderPath: chosenProject.path, terminalName: chosenProject.name})
+    );
   },
   Effect.catchTag("ProjectNotListedError", () => Effect.void)
 );

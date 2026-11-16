@@ -13,6 +13,14 @@ export const TMUX = {
   VERSION_PREFIX: "tmux"
 } as const;
 
+// --scope runs the command in place, in a cgroup of its own, so an out-of-memory kill takes it alone, never VS Code.
+export const SYSTEMD_SCOPE = {
+  COMMAND: "systemd-run",
+  MEMORY_LIMIT_PROPERTY: "MemoryMax",
+  OPTIONS: ["--user", "--scope", "--quiet", "--collect"],
+  PROBE_COMMAND: "true"
+} as const;
+
 export const AGENT_START_WAIT = {
   POLL_INTERVAL_MS: 50,
   TIMEOUT_MS: 5000

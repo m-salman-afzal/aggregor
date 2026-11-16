@@ -191,6 +191,13 @@
           "default": false,
           "markdownDescription": "Start `#aggregorApp.defaultAgent#` straight away instead of asking which agent to use."
         },
+        "aggregorApp.sessionMemoryLimit": {
+          "type": "string",
+          "default": "",
+          "pattern": "^(?:[1-9]\\d*(?:\\.\\d+)?[KMGT]?|(?:100|[1-9]\\d?)%)?$",
+          "patternErrorMessage": "A size such as 8G or 512M, or a share of the machine's memory such as 25%.",
+          "markdownDescription": "The most memory one session's agent, with everything it starts, may use, such as `8G` or `25%`; over it, only that session is killed. Empty sets no limit. Applies to agents started after the change, on Linux with systemd."
+        },
         "aggregorApp.notifyOn": {
           "type": "array",
           "items": {

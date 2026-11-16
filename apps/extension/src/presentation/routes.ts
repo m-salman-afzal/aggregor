@@ -16,6 +16,7 @@ import {
   moveChosenSessionUp,
   newSessionInChosenProject,
   openChosenSession,
+  openChosenSessionFolderTerminal,
   removeChosenSession,
   renameChosenSession,
   renameChosenSessionBranch,
@@ -83,6 +84,11 @@ export const RoutesLayer = Layer.effectDiscard(
     registerCommand(SESSION_COMMANDS.STOP_PROJECT_AGENTS, stopChosenProjectSessionAgents, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.UNARCHIVE, unarchiveChosenSession, presentSessionCommandError),
     registerCommand(TERMINAL_COMMANDS.OPEN_PROJECT_TERMINAL, openChosenProjectTerminal, presentProjectCommandError),
+    registerCommand(
+      TERMINAL_COMMANDS.OPEN_SESSION_FOLDER_TERMINAL,
+      openChosenSessionFolderTerminal,
+      presentSessionCommandError
+    ),
     registerCommand(WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS, cleanUpChosenProjectLeftovers, presentWorktreeCommandError)
   ])
 );

@@ -66,6 +66,11 @@ export const SESSION_NOTICES = {
     `${turnRunningCount} of them are in the middle of a turn, which is cut short. Opening a session starts its agent again.`
 } as const;
 
+// systemd's sizes: bytes with an optional K, M, G or T, or a share of the machine's memory; empty sets no limit.
+export const SESSION_SETTINGS = {
+  MEMORY_LIMIT_PATTERN: /^(?:[1-9]\d*(?:\.\d+)?[KMGT]?|(?:100|[1-9]\d?)%)?$/u
+} as const;
+
 export const SESSION_ERRORS = {
   AGENT_SESSION_ID_NOT_FOUND: (agentName: string) =>
     `${agentName} never showed its conversation's id, so this session can't be resumed.`,

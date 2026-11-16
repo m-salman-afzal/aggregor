@@ -1,6 +1,7 @@
 import {InvalidSettingsError, ISettingsConfig} from "@interfaces/settings.config.interface.ts";
 import {AGENT_SETTINGS} from "@pkg/constants/src/agent.constant.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/app.constant.ts";
+import {SESSION_SETTINGS} from "@pkg/constants/src/session.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
 import {AgentStatusValueObjectSchema} from "@valueObjects/agentStatus.valueObject.ts";
@@ -23,6 +24,7 @@ const SettingsSchema = Schema.Struct({
 
 const SessionSettingsSchema = Schema.Struct({
   defaultAgent: AgentIdValueObjectSchema,
+  sessionMemoryLimit: Schema.String.check(Schema.isPattern(SESSION_SETTINGS.MEMORY_LIMIT_PATTERN)),
   skipAgentPicker: Schema.Boolean
 });
 
@@ -45,6 +47,8 @@ const readSessionSettings = Effect.fn("SettingsConfig.readSessionSettings")(
     const decodedSessionSettings = yield* Schema.decodeUnknownEffect(SessionSettingsSchema)(configuredSettings);
     const sessionSettings: SessionSettings = {
       defaultAgentId: decodedSessionSettings.defaultAgent,
+      sessionMemoryLimit:
+        decodedSessionSettings.sessionMemoryLimit === "" ? undefined : decodedSessionSettings.sessionMemoryLimit,
       skipAgentPicker: decodedSessionSettings.skipAgentPicker
     };
 

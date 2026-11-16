@@ -247,7 +247,8 @@ apps/extension/src/
                                            upsertEntity, removeEntity, placeEntitiesAtEnd, on any repository
       session.service.ts                   newSession (in a project, with an agent or the default one, at the
                                            project's root, in a new worktree or in an existing one),
-                                           openSession, archiveSession, unarchiveSession, removeSession,
+                                           openSession, openSessionFolderTerminal, archiveSession,
+                                           unarchiveSession, removeSession,
                                            renameSession, renameSessionBranch, stopSessionAgent, stopProjectSessionAgents,
                                            stopArchivedProjectSessionAgents, stopOngoingSessionAgents,
                                            stopArchivedSessionAgents, moveSessionUp, moveSessionDown (each session
@@ -286,8 +287,9 @@ apps/extension/src/
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
     interfaces/                            each with the errors and types its signatures name
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
-                                           openProjectTerminal, switchToProjectTerminal, nameActiveSessionTab,
-                                           activatedSessionIds, viewedSessionId; SessionTabRequest, SessionTabCommand,
+                                           openFolderTerminal, closeFolderTerminal, switchToFolderTerminal,
+                                           nameActiveSessionTab, activatedSessionIds, viewedSessionId;
+                                           FolderTerminalRequest, SessionTabRequest, SessionTabCommand,
                                            TerminalLaunchFailedError
       tmux.infraService.interface.ts       prepareSessionTabCommand, waitForSessionAgentStart, stopSessionAgent,
                                            runningSessionIds, refreshRunningSessionIds, startedOrStoppedSessionIds;
