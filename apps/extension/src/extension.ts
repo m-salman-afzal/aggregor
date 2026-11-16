@@ -9,6 +9,8 @@ import {RoutesLayer} from "./presentation/routes.ts";
 
 import type {ExtensionContext} from "vscode";
 
+let activeRuntime: {readonly dispose: () => Promise<void>} | undefined;
+
 // eslint-disable-next-line no-restricted-syntax -- VS Code's entry point, which runs the runtime itself
 const activate = (extensionContext: ExtensionContext) => {
   // TraceLogLayer goes under everything, so every layer's startup work is traced and logged too.
@@ -19,10 +21,14 @@ const activate = (extensionContext: ExtensionContext) => {
       Layer.provideMerge(VsCodeApi.layer(extensionContext))
     )
   );
-  extensionContext.subscriptions.push({dispose: () => runtime.dispose()});
+  activeRuntime = runtime;
 
   // The runtime builds lazily; build it now so commands and views exist before activation finishes.
   return runtime.runPromise(Effect.void);
 };
 
-export {activate};
+// VS Code awaits deactivate's promise but drops a subscription's, so only here do finalizers (notify-send's kill) finish.
+// eslint-disable-next-line no-restricted-syntax -- VS Code's exit point, which disposes the runtime itself
+const deactivate = () => (activeRuntime === undefined ? Promise.resolve() : activeRuntime.dispose());
+
+export {activate, deactivate};

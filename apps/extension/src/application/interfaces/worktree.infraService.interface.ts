@@ -106,7 +106,7 @@ export class IWorktreeInfraService extends Context.Service<
     ) => Effect.Effect<readonly GitWorktree[], NotGitRepositoryError>;
     // Network: refreshes which upstreams are gone; offline, nothing changes.
     readonly pruneRemote: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;
-    // A detached worktree gives its commit's short hash.
+    // A worktree's or a project's checkout; a detached one gives its commit's short hash.
     readonly readBranchName: (worktreePath: ProjectPathValueObject) => Effect.Effect<string, NotGitRepositoryError>;
     readonly readDiffStats: (
       worktreePath: ProjectPathValueObject,

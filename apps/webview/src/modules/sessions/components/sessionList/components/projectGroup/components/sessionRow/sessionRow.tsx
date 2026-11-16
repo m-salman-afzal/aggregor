@@ -25,12 +25,14 @@ export const SessionRow = (props: SessionRowProps) => {
           onClick={sessionRowView.openSession}
           title={sessionRowView.tooltip}
           type="button">
-          <SessionTitle status={props.sessionRow.sessionListItem.status} title={sessionRowView.title} />
+          <SessionTitle
+            agentActivity={sessionRowView.agentActivity}
+            sessionListItem={props.sessionRow.sessionListItem}
+          />
           <SessionDetail
             agentIconUri={props.sessionRow.agentIconUri}
             agentLabel={sessionRowView.agentLabel}
             branchName={props.sessionRow.sessionListItem.branchName}
-            detail={sessionRowView.detail}
             diffStats={props.sessionRow.sessionListItem.diffStats}
           />
         </button>

@@ -17,7 +17,9 @@ export const SessionDiffStats = (props: SessionDiffStatsProps) => (
     )}>
     <FileDiffIcon aria-hidden className="size-3.5 shrink-0" />
     <span>{props.diffStats.changedFileCount}</span>
-    <span className="text-diff-added">+{props.diffStats.insertionCount}</span>
-    <span className="text-diff-deleted">−{props.diffStats.deletionCount}</span>
+    <span className="flex flex-col text-[10px] leading-none">
+      <span className="text-diff-added">+{props.diffStats.insertionCount}</span>
+      <span className="text-diff-deleted">−{props.diffStats.deletionCount}</span>
+    </span>
   </span>
 );

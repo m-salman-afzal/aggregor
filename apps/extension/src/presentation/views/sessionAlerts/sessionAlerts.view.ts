@@ -12,13 +12,16 @@ import {
 } from "@pkg/constants/src/sessionAlert.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {acquireScopedDisposable, streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
-import {Clock, Duration, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
+import {Clock, Duration, Effect, FiberMap, Layer, Result, Stream, SubscriptionRef} from "effect";
 
 import type {SessionAlertDto} from "@dtos/sessionAlert.dto.ts";
 import type {Uri} from "vscode";
 
 // When this window last came into focus from another app or window, in milliseconds; 0 once a click has used it.
 type WindowFocusedAt = SubscriptionRef.SubscriptionRef<number>;
+
+// The fiber showing each session's latest alert, by session id.
+type ShownAlerts = FiberMap.FiberMap<string>;
 
 const getSessionAlertHeadline = Effect.fn("SessionAlertsView.getSessionAlertHeadline")(function* (
   sessionAlert: SessionAlertDto
@@ -100,10 +103,11 @@ const showOnDesktop = Effect.fn("SessionAlertsView.showOnDesktop")(function* (
   if (yield* wasDesktopNotificationOpened(windowFocusedAt)) yield* openAlertedSession(sessionAlert.sessionId);
 });
 
-// In the background, so a notification waiting for a click holds back no other.
+// In the background, so a notification waiting for a click holds back no other; a session's newer alert replaces its older.
 const showSessionAlert = Effect.fn("SessionAlertsView.showSessionAlert")(function* (
   sessionAlert: SessionAlertDto,
-  windowFocusedAt: WindowFocusedAt
+  windowFocusedAt: WindowFocusedAt,
+  shownAlerts: ShownAlerts
 ) {
   const vsCodeApi = yield* VsCodeApi;
   const headline = yield* getSessionAlertHeadline(sessionAlert);
@@ -111,7 +115,9 @@ const showSessionAlert = Effect.fn("SessionAlertsView.showSessionAlert")(functio
     ? showInWindow(sessionAlert, headline)
     : showOnDesktop(sessionAlert, headline, windowFocusedAt);
 
-  yield* Effect.forkScoped(
+  yield* FiberMap.run(
+    shownAlerts,
+    sessionAlert.sessionId,
     Effect.catch(shownAlert, (alertError) => Effect.logWarning("Could not show a session alert", alertError))
   );
 });
@@ -158,9 +164,10 @@ const makeSessionAlertsView = Effect.fn("SessionAlertsView.make")(function* () {
   yield* registerSessionLinkHandler();
   const windowFocusedAt = yield* trackWindowFocus();
   const sessionAlerts = yield* watchSessionAlertsForSessionAlertsView();
+  const shownAlerts = yield* FiberMap.make<string>();
 
   yield* Effect.forkScoped(
-    Stream.runForEach(sessionAlerts, (sessionAlert) => showSessionAlert(sessionAlert, windowFocusedAt))
+    Stream.runForEach(sessionAlerts, (sessionAlert) => showSessionAlert(sessionAlert, windowFocusedAt, shownAlerts))
   );
 });
 

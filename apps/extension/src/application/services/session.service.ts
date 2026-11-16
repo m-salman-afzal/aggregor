@@ -89,6 +89,12 @@ interface NewSessionDraft {
   readonly sessionName: string;
 }
 
+interface SessionWorkingTree {
+  readonly baseBranchName: string | undefined;
+  readonly setupScript: string | undefined;
+  readonly worktreePath: ProjectPathValueObject | undefined;
+}
+
 interface SessionMoves {
   readonly canMoveDown: boolean;
   readonly canMoveUp: boolean;
@@ -129,14 +135,15 @@ export const findSession = Effect.fn("SessionService.findSession")(
 
 const addSession = Effect.fn("SessionService.addSession")(function* (
   newSessionDraft: NewSessionDraft,
-  worktreePath: ProjectPathValueObject | undefined
+  sessionWorkingTree: SessionWorkingTree
 ) {
   return yield* addEntity(ISessionRepository, {
     agentId: newSessionDraft.sessionAgent.id,
+    baseBranchName: sessionWorkingTree.baseBranchName,
     lifecycle: SESSION_LIFECYCLES.ONGOING,
     name: newSessionDraft.sessionName,
     projectId: newSessionDraft.project.id,
-    worktreePath
+    worktreePath: sessionWorkingTree.worktreePath
   });
 });
 
@@ -146,6 +153,8 @@ const createSessionWorktree = Effect.fn("SessionService.createSessionWorktree")(
 ) {
   const worktreeInfraService = yield* IWorktreeInfraService;
   const worktreeName = yield* getWorktreeName(newSessionDraft.sessionName);
+  // The worktree starts from the project's HEAD, so the branch checked out there is what it splits from.
+  const baseBranchNameResult = yield* Effect.result(worktreeInfraService.readBranchName(newSessionDraft.project.path));
   const sessionWorktree = yield* worktreeInfraService.createWorktree({
     branchName: yield* getWorktreeBranchName(worktreeName),
     projectPath: newSessionDraft.project.path,
@@ -159,7 +168,13 @@ const createSessionWorktree = Effect.fn("SessionService.createSessionWorktree")(
     worktreePath: sessionWorktree.worktreePath
   });
 
-  return sessionWorktree.worktreePath;
+  const sessionWorkingTree: SessionWorkingTree = {
+    baseBranchName: Result.getOrUndefined(baseBranchNameResult),
+    setupScript: newSessionDraft.project.settings.setupScript,
+    worktreePath: sessionWorktree.worktreePath
+  };
+
+  return sessionWorkingTree;
 });
 
 const findExistingWorktree = Effect.fn("SessionService.findExistingWorktree")(
@@ -182,16 +197,13 @@ const prepareSessionWorkingTree = Effect.fn("SessionService.prepareSessionWorkin
   return yield* Match.valueTags(workingTree, {
     [NEW_SESSION_WORKING_TREE_TAGS.EXISTING_WORKTREE]: (existingWorktree) =>
       Effect.map(findExistingWorktree(newSessionDraft.project.path, existingWorktree.worktreePath), (worktreePath) => ({
+        baseBranchName: undefined,
         setupScript: undefined,
         worktreePath
       })),
-    [NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE]: () =>
-      Effect.map(createSessionWorktree(newSessionDraft), (worktreePath) => ({
-        setupScript: newSessionDraft.project.settings.setupScript,
-        worktreePath
-      })),
+    [NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE]: () => createSessionWorktree(newSessionDraft),
     [NEW_SESSION_WORKING_TREE_TAGS.PROJECT_ROOT]: () =>
-      Effect.succeed({setupScript: undefined, worktreePath: undefined})
+      Effect.succeed({baseBranchName: undefined, setupScript: undefined, worktreePath: undefined})
   });
 });
 
@@ -304,7 +316,7 @@ export const newSession = Effect.fn("SessionService.newSession")(
       sessionName: yield* getDefaultSessionName(sessionProject.name, storedSessions)
     };
     const sessionWorkingTree = yield* prepareSessionWorkingTree(newSessionDraft, request.workingTree);
-    const addedSession = yield* addSession(newSessionDraft, sessionWorkingTree.worktreePath);
+    const addedSession = yield* addSession(newSessionDraft, sessionWorkingTree);
 
     yield* launchNewSession(addedSession, sessionWorkingTree.setupScript);
   },
@@ -433,14 +445,21 @@ const findSessionMoves = Effect.fn("SessionService.findSessionMoves")(function* 
   return sessionMoves;
 });
 
+// A session from before baseBranchName was stored, or in a worktree Aggregor didn't make, counts from the project's branch.
 const readSessionDiffStats = Effect.fn("SessionService.readSessionDiffStats")(function* (
-  projectPath: ProjectPathValueObject,
+  session: SessionEntity,
   worktreePath: ProjectPathValueObject
 ) {
-  const worktreeInfraService = yield* IWorktreeInfraService;
-  const baseBranchName = yield* worktreeInfraService.findBaseBranch(projectPath);
+  const baseBranchName =
+    session.baseBranchName === undefined
+      ? yield* IWorktreeInfraService.use((worktreeInfraService) =>
+          worktreeInfraService.readBranchName(session.projectPath)
+        )
+      : session.baseBranchName;
 
-  return yield* worktreeInfraService.readDiffStats(worktreePath, baseBranchName);
+  return yield* IWorktreeInfraService.use((worktreeInfraService) =>
+    worktreeInfraService.readDiffStats(worktreePath, baseBranchName)
+  );
 });
 
 const findSessionWorktreeFields = Effect.fn("SessionService.findSessionWorktreeFields")(function* (
@@ -451,7 +470,7 @@ const findSessionWorktreeFields = Effect.fn("SessionService.findSessionWorktreeF
   const branchNameResult = yield* Effect.result(
     IWorktreeInfraService.use((worktreeInfraService) => worktreeInfraService.readBranchName(worktreePath))
   );
-  const diffStatsResult = yield* Effect.result(readSessionDiffStats(session.projectPath, worktreePath));
+  const diffStatsResult = yield* Effect.result(readSessionDiffStats(session, worktreePath));
 
   return {
     ...Result.match(branchNameResult, {onFailure: () => ({}), onSuccess: (branchName) => ({branchName})}),

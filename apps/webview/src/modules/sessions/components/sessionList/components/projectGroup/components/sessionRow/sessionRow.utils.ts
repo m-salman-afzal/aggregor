@@ -27,7 +27,7 @@ const getStatusLabel = (sessionListItem: SessionListItemDto) =>
     ? STATUS_LABELS[sessionListItem.status]
     : STATUS_KIND_LABELS[sessionListItem.statusKind];
 
-export const makeSessionDetail = (sessionListItem: SessionListItemDto) =>
+export const makeAgentActivity = (sessionListItem: SessionListItemDto) =>
   [
     ...(sessionListItem.statusProgress === undefined ? [] : [SESSIONS_LABELS.PROGRESS(sessionListItem.statusProgress)]),
     ...(sessionListItem.statusMessage === undefined ? [] : [sessionListItem.statusMessage])

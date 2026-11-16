@@ -14,6 +14,8 @@ import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject
 export class SessionEntity extends BaseEntity.extend<SessionEntity>("Session")({
   agentId: AgentIdValueObjectSchema,
   agentSessionId: Schema.optional(Schema.String),
+  // The branch, or detached commit, the project had checked out when Aggregor made the session's worktree.
+  baseBranchName: Schema.optional(Schema.String),
   customName: Schema.optional(Schema.String),
   hasWorked: Schema.Boolean,
   lifecycle: SessionLifecycleValueObjectSchema,
