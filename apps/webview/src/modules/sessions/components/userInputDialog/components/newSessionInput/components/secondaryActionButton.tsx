@@ -1,11 +1,12 @@
 import {Button} from "@pkg/ui/src/components/base/button.tsx";
 
 import type {LucideIcon} from "lucide-react";
+import type {MouseEvent} from "react";
 
 interface SecondaryActionButtonProps {
   readonly Icon: LucideIcon | undefined;
   readonly label: string;
-  readonly onClick: () => void;
+  readonly onClick: (clickEvent: MouseEvent) => void;
 }
 
 // An icon button when the action has an icon, so the choice's name keeps its room in a narrow view.

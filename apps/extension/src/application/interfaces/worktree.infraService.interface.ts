@@ -11,6 +11,8 @@ export interface GitWorktree {
 export interface CreateWorktreeRequest {
   readonly branchName: string;
   readonly projectPath: ProjectPathValueObject;
+  // A branch name, or HEAD for the project's current commit.
+  readonly startPoint: string;
   readonly worktreeName: string;
   readonly worktreesFolderName: string;
   readonly worktreesFolderPath: string;
@@ -101,6 +103,10 @@ export class IWorktreeInfraService extends Context.Service<
     readonly listAggregorBranches: (
       projectPath: ProjectPathValueObject
     ) => Effect.Effect<readonly WorktreeBranch[], NotGitRepositoryError>;
+    // The local branches, then origin's as of the last fetch.
+    readonly listBranchNames: (
+      projectPath: ProjectPathValueObject
+    ) => Effect.Effect<readonly string[], NotGitRepositoryError>;
     readonly listWorktrees: (
       projectPath: ProjectPathValueObject
     ) => Effect.Effect<readonly GitWorktree[], NotGitRepositoryError>;

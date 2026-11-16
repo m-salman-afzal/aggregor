@@ -5,7 +5,7 @@ import {
   readWebviewState,
   saveWebviewState
 } from "@/modules/sessions/sessions.service.ts";
-import {applyHostMessage, foldKey} from "@/modules/sessions/stores/sessions/sessions.utils.ts";
+import {applyHostMessage, foldKey, makeProjectKey} from "@/modules/sessions/stores/sessions/sessions.utils.ts";
 import {SESSION_LISTS} from "@pkg/constants/src/sessionsView.constant.ts";
 import {useSyncExternalStore} from "react";
 
@@ -63,6 +63,18 @@ const setProjectOpen = (projectKey: string, isOpen: boolean) => {
   });
 };
 
+const revealSessionsProject = (projectPath: string) => {
+  setSessionsData({
+    ...sessionsData,
+    collapsedListIds: foldKey(sessionsData.collapsedListIds, SESSION_LISTS.SESSIONS, true),
+    collapsedProjectKeys: foldKey(
+      sessionsData.collapsedProjectKeys,
+      makeProjectKey(SESSION_LISTS.SESSIONS, projectPath),
+      true
+    )
+  });
+};
+
 const showUserInput = (userInput: UserInput) => {
   setSessionsData({...sessionsData, userInput});
 };
@@ -73,6 +85,11 @@ const closeUserInput = () => {
 
 const hideWorktreeTrustHint = () => {
   setSessionsData({...sessionsData, isWorktreeTrustHintHidden: true});
+};
+
+// Marked at once, so the row follows the click while the host is still busy switching the window.
+const markViewedSession = (sessionId: string) => {
+  setSessionsData({...sessionsData, viewedSessionId: sessionId});
 };
 
 const subscribeToSessionsData = (stateListener: () => void) => {
@@ -95,6 +112,8 @@ export const useSessionsStore = <Selected>(props: UseSessionsStoreProps<Selected
       ...sessionsData,
       closeUserInput,
       hideWorktreeTrustHint,
+      markViewedSession,
+      revealSessionsProject,
       setListOpen,
       setProjectOpen,
       showUserInput

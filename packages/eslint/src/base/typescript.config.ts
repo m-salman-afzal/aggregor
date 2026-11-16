@@ -1,5 +1,6 @@
 import e18e from "@e18e/eslint-plugin";
 import javascript from "@eslint/js";
+import {SHADCN_COMPONENT_FILES} from "@pkg/eslint/src/base/ignores.config.ts";
 import {IMPORT_BANS} from "@pkg/eslint/src/layers/importRules.ts";
 import {SYNTAX_BANS} from "@pkg/eslint/src/layers/syntaxBans.ts";
 import importX from "eslint-plugin-import-x";
@@ -16,7 +17,7 @@ import type {Config} from "eslint/config";
 const REPO_ROOT_PATH = resolve(import.meta.dirname, "../../../..");
 
 export const TYPESCRIPT_CONFIGS: Config[] = defineConfig([
-  e18e.configs.recommended,
+  {...e18e.configs.recommended, ignores: [SHADCN_COMPONENT_FILES]},
   {
     extends: [
       javascript.configs.all,
@@ -26,6 +27,7 @@ export const TYPESCRIPT_CONFIGS: Config[] = defineConfig([
       perfectionist.configs["recommended-alphabetical"]
     ],
     files: ["**/*.{js,mjs,cjs,ts,mts,cts,tsx}"],
+    ignores: [SHADCN_COMPONENT_FILES],
     languageOptions: {
       globals: globals.node,
       parserOptions: {

@@ -1,4 +1,4 @@
-import {ProjectLeftoversDtoSchema} from "@dtos/worktree.dto.ts";
+import {ProjectBranchesDtoSchema, ProjectLeftoversDtoSchema} from "@dtos/worktree.dto.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
@@ -10,7 +10,11 @@ import {Array, Effect, Result, Schema, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
-import type {CleanUpProjectLeftoversRequestDto, ListProjectLeftoversRequestDto} from "@dtos/worktree.dto.ts";
+import type {
+  CleanUpProjectLeftoversRequestDto,
+  ListProjectBranchesRequestDto,
+  ListProjectLeftoversRequestDto
+} from "@dtos/worktree.dto.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {GitWorktree, WorktreeBranch} from "@interfaces/worktree.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
@@ -231,3 +235,18 @@ export const removeSessionWorktree = Effect.fn("WorktreeService.removeSessionWor
   },
   Effect.catchTag("EntityNotFoundError", () => Effect.void)
 );
+
+// What a new worktree can start from; reads local refs only, so the dialog never waits on the network.
+export const listProjectBranches = Effect.fn("WorktreeService.listProjectBranches")(function* (
+  request: ListProjectBranchesRequestDto
+) {
+  const worktreeInfraService = yield* IWorktreeInfraService;
+  const projectListItem = yield* findProjectListItem(request.projectPath);
+  const currentBranchNameResult = yield* Effect.result(worktreeInfraService.readBranchName(projectListItem.path));
+
+  return ProjectBranchesDtoSchema.make({
+    branchNames: yield* worktreeInfraService.listBranchNames(projectListItem.path),
+    currentBranchName: Result.getOrUndefined(currentBranchNameResult),
+    projectPath: projectListItem.path
+  });
+});

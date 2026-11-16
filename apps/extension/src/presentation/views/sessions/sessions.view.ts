@@ -17,6 +17,7 @@ import {decodeVsCodeArgument} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
 import {
   drawAgents,
   drawAppearance,
+  drawBranches,
   drawChange,
   drawEverything,
   drawLeftovers,
@@ -45,6 +46,7 @@ class RowCommandFailedError extends Schema.TaggedError<RowCommandFailedError, {r
 type WebviewViewReference = Ref.Ref<Result.Result<WebviewView, WebviewNotShownError>>;
 
 const SessionsWebviewMessageSchema = Schema.TaggedUnion({
+  [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_BRANCHES]: {projectPath: Schema.String},
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_LEFTOVERS]: {projectPath: Schema.String},
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.READY]: {},
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND]: {
@@ -137,6 +139,8 @@ const handleWebviewMessage = Effect.fn("SessionsView.handleWebviewMessage", {roo
     const sessionsWebviewMessage = yield* decodeVsCodeArgument(SessionsWebviewMessageSchema, webviewMessage);
 
     yield* Match.valueTags(sessionsWebviewMessage, {
+      [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_BRANCHES]: (listBranches) =>
+        drawBranches(webviewView, listBranches.projectPath),
       [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_LEFTOVERS]: (listLeftovers) =>
         drawLeftovers(webviewView, listLeftovers.projectPath),
       [SESSIONS_WEBVIEW_MESSAGE_TAGS.READY]: () => drawEverything(webviewView, shownSessionPages),

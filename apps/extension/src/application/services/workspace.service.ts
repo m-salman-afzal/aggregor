@@ -52,8 +52,12 @@ export const startShownProjectSync = Effect.fn("WorkspaceService.startShownProje
   const terminalInfraService = yield* ITerminalInfraService;
 
   yield* Effect.forkScoped(
-    Stream.runForEach(SubscriptionRef.changes(terminalInfraService.viewedSessionId), (viewedSessionIdResult) =>
-      Result.match(viewedSessionIdResult, {onFailure: () => Effect.void, onSuccess: showSessionProject})
+    // A switch takes about a second, so only the last session viewed during one is switched to next.
+    SubscriptionRef.changes(terminalInfraService.viewedSessionId).pipe(
+      Stream.buffer({capacity: 1, strategy: "sliding"}),
+      Stream.runForEach((viewedSessionIdResult) =>
+        Result.match(viewedSessionIdResult, {onFailure: () => Effect.void, onSuccess: showSessionProject})
+      )
     )
   );
 });

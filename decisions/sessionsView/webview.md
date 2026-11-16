@@ -53,8 +53,9 @@ The Sessions view drawn in a webview of our own.
   restart (`AGGREGOR_WEBVIEW_DEV_SERVER_URL`, set in `launch.json`); everywhere else it loads the build. Shadcn's
   components are copied in and ours to change, Base UI is maintained, and the webview only draws and sends messages,
   which needs none of Effect.
-- **Solution:** shadcn's files keep its kebab-case names and its shape, and lint skips them, so `shadcn add` can update
-  them. Their components are arrows, though (see "Components are arrow functions" under webview 0).
+- **Solution:** shadcn's files keep its kebab-case names and its shape, and lint checks them only for arrow components,
+  so `shadcn add` can update them. Their components are arrows (see "Components are arrow functions" in
+  `conventions/lint.md`).
 - **Alternatives considered:** Radix primitives under shadcn, which the user turned down as no longer maintained; Effect
   Atom for the state; an Effect RPC client.
 
@@ -126,12 +127,15 @@ The Sessions view drawn in a webview of our own.
 - **Problem:** the row of the session the editor shows has to stay findable while the user clicks around the view.
 - **Decision:** the row of the session whose tab is in front (`viewedSessionId`) is marked (`aria-current`, the list's
   inactive selection colour) in whichever list holds it, and stays marked when the window loses focus or no session's
-  tab is in front; clicking another row opens that session, which marks it. Like Explorer for the active file, the mark
-  always says which session the editor shows.
+  tab is in front; clicking another row marks it at once and opens that session. Like Explorer for the active file, the
+  mark says which session the editor shows, and a click shows without waiting for the window to switch project.
 - **Solution:** the view sends `ViewedSessionChanged` whenever the session in front changes, and the webview keeps the
-  last one in its state, so a reloaded page marks it again.
+  last one in its state, so a reloaded page marks it again. A click marks its row in the store (`markViewedSession`)
+  before it asks the host to open the session; the host's next `ViewedSessionChanged` overrides it, so a session that
+  fails to open stays marked until another tab comes to the front.
 - **Alternatives considered:** the tree's selection, which any click moved off the session and which needed a reveal
-  retried while a new row was drawn.
+  retried while a new row was drawn; marking a clicked row only once the host reports its tab in front, which lagged
+  behind clicks while the window switched projects.
 
 ## The view looks its own way: soft, rounded and floating
 
@@ -165,8 +169,11 @@ The Sessions view drawn in a webview of our own.
   already says its rows can be clicked; hovered, a row is a level higher, and the session in front two, hovered or not,
   behind a short bar in the accent's two colours. A button rests a level above whatever it sits on, so it reads as
   clickable before the pointer reaches it, is hovered two above and open, its menu showing, three. A menu or a dialog is
-  a surface at level 1, and a dialog's choices rest at 2 and are hovered at 3. So on the session in front, at level 2, a
-  button rests at 3, is hovered at 4 and open at 5, and no two states that meet share a shade. A hovered or open
+  a surface at level 1, and a dialog's choices rest at 2 and are hovered at 3. A dropdown a dialog's choice opens sits a
+  step below the dialog, at level 0, with a deep shadow and the accent's ring; its items rest flat and are highlighted
+  at 1, and its choice stays at 3 while open. While it is open the rest of the dialog dims and blurs, as the view does
+  behind a dialog, so only the field that opened it and its list stay in focus. So on the session in front, at level 2,
+  a button rests at 3, is hovered at 4 and open at 5, and no two states that meet share a shade. A hovered or open
   button's icon is the strong text colour, which reads on every level a button reaches. Pressing shows nothing of its
   own, since a shade that lasts only while the button is down reads as a flash; and a list's header doesn't light up
   while one of its buttons is used. An action that removes something is red, in a menu and in a dialog. A project with
@@ -176,7 +183,8 @@ The Sessions view drawn in a webview of our own.
   `[--level:n]`, and `bg-lift-1` to `bg-lift-3` paint what sits on it one to three levels higher; all four are solid, so
   a row's buttons can sit over its text. shadcn's `--popover` is level 1 and its `--accent` and `--muted` level 2, so
   its components follow; the button's `soft` variant is the three lifts, and its `destructive` one is the red.
-  `RowAction.isDestructive` marks Remove and Remove Project. No class uses `active:`; a header row's surface
+  `RowAction.isDestructive` marks Remove and Remove Project. The dialog's dimming is one rule in `theme.css`, on
+  `:has()` of an open combobox trigger, so every dialog gets it. No class uses `active:`; a header row's surface
   (`HEADER_SURFACE`) has no hover shade. A project's session list is `empty:hidden`.
 - **Alternatives considered:** a shade per state, each its own mix (solid ones for rows, translucent tints for buttons
   and choices), built first, whose steps came out uneven wherever a tint lay over a shade; shades mixed in sRGB, where

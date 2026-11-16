@@ -35,3 +35,16 @@ export const CleanUpProjectLeftoversRequestDtoSchema = Schema.Struct({
 });
 
 export type CleanUpProjectLeftoversRequestDto = typeof CleanUpProjectLeftoversRequestDtoSchema.Type;
+
+export const ListProjectBranchesRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
+
+export type ListProjectBranchesRequestDto = typeof ListProjectBranchesRequestDtoSchema.Type;
+
+// The current branch is a short hash while the project is detached, and missing when it can't be read.
+export const ProjectBranchesDtoSchema = Schema.Struct({
+  branchNames: Schema.Array(Schema.String),
+  currentBranchName: Schema.optional(Schema.String),
+  projectPath: ProjectPathValueObjectSchema
+});
+
+export type ProjectBranchesDto = typeof ProjectBranchesDtoSchema.Type;

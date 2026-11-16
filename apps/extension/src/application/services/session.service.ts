@@ -32,6 +32,7 @@ import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
+import {GIT_COMMAND} from "@pkg/constants/src/git.constant.ts";
 import {NEW_SESSION_WORKING_TREE_TAGS, SESSION_PAGES, SESSION_RUN_STATE} from "@pkg/constants/src/session.constant.ts";
 import {findAgentToStart} from "@services/agent.service.ts";
 import {
@@ -149,15 +150,20 @@ const addSession = Effect.fn("SessionService.addSession")(function* (
 
 // Each is named after the session: "jsTester #3" works in jstester-3, on aggregor/jstester-3.
 const createSessionWorktree = Effect.fn("SessionService.createSessionWorktree")(function* (
-  newSessionDraft: NewSessionDraft
+  newSessionDraft: NewSessionDraft,
+  chosenBaseBranchName: string | undefined
 ) {
   const worktreeInfraService = yield* IWorktreeInfraService;
   const worktreeName = yield* getWorktreeName(newSessionDraft.sessionName);
-  // The worktree starts from the project's HEAD, so the branch checked out there is what it splits from.
-  const baseBranchNameResult = yield* Effect.result(worktreeInfraService.readBranchName(newSessionDraft.project.path));
+  // Without a chosen branch the worktree starts from the project's HEAD, so the branch checked out there is its base.
+  const baseBranchNameResult =
+    chosenBaseBranchName === undefined
+      ? yield* Effect.result(worktreeInfraService.readBranchName(newSessionDraft.project.path))
+      : Result.succeed(chosenBaseBranchName);
   const sessionWorktree = yield* worktreeInfraService.createWorktree({
     branchName: yield* getWorktreeBranchName(worktreeName),
     projectPath: newSessionDraft.project.path,
+    startPoint: chosenBaseBranchName === undefined ? GIT_COMMAND.HEAD_START_POINT : chosenBaseBranchName,
     worktreeName,
     worktreesFolderName: yield* getWorktreesFolderName(newSessionDraft.projectName, newSessionDraft.project.id),
     worktreesFolderPath: newSessionDraft.project.settings.worktreeFolder
@@ -201,7 +207,8 @@ const prepareSessionWorkingTree = Effect.fn("SessionService.prepareSessionWorkin
         setupScript: undefined,
         worktreePath
       })),
-    [NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE]: () => createSessionWorktree(newSessionDraft),
+    [NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE]: (newWorktree) =>
+      createSessionWorktree(newSessionDraft, newWorktree.baseBranchName),
     [NEW_SESSION_WORKING_TREE_TAGS.PROJECT_ROOT]: () =>
       Effect.succeed({baseBranchName: undefined, setupScript: undefined, worktreePath: undefined})
   });
@@ -295,12 +302,29 @@ const moveSessionsToLifecycle = Effect.fn("SessionService.moveSessionsToLifecycl
   yield* placeEntitiesAtEnd(ISessionRepository, sessionIds);
 });
 
-// Each agent runs on in tmux and finishes its turn; only its tab closes.
-const archiveSessionsKeepingAgents = Effect.fn("SessionService.archiveSessionsKeepingAgents")(function* (
-  sessions: readonly SessionEntity[]
-) {
+const findSessionStatus = Effect.fn("SessionService.findSessionStatus")(function* (session: SessionEntity) {
+  const terminalInfraService = yield* ITerminalInfraService;
+  const tmuxInfraService = yield* ITmuxInfraService;
+  const runningSessionIds = yield* SubscriptionRef.get(tmuxInfraService.runningSessionIds);
+  const viewedSessionIdResult = yield* SubscriptionRef.get(terminalInfraService.viewedSessionId);
+  const isAgentRunning = runningSessionIds.has(session.id);
+  const isInView = Result.getOrUndefined(viewedSessionIdResult) === session.id;
+
+  return {isAgentRunning, status: yield* getSessionStatus(session, {isAgentRunning, isInView})};
+});
+
+const isAgentRunningIdle = Effect.fn("SessionService.isAgentRunningIdle")(function* (session: SessionEntity) {
+  const sessionStatus = yield* findSessionStatus(session);
+
+  return sessionStatus.isAgentRunning && !(yield* isSessionTurnRunning(sessionStatus.status));
+});
+
+// An agent mid-turn runs on in tmux and finishes its turn; an idle one stops; every tab closes.
+const archiveSessions = Effect.fn("SessionService.archiveSessions")(function* (sessions: readonly SessionEntity[]) {
   const sessionIds = Array.map(sessions, (session) => session.id);
+  const idleAgentSessions = yield* Effect.filter(sessions, (session) => isAgentRunningIdle(session));
   yield* moveSessionsToLifecycle(sessionIds, SESSION_LIFECYCLES.ARCHIVED);
+  yield* Effect.forEach(idleAgentSessions, (idleAgentSession) => stopAgentAndCloseTab(idleAgentSession.id));
   yield* Effect.forEach(sessionIds, (sessionId) => closeSessionTab(sessionId));
 });
 
@@ -346,7 +370,7 @@ export const archiveSession = Effect.fn("SessionService.archiveSession")(
     const session = yield* findSession(request.sessionId);
     if (session.lifecycle === SESSION_LIFECYCLES.ARCHIVED) return;
 
-    yield* archiveSessionsKeepingAgents([session]);
+    yield* archiveSessions([session]);
   },
   Effect.catchTags({EntityNotFoundError: () => Effect.void, SessionNotFoundError: () => Effect.void})
 );
@@ -485,17 +509,6 @@ const findSessionAgentFields = Effect.fn("SessionService.findSessionAgentFields"
     onFailure: () => ({}),
     onSuccess: (sessionAgent) => ({agentName: sessionAgent.name, icon: sessionAgent.icon})
   });
-});
-
-const findSessionStatus = Effect.fn("SessionService.findSessionStatus")(function* (session: SessionEntity) {
-  const terminalInfraService = yield* ITerminalInfraService;
-  const tmuxInfraService = yield* ITmuxInfraService;
-  const runningSessionIds = yield* SubscriptionRef.get(tmuxInfraService.runningSessionIds);
-  const viewedSessionIdResult = yield* SubscriptionRef.get(terminalInfraService.viewedSessionId);
-  const isAgentRunning = runningSessionIds.has(session.id);
-  const isInView = Result.getOrUndefined(viewedSessionIdResult) === session.id;
-
-  return {isAgentRunning, status: yield* getSessionStatus(session, {isAgentRunning, isInView})};
 });
 
 const isStoredSessionWaitingOnUser = Effect.fn("SessionService.isStoredSessionWaitingOnUser")(function* (
@@ -738,7 +751,7 @@ export const listProjectsWithArchivedSessions = Effect.fn("SessionService.listPr
 export const archiveProjectSessions = Effect.fn("SessionService.archiveProjectSessions")(
   function* (request: ArchiveProjectSessionsRequestDto) {
     const projectSessions = yield* findProjectSessions(request.projectPath, SESSION_LIFECYCLES.ONGOING);
-    yield* archiveSessionsKeepingAgents(projectSessions);
+    yield* archiveSessions(projectSessions);
   },
   Effect.catchTag("EntityNotFoundError", () => Effect.void)
 );
@@ -746,7 +759,7 @@ export const archiveProjectSessions = Effect.fn("SessionService.archiveProjectSe
 export const archiveOngoingSessions = Effect.fn("SessionService.archiveOngoingSessions")(
   function* () {
     const listedSessions = yield* findListedSessions(SESSION_LIFECYCLES.ONGOING);
-    yield* archiveSessionsKeepingAgents(listedSessions);
+    yield* archiveSessions(listedSessions);
   },
   Effect.catchTag("EntityNotFoundError", () => Effect.void)
 );

@@ -1,3 +1,4 @@
+import {SHADCN_COMPONENT_FILES} from "@pkg/eslint/src/base/ignores.config.ts";
 import {buildingBlockRule} from "@pkg/eslint/src/rules/buildingBlock.rule.ts";
 import {constantPlacementRule} from "@pkg/eslint/src/rules/constantPlacement.rule.ts";
 import {declaringFileRule} from "@pkg/eslint/src/rules/declaringFile.rule.ts";
@@ -45,6 +46,7 @@ export const AGGREGOR_PLUGIN_CONFIGS: Config[] = [
   },
   {
     files: ["**/*.{ts,mts,cts,tsx}"],
+    ignores: [SHADCN_COMPONENT_FILES],
     plugins: {aggregor: AGGREGOR_PLUGIN},
     rules: {"aggregor/one-line-comment": "error", "aggregor/type-placement": "error"}
   }
