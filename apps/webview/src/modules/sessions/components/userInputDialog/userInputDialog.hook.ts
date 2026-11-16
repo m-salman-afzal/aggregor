@@ -1,35 +1,38 @@
 import {
   describeUserInput,
-  makeFormAnswers
+  takeEnteredText,
+  takeProjectSettings
 } from "@/modules/sessions/components/userInputDialog/userInputDialog.utils.ts";
-import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.store.ts";
 
-import type {ChosenLeftovers} from "@/modules/sessions/sessions.type.ts";
-import type {CommandRequest} from "@views/sessions/sessions.view.type.ts";
+import type {SubmitEvent} from "react";
 
 export const useUserInputDialog = () => {
   const userInput = useSessionsStore({selectFromState: (sessionsState) => sessionsState.userInput});
   const closeUserInput = useSessionsStore({selectFromState: (sessionsState) => sessionsState.closeUserInput});
+  const choose = useSessionsStore({selectFromState: (sessionsState) => sessionsState.confirmQuestion});
+  const cleanUp = useSessionsStore({selectFromState: (sessionsState) => sessionsState.deleteChosenLeftovers});
+  const startSession = useSessionsStore({selectFromState: (sessionsState) => sessionsState.startNewSession});
+  const answerWithText = useSessionsStore({selectFromState: (sessionsState) => sessionsState.answerWithText});
+  const saveProjectSettings = useSessionsStore({selectFromState: (sessionsState) => sessionsState.saveProjectSettings});
+  const closeOnDismiss = (isOpen: boolean) => {
+    if (!isOpen) closeUserInput();
+  };
+  const enterText = (formEvent: SubmitEvent<HTMLFormElement>) => {
+    answerWithText(takeEnteredText(formEvent));
+  };
+  const saveSettings = (formEvent: SubmitEvent<HTMLFormElement>) => {
+    saveProjectSettings(takeProjectSettings(formEvent));
+  };
 
   return {
-    choose: () => {
-      closeUserInput();
-      if (userInput?._tag === USER_INPUT_TAGS.QUESTION) userInput.onConfirm();
-    },
-    cleanUp: (chosenLeftovers: ChosenLeftovers) => {
-      closeUserInput();
-      if (userInput?._tag === USER_INPUT_TAGS.CLEAN_UP) userInput.onDelete(chosenLeftovers);
-    },
-    closeOnDismiss: (isOpen: boolean) => {
-      if (!isOpen) closeUserInput();
-    },
+    choose,
+    cleanUp,
+    closeOnDismiss,
     closeUserInput,
-    ...makeFormAnswers(userInput, closeUserInput),
-    startSession: (newSessionRequest: CommandRequest) => {
-      closeUserInput();
-      if (userInput?._tag === USER_INPUT_TAGS.NEW_SESSION) userInput.onStart(newSessionRequest);
-    },
+    enterText,
+    saveSettings,
+    startSession,
     userInput,
     ...describeUserInput(userInput)
   };

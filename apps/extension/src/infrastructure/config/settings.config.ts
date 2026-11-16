@@ -1,13 +1,14 @@
 import {InvalidSettingsError, ISettingsConfig} from "@interfaces/settings.config.interface.ts";
 import {AGENT_SETTINGS} from "@pkg/constants/src/agent.constant.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/app.constant.ts";
+import {PULL_REQUEST_OPEN_PLACES} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {SESSION_SETTINGS} from "@pkg/constants/src/session.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
 import {AgentStatusValueObjectSchema} from "@valueObjects/agentStatus.valueObject.ts";
 import {Effect, Layer, Schema} from "effect";
 
-import type {AlertSettings, SessionSettings} from "@interfaces/settings.config.interface.ts";
+import type {AlertSettings, PullRequestSettings, SessionSettings} from "@interfaces/settings.config.interface.ts";
 import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
 
 type SettingsDependencies = Pick<VsCodeApi["Service"], "ConfigurationTarget" | "getConfiguration">;
@@ -26,6 +27,10 @@ const SessionSettingsSchema = Schema.Struct({
   defaultAgent: AgentIdValueObjectSchema,
   sessionMemoryLimit: Schema.String.check(Schema.isPattern(SESSION_SETTINGS.MEMORY_LIMIT_PATTERN)),
   skipAgentPicker: Schema.Boolean
+});
+
+const PullRequestSettingsSchema = Schema.Struct({
+  openPullRequestIn: Schema.Enum(PULL_REQUEST_OPEN_PLACES)
 });
 
 const AlertSettingsSchema = Schema.Struct({
@@ -68,6 +73,19 @@ const readAlertSettings = Effect.fn("SettingsConfig.readAlertSettings")(
   Effect.mapError((schemaError) => InvalidSettingsError.make({reason: schemaError.message}))
 );
 
+const readPullRequestSettings = Effect.fn("SettingsConfig.readPullRequestSettings")(
+  function* (settingsDependencies: SettingsDependencies) {
+    const configuredSettings = yield* settingsDependencies.getConfiguration(SETTINGS_SECTION);
+    const decodedPullRequestSettings = yield* Schema.decodeUnknownEffect(PullRequestSettingsSchema)(configuredSettings);
+    const pullRequestSettings: PullRequestSettings = {
+      openPullRequestIn: decodedPullRequestSettings.openPullRequestIn
+    };
+
+    return pullRequestSettings;
+  },
+  Effect.mapError((schemaError) => InvalidSettingsError.make({reason: schemaError.message}))
+);
+
 // A failed write only costs the reorder, so it is logged.
 const saveDefaultAgentId = Effect.fn("SettingsConfig.saveDefaultAgentId")(
   function* (settingsDependencies: SettingsDependencies, agentId: AgentIdValueObject) {
@@ -90,6 +108,7 @@ const makeSettingsConfig = Effect.fn("SettingsConfig.make")(function* () {
 
   return {
     readAlertSettings: readAlertSettings(settingsDependencies),
+    readPullRequestSettings: readPullRequestSettings(settingsDependencies),
     readSessionSettings: readSessionSettings(settingsDependencies),
     readSettings: readSettings(settingsDependencies),
     saveDefaultAgentId: (agentId: AgentIdValueObject) => saveDefaultAgentId(settingsDependencies, agentId)

@@ -9,6 +9,11 @@ import {
   saveChosenProjectSettings
 } from "@controllers/project.controller.ts";
 import {
+  installGitHubCliFromNotice,
+  openChosenSessionPullRequest,
+  signInToGitHubCliFromNotice
+} from "@controllers/pullRequest.controller.ts";
+import {
   archiveAllOngoingSessions,
   archiveChosenProjectSessions,
   archiveChosenSession,
@@ -33,6 +38,7 @@ import {AGENT_COMMANDS} from "@pkg/constants/src/agent.constant.ts";
 import {APP_COMMANDS} from "@pkg/constants/src/app.constant.ts";
 import {COMMIT_MESSAGE_COMMANDS} from "@pkg/constants/src/commitMessage.constant.ts";
 import {WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
+import {GITHUB_CLI_COMMANDS} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {PROJECT_COMMANDS} from "@pkg/constants/src/project.constant.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {TERMINAL_COMMANDS} from "@pkg/constants/src/terminal.constant.ts";
@@ -40,6 +46,7 @@ import {openAggregorSettingsInSettingsEditor} from "@pkg/vscode/src/vscode.utils
 import {presentAppCommandError} from "@presenters/app.presenter.ts";
 import {presentCommitMessageCommandError} from "@presenters/commitMessage.presenter.ts";
 import {presentProjectCommandError} from "@presenters/project.presenter.ts";
+import {presentPullRequestCommandError} from "@presenters/pullRequest.presenter.ts";
 import {presentSessionCommandError} from "@presenters/session.presenter.ts";
 import {presentWorktreeCommandError} from "@presenters/worktree.presenter.ts";
 import {Effect, Layer} from "effect";
@@ -89,6 +96,13 @@ export const RoutesLayer = Layer.effectDiscard(
       openChosenSessionFolderTerminal,
       presentSessionCommandError
     ),
+    registerCommand(GITHUB_CLI_COMMANDS.INSTALL, installGitHubCliFromNotice, presentPullRequestCommandError),
+    registerCommand(
+      GITHUB_CLI_COMMANDS.OPEN_SESSION_PULL_REQUEST,
+      openChosenSessionPullRequest,
+      presentPullRequestCommandError
+    ),
+    registerCommand(GITHUB_CLI_COMMANDS.SIGN_IN, signInToGitHubCliFromNotice, presentPullRequestCommandError),
     registerCommand(WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS, cleanUpChosenProjectLeftovers, presentWorktreeCommandError)
   ])
 );

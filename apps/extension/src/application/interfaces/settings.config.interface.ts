@@ -1,5 +1,6 @@
 import {Context, Schema} from "effect";
 
+import type {PULL_REQUEST_OPEN_PLACES} from "@pkg/constants/src/gitHubCli.constant.ts";
 import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
 import type {AgentStatusValueObject} from "@valueObjects/agentStatus.valueObject.ts";
 import type {Effect} from "effect";
@@ -12,6 +13,10 @@ export interface SessionSettings {
   readonly defaultAgentId: AgentIdValueObject;
   readonly sessionMemoryLimit: string | undefined;
   readonly skipAgentPicker: boolean;
+}
+
+export interface PullRequestSettings {
+  readonly openPullRequestIn: (typeof PULL_REQUEST_OPEN_PLACES)[keyof typeof PULL_REQUEST_OPEN_PLACES];
 }
 
 export interface Settings {
@@ -29,6 +34,7 @@ export class ISettingsConfig extends Context.Service<
   ISettingsConfig,
   {
     readonly readAlertSettings: Effect.Effect<AlertSettings, InvalidSettingsError>;
+    readonly readPullRequestSettings: Effect.Effect<PullRequestSettings, InvalidSettingsError>;
     readonly readSessionSettings: Effect.Effect<SessionSettings, InvalidSettingsError>;
     readonly readSettings: Effect.Effect<Settings, InvalidSettingsError>;
     readonly saveDefaultAgentId: (agentId: AgentIdValueObject) => Effect.Effect<void>;

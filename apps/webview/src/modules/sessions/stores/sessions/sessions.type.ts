@@ -1,5 +1,11 @@
-import type {SessionListId, UserInput} from "@/modules/sessions/sessions.type.ts";
-import type {AgentRowData, ProjectRowData, SessionsViewMessage} from "@views/sessions/sessions.view.type.ts";
+import type {ChosenLeftovers, SessionListId, UserInput} from "@/modules/sessions/sessions.type.ts";
+import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
+import type {
+  AgentRowData,
+  CommandRequest,
+  ProjectRowData,
+  SessionsViewMessage
+} from "@views/sessions/sessions.view.type.ts";
 
 export type HostMessagesByTag = {[HostMessage in SessionsViewMessage as HostMessage["_tag"]]: HostMessage};
 
@@ -22,11 +28,16 @@ export interface SessionsData {
 }
 
 export interface SessionsState extends SessionsData {
+  readonly answerWithText: (enteredText: string) => void;
   readonly closeUserInput: () => void;
+  readonly confirmQuestion: () => void;
+  readonly deleteChosenLeftovers: (chosenLeftovers: ChosenLeftovers) => void;
   readonly hideWorktreeTrustHint: () => void;
   readonly markViewedSession: (sessionId: string) => void;
   readonly revealSessionsProject: (projectPath: string) => void;
+  readonly saveProjectSettings: (projectSettings: ProjectSettingsDto) => void;
   readonly setListOpen: (listId: SessionListId, isOpen: boolean) => void;
   readonly setProjectOpen: (projectKey: string, isOpen: boolean) => void;
   readonly showUserInput: (userInput: UserInput) => void;
+  readonly startNewSession: (newSessionRequest: CommandRequest) => void;
 }

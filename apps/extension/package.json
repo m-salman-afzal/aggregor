@@ -191,6 +191,19 @@
           "default": false,
           "markdownDescription": "Start `#aggregorApp.defaultAgent#` straight away instead of asking which agent to use."
         },
+        "aggregorApp.openPullRequestIn": {
+          "type": "string",
+          "enum": [
+            "browser",
+            "vscode"
+          ],
+          "enumDescriptions": [
+            "Opens the pull request on GitHub in the browser.",
+            "Opens the pull request in the GitHub Pull Requests extension, or the browser without it."
+          ],
+          "default": "browser",
+          "markdownDescription": "Where a session's pull request opens when its number on the session's row is clicked."
+        },
         "aggregorApp.sessionMemoryLimit": {
           "type": "string",
           "default": "",
