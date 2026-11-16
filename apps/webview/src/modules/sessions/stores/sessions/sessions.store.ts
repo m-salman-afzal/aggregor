@@ -1,3 +1,4 @@
+import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 import {
   askHostToDraw,
   listenToHost,
@@ -9,8 +10,10 @@ import {applyHostMessage, foldKey, makeProjectKey} from "@/modules/sessions/stor
 import {SESSION_LISTS} from "@pkg/constants/src/sessionsView.constant.ts";
 import {useSyncExternalStore} from "react";
 
-import type {SessionListId, UserInput} from "@/modules/sessions/sessions.type.ts";
+import type {ChosenLeftovers, SessionListId, UserInput} from "@/modules/sessions/sessions.type.ts";
 import type {SessionsData, SessionsState} from "@/modules/sessions/stores/sessions/sessions.type.ts";
+import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
+import type {CommandRequest} from "@views/sessions/sessions.view.type.ts";
 
 interface UseSessionsStoreProps<Selected> {
   readonly selectFromState: (sessionsState: SessionsState) => Selected;
@@ -83,6 +86,39 @@ const closeUserInput = () => {
   setSessionsData({...sessionsData, userInput: undefined});
 };
 
+// Each answer closes the dialog first, then hands the answer to the input that asked for it.
+const takeUserInput = () => {
+  const userInput = sessionsData.userInput;
+  closeUserInput();
+
+  return userInput;
+};
+
+const confirmQuestion = () => {
+  const userInput = takeUserInput();
+  if (userInput?._tag === USER_INPUT_TAGS.QUESTION) userInput.onConfirm();
+};
+
+const deleteChosenLeftovers = (chosenLeftovers: ChosenLeftovers) => {
+  const userInput = takeUserInput();
+  if (userInput?._tag === USER_INPUT_TAGS.CLEAN_UP) userInput.onDelete(chosenLeftovers);
+};
+
+const answerWithText = (enteredText: string) => {
+  const userInput = takeUserInput();
+  if (userInput?._tag === USER_INPUT_TAGS.TEXT) userInput.onEnterText(enteredText);
+};
+
+const saveProjectSettings = (projectSettings: ProjectSettingsDto) => {
+  const userInput = takeUserInput();
+  if (userInput?._tag === USER_INPUT_TAGS.PROJECT_SETTINGS) userInput.onSave(projectSettings);
+};
+
+const startNewSession = (newSessionRequest: CommandRequest) => {
+  const userInput = takeUserInput();
+  if (userInput?._tag === USER_INPUT_TAGS.NEW_SESSION) userInput.onStart(newSessionRequest);
+};
+
 const hideWorktreeTrustHint = () => {
   setSessionsData({...sessionsData, isWorktreeTrustHintHidden: true});
 };
@@ -110,12 +146,17 @@ export const useSessionsStore = <Selected>(props: UseSessionsStoreProps<Selected
   useSyncExternalStore(subscribeToSessionsData, () =>
     props.selectFromState({
       ...sessionsData,
+      answerWithText,
       closeUserInput,
+      confirmQuestion,
+      deleteChosenLeftovers,
       hideWorktreeTrustHint,
       markViewedSession,
       revealSessionsProject,
+      saveProjectSettings,
       setListOpen,
       setProjectOpen,
-      showUserInput
+      showUserInput,
+      startNewSession
     })
   );

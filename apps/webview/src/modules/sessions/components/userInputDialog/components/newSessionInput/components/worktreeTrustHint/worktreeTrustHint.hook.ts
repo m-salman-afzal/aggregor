@@ -17,13 +17,14 @@ export const useWorktreeTrustHint = (props: UseWorktreeTrustHintProps) => {
     selectFromState: (sessionsState) => sessionsState.hideWorktreeTrustHint
   });
   const [isPathCopied, setPathCopied] = useState(false);
+  const trustFolder = () => {
+    copyPathThenManageTrust(props.folderPath, setPathCopied);
+  };
 
   return {
     hide: hideWorktreeTrustHint,
     isPathCopied,
     isShown: isWorkspaceTrustEnabled && !isWorktreeTrustHintHidden,
-    trustFolder: () => {
-      copyPathThenManageTrust(props.folderPath, setPathCopied);
-    }
+    trustFolder
   };
 };

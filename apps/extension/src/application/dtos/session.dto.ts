@@ -4,6 +4,7 @@ import {AgentIconValueObjectSchema} from "@valueObjects/agentIcon.valueObject.ts
 import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
+import {PullRequestStateValueObjectSchema} from "@valueObjects/pullRequestState.valueObject.ts";
 import {SessionStatusValueObjectSchema} from "@valueObjects/sessionStatus.valueObject.ts";
 import {StatusKindValueObjectSchema} from "@valueObjects/statusKind.valueObject.ts";
 import {Schema} from "effect";
@@ -15,6 +16,15 @@ export const SessionDiffStatsDtoSchema = Schema.Struct({
 });
 
 export type SessionDiffStatsDto = typeof SessionDiffStatsDtoSchema.Type;
+
+// The pull request whose head is the worktree's branch, as gh last found it.
+export const SessionPullRequestDtoSchema = Schema.Struct({
+  number: Schema.Int,
+  state: PullRequestStateValueObjectSchema,
+  title: Schema.String
+});
+
+export type SessionPullRequestDto = typeof SessionPullRequestDtoSchema.Type;
 
 // The wait kind and progress exist only at the agent's turn; no agent name or icon means it left the settings.
 export const SessionListItemDtoSchema = Schema.Struct({
@@ -30,6 +40,7 @@ export const SessionListItemDtoSchema = Schema.Struct({
   name: Schema.String,
   projectName: Schema.String,
   projectPath: ProjectPathValueObjectSchema,
+  pullRequest: Schema.optional(SessionPullRequestDtoSchema),
   sessionId: EntityIdValueObjectSchema,
   status: SessionStatusValueObjectSchema,
   statusKind: Schema.optional(StatusKindValueObjectSchema),

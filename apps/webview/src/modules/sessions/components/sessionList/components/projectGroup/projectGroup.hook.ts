@@ -19,6 +19,9 @@ export const useProjectGroup = (props: UseProjectGroupProps) => {
     selectFromState: (sessionsState) => !sessionsState.collapsedProjectKeys.has(projectKey)
   });
   const setProjectOpen = useSessionsStore({selectFromState: (sessionsState) => sessionsState.setProjectOpen});
+  const setOpen = (isNowOpen: boolean) => {
+    setProjectOpen(projectKey, isNowOpen);
+  };
 
   return {
     actionGroups: listProjectActionGroups(props.projectRow.projectListItem, props.listId),
@@ -27,8 +30,6 @@ export const useProjectGroup = (props: UseProjectGroupProps) => {
     inlineActions: listProjectInlineActions(props.listId, props.projectRow.hasLeftovers === true),
     isOpen,
     sessionCount: props.projectRow.sessionPage.totalSessionCount,
-    setOpen: (isNowOpen: boolean) => {
-      setProjectOpen(projectKey, isNowOpen);
-    }
+    setOpen
   };
 };

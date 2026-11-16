@@ -1,14 +1,14 @@
 import {SessionDiffStats} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDiffStats.tsx";
+import {SessionPullRequest} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionPullRequest.tsx";
 import {AGENT_ICON} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/sessionRow.constant.ts";
 import {GitBranchIcon, TriangleAlertIcon} from "lucide-react";
 
-import type {SessionDiffStatsDto} from "@dtos/session.dto.ts";
+import type {SessionListItemDto} from "@dtos/session.dto.ts";
 
 interface SessionDetailProps {
   readonly agentIconUri?: string | undefined;
   readonly agentLabel: string;
-  readonly branchName?: string | undefined;
-  readonly diffStats?: SessionDiffStatsDto | undefined;
+  readonly sessionListItem: SessionListItemDto;
 }
 
 export const SessionDetail = (props: SessionDetailProps) => (
@@ -20,14 +20,17 @@ export const SessionDetail = (props: SessionDetailProps) => (
     ) : (
       <img alt={props.agentLabel} className={AGENT_ICON} src={props.agentIconUri} title={props.agentLabel} />
     )}
-    {props.branchName !== undefined && (
-      <span className="flex min-w-0 items-center gap-1" title={props.branchName}>
+    {props.sessionListItem.branchName !== undefined && (
+      <span className="flex min-w-0 items-center gap-1" title={props.sessionListItem.branchName}>
         <GitBranchIcon aria-hidden className="size-3.5 shrink-0" />
-        <span className="truncate">{props.branchName}</span>
+        <span className="truncate">{props.sessionListItem.branchName}</span>
       </span>
     )}
-    {props.diffStats !== undefined && props.diffStats.changedFileCount > 0 && (
-      <SessionDiffStats diffStats={props.diffStats} />
+    {props.sessionListItem.pullRequest !== undefined && (
+      <SessionPullRequest pullRequest={props.sessionListItem.pullRequest} />
+    )}
+    {props.sessionListItem.diffStats !== undefined && props.sessionListItem.diffStats.changedFileCount > 0 && (
+      <SessionDiffStats diffStats={props.sessionListItem.diffStats} />
     )}
   </span>
 );

@@ -23,11 +23,13 @@ import {
   SessionListChangeDtoSchema,
   SessionListItemDtoSchema,
   SessionPageDtoSchema,
+  SessionPullRequestDtoSchema,
   WorktreeListItemDtoSchema
 } from "@dtos/session.dto.ts";
 import {IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
+import {IGitHubCliInfraService} from "@interfaces/gitHubCli.infraService.interface.ts";
 import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
@@ -516,6 +518,29 @@ const readSessionDiffStats = Effect.fn("SessionService.readSessionDiffStats")(fu
   );
 });
 
+// gh's answer from the last lookup; the first sight of a branch starts one, and its result redraws the row.
+const findBranchPullRequestFields = Effect.fn("SessionService.findBranchPullRequestFields")(function* (
+  worktreePath: ProjectPathValueObject,
+  branchName: string
+) {
+  const pullRequestResult = yield* Effect.result(
+    IGitHubCliInfraService.use((gitHubCliInfraService) =>
+      gitHubCliInfraService.findPullRequest({branchName, folderPath: worktreePath})
+    )
+  );
+
+  return Result.match(pullRequestResult, {
+    onFailure: () => ({}),
+    onSuccess: (pullRequest) => ({
+      pullRequest: SessionPullRequestDtoSchema.make({
+        number: pullRequest.number,
+        state: pullRequest.state,
+        title: pullRequest.title
+      })
+    })
+  });
+});
+
 const findSessionWorktreeFields = Effect.fn("SessionService.findSessionWorktreeFields")(function* (
   session: SessionEntity
 ) {
@@ -525,10 +550,13 @@ const findSessionWorktreeFields = Effect.fn("SessionService.findSessionWorktreeF
     IWorktreeInfraService.use((worktreeInfraService) => worktreeInfraService.readBranchName(worktreePath))
   );
   const diffStatsResult = yield* Effect.result(readSessionDiffStats(session, worktreePath));
+  if (Result.isFailure(branchNameResult))
+    return Result.match(diffStatsResult, {onFailure: () => ({}), onSuccess: (diffStats) => ({diffStats})});
 
   return {
-    ...Result.match(branchNameResult, {onFailure: () => ({}), onSuccess: (branchName) => ({branchName})}),
-    ...Result.match(diffStatsResult, {onFailure: () => ({}), onSuccess: (diffStats) => ({diffStats})})
+    ...(yield* findBranchPullRequestFields(worktreePath, branchNameResult.success)),
+    ...Result.match(diffStatsResult, {onFailure: () => ({}), onSuccess: (diffStats) => ({diffStats})}),
+    branchName: branchNameResult.success
   };
 });
 
@@ -851,8 +879,21 @@ const toAgentRunChange = Effect.fn("SessionService.toAgentRunChange")(function* 
     : sessionChanged;
 });
 
+// The rows of the sessions working in the folder whose pull request changed; a failed read redraws none.
+const toPullRequestChanges = Effect.fn("SessionService.toPullRequestChanges")(
+  function* (folderPath: ProjectPathValueObject) {
+    const worktreeSessions = yield* findEntities(ISessionRepository, {worktreePath: folderPath});
+
+    return Array.map(worktreeSessions, (worktreeSession) =>
+      SessionListChangeDtoSchema.cases.SessionChanged.make({sessionId: worktreeSession.id})
+    );
+  },
+  Effect.catch((databaseError) => Effect.as(Effect.logWarning("Could not find the rows to redraw", databaseError), []))
+);
+
 // Coming into or leaving view writes viewedAt, so it arrives as a write.
 export const watchSessionListChanges = Effect.fn("SessionService.watchSessionListChanges")(function* () {
+  const gitHubCliInfraService = yield* IGitHubCliInfraService;
   const projectRepository = yield* IProjectRepository;
   const sessionRepository = yield* ISessionRepository;
   const tmuxInfraService = yield* ITmuxInfraService;
@@ -869,6 +910,11 @@ export const watchSessionListChanges = Effect.fn("SessionService.watchSessionLis
     ),
     Stream.mapEffect(tmuxInfraService.startedOrStoppedSessionIds, (sessionId) =>
       Effect.provideService(toAgentRunChange(sessionId), ISessionRepository, sessionRepository)
+    ),
+    Stream.flatMap(gitHubCliInfraService.pullRequestChangedFolderPaths, (folderPath) =>
+      Stream.fromIterableEffect(
+        Effect.provideService(toPullRequestChanges(folderPath), ISessionRepository, sessionRepository)
+      )
     )
   ];
 

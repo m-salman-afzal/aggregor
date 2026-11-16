@@ -29,17 +29,18 @@ export const useRowActions = (props: UseRowActionsProps) => {
   });
   const showUserInput = useSessionsStore({selectFromState: (sessionsState) => sessionsState.showUserInput});
   const skipAgentPicker = useSessionsStore({selectFromState: (sessionsState) => sessionsState.skipAgentPicker});
+  const runAction = (rowAction: RowAction) => {
+    runRowActionAsking(
+      {agentRows, archiveProjectRows, projectRows, revealSessionsProject, showUserInput, skipAgentPicker},
+      rowAction,
+      props.commandArgument
+    );
+  };
 
   return {
     actionBarClassName: isHeader ? ALWAYS_SHOWN_ACTION_BAR : HOVER_ACTION_BAR,
     menuGroups: toMenuGroups(props.actionGroups),
     rowClassName: isHeader ? HEADER_SURFACE : ROW_SURFACE,
-    runAction: (rowAction: RowAction) => {
-      runRowActionAsking(
-        {agentRows, archiveProjectRows, projectRows, revealSessionsProject, showUserInput, skipAgentPicker},
-        rowAction,
-        props.commandArgument
-      );
-    }
+    runAction
   };
 };

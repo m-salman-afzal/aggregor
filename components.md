@@ -192,6 +192,32 @@ heading there. Update this file in the same commit as a change that adds, remove
   list them all there; the command line works on any project's folder.
 - **Alternatives:** the Git extension's `createWorktree` and `state.worktrees` (see `decisions/sessions/worktrees.md`).
 
+### GitHub CLI
+
+- **What it is:** GitHub's own command line, `gh`, the one the user has on `PATH`; Aggregor never ships one.
+- **What we use:** `gh pr view ‹branch› --json number,url,state,isDraft,title`, run in a worktree session's folder, for
+  the pull request on its row; its exit code 4 for signed out. When it is missing or signed out, a notice runs the
+  system package manager's install command (`brew`, `apt-get`, `dnf`, `pacman`, `zypper` or `apk`) or `gh auth login` in
+  a terminal (`infrastructure/services/gitHubCli/gitHubCli.infraService.ts`, with gh's JSON read by
+  `gitHubCli.transformer.ts`).
+- **Why:** gh already holds the user's GitHub sign-in, hosts and remotes, so Aggregor asks for no token or scope of its
+  own, as Orca, Crystal, Superset and Vibe Kanban do.
+- **Alternatives:** "A worktree session's row shows its branch's pull request, found with gh" and "A missing or
+  signed-out gh asks once…" in `decisions/sessions/pullRequests.md`: VS Code's GitHub sign-in with our own API calls,
+  and a gh Aggregor downloads itself.
+
+### GitHub Pull Requests extension
+
+- **What it is:** GitHub's VS Code extension for pull requests (`GitHub.vscode-pull-request-github`), when the user has
+  it installed.
+- **What we use:** its link
+  `vscode://GitHub.vscode-pull-request-github/open-pull-request-webview?uri=‹pull request URL›` (since its 0.122.0),
+  opened with `env.openExternal` when `aggregorApp.openPullRequestIn` is `vscode`; without the extension the pull
+  request opens in the browser.
+- **Why:** its commands take only its own tree items, so the link is the one way another extension opens a given pull
+  request in it.
+- **Alternatives:** none weighed.
+
 ### Desktop notifiers
 
 - **What it is:** each system's command for a desktop notification.
