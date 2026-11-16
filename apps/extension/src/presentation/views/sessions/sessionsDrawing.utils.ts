@@ -7,7 +7,10 @@ import {
   listProjectsWithSessionsForSessionsView,
   listSessionsWaitingOnUserForSessionsView
 } from "@controllers/session.controller.ts";
-import {listProjectLeftoversForSessionsView} from "@controllers/worktree.controller.ts";
+import {
+  listProjectBranchesForSessionsView,
+  listProjectLeftoversForSessionsView
+} from "@controllers/worktree.controller.ts";
 import {AGENT_SETTINGS} from "@pkg/constants/src/agent.constant.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/app.constant.ts";
 import {SESSION_PAGES} from "@pkg/constants/src/session.constant.ts";
@@ -154,6 +157,16 @@ export const drawLeftovers = Effect.fn("SessionsView.drawLeftovers")(
     yield* postToWebview(webviewView, {_tag: SESSIONS_VIEW_MESSAGE_TAGS.LEFTOVERS_DRAWN, leftovers});
   },
   Effect.catch((leftoversError) => Effect.logWarning("Could not list the project's leftovers", leftoversError))
+);
+
+// A project no longer listed, or no git repository, draws no branches; the dialog keeps offering the current commit.
+export const drawBranches = Effect.fn("SessionsView.drawBranches")(
+  function* (webviewView: WebviewView, projectPath: string) {
+    const branches = yield* listProjectBranchesForSessionsView(projectPath);
+
+    yield* postToWebview(webviewView, {_tag: SESSIONS_VIEW_MESSAGE_TAGS.BRANCHES_DRAWN, branches});
+  },
+  Effect.catch((branchesError) => Effect.logWarning("Could not list the project's branches", branchesError))
 );
 
 // A session removed meanwhile draws nothing: the change that removed it redraws its project.

@@ -10,32 +10,47 @@ Where a session works: its project's root, or a git worktree of its own.
   `newSession {projectPath, agentId, workingTree}` request. The project shows when New Session came from the list's
   button and there is more than one; the agent when more than one is installed, unless `aggregorApp.skipAgentPicker`
   skips it for a default; the working tree in a git project: Project root, New worktree, and each of the repository's
-  worktrees no session works in. With nothing to choose, as in a folder outside git with one agent, the session starts
-  at once. The project's `newSessionWorkingTree` setting picks the default.
+  worktrees no session works in; and with New worktree chosen, the branch it starts from (see "A new worktree is named
+  after its session"). The project, the agent and the branch are each a dropdown showing the one chosen, with a search
+  box over its list, so the dialog stays short; the working tree stays a list of rows. With nothing to choose, as in a
+  folder outside git with one agent, the session starts at once. The project's `newSessionWorkingTree` setting picks the
+  default.
 - **Solution:** `ProjectSessionsDto.worktrees` carries a git project's linked worktrees, read on each draw of the
   Sessions list; a project outside git has none. A worktree made outside Aggregor shows from the next full draw (a
-  project change, or the view shown again). The agents' star saves the default and picks that agent.
+  project change, or the view shown again). The dropdowns are shadcn's Combobox on Base UI (`OptionPicker`). The star on
+  an agent in the agent dropdown saves the default and picks that agent, without closing the list. Starting unfolds the
+  Sessions list and the session's project in it (`revealSessionsProject`), so the new row shows.
 - **Alternatives considered:** a step per choice with Back; New Session in Worktree as its own menu item; a third step
-  after the agent.
+  after the agent; every choice as a list of rows (the first version), which grew taller than the view with five agents;
+  shadcn's Select for the agents beside the Combobox for branches, two components for one job; the menu dropdown already
+  in `@pkg/ui`, which has no search.
 
-## A new worktree is named after its session, made from the project's current commit
+## A new worktree is named after its session, made from the project's current commit or a chosen branch
 
-- **Problem:** a worktree needs a folder and a branch, and the project its own place for them.
-- **Decision:** the worktree is created when the session is, from the project's `HEAD`, named after the session's
-  default name: "jsTester #3" works in `jstester-3`, on `aggregor/jstester-3`; a name taken as a branch or a folder gets
-  `-2`, `-3` and so on. It goes in `~/.aggregor/worktrees/<project>-<6 characters of its id>/`, or the project's
-  worktree folder setting. The project's files to copy (its `.worktreeinclude`, else its settings' patterns, `.env*` by
-  default) are copied in, matched as .gitignore matches them, and its setup script runs in the session's tab before the
-  agent, on the first start only; the agent starts whether or not the script succeeds. The session stores
-  `worktreePath`; its tab, tmux session and agent work there (`SessionEntity.workingFolderPath`), and the window shows
-  the worktree while the session is in front, so Explorer, search and Source Control show the session's own changes. A
-  worktree shown is not listed as a project.
-- **Solution:** `IWorktreeInfraService` (`infrastructure/services/git/`) runs `git worktree` on the command line.
+- **Problem:** a worktree needs a folder, a branch and a commit to start from, and the project its own place for them.
+- **Decision:** the worktree is created when the session is, from the project's `HEAD` unless New Session's **From**
+  names a branch: Current commit (the project's checked-out branch shown under it), each local branch, then origin's, as
+  of the last fetch, since the dialog never waits on the network. The worktree gets its own branch either way, starting
+  at the chosen one, and From always opens on Current commit. It is named after the session's default name: "jsTester
+  #3" works in `jstester-3`, on `aggregor/jstester-3`; a name taken as a branch or a folder gets `-2`, `-3` and so on.
+  It goes in `~/.aggregor/worktrees/<project>-<6 characters of its id>/`, or the project's worktree folder setting. The
+  project's files to copy (its `.worktreeinclude`, else its settings' patterns, `.env*` by default) are copied in,
+  matched as .gitignore matches them, and its setup script runs in the session's tab before the agent, on the first
+  start only; the agent starts whether or not the script succeeds. The session stores `worktreePath`; its tab, tmux
+  session and agent work there (`SessionEntity.workingFolderPath`), and the window shows the worktree while the session
+  is in front, so Explorer, search and Source Control show the session's own changes. A worktree shown is not listed as
+  a project.
+- **Solution:** `IWorktreeInfraService` (`infrastructure/services/git/`) runs `git worktree` on the command line;
+  `createWorktree` takes the start point, and `listBranchNames` reads `refs/heads` and `refs/remotes/origin` with
+  `git for-each-ref`, leaving out `origin/HEAD`. The webview asks for the branches with `LIST_BRANCHES` when New
+  worktree is picked, and again when the project changes under it, and fills From in when `BRANCHES_DRAWN` comes back;
+  until then only Current commit is offered.
 
 - **Alternatives considered:** the Git extension's `createWorktree` and `state.worktrees`, agreed first: its API reaches
   only repositories open in Source Control, so every project would have to be opened there to list or create its
   worktrees. Worktrees beside the repository or inside it (`.worktrees/`, which needs a `.gitignore` entry). The
-  repository's default branch as the base.
+  repository's default branch as the base. Fetching before listing the branches, which waits on the network. Reading the
+  branches on every project draw, a git process each time. A project setting for the default start point.
 
 ## A worktree's branch takes the session's first title, and its menu renames it
 
@@ -120,12 +135,13 @@ Where a session works: its project's root, or a git worktree of its own.
 - **Decision:** the row's second line shows a diff icon, the number of files changed, and the lines added in green
   stacked over those deleted in red, at 10px, after the branch, so large counts take little of the line's width. They
   count everything the session's branch changed since it split from its base branch: its commits, its uncommitted edits
-  and its new files. The base is the branch the project had checked out when Aggregor made the worktree, since the
-  worktree starts from that HEAD, stored on the session as `baseBranchName` (a detached HEAD stores its short hash). A
-  session without one, from before the column or in a worktree Aggregor didn't make, counts from the branch the project
-  has checked out now. A new file's lines count as added; a binary one, or one over 1 MB, counts as a file only. Nothing
-  shows while nothing changed, and only worktree sessions count, since the project root's sessions share one working
-  tree. No file list and no diff open from it.
+  and its new files. The base is the branch chosen in New Session's From, or, with Current commit, the branch the
+  project had checked out when Aggregor made the worktree, since the worktree starts from that HEAD; it is stored on the
+  session as `baseBranchName` (a detached HEAD stores its short hash). A session without one, from before the column or
+  in a worktree Aggregor didn't make, counts from the branch the project has checked out now. A new file's lines count
+  as added; a binary one, or one over 1 MB, counts as a file only. Nothing shows while nothing changed, and only
+  worktree sessions count, since the project root's sessions share one working tree. No file list and no diff open from
+  it.
 - **Solution:** `IWorktreeInfraService.readDiffStats` runs `git merge-base HEAD <base>`, `git diff --numstat` against
   that commit, and `git ls-files --others --exclude-standard`, reading each new file to count its lines.
   `SessionListItemDto.diffStats` carries the counts, read on each draw of the row, so they follow the agent's turns.

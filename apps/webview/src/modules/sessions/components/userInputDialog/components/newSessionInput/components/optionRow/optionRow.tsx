@@ -1,6 +1,6 @@
-import {OptionTexts} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/components/optionRow/components/optionTexts.tsx";
-import {SecondaryActionButton} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/components/optionRow/components/secondaryActionButton.tsx";
 import {useOptionRow} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/components/optionRow/optionRow.hook.ts";
+import {OptionTexts} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/components/optionTexts.tsx";
+import {SecondaryActionButton} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/components/secondaryActionButton.tsx";
 import {OPTION_ROW} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.constant.ts";
 
 import type {UserInputOption} from "@/modules/sessions/sessions.type.ts";

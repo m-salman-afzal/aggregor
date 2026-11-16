@@ -24,6 +24,9 @@ export const useRowActions = (props: UseRowActionsProps) => {
   const agentRows = useSessionsStore({selectFromState: (sessionsState) => sessionsState.agentRows});
   const archiveProjectRows = useSessionsStore({selectFromState: (sessionsState) => sessionsState.archiveProjectRows});
   const projectRows = useSessionsStore({selectFromState: (sessionsState) => sessionsState.projectRows});
+  const revealSessionsProject = useSessionsStore({
+    selectFromState: (sessionsState) => sessionsState.revealSessionsProject
+  });
   const showUserInput = useSessionsStore({selectFromState: (sessionsState) => sessionsState.showUserInput});
   const skipAgentPicker = useSessionsStore({selectFromState: (sessionsState) => sessionsState.skipAgentPicker});
 
@@ -33,7 +36,7 @@ export const useRowActions = (props: UseRowActionsProps) => {
     rowClassName: isHeader ? HEADER_SURFACE : ROW_SURFACE,
     runAction: (rowAction: RowAction) => {
       runRowActionAsking(
-        {agentRows, archiveProjectRows, projectRows, showUserInput, skipAgentPicker},
+        {agentRows, archiveProjectRows, projectRows, revealSessionsProject, showUserInput, skipAgentPicker},
         rowAction,
         props.commandArgument
       );

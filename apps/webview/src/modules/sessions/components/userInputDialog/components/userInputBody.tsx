@@ -23,6 +23,7 @@ export const UserInputBody = (props: UserInputBodyProps) => {
   if (props.userInput._tag === USER_INPUT_TAGS.NEW_SESSION)
     return (
       <NewSessionInput
+        branches={props.userInput.branches}
         chosenProjectPath={props.userInput.chosenProjectPath}
         onCancel={props.onCancel}
         onStart={props.onStart}

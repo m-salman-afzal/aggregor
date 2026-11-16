@@ -279,7 +279,7 @@ const createWorktree = Effect.fn("WorktreeInfraService.createWorktree")(
       "-b",
       freeWorktree.branchName,
       freeWorktree.worktreePath,
-      "HEAD"
+      createWorktreeRequest.startPoint
     ]);
 
     return freeWorktree;
@@ -408,6 +408,23 @@ const listAggregorBranches = Effect.fn("WorktreeInfraService.listAggregorBranche
     const referenceLines = Array.filter(String.split("\n")(referenceOutput), String.isNonEmpty);
 
     return yield* Effect.forEach(referenceLines, (referenceLine) => toWorktreeBranch(referenceLine));
+  },
+  Effect.mapError(() => NotGitRepositoryError.make())
+);
+
+// origin/HEAD is a symbolic ref to origin's default branch, which is listed on its own.
+const listBranchNames = Effect.fn("WorktreeInfraService.listBranchNames")(
+  function* (worktreeDependencies: WorktreeDependencies, projectPath: ProjectPathValueObject) {
+    const referenceOutput = yield* runGitCommand(worktreeDependencies, projectPath, [
+      "for-each-ref",
+      "--format=%(refname:short)%09%(symref)",
+      GIT_COMMAND.BRANCH_REF_PREFIX,
+      GIT_COMMAND.REMOTE_BRANCH_REF_PREFIX
+    ]);
+    const referenceLines = Array.filter(String.split("\n")(referenceOutput), String.isNonEmpty);
+    const branchReferenceLines = Array.filter(referenceLines, (referenceLine) => String.endsWith("\t")(referenceLine));
+
+    return Array.map(branchReferenceLines, (branchReferenceLine) => String.trim(branchReferenceLine));
   },
   Effect.mapError(() => NotGitRepositoryError.make())
 );
@@ -556,6 +573,7 @@ const wireBranchMembers = Effect.fn("WorktreeInfraService.wireBranchMembers")(fu
     isBranchMerged: (branchMergeCheck: BranchMergeCheck) => isBranchMerged(worktreeDependencies, branchMergeCheck),
     listAggregorBranches: (projectPath: ProjectPathValueObject) =>
       listAggregorBranches(worktreeDependencies, projectPath),
+    listBranchNames: (projectPath: ProjectPathValueObject) => listBranchNames(worktreeDependencies, projectPath),
     pruneRemote: (projectPath: ProjectPathValueObject) => pruneRemote(worktreeDependencies, projectPath),
     readBranchName: (worktreePath: ProjectPathValueObject) => readBranchName(worktreeDependencies, worktreePath),
     readDiffStats: (worktreePath: ProjectPathValueObject, baseBranchName: string) =>

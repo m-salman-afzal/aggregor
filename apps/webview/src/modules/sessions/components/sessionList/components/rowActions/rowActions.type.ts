@@ -11,6 +11,7 @@ export interface AskingContext {
   readonly agentRows: readonly AgentRowData[];
   readonly archiveProjectRows: readonly ProjectRowData[];
   readonly projectRows: readonly ProjectRowData[];
+  readonly revealSessionsProject: (projectPath: string) => void;
   readonly showUserInput: (userInput: UserInput) => void;
   readonly skipAgentPicker: boolean;
 }

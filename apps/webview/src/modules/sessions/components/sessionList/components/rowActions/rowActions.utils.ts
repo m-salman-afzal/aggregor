@@ -1,5 +1,8 @@
 import {TURN_RUNNING_STATUSES} from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.constant.ts";
+import {CURRENT_COMMIT_OPTION_ID} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.constant.ts";
 import {
+  askForBranchesWhenNeeded,
+  findDefaultChoices,
   findDefaultWorkingTree,
   isAgentChoiceShown,
   makeNewSessionRequest
@@ -206,6 +209,28 @@ const cleanUpLeftoversAsking = (askingContext: AskingContext, commandArgument: R
   askHostForLeftovers(projectListItem.path);
 };
 
+const startSession = (askingContext: AskingContext, newSessionRequest: CommandRequest) => {
+  if (typeof newSessionRequest.projectPath === "string")
+    askingContext.revealSessionsProject(newSessionRequest.projectPath);
+  runCommandOnHost(SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT, newSessionRequest);
+};
+
+const showNewSessionInput = (askingContext: AskingContext, projectPath: string | undefined) => {
+  askForBranchesWhenNeeded(
+    undefined,
+    findDefaultChoices(projectPath, askingContext.projectRows, askingContext.agentRows)
+  );
+  askingContext.showUserInput({
+    _tag: USER_INPUT_TAGS.NEW_SESSION,
+    branches: undefined,
+    chosenProjectPath: projectPath,
+    onStart: (newSessionRequest) => {
+      startSession(askingContext, newSessionRequest);
+    },
+    title: SESSION_LABELS.NEW_SESSION
+  });
+};
+
 // No choice to make, as in a folder outside git with one agent, starts at once; with no project, Add Project comes first.
 const startSessionAsking = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
   const [onlyProjectRow] = askingContext.projectRows;
@@ -222,21 +247,17 @@ const startSessionAsking = (askingContext: AskingContext, commandArgument: RowCo
     projectRow === undefined ||
     projectRow.worktrees !== undefined ||
     isAgentChoiceShown(askingContext.agentRows, askingContext.skipAgentPicker);
-  const startSession = (newSessionRequest: CommandRequest) => {
-    runCommandOnHost(SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT, newSessionRequest);
-  };
   if (!isChoiceLeft) {
-    startSession(makeNewSessionRequest(projectRow.projectListItem.path, undefined, findDefaultWorkingTree(projectRow)));
+    const projectChoices = {
+      baseBranchName: CURRENT_COMMIT_OPTION_ID,
+      projectPath: projectRow.projectListItem.path,
+      workingTree: findDefaultWorkingTree(projectRow)
+    };
+    startSession(askingContext, makeNewSessionRequest(projectChoices, undefined));
 
     return;
   }
-
-  askingContext.showUserInput({
-    _tag: USER_INPUT_TAGS.NEW_SESSION,
-    chosenProjectPath: projectPath,
-    onStart: startSession,
-    title: SESSION_LABELS.NEW_SESSION
-  });
+  showNewSessionInput(askingContext, projectPath);
 };
 
 const askingActions: Partial<Record<RowAction["commandId"], AskingAction>> = {

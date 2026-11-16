@@ -21,6 +21,9 @@ export const useSessionRow = (props: UseSessionRowProps) => {
   const isViewed = useSessionsStore({
     selectFromState: (sessionsState) => sessionsState.viewedSessionId === sessionListItem.sessionId
   });
+  const markViewedSession = useSessionsStore({
+    selectFromState: (sessionsState) => sessionsState.markViewedSession
+  });
 
   return {
     actionGroups: listSessionActionGroups(sessionListItem),
@@ -30,6 +33,7 @@ export const useSessionRow = (props: UseSessionRowProps) => {
     inlineActions: listSessionInlineActions(sessionListItem),
     isViewed,
     openSession: () => {
+      markViewedSession(sessionListItem.sessionId);
       runCommandOnHost(SESSION_COMMANDS.OPEN, {sessionId: sessionListItem.sessionId});
     },
     rowClassName: isViewed ? VIEWED_ROW : undefined,
