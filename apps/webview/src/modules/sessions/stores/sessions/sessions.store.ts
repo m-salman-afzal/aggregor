@@ -1,4 +1,3 @@
-import {SESSION_LISTS} from "@/modules/sessions/sessions.constant.ts";
 import {
   askHostToDraw,
   listenToHost,
@@ -7,6 +6,7 @@ import {
   saveWebviewState
 } from "@/modules/sessions/sessions.service.ts";
 import {applyHostMessage, foldKey} from "@/modules/sessions/stores/sessions/sessions.utils.ts";
+import {SESSION_LISTS} from "@pkg/constants/src/sessionsView.constant.ts";
 import {useSyncExternalStore} from "react";
 
 import type {SessionListId, UserInput} from "@/modules/sessions/sessions.type.ts";

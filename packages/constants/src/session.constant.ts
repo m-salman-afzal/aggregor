@@ -17,6 +17,12 @@ export const SESSION_COMMANDS = {
   UNARCHIVE: "aggregorApp.unarchiveSession"
 } as const;
 
+// Each project's list shows its newest sessions a page at a time.
+export const SESSION_PAGES = {
+  FIRST_PAGE_COUNT: 1,
+  PAGE_SIZE: 10
+} as const;
+
 // What a new session's request says about the working tree it runs in.
 export const NEW_SESSION_WORKING_TREE_TAGS = {
   EXISTING_WORKTREE: "ExistingWorktree",

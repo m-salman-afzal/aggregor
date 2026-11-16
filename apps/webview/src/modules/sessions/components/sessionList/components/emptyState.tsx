@@ -1,5 +1,6 @@
-import {SESSION_LISTS, SESSIONS_LABELS} from "@/modules/sessions/sessions.constant.ts";
+import {SESSIONS_LABELS} from "@/modules/sessions/sessions.constant.ts";
 import {PROJECT_LABELS} from "@pkg/constants/src/project.constant.ts";
+import {SESSION_LISTS} from "@pkg/constants/src/sessionsView.constant.ts";
 import {Button} from "@pkg/ui/src/components/base/button.tsx";
 
 import type {SessionListId} from "@/modules/sessions/sessions.type.ts";

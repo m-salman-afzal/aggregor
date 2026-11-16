@@ -10,7 +10,9 @@ import {
 import {listProjectLeftoversForSessionsView} from "@controllers/worktree.controller.ts";
 import {AGENT_SETTINGS} from "@pkg/constants/src/agent.constant.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/app.constant.ts";
+import {SESSION_PAGES} from "@pkg/constants/src/session.constant.ts";
 import {
+  SESSION_LISTS,
   SESSIONS_VIEW_MESSAGE_TAGS,
   SESSIONS_VIEW_SETTINGS,
   STATUS_LABELS,
@@ -19,15 +21,17 @@ import {
 import {WORKSPACE_TRUST_SETTINGS} from "@pkg/constants/src/vscode.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {getAgentIconUri, makeIconWebviewUri} from "@views/sessions/sessionsPage.utils.ts";
-import {Array, Effect, Match, Schema} from "effect";
+import {Array, Effect, Match, Ref, Schema} from "effect";
 
 import type {AgentListItemDto} from "@dtos/agent.dto.ts";
 import type {ProjectSessionsDto, SessionListChangeDto, SessionListItemDto} from "@dtos/session.dto.ts";
 import type {
   AgentRowData,
   ProjectRowData,
+  SessionListId,
   SessionRowData,
-  SessionsViewMessage
+  SessionsViewMessage,
+  ShownSessionPages
 } from "@views/sessions/sessions.view.type.ts";
 import type {Webview, WebviewView} from "vscode";
 
@@ -61,6 +65,7 @@ const toProjectRow = Effect.fn("SessionsView.toProjectRow")(function* (
     ...(projectSessions.worktrees === undefined ? {} : {worktrees: projectSessions.worktrees}),
     ...(projectSessions.worktreesRootPath === undefined ? {} : {worktreesRootPath: projectSessions.worktreesRootPath}),
     projectListItem: projectSessions.projectListItem,
+    sessionPage: projectSessions.sessionPage,
     sessionRows: yield* Effect.forEach(projectSessions.sessionListItems, (sessionListItem) =>
       toSessionRow(webview, sessionListItem)
     )
@@ -69,8 +74,22 @@ const toProjectRow = Effect.fn("SessionsView.toProjectRow")(function* (
   return projectRow;
 });
 
-const drawAllProjects = Effect.fn("SessionsView.drawAllProjects")(function* (webviewView: WebviewView) {
-  const projectsWithSessions = yield* listProjectsWithSessionsForSessionsView();
+const findShownPageCount = Effect.fn("SessionsView.findShownPageCount")(function* (
+  shownSessionPages: ShownSessionPages,
+  projectPath: string
+) {
+  const shownPageCounts = yield* Ref.get(shownSessionPages);
+  const shownPageCount = shownPageCounts[SESSION_LISTS.SESSIONS][projectPath];
+
+  return shownPageCount === undefined ? SESSION_PAGES.FIRST_PAGE_COUNT : shownPageCount;
+});
+
+const drawAllProjects = Effect.fn("SessionsView.drawAllProjects")(function* (
+  webviewView: WebviewView,
+  shownSessionPages: ShownSessionPages
+) {
+  const shownPageCounts = yield* Ref.get(shownSessionPages);
+  const projectsWithSessions = yield* listProjectsWithSessionsForSessionsView(shownPageCounts[SESSION_LISTS.SESSIONS]);
   const projectRows = yield* Effect.forEach(projectsWithSessions, (projectSessions) =>
     toProjectRow(webviewView.webview, projectSessions)
   );
@@ -79,8 +98,14 @@ const drawAllProjects = Effect.fn("SessionsView.drawAllProjects")(function* (web
 });
 
 // The Archive is small, so any change but a session's own redraws it whole.
-const drawArchive = Effect.fn("SessionsView.drawArchive")(function* (webviewView: WebviewView) {
-  const projectsWithArchivedSessions = yield* listProjectsWithArchivedSessionsForSessionsView();
+const drawArchive = Effect.fn("SessionsView.drawArchive")(function* (
+  webviewView: WebviewView,
+  shownSessionPages: ShownSessionPages
+) {
+  const shownPageCounts = yield* Ref.get(shownSessionPages);
+  const projectsWithArchivedSessions = yield* listProjectsWithArchivedSessionsForSessionsView(
+    shownPageCounts[SESSION_LISTS.ARCHIVE]
+  );
   const projectRows = yield* Effect.forEach(projectsWithArchivedSessions, (projectSessions) =>
     toProjectRow(webviewView.webview, projectSessions)
   );
@@ -90,14 +115,36 @@ const drawArchive = Effect.fn("SessionsView.drawArchive")(function* (webviewView
 
 // A project no longer listed draws nothing: the change that unlisted it redraws every project.
 const drawProject = Effect.fn("SessionsView.drawProject")(
-  function* (webviewView: WebviewView, projectPath: string) {
-    const projectSessions = yield* getProjectSessionsForSessionsView(projectPath);
+  function* (webviewView: WebviewView, shownSessionPages: ShownSessionPages, projectPath: string) {
+    const shownPageCount = yield* findShownPageCount(shownSessionPages, projectPath);
+    const projectSessions = yield* getProjectSessionsForSessionsView(projectPath, shownPageCount);
     const projectRow = yield* toProjectRow(webviewView.webview, projectSessions);
 
     yield* postToWebview(webviewView, {_tag: SESSIONS_VIEW_MESSAGE_TAGS.PROJECT_DRAWN, projectRow});
   },
   Effect.catchTag("ProjectNotListedError", () => Effect.void)
 );
+
+// Show more adds a page to what the project's list shows, until a redraw of the list.
+export const drawMoreSessions = Effect.fn("SessionsView.drawMoreSessions")(function* (
+  webviewView: WebviewView,
+  shownSessionPages: ShownSessionPages,
+  moreSessionsRequest: {readonly listId: SessionListId; readonly projectPath: string}
+) {
+  yield* Ref.update(shownSessionPages, (shownPageCounts) => {
+    const listPageCounts = shownPageCounts[moreSessionsRequest.listId];
+    const shownPageCount = listPageCounts[moreSessionsRequest.projectPath];
+    const nextPageCount = (shownPageCount === undefined ? SESSION_PAGES.FIRST_PAGE_COUNT : shownPageCount) + 1;
+
+    return {
+      ...shownPageCounts,
+      [moreSessionsRequest.listId]: {...listPageCounts, [moreSessionsRequest.projectPath]: nextPageCount}
+    };
+  });
+  yield* moreSessionsRequest.listId === SESSION_LISTS.ARCHIVE
+    ? drawArchive(webviewView, shownSessionPages)
+    : drawProject(webviewView, shownSessionPages, moreSessionsRequest.projectPath);
+});
 
 // A project no longer listed, or no git repository, draws no list; the webview's dialog keeps waiting until closed.
 export const drawLeftovers = Effect.fn("SessionsView.drawLeftovers")(
@@ -122,12 +169,17 @@ const drawSession = Effect.fn("SessionsView.drawSession")(
 
 export const drawChange = Effect.fn("SessionsView.drawChange")(function* (
   webviewView: WebviewView,
+  shownSessionPages: ShownSessionPages,
   sessionListChange: SessionListChangeDto
 ) {
   yield* Match.valueTags(sessionListChange, {
-    ProjectListChanged: () => Effect.andThen(drawAllProjects(webviewView), drawArchive(webviewView)),
+    ProjectListChanged: () =>
+      Effect.andThen(drawAllProjects(webviewView, shownSessionPages), drawArchive(webviewView, shownSessionPages)),
     ProjectSessionsChanged: (projectSessionsChanged) =>
-      Effect.andThen(drawProject(webviewView, projectSessionsChanged.projectPath), drawArchive(webviewView)),
+      Effect.andThen(
+        drawProject(webviewView, shownSessionPages, projectSessionsChanged.projectPath),
+        drawArchive(webviewView, shownSessionPages)
+      ),
     SessionChanged: (sessionChanged) => drawSession(webviewView, sessionChanged.sessionId)
   });
 });
@@ -228,11 +280,14 @@ export const drawAgents = Effect.fn("SessionsView.drawAgents")(function* (webvie
 });
 
 // The look first, so the rows draw in it.
-export const drawEverything = Effect.fn("SessionsView.drawEverything")(function* (webviewView: WebviewView) {
+export const drawEverything = Effect.fn("SessionsView.drawEverything")(function* (
+  webviewView: WebviewView,
+  shownSessionPages: ShownSessionPages
+) {
   yield* drawAppearance(webviewView);
   yield* drawAgents(webviewView);
-  yield* drawAllProjects(webviewView);
-  yield* drawArchive(webviewView);
+  yield* drawAllProjects(webviewView, shownSessionPages);
+  yield* drawArchive(webviewView, shownSessionPages);
   yield* drawViewedSession(webviewView);
   yield* Effect.ignore(drawWaitingCounts(webviewView), {
     log: "Debug",

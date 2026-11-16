@@ -37,7 +37,13 @@ export const SESSIONS_VIEW_MESSAGE_TAGS = {
 export const SESSIONS_WEBVIEW_MESSAGE_TAGS = {
   LIST_LEFTOVERS: "ListLeftovers",
   READY: "Ready",
-  RUN_COMMAND: "RunCommand"
+  RUN_COMMAND: "RunCommand",
+  SHOW_MORE_SESSIONS: "ShowMoreSessions"
+} as const;
+
+export const SESSION_LISTS = {
+  ARCHIVE: "archive",
+  SESSIONS: "sessions"
 } as const;
 
 // The view runs no other command the webview asks for.

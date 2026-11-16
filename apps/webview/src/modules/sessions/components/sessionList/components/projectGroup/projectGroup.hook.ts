@@ -26,7 +26,7 @@ export const useProjectGroup = (props: UseProjectGroupProps) => {
     hasLeftovers: props.projectRow.hasLeftovers === true,
     inlineActions: listProjectInlineActions(props.listId, props.projectRow.hasLeftovers === true),
     isOpen,
-    sessionCount: props.projectRow.sessionRows.length,
+    sessionCount: props.projectRow.sessionPage.totalSessionCount,
     setOpen: (isNowOpen: boolean) => {
       setProjectOpen(projectKey, isNowOpen);
     }

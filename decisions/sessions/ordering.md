@@ -33,3 +33,28 @@ How projects and sessions are put in order.
     `sortId`s, for the same reason.
   - Showing Move Up and Move Down on every row, doing nothing at an end; the flags come from the order the services read
     anyway.
+
+## Sessions are listed newest first, ten at a time
+
+- **Problem:** a project's sessions pile up, every one drawn with its status, branch and changes, and the newest, the
+  ones in use, sat at the bottom of the list.
+- **Decision:** a project's sessions are listed newest first, in both lists, and each list shows its 10 newest. A **Show
+  10 more** row under them (fewer when fewer are left) adds the next 10, and says how many of the hidden ones wait on
+  the user; the project's count is all its sessions, and the badge and alerts still count every session. The pages shown
+  stay through redraws for the window's life. Move Up and Move Down keep working on the order shown.
+- **Solution:** pagination is the base repository's: `findPage(filter, pageRequest)` returns an `EntityPage`, the page's
+  entities with one `PaginationValueObject` (page size and cursor, page number, total pages, total rows, rows before and
+  after, next cursor) that `makePagination` in `pagination.domainService.ts` works out; `findEntityPage` in
+  `base.service.ts` reaches it. The cursor is the page's last row's `sortId`. The view keeps how many pages each project
+  shows in each list (a map in `sessions.view.ts`), passes it in the request
+  (`GetProjectSessionsRequestDto.shownPageCount`, `ListProjectSessionsRequestDto.shownPageCounts`), and the session
+  service reads that many pages, one cursor after the other; the webview's `ShowMoreSessions` message adds one and
+  redraws the list. `ProjectSessionsDto.sessionPage` carries the counts. Since the pages shown always start at the
+  newest, a row's moves come from its place among them, and the last one moves down while a page is hidden. Moving up in
+  the order shown is moving toward the higher `sortId`s, so the session service moves the other way in the repository's
+  order. The badge's count reads only each session's status and builds list items for the waiting ones alone.
+- **Alternatives considered:** keeping the oldest first with a Show older row on top; an offset and limit, where a new
+  session shifts every page after it; the webview holding the pages and asking for each, which a redraw from the host
+  would undo; reading every session and slicing the list, which draws less but reads and counts as much; redrawing the
+  Show more row's waiting count when a hidden session's status changes, which waits for the project's next redraw. Four
+  pagination value objects (request, cursor, counts, page info), merged into one since they always travel together.

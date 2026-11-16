@@ -8,14 +8,15 @@ terminals, tree views, Source Control and diffs.
 
 - **Sessions sidebar.** The Sessions activity-bar view lists the window's projects, each with its sessions, and starts
   an agent in an editor-tab terminal. The Archive, the sessions you are done with, is a drawer docked at the bottom that
-  opens upward. `aggregorApp.fontSize` sets the view's text size, and its spacing scales with it;
-  `aggregorApp.accentColor` its accent (`neutral`, `theme`, `palette` or a `#rrggbb` colour). Clicking a session focuses
-  its tab; switching tabs marks the session. Every row shows its buttons and a … menu on hover (a session's Archive is a
-  button of its own), and right-clicking it opens the same menu; Move Up and Move Down there put a session or an added
-  project in another place. The Sessions title holds New Session…, Add Project and Open Settings. What a command asks (a
-  confirmation, a name, which project or agent) opens as a dialog in the view, over its blurred lists, rather than at
-  the window's top. Archiving never asks: the agent runs on in the Archive, where Stop Agent stops it; a stop asks only
-  when it cuts a turn short.
+  opens upward. Each project lists its sessions newest first, its 10 newest at a time, with Show more for the next 10.
+  `aggregorApp.fontSize` sets the view's text size, and its spacing scales with it; `aggregorApp.accentColor` its accent
+  (`neutral`, `theme`, `palette` or a `#rrggbb` colour). Clicking a session focuses its tab; switching tabs marks the
+  session. Every row shows its buttons and a … menu on hover (a session's Archive is a button of its own), and
+  right-clicking it opens the same menu; Move Up and Move Down there put a session or an added project in another place.
+  The Sessions title holds New Session…, Add Project and Open Settings. What a command asks (a confirmation, a name,
+  which project or agent) opens as a dialog in the view, over its blurred lists, rather than at the window's top.
+  Archiving never asks: the agent runs on in the Archive, where Stop Agent stops it; a stop asks only when it cuts a
+  turn short.
 - **Projects.** The window's workspace folders are always listed; Add Project lists any other folder, and in a window
   showing no project it also shows the first one. Added projects are one list, kept for every window: Aggregor is meant
   to run in one window. A project row's + starts a session in it, the Sessions title's + asks which project to use, its

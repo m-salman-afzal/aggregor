@@ -5,6 +5,7 @@ import {
 import {AGENT_SETTINGS} from "@pkg/constants/src/agent.constant.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/app.constant.ts";
 import {
+  SESSION_LISTS,
   SESSIONS_VIEW,
   SESSIONS_VIEW_SETTINGS,
   SESSIONS_WEBVIEW_COMMANDS,
@@ -19,6 +20,7 @@ import {
   drawChange,
   drawEverything,
   drawLeftovers,
+  drawMoreSessions,
   drawViewedSession,
   drawWaitingCounts
 } from "@views/sessions/sessionsDrawing.utils.ts";
@@ -26,7 +28,7 @@ import {makeWebviewHtml, setUpWebviewOptions} from "@views/sessions/sessionsPage
 import {Array, Effect, Layer, Match, Ref, Result, Schema, Stream} from "effect";
 
 import type {SessionListChangeDto} from "@dtos/session.dto.ts";
-import type {CommandRequest} from "@views/sessions/sessions.view.type.ts";
+import type {CommandRequest, ShownSessionPages} from "@views/sessions/sessions.view.type.ts";
 import type {WebviewView} from "vscode";
 
 // VS Code shows the view's webview the first time the view comes into sight, and disposes it when the view closes.
@@ -48,6 +50,10 @@ const SessionsWebviewMessageSchema = Schema.TaggedUnion({
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND]: {
     commandArgument: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
     commandId: Schema.Literals(SESSIONS_WEBVIEW_COMMANDS)
+  },
+  [SESSIONS_WEBVIEW_MESSAGE_TAGS.SHOW_MORE_SESSIONS]: {
+    listId: Schema.Literals([SESSION_LISTS.ARCHIVE, SESSION_LISTS.SESSIONS]),
+    projectPath: Schema.String
   }
 });
 
@@ -60,10 +66,14 @@ const findShownWebviewView = Effect.fn("SessionsView.findShownWebviewView")(func
 });
 
 const redrawChange = Effect.fn("SessionsView.redrawChange")(
-  function* (webviewViewReference: WebviewViewReference, sessionListChange: SessionListChangeDto) {
+  function* (
+    webviewViewReference: WebviewViewReference,
+    shownSessionPages: ShownSessionPages,
+    sessionListChange: SessionListChangeDto
+  ) {
     const webviewView = yield* findShownWebviewView(webviewViewReference);
 
-    yield* drawChange(webviewView, sessionListChange);
+    yield* drawChange(webviewView, shownSessionPages, sessionListChange);
   },
   Effect.catchTag("WebviewNotShownError", () => Effect.void),
   Effect.catch((drawError) => Effect.logWarning("Could not redraw the Sessions view", drawError))
@@ -123,15 +133,17 @@ const redrawAgents = Effect.fn("SessionsView.redrawAgents")(
 
 // The webview asks once its script listens, which is again each time VS Code shows the view after hiding it.
 const handleWebviewMessage = Effect.fn("SessionsView.handleWebviewMessage", {root: true})(
-  function* (webviewView: WebviewView, webviewMessage: unknown) {
+  function* (webviewView: WebviewView, shownSessionPages: ShownSessionPages, webviewMessage: unknown) {
     const sessionsWebviewMessage = yield* decodeVsCodeArgument(SessionsWebviewMessageSchema, webviewMessage);
 
     yield* Match.valueTags(sessionsWebviewMessage, {
       [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_LEFTOVERS]: (listLeftovers) =>
         drawLeftovers(webviewView, listLeftovers.projectPath),
-      [SESSIONS_WEBVIEW_MESSAGE_TAGS.READY]: () => drawEverything(webviewView),
+      [SESSIONS_WEBVIEW_MESSAGE_TAGS.READY]: () => drawEverything(webviewView, shownSessionPages),
       [SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND]: (runCommand) =>
-        runRowCommand(runCommand.commandId, runCommand.commandArgument)
+        runRowCommand(runCommand.commandId, runCommand.commandArgument),
+      [SESSIONS_WEBVIEW_MESSAGE_TAGS.SHOW_MORE_SESSIONS]: (showMoreSessions) =>
+        drawMoreSessions(webviewView, shownSessionPages, showMoreSessions)
     });
   },
   Effect.catch((messageError) => Effect.logWarning("Could not answer the Sessions view's webview", messageError))
@@ -172,6 +184,7 @@ const makeRunPromise = Effect.fn("SessionsView.makeRunPromise")(function* () {
 // VS Code disposes the webview's events with it.
 const registerWebviewViewProvider = Effect.fn("SessionsView.registerWebviewViewProvider")(function* (
   webviewViewReference: WebviewViewReference,
+  shownSessionPages: ShownSessionPages,
   runPromise: RunPromise
 ) {
   const vsCodeApi = yield* VsCodeApi;
@@ -180,7 +193,7 @@ const registerWebviewViewProvider = Effect.fn("SessionsView.registerWebviewViewP
     vsCodeApi.window.registerWebviewViewProvider(SESSIONS_VIEW.ID, {
       resolveWebviewView: (webviewView) => {
         webviewView.webview.onDidReceiveMessage((webviewMessage) =>
-          runPromise(handleWebviewMessage(webviewView, webviewMessage))
+          runPromise(handleWebviewMessage(webviewView, shownSessionPages, webviewMessage))
         );
         webviewView.onDidDispose(() => runPromise(detachWebviewView(webviewViewReference)));
 
@@ -199,12 +212,23 @@ const watchSettingChanges = Effect.fn("SessionsView.watchSettingChanges")(functi
   );
 });
 
+// Kept for the window's life, so a list keeps the pages it showed when VS Code shows the view again.
+const makeShownSessionPages = Effect.fn("SessionsView.makeShownSessionPages")(function* () {
+  const shownSessionPages: ShownSessionPages = yield* Ref.make({
+    [SESSION_LISTS.ARCHIVE]: {},
+    [SESSION_LISTS.SESSIONS]: {}
+  });
+
+  return shownSessionPages;
+});
+
 const makeSessionsView = Effect.fn("SessionsView.make")(function* () {
   const webviewViewReference = yield* Ref.make<Result.Result<WebviewView, WebviewNotShownError>>(
     Result.fail(WebviewNotShownError.make())
   );
+  const shownSessionPages = yield* makeShownSessionPages();
   const runPromise = yield* makeRunPromise();
-  yield* registerWebviewViewProvider(webviewViewReference, runPromise);
+  yield* registerWebviewViewProvider(webviewViewReference, shownSessionPages, runPromise);
   const sessionListChanges = yield* watchSessionListChangesForSessionsView();
   const viewedSessionIds = yield* watchViewedSessionIdsForSessionsView();
   const appearanceChanges = yield* watchSettingChanges([
@@ -219,7 +243,10 @@ const makeSessionsView = Effect.fn("SessionsView.make")(function* () {
 
   yield* Effect.forkScoped(
     Stream.runForEach(sessionListChanges, (sessionListChange) =>
-      Effect.andThen(redrawChange(webviewViewReference, sessionListChange), updateWaitingCounts(webviewViewReference))
+      Effect.andThen(
+        redrawChange(webviewViewReference, shownSessionPages, sessionListChange),
+        updateWaitingCounts(webviewViewReference)
+      )
     )
   );
   yield* Effect.forkScoped(Stream.runForEach(viewedSessionIds, () => redrawViewedSession(webviewViewReference)));

@@ -1,6 +1,6 @@
 import {Effect} from "effect";
 
-import type {IBaseRepository} from "@entities/base/base.repository.interface.ts";
+import type {IBaseRepository, PageRequest} from "@entities/base/base.repository.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {Context} from "effect";
 
@@ -31,6 +31,16 @@ export const findEntities = Effect.fn("BaseService.findEntities")(function* <Ide
   const repository = yield* repositoryKey;
 
   return yield* repository.findMany(filter);
+});
+
+export const findEntityPage = Effect.fn("BaseService.findEntityPage")(function* <Identifier, Entity, AddRequest>(
+  repositoryKey: RepositoryKey<Identifier, Entity, AddRequest>,
+  filter: Partial<AddRequest>,
+  pageRequest: PageRequest
+) {
+  const repository = yield* repositoryKey;
+
+  return yield* repository.findPage(filter, pageRequest);
 });
 
 export const updateEntity = Effect.fn("BaseService.updateEntity")(function* <Identifier, Entity, AddRequest>(

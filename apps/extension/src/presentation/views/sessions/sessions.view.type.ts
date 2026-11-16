@@ -1,11 +1,13 @@
 import type {AgentListItemDto} from "@dtos/agent.dto.ts";
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
-import type {SessionListItemDto, WorktreeListItemDto} from "@dtos/session.dto.ts";
+import type {SessionListItemDto, SessionPageDto, WorktreeListItemDto} from "@dtos/session.dto.ts";
 import type {ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
 import type {
+  SESSION_LISTS,
   SESSIONS_VIEW_MESSAGE_TAGS,
   SESSIONS_WEBVIEW_MESSAGE_TAGS
 } from "@pkg/constants/src/sessionsView.constant.ts";
+import type {Ref} from "effect";
 
 // apps/webview imports these for types only.
 
@@ -17,6 +19,7 @@ export interface SessionRowData {
 export interface ProjectRowData {
   readonly hasLeftovers?: boolean;
   readonly projectListItem: ProjectListItemDto;
+  readonly sessionPage: SessionPageDto;
   readonly sessionRows: readonly SessionRowData[];
   readonly worktrees?: readonly WorktreeListItemDto[];
   readonly worktreesRootPath?: string;
@@ -26,6 +29,11 @@ export interface AgentRowData {
   readonly agentListItem: AgentListItemDto;
   readonly iconUri: string;
 }
+
+export type SessionListId = (typeof SESSION_LISTS)[keyof typeof SESSION_LISTS];
+
+// How many pages of sessions each project shows in each list, by project path; a project not in it shows one.
+export type ShownSessionPages = Ref.Ref<Readonly<Record<SessionListId, Readonly<Record<string, number>>>>>;
 
 // A row's key, the field its command's request DTO starts from.
 export type RowCommandArgument = Readonly<Record<string, string>>;
@@ -65,4 +73,9 @@ export type SessionsWebviewMessage =
       readonly _tag: typeof SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND;
       readonly commandArgument?: CommandRequest;
       readonly commandId: string;
+    }
+  | {
+      readonly _tag: typeof SESSIONS_WEBVIEW_MESSAGE_TAGS.SHOW_MORE_SESSIONS;
+      readonly listId: SessionListId;
+      readonly projectPath: string;
     };

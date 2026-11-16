@@ -2,7 +2,7 @@ import {ArchiveDock} from "@/modules/sessions/components/sessionList/components/
 import {MainList} from "@/modules/sessions/components/sessionList/components/mainList.tsx";
 import {ProjectRows} from "@/modules/sessions/components/sessionList/components/projectRows.tsx";
 import {useSessionList} from "@/modules/sessions/components/sessionList/sessionList.hook.ts";
-import {SESSION_LISTS} from "@/modules/sessions/sessions.constant.ts";
+import {SESSION_LISTS} from "@pkg/constants/src/sessionsView.constant.ts";
 
 import type {SessionListId} from "@/modules/sessions/sessions.type.ts";
 
