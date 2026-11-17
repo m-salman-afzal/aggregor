@@ -30,6 +30,45 @@ Where a session's agent runs, its tab, and resuming it.
   change. The extension hosting the terminal as a Pseudoterminal, which can rename any tab: all agent output would pass
   through the extension host, and the tmux attach would change. `titleTemplate`, a proposed API the Marketplace refuses.
 
+## One shared tab can show the session opened last
+
+- **Problem:** every session opens in a tab of its own, so a user who switches sessions from the Sessions view ends up
+  with a row of session tabs beside their files.
+- **Decision:** `aggregorApp.openSessionIn` picks between `ownTab` (the default, a tab per session) and `sharedTab`,
+  where opening a session closes every other session's tab. It holds after every open through Aggregor, a click on a
+  session whose tab is already open included; switching tabs by hand closes nothing. A tab is only a tmux client, so
+  closing one detaches it and its agent keeps running, which makes replacing the tab a small change.
+- **Solution:** `SessionService.closeOtherSessionTabs` reads the setting once a session's tab is opened or focused and
+  calls `ITerminalInfraService.closeOtherSessionTerminals`, which disposes every session terminal but the shown one. The
+  new tab opens before the others close, so it takes the place of the one in front. It opens in the editor group in
+  focus, as an own tab does, so a shared tab left in another group moves to the focused one.
+- **Alternatives considered:** one long-lived tab whose tmux client switches sessions (`switch-client`): no tab closes
+  or opens, but a tab's icon can't change once it is open, a tab is matched to its session by the `AGGREGOR_SESSION_ID`
+  it opened with, and a new session would start detached, which gave agents the wrong colours (see "Every session's
+  agent runs in tmux"). A boolean `reuseSessionTab`, which says less than two named places. Closing the other tabs
+  whenever a session's tab comes to the front: a background job, and tabs the user switches between by hand would close.
+  Finding the old tab's editor group by its label, since a tab does not say which terminal it holds.
+
+## A session's tab can be pinned as it opens
+
+- **Problem:** VS Code's API can't pin a tab or open one pinned; `Tab.isPinned` can only be read.
+- **Decision:** `aggregorApp.pinSessionTabs` (off by default, in both `openSessionIn` places) pins a session's tab once,
+  when Aggregor opens it, with `workbench.action.pinEditor`, the command behind **View: Pin Editor**. An extension can't
+  press the shortcut, and the command works whatever key it is bound to. A tab the user unpins stays unpinned until it
+  opens again, and tabs open before the setting was turned on stay as they are; with `sharedTab` every switch opens a
+  new tab, so the shared tab is always pinned.
+- **Solution:** the command pins the tab in front, and a tab comes to the front a moment after it is shown, so
+  `pinSessionTab` (`terminal.utils.ts`) first waits, every 50 ms for up to 5 s (`SESSION_TAB_PIN_WAIT`), until the
+  active tab is a terminal tab labelled with the terminal's name and the terminal is the active one; run sooner, the
+  command would pin the file the user was on. A tab does not say which terminal it holds, so its label and the active
+  terminal stand in for that, and between two sessions of the same name the wait can settle on the other's tab. A tab is
+  in front, and pinned, about 100 ms after it opens; after 5 s it stays unpinned, and the trace shows the failed checks.
+  VS Code keeps Ctrl+W from closing a pinned tab by default (`workbench.editor.preventPinnedEditorClose`); disposing its
+  terminal still closes it, so Remove, Archive and the shared tab close a pinned tab.
+- **Alternatives considered:** pinning whenever a session's tab comes to the front: a background job that would pin
+  again a tab the user unpinned. A third `openSessionIn` value, `pinnedSharedTab`, which leaves own tabs without a pin.
+  Waiting on `viewedSessionId`, which names a session only while the window has focus.
+
 ## Every session's agent runs in tmux
 
 - **Problem:** a session's agent ran as its tab's process, so a window reload, quitting VS Code or closing the tab ended

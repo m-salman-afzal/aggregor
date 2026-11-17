@@ -1,7 +1,7 @@
-import {FOLDER_PATH_ENV, SESSION_ID_ENV} from "@pkg/constants/src/terminal.constant.ts";
+import {FOLDER_PATH_ENV, SESSION_ID_ENV, SESSION_TAB_PIN_WAIT} from "@pkg/constants/src/terminal.constant.ts";
 import {VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
 import {decodeEntityId} from "@valueObjects/entityId.valueObject.ts";
-import {Array, Effect, Result, Schema, SubscriptionRef} from "effect";
+import {Array, Effect, Result, Schedule, Schema, SubscriptionRef} from "effect";
 
 import type {
   SessionTerminalsReference,
@@ -14,6 +14,11 @@ class UntrackedTerminalError extends Schema.TaggedError<UntrackedTerminalError, 
   "UntrackedTerminalError",
   {}
 ) {}
+
+class SessionTabNotInFrontError extends Schema.TaggedError<
+  SessionTabNotInFrontError,
+  {readonly brand: unique symbol}
+>()("SessionTabNotInFrontError", {}) {}
 
 class FolderTerminalNotFoundError extends Schema.TaggedError<
   FolderTerminalNotFoundError,
@@ -118,3 +123,34 @@ export const nameActiveSessionTab = Effect.fn("TerminalInfraService.nameActiveSe
 
   yield* Effect.withTracerEnabled(renameActiveTerminal(terminalDependencies.commands, tabName), true);
 });
+
+// A tab does not say which terminal it holds, so the active terminal and its name on the tab stand in for that.
+const findSessionTabInFront = Effect.fn("TerminalInfraService.findSessionTabInFront")(function* (
+  terminalDependencies: TerminalDependencies,
+  sessionTerminal: Terminal
+) {
+  const activeTab = terminalDependencies.window.tabGroups.activeTabGroup.activeTab;
+  if (
+    activeTab === undefined ||
+    !(activeTab.input instanceof terminalDependencies.TabInputTerminal) ||
+    activeTab.label !== sessionTerminal.name ||
+    terminalDependencies.window.activeTerminal !== sessionTerminal
+  )
+    return yield* SessionTabNotInFrontError.make();
+
+  return activeTab;
+});
+
+// VS Code pins only the tab in front, which a tab becomes a moment after it is shown.
+export const pinSessionTab = Effect.fn("TerminalInfraService.pinSessionTab")(
+  function* (terminalDependencies: TerminalDependencies, sessionTerminal: Terminal) {
+    const sessionTab = yield* Effect.retry(findSessionTabInFront(terminalDependencies, sessionTerminal), {
+      schedule: Schedule.spaced(SESSION_TAB_PIN_WAIT.POLL_INTERVAL_MS),
+      times: SESSION_TAB_PIN_WAIT.TIMEOUT_MS / SESSION_TAB_PIN_WAIT.POLL_INTERVAL_MS
+    });
+    if (sessionTab.isPinned) return;
+
+    yield* Effect.promise(() => terminalDependencies.commands.executeCommand(VS_CODE_COMMANDS.PIN_ACTIVE_EDITOR));
+  },
+  Effect.catchTag("SessionTabNotInFrontError", () => Effect.void)
+);

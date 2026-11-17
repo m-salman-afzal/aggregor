@@ -4,6 +4,7 @@ import {
   findTrackedSessionId,
   isSessionTerminal,
   nameActiveSessionTab,
+  pinSessionTab,
   readTerminalFolderPath
 } from "@infraServices/vscode/terminal/terminal.utils.ts";
 import {
@@ -201,6 +202,20 @@ const openSessionTerminal = Effect.fn("TerminalInfraService.openSessionTerminal"
   );
 
   yield* showTerminal(sessionTerminal);
+  if (sessionTabRequest.isPinned) yield* pinSessionTab(terminalDependencies, sessionTerminal);
+});
+
+const closeOtherSessionTerminals = Effect.fn("TerminalInfraService.closeOtherSessionTerminals")(function* (
+  sessionTerminals: SessionTerminalsReference,
+  shownSessionId: EntityIdValueObject
+) {
+  const openTerminals = yield* SubscriptionRef.get(sessionTerminals);
+
+  yield* Effect.sync(() => {
+    for (const [sessionId, sessionTerminal] of openTerminals) {
+      if (sessionId !== shownSessionId) sessionTerminal.dispose();
+    }
+  });
 });
 
 // Disposing fires onDidCloseTerminal, which drops the map entry.
@@ -247,6 +262,17 @@ const forgetClosedTerminal = Effect.fn("TerminalInfraService.forgetClosedTermina
   },
   Effect.catchTag("UntrackedTerminalError", () => Effect.void)
 );
+
+const forgetClosedTerminals = Effect.fn("TerminalInfraService.forgetClosedTerminals")(function* (
+  terminalDependencies: TerminalDependencies
+) {
+  const closedTerminals = yield* streamVsCodeEvent(terminalDependencies.window.onDidCloseTerminal);
+  yield* Effect.forkScoped(
+    Stream.runForEach(closedTerminals, (closedTerminal) =>
+      forgetClosedTerminal(terminalDependencies.sessionTerminals, closedTerminal)
+    )
+  );
+});
 
 // A tab does not say which terminal it holds, so the active terminal fills that in.
 const readViewedSessionId = Effect.fn("TerminalInfraService.readViewedSessionId")(function* (
@@ -363,18 +389,15 @@ const makeTerminalDependencies = Effect.fn("TerminalInfraService.makeTerminalDep
 
 const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function* () {
   const terminalDependencies = yield* makeTerminalDependencies();
-  const closedTerminals = yield* streamVsCodeEvent(terminalDependencies.window.onDidCloseTerminal);
-  yield* Effect.forkScoped(
-    Stream.runForEach(closedTerminals, (closedTerminal) =>
-      forgetClosedTerminal(terminalDependencies.sessionTerminals, closedTerminal)
-    )
-  );
+  yield* forgetClosedTerminals(terminalDependencies);
 
   return {
     activatedSessionIds: yield* watchActivatedSessionIds(terminalDependencies),
     closedSetupTerminals: yield* watchClosedSetupTerminals(terminalDependencies.window),
     closeFolderTerminal: (folderPath: ProjectPathValueObject) =>
       closeFolderTerminal(terminalDependencies.window, folderPath),
+    closeOtherSessionTerminals: (shownSessionId: EntityIdValueObject) =>
+      closeOtherSessionTerminals(terminalDependencies.sessionTerminals, shownSessionId),
     closeSessionTerminal: (sessionId: EntityIdValueObject) =>
       closeSessionTerminal(terminalDependencies.sessionTerminals, sessionId),
     focusSessionTerminal: (sessionId: EntityIdValueObject) =>

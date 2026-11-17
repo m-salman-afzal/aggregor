@@ -192,6 +192,24 @@
           "default": false,
           "markdownDescription": "Start `#aggregorApp.defaultAgent#` straight away instead of asking which agent to use."
         },
+        "aggregorApp.openSessionIn": {
+          "type": "string",
+          "enum": [
+            "ownTab",
+            "sharedTab"
+          ],
+          "enumDescriptions": [
+            "Every session opens in a tab of its own.",
+            "One tab shows the session opened last: opening a session closes the other sessions' tabs, and their agents keep running."
+          ],
+          "default": "ownTab",
+          "markdownDescription": "Where a session opens when it starts or its row is clicked."
+        },
+        "aggregorApp.pinSessionTabs": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Pin a session's tab when it opens, as **View: Pin Editor** does. A tab you unpin stays unpinned until it opens again."
+        },
         "aggregorApp.openPullRequestIn": {
           "type": "string",
           "enum": [
