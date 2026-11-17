@@ -7,15 +7,15 @@ A session's pull request on its row, and opening it.
 - **Problem:** a session's branch was on its row, but its pull request lived only on GitHub, so seeing whether it was
   open, a draft or merged, or opening it, meant leaving VS Code to look it up.
 - **Decision:** a worktree session's row shows the pull request whose head is the worktree's checked-out branch, after
-  the branch name: a pull request icon and `#123`, coloured by its state (open green, draft grey, merged purple, closed
-  red, from the theme's terminal palette), with its title and state in the tooltip. It comes from the GitHub CLI, run in
-  the worktree as `gh pr view ‹branch› --json number,url,state,isDraft,title`, so gh's own sign-in, hosts and remotes
-  decide which repository it asks, as Orca, Crystal, Superset and Vibe Kanban do. A root session shows none: its
-  project's checked-out branch is every root session's. Clicking the number opens the pull request where
-  `aggregorApp.openPullRequestIn` says: `browser` (the default), or `vscode`, the GitHub Pull Requests extension's own
-  link (`vscode://GitHub.vscode-pull-request-github/open-pull-request-webview?uri=‹url›`, since its 0.122.0), which
-  falls back to the browser without the extension. Open Pull Request in the row's … menu does the same from the
-  keyboard.
+  the agent's icon and before the branch name: a pull request icon and `#123`, coloured by its state (open green, draft
+  grey, merged purple, closed red, from the theme's terminal palette), with its title and state in the tooltip. It comes
+  from the GitHub CLI, run in the worktree as `gh pr view ‹branch› --json number,url,state,isDraft,title`, so gh's own
+  sign-in, hosts and remotes decide which repository it asks, as Orca, Crystal, Superset and Vibe Kanban do. A root
+  session shows none: its project's checked-out branch is every root session's. Clicking the number opens the pull
+  request where `aggregorApp.openPullRequestIn` says: `browser` (the default), or `vscode`, the GitHub Pull Requests
+  extension's own link (`vscode://GitHub.vscode-pull-request-github/open-pull-request-webview?uri=‹url›`, since its
+  0.122.0), which falls back to the browser without the extension. Open Pull Request in the row's … menu does the same
+  from the keyboard.
 - **Solution:**
   - `IGitHubCliInfraService` (`infrastructure/services/gitHubCli/`) keeps each folder and branch's last answer in
     memory, never in the database, like the diff stats. Reading the list never waits on the network: a branch not looked
