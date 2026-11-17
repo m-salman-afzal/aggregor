@@ -2,9 +2,6 @@ export const EXIT_CODES = {
   SUCCESSFUL: 0
 } as const;
 
-// The PlatformError reason's method when the command itself couldn't start, as against its cwd missing ("access").
-export const CHILD_PROCESS_SPAWN_METHOD = "spawn";
-
 // As Node's platform() names them.
 export const PLATFORMS = {
   LINUX: "linux",

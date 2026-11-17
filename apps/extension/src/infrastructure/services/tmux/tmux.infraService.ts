@@ -330,6 +330,7 @@ const makeTmuxInfraService = Effect.fn("TmuxInfraService.make")(function* () {
   yield* Effect.forkScoped(watchTmuxChangeHints(tmuxDependencies));
 
   return {
+    checkTmuxVersion: checkTmuxVersion(tmuxDependencies.childProcessSpawner),
     prepareSessionTabCommand: (sessionTabCommandRequest: SessionTabCommandRequest) =>
       prepareSessionTabCommand(tmuxDependencies, sessionTabCommandRequest),
     refreshRunningSessionIds: refreshRunningSessionIds(tmuxDependencies),

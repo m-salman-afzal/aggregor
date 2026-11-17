@@ -12,6 +12,7 @@ import {
   TerminalLaunchFailedError,
   TerminalNotFoundError
 } from "@interfaces/terminal.infraService.interface.ts";
+import {SETUP_TERMINAL} from "@pkg/constants/src/requiredTools.constant.ts";
 import {FOLDER_PATH_ENV, SESSION_ID_ENV, VIEWED_SESSION_SETTLE_INTERVAL} from "@pkg/constants/src/terminal.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
@@ -76,6 +77,23 @@ const launchSessionTerminal = Effect.fn("TerminalInfraService.launchSessionTermi
 const showTerminal = Effect.fn("TerminalInfraService.showTerminal")(function* (terminal: Terminal) {
   yield* Effect.sync(() => {
     terminal.show();
+  });
+});
+
+const openSetupTerminal = Effect.fn("TerminalInfraService.openSetupTerminal")(function* (
+  window: TerminalDependencies["window"],
+  commandLine: string
+) {
+  yield* Effect.annotateCurrentSpan({commandLine});
+
+  yield* Effect.sync(() => {
+    window
+      .createTerminal({
+        name: SETUP_TERMINAL.NAME,
+        shellArgs: ["-c", `${commandLine}${SETUP_TERMINAL.CLOSE_PROMPT}`],
+        shellPath: SETUP_TERMINAL.SHELL
+      })
+      .show();
   });
 });
 
@@ -320,6 +338,17 @@ const trackShellTerminal = Effect.fn("TerminalInfraService.trackShellTerminal")(
   return shellTerminal;
 });
 
+const watchClosedSetupTerminals = Effect.fn("TerminalInfraService.watchClosedSetupTerminals")(function* (
+  window: TerminalDependencies["window"]
+) {
+  const closedTerminals = yield* streamVsCodeEvent(window.onDidCloseTerminal);
+
+  return Stream.as(
+    Stream.filter(closedTerminals, (closedTerminal) => closedTerminal.name === SETUP_TERMINAL.NAME),
+    undefined
+  );
+});
+
 const makeTerminalDependencies = Effect.fn("TerminalInfraService.makeTerminalDependencies")(function* () {
   const vsCodeApi = yield* VsCodeApi;
   const openSessionTerminals = yield* findOpenSessionTerminals(vsCodeApi.window.terminals);
@@ -343,6 +372,7 @@ const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function
 
   return {
     activatedSessionIds: yield* watchActivatedSessionIds(terminalDependencies),
+    closedSetupTerminals: yield* watchClosedSetupTerminals(terminalDependencies.window),
     closeFolderTerminal: (folderPath: ProjectPathValueObject) =>
       closeFolderTerminal(terminalDependencies.window, folderPath),
     closeSessionTerminal: (sessionId: EntityIdValueObject) =>
@@ -355,6 +385,7 @@ const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function
       openFolderTerminal(terminalDependencies.window, folderTerminalRequest),
     openSessionTerminal: (session: SessionEntity, sessionTabRequest: SessionTabRequest) =>
       openSessionTerminal(terminalDependencies, session, sessionTabRequest),
+    openSetupTerminal: (commandLine: string) => openSetupTerminal(terminalDependencies.window, commandLine),
     switchToFolderTerminal: (workingFolderPath: ProjectPathValueObject, projectPath: ProjectPathValueObject) =>
       switchToFolderTerminal(terminalDependencies, workingFolderPath, projectPath),
     viewedSessionId: yield* trackViewedSessionId(terminalDependencies)

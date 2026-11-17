@@ -2,7 +2,6 @@ export const TMUX = {
   COMMAND: "tmux",
   // Read instead of ~/.tmux.conf when the server starts, and again when a window starts.
   CONFIG_FILE: "assets/tmux.conf",
-  INSTALL_PAGE: "https://github.com/tmux/tmux/wiki/Installing",
   // The oldest tmux tmux.conf works with: extended-keys and terminal-features arrived in 3.2.
   MINIMUM_VERSION: {MAJOR: 3, MINOR: 2},
   SETUP_SHELL: "sh",
@@ -24,10 +23,6 @@ export const SYSTEMD_SCOPE = {
 export const AGENT_START_WAIT = {
   POLL_INTERVAL_MS: 50,
   TIMEOUT_MS: 5000
-} as const;
-
-export const TMUX_LABELS = {
-  INSTALL: "Install tmux"
 } as const;
 
 export const TMUX_ERRORS = {

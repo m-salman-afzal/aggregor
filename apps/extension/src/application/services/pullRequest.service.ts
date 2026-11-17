@@ -1,28 +1,17 @@
-import {GitHubCliProblemDtoSchema} from "@dtos/pullRequest.dto.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {IGitHubCliInfraService} from "@interfaces/gitHubCli.infraService.interface.ts";
 import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
-import {IShellCommandInfraService} from "@interfaces/shellCommand.infraService.interface.ts";
+import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
-import {
-  GITHUB_CLI,
-  GITHUB_CLI_INSTALL_COMMANDS,
-  PULL_REQUEST_OPEN_PLACES
-} from "@pkg/constants/src/gitHubCli.constant.ts";
+import {GITHUB_CLI, PULL_REQUEST_OPEN_PLACES} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {findSession, SessionNotInWorktreeError} from "@services/session.service.ts";
 import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
 import {ENTITY_CHANGE_KINDS} from "@valueObjects/entityChangeKind.valueObject.ts";
-import {Array, DateTime, Effect, Match, Ref, Result, Schema, Stream} from "effect";
+import {DateTime, Effect, Ref, Result, Stream} from "effect";
 
 import type {OpenSessionPullRequestRequestDto} from "@dtos/pullRequest.dto.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
-import type {GitHubCliProblem} from "@interfaces/gitHubCli.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-
-export class NoPackageManagerError extends Schema.TaggedError<NoPackageManagerError, {readonly brand: unique symbol}>()(
-  "NoPackageManagerError",
-  {}
-) {}
 
 const findSessionPullRequestBranch = Effect.fn("PullRequestService.findSessionPullRequestBranch")(function* (
   session: SessionEntity
@@ -52,60 +41,16 @@ export const openSessionPullRequest = Effect.fn("PullRequestService.openSessionP
     : gitHubCliInfraService.openPullRequestInBrowser(pullRequest);
 });
 
-// Looked up when asked, so a package manager installed since counts.
-const findGitHubCliInstallCommandLine = Effect.fn("PullRequestService.findGitHubCliInstallCommandLine")(function* () {
-  const installedCommands = yield* IShellCommandInfraService.use((shellCommandInfraService) =>
-    shellCommandInfraService.listInstalledCommands(
-      Array.map(GITHUB_CLI_INSTALL_COMMANDS, (installCommand) => installCommand.packageManager)
-    )
-  );
-  const installCommand = Array.findFirst(GITHUB_CLI_INSTALL_COMMANDS, (candidateCommand) =>
-    installedCommands.has(candidateCommand.packageManager)
-  );
-
-  return yield* Effect.fromResult(
-    Result.map(
-      Result.fromOption(installCommand, () => NoPackageManagerError.make()),
-      (foundCommand) => foundCommand.commandLine
-    )
-  );
-});
-
-export const installGitHubCli = Effect.fn("PullRequestService.installGitHubCli")(function* () {
-  const installCommandLine = yield* findGitHubCliInstallCommandLine();
-
-  yield* IGitHubCliInfraService.use((gitHubCliInfraService) =>
-    gitHubCliInfraService.openGitHubCliTerminal(installCommandLine)
-  );
-});
-
 export const signInToGitHubCli = Effect.fn("PullRequestService.signInToGitHubCli")(function* () {
-  yield* IGitHubCliInfraService.use((gitHubCliInfraService) =>
-    gitHubCliInfraService.openGitHubCliTerminal(GITHUB_CLI.SIGN_IN_COMMAND_LINE)
+  yield* ITerminalInfraService.use((terminalInfraService) =>
+    terminalInfraService.openSetupTerminal(GITHUB_CLI.SIGN_IN_COMMAND_LINE)
   );
 });
 
-const toGitHubCliProblemDto = Effect.fn("PullRequestService.toGitHubCliProblemDto")(function* (
-  gitHubCliProblem: GitHubCliProblem
-) {
-  const installCommandLineResult = yield* Effect.result(findGitHubCliInstallCommandLine());
-
-  return Match.valueTags(gitHubCliProblem, {
-    GitHubCliNotFoundError: () =>
-      GitHubCliProblemDtoSchema.cases.GitHubCliMissing.make({
-        installCommandLine: Result.getOrUndefined(installCommandLineResult)
-      }),
-    GitHubCliSignedOutError: () => GitHubCliProblemDtoSchema.cases.GitHubCliSignedOut.make({})
-  });
-});
-
-export const watchGitHubCliProblems = Effect.fn("PullRequestService.watchGitHubCliProblems")(function* () {
+export const watchGitHubCliSignedOut = Effect.fn("PullRequestService.watchGitHubCliSignedOut")(function* () {
   const gitHubCliInfraService = yield* IGitHubCliInfraService;
-  const shellCommandInfraService = yield* IShellCommandInfraService;
 
-  return Stream.mapEffect(gitHubCliInfraService.gitHubCliProblems, (gitHubCliProblem) =>
-    Effect.provideService(toGitHubCliProblemDto(gitHubCliProblem), IShellCommandInfraService, shellCommandInfraService)
-  );
+  return Stream.as(gitHubCliInfraService.gitHubCliSignedOutProblems, undefined);
 });
 
 // A session outside a worktree, or in one git no longer knows, has no branch to look up.

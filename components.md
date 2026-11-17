@@ -26,8 +26,9 @@ heading there. Update this file in the same commit as a change that adds, remove
 ### tmux
 
 - **What it is:** a terminal multiplexer whose sessions keep running with no client attached.
-- **What we use:** tmux 3.2 or newer from `PATH`; without it a start fails with an Install tmux button. The calls live
-  in `infrastructure/services/tmux/tmux.infraService.ts`, with names in `packages/constants/src/tmux.constant.ts`:
+- **What we use:** tmux 3.2 or newer from `PATH`; without it a notice at start, and a failed start, offer Install, which
+  runs the system package manager in a terminal (see "Missing tmux and gh install with one command"). The calls live in
+  `infrastructure/services/tmux/tmux.infraService.ts`, with names in `packages/constants/src/tmux.constant.ts`:
   - `tmux -V` before each start.
   - A session's tab runs tmux itself, with no shell:
     `tmux -S ‹socket› -f ‹extension›/assets/tmux.conf -u new-session -A -s ‹sessionId› [-e NAME=value]… -c ‹project› -- aggregor-pty …`.
@@ -196,10 +197,10 @@ heading there. Update this file in the same commit as a change that adds, remove
 
 - **What it is:** GitHub's own command line, `gh`, the one the user has on `PATH`; Aggregor never ships one.
 - **What we use:** `gh pr view ‹branch› --json number,url,state,isDraft,title`, run in a worktree session's folder, for
-  the pull request on its row; its exit code 4 for signed out. When it is missing or signed out, a notice runs the
-  system package manager's install command (`brew`, `apt-get`, `dnf`, `pacman`, `zypper` or `apk`) or `gh auth login` in
-  a terminal (`infrastructure/services/gitHubCli/gitHubCli.infraService.ts`, with gh's JSON read by
-  `gitHubCli.transformer.ts`).
+  the pull request on its row; its exit code 4 for signed out. When it is missing, the notice that checks tmux too runs
+  the system package manager's install command (`brew`, `apt-get`, `dnf`, `pacman`, `zypper` or `apk`) in a terminal;
+  signed out, a notice runs `gh auth login` there (`infrastructure/services/gitHubCli/gitHubCli.infraService.ts`, with
+  gh's JSON read by `gitHubCli.transformer.ts`).
 - **Why:** gh already holds the user's GitHub sign-in, hosts and remotes, so Aggregor asks for no token or scope of its
   own, as Orca, Crystal, Superset and Vibe Kanban do.
 - **Alternatives:** "A worktree session's row shows its branch's pull request, found with gh" and "A missing or
