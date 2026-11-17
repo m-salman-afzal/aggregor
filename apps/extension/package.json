@@ -44,6 +44,7 @@
     "vite": "catalog:",
     "vitest": "catalog:"
   },
+  "icon": "assets/aggregorMarketplaceIcon.png",
   "extensionKind": [
     "workspace"
   ],
