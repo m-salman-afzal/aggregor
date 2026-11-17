@@ -1,5 +1,6 @@
 import {
   describeUserInput,
+  shouldReturnFocus,
   takeEnteredText,
   takeProjectSettings
 } from "@/modules/sessions/components/userInputDialog/userInputDialog.utils.ts";
@@ -32,6 +33,7 @@ export const useUserInputDialog = () => {
     closeUserInput,
     enterText,
     saveSettings,
+    shouldReturnFocus,
     startSession,
     userInput,
     ...describeUserInput(userInput)

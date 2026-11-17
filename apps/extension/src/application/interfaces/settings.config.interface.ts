@@ -1,6 +1,7 @@
 import {Context, Schema} from "effect";
 
 import type {PULL_REQUEST_OPEN_PLACES} from "@pkg/constants/src/gitHubCli.constant.ts";
+import type {SESSION_OPEN_PLACES} from "@pkg/constants/src/terminal.constant.ts";
 import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
 import type {AgentStatusValueObject} from "@valueObjects/agentStatus.valueObject.ts";
 import type {Effect} from "effect";
@@ -11,6 +12,8 @@ export interface AlertSettings {
 
 export interface SessionSettings {
   readonly defaultAgentId: AgentIdValueObject;
+  readonly openSessionIn: (typeof SESSION_OPEN_PLACES)[keyof typeof SESSION_OPEN_PLACES];
+  readonly pinSessionTabs: boolean;
   readonly sessionMemoryLimit: string | undefined;
   readonly skipAgentPicker: boolean;
 }

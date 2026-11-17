@@ -650,6 +650,10 @@ const syncProjectSettings = Effect.fn("WorkspaceInfraService.syncProjectSettings
   workspaceDependencies: WorkspaceDependencies,
   projectPath: string
 ) {
+  const isProjectFolderThere = yield* workspaceDependencies.fileSystem.exists(projectPath);
+  yield* Effect.annotateCurrentSpan({isProjectFolderThere});
+  // A deleted worktree is still the shown project when the switch away syncs it, and a write would bring it back.
+  if (!isProjectFolderThere) return;
   const projectSettings = yield* prepareWorkspaceSettings(workspaceDependencies, projectPath);
   const workspaceSettings = yield* readWorkspaceFileSettings(workspaceDependencies);
   const copiedProjectSettings = yield* Effect.result(readCopiedProjectSettings(workspaceDependencies));

@@ -94,19 +94,30 @@ Where a session works: its project's root, or a git worktree of its own.
   ticked, never-pushed and unmerged ones are listed but not ticked, and a worktree with changes, with its branch, can't
   be ticked. Delete removes the ticked worktrees first, forgetting their archived sessions, then deletes the ticked
   branches with `git branch -D`, since a squash-merged branch never looks merged to git; anything kept is named in one
-  message.
+  message. Deleting a worktree leaves nothing of it behind: its project's folder under Aggregor's worktrees folder goes
+  with the project's last worktree, and a window showing the worktree shows its project instead.
 - **Solution:** `worktree.service.ts` holds the leftover rules; `IWorktreeInfraService` gained `hasChanges`,
   `removeWorktree`, `isMadeByAggregor`, `listAggregorBranches` (`git for-each-ref` with each branch's upstream track and
   worktree), `pruneRemote`, `findBaseBranch`, `isBranchMerged` and `deleteBranch`. The dot reads local refs only, on
   each project draw, which now sends the project's whole row (`PROJECT_DRAWN`) rather than its sessions; an archived
   worktree session's agent starting or stopping redraws its project, so the dot follows it. The dialog asks the host
   with a `LIST_LEFTOVERS` message and fills in when `LEFTOVERS_DRAWN` comes back. Cleanup changes no session row when it
-  only deletes branches, so it touches the project row and the change feed redraws the list.
+  only deletes branches, so it touches the project row and the change feed redraws the list. `removeWorktree` deletes
+  the project's folder once it is empty, and only under Aggregor's own worktrees folder: a project's worktree folder
+  setting names the user's folder, which stays. Effect's `FileSystem` has no `rmdir`, so it reads the folder and then
+  removes it, and a worktree added between the two would go too. `showProjectInPlaceOfWorktree` runs after git has
+  deleted the worktree and before its session is forgotten: while the session is stored its worktree is no project, and
+  once it is forgotten the window's folder would be listed as a project of its own (`listProjects`), which the next
+  switch saves (`keepWorkspaceFoldersListed`). The settings sync skips a folder that is gone (see
+  `projects/workspace.md`), so the switch away writes nothing into it.
 - **Alternatives considered:** removing the worktree on archive, which pulls the folder from under an agent still at
   work; forcing removal of a worktree with changes; deleting the branch on Remove; a merge check against the base branch
   only, which misses squash merges, and only `gdrb`'s gone-upstream check, which misses local merges; pruning on every
   draw, which waits on the network; a cleanup item in the project's … menu for every git project, shown even with
-  nothing to clean.
+  nothing to clean. Leaving the project's empty folder behind, which piled up one per project. Showing the project
+  before deleting the worktree, agreed first: the switch away writes the workspace's settings edits into the worktree,
+  which git then refuses to delete as changed, and a refusal leaves the window away from the worktree whose changes it
+  asks the user to commit or discard. Taking the folder out of the window and showing no project.
 
 ## New Session points to trusting the worktrees folder once
 

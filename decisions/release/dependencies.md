@@ -8,8 +8,10 @@ How dependency versions are pinned and updated.
   makes pnpm refuse to install.
 - **Decision:** Renovate (`.github/renovate.json5`), which installs the Node that `devEngines` names. Weekly, minor and
   patch bumps in one PR, OSV vulnerability alerts, GitHub Actions in their own `ci` PR, and `vscode` with
-  `@types/vscode` together. husky and portable-pty are left out of the abandoned-package warning: both are kept on
-  purpose despite no recent release.
+  `@types/vscode` together. husky, portable-pty and class-variance-authority are left out of the abandoned-package
+  warning: each is kept on purpose despite no recent release. class-variance-authority is what the shadcn CLI writes,
+  and none of its replacements fits yet: `cn` has no variants, `cva` 1.0 is still a beta, and tailwind-variants brings a
+  second class-merge engine beside `cn`.
 
 ## Updates wait 1 day after a release
 

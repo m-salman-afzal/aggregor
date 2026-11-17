@@ -3,6 +3,7 @@ import {AGENT_SETTINGS} from "@pkg/constants/src/agent.constant.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/app.constant.ts";
 import {PULL_REQUEST_OPEN_PLACES} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {SESSION_SETTINGS} from "@pkg/constants/src/session.constant.ts";
+import {SESSION_OPEN_PLACES} from "@pkg/constants/src/terminal.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
 import {AgentStatusValueObjectSchema} from "@valueObjects/agentStatus.valueObject.ts";
@@ -25,6 +26,8 @@ const SettingsSchema = Schema.Struct({
 
 const SessionSettingsSchema = Schema.Struct({
   defaultAgent: AgentIdValueObjectSchema,
+  openSessionIn: Schema.Enum(SESSION_OPEN_PLACES),
+  pinSessionTabs: Schema.Boolean,
   sessionMemoryLimit: Schema.String.check(Schema.isPattern(SESSION_SETTINGS.MEMORY_LIMIT_PATTERN)),
   skipAgentPicker: Schema.Boolean
 });
@@ -52,6 +55,8 @@ const readSessionSettings = Effect.fn("SettingsConfig.readSessionSettings")(
     const decodedSessionSettings = yield* Schema.decodeUnknownEffect(SessionSettingsSchema)(configuredSettings);
     const sessionSettings: SessionSettings = {
       defaultAgentId: decodedSessionSettings.defaultAgent,
+      openSessionIn: decodedSessionSettings.openSessionIn,
+      pinSessionTabs: decodedSessionSettings.pinSessionTabs,
       sessionMemoryLimit:
         decodedSessionSettings.sessionMemoryLimit === "" ? undefined : decodedSessionSettings.sessionMemoryLimit,
       skipAgentPicker: decodedSessionSettings.skipAgentPicker

@@ -29,8 +29,10 @@ The Sessions view's buttons and menus, on its lists and its rows, and the questi
   one, drawn as an icon button (an agent's star, Set as Default). A question says what its answer does, then offers
   Cancel and the answer as buttons; an answer that destroys something or cuts it short is red under a warning icon, and
   Cancel takes the focus, so Enter is the safe key. A text opens with its input focused and its text selected. Cancel,
-  Escape and a click outside cancel. The folder picker for Add Project stays VS Code's, the system's own dialog, which a
-  webview can't open, so `addProject` still asks for the folders through `IUserInputPromptInfraService`, its one method.
+  Escape and a click outside cancel. A dialog that closes hands the focus back to the button that asked only while the
+  view still has it, so the tab a new session opens keeps the keyboard. The folder picker for Add Project stays VS
+  Code's, the system's own dialog, which a webview can't open, so `addProject` still asks for the folders through
+  `IUserInputPromptInfraService`, its one method.
 - **Solution:**
   - The view sends the webview what it decides from: each session row's `isAgentRunning` and its status (working or
     blocked is a turn in progress, `TURN_RUNNING_STATUSES`), and the installed agents (`AgentsDrawn`: each
@@ -45,6 +47,9 @@ The Sessions view's buttons and menus, on its lists and its rows, and the questi
     running the answer, so an answer may open the next one. The webview draws it with shadcn's dialog and input on Base
     UI (`userInputDialog/`).
   - Every action still re-reads what it acts on and ends quietly when it no longer applies.
+  - Base UI returns the focus once the dialog has faded out, 200ms after the answer, by when a new session's tab has
+    taken it: the focus went back to the row's New Session button and the keys typed for the agent pressed it. The
+    dialog's `finalFocus` is `shouldReturnFocus`, which asks `document.hasFocus()` at that moment.
 - **Alternatives considered:** VS Code's quick pick and input box, as before; modal warnings, a system dialog outside
   the window; a notification with buttons, which can be missed. The use case asking mid-task through
   `IUserInputPromptInfraService`, built first: its infrastructure ran a command the view registered, which kept the one
@@ -53,6 +58,8 @@ The Sessions view's buttons and menus, on its lists and its rows, and the questi
   the view implementing the port, which kept the waiting and only moved it. Infrastructure posting to the webview
   itself, which would make it import the view; a question's answers as rows like a pick's, built first, which read as a
   list rather than a confirmation; Set as Default as a text button, which cut an agent's name short in a narrow view.
+  Never returning the focus after an answer, agreed first, which loses a keyboard user's place after Rename and every
+  other answer that opens no tab.
 
 ## Menu items have icons
 

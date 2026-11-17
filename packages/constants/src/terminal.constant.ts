@@ -16,6 +16,17 @@ export const FOLDER_TERMINAL_NAME = {
   WORKTREE: (projectName: string, worktreeFolderName: string) => `${projectName} · ${worktreeFolderName}`
 } as const;
 
+export const SESSION_OPEN_PLACES = {
+  OWN_TAB: "ownTab",
+  SHARED_TAB: "sharedTab"
+} as const;
+
+// A tab comes to the front a moment after it is shown, and only the tab in front can be pinned.
+export const SESSION_TAB_PIN_WAIT = {
+  POLL_INTERVAL_MS: 50,
+  TIMEOUT_MS: 5000
+} as const;
+
 // Switching tabs fires the tab and active-terminal events separately and in either order, so they settle first.
 export const VIEWED_SESSION_SETTLE_INTERVAL = "100 millis";
 

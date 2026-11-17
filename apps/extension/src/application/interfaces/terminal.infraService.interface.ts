@@ -20,6 +20,7 @@ export interface FolderTerminalRequest {
 
 export interface SessionTabRequest {
   readonly icon: AgentIconValueObject;
+  readonly isPinned: boolean;
   readonly tabCommand: SessionTabCommand;
   readonly tabName: string;
 }
@@ -46,6 +47,7 @@ export class ITerminalInfraService extends Context.Service<
     readonly activatedSessionIds: Stream.Stream<EntityIdValueObject>;
     readonly closedSetupTerminals: Stream.Stream<void>;
     readonly closeFolderTerminal: (folderPath: ProjectPathValueObject) => Effect.Effect<void>;
+    readonly closeOtherSessionTerminals: (shownSessionId: EntityIdValueObject) => Effect.Effect<void>;
     readonly closeSessionTerminal: (sessionId: EntityIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
     readonly focusSessionTerminal: (sessionId: EntityIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
     // VS Code can rename only the active terminal.
