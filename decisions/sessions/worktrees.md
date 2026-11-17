@@ -62,8 +62,8 @@ Where a session works: its project's root, or a git worktree of its own.
   happens once and never to a linked worktree's branch or one renamed by hand. The folder keeps its name, since the
   agent works in it. Rename Branch, in a worktree session's menu, renames whatever branch the worktree has checked out
   to the name typed; git refuses a bad or taken name and its message is shown; a pushed branch may be renamed too. The
-  row's second line shows the branch after the agent's icon, under a git-branch icon, or a short commit hash when the
-  worktree is detached. Rename Session leaves the branch alone.
+  row's second line ends with the branch, under a git-branch icon, or a short commit hash when the worktree is detached.
+  Rename Session leaves the branch alone.
 - **Solution:** the branch name is never stored: each draw of a row reads the worktree's `.git` file and the `HEAD` it
   points to, two small reads and no git process, so a branch the agent switches to shows on its next redraw. The title
   sync renames the branch before it saves the name, so one write redraws both. Rename Branch writes nothing of the
@@ -133,7 +133,7 @@ Where a session works: its project's root, or a git worktree of its own.
 - **Problem:** a worktree session's row says nothing about how much its agent has changed, and the diff with per-hunk
   staging the roadmap planned is more than the row needs.
 - **Decision:** the row's second line shows a diff icon, the number of files changed, and the lines added in green
-  stacked over those deleted in red, at 10px, after the branch, so large counts take little of the line's width. They
+  stacked over those deleted in red, at 10px, before the branch, so large counts take little of the line's width. They
   count everything the session's branch changed since it split from its base branch: its commits, its uncommitted edits
   and its new files. The base is the branch chosen in New Session's From, or, with Current commit, the branch the
   project had checked out when Aggregor made the worktree, since the worktree starts from that HEAD; it is stored on the

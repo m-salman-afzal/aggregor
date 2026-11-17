@@ -64,15 +64,18 @@ The Sessions view drawn in a webview of our own.
 - **Decision:** the first line is the title after its status's icon (colour per status, a spinner while working), then
   what the agent says it is doing (its progress and message), smaller and muted, taking only the room the title leaves
   and cut to fit, so it reads as secondary to the title; the second line the agent's icon, 18px so agents tell apart at
-  a glance (its name in the icon's tooltip), then the worktree's branch and diff counts. No status word, since the icon
-  says it; the tooltip has the status and message whole with the project's path. The session in front stands out: its
-  title in the strongest text and its row shaded, while every other row's title and agent icon are faded until the row
-  is hovered. A status's icon keeps its colour either way, since it is the signal. A project's name, which folds its
-  sessions away, ends with a muted count of its sessions in that list.
+  a glance (its name in the icon's tooltip), then the pull request, the diff counts and last the worktree's branch,
+  which alone is cut to fit, so the hover buttons over the row's end hide only the branch's end, which its tooltip holds
+  whole. No status word, since the icon says it; the tooltip has the status and message whole with the project's path.
+  The session in front stands out: its title in the strongest text and its row shaded, while every other row's title and
+  agent icon are faded until the row is hovered. A status's icon keeps its colour either way, since it is the signal. A
+  project's name, which folds its sessions away, ends with a muted count of its sessions in that list.
 - **Alternatives considered:** the progress and message on the second line after the branch and diff counts, which
   crowded that line; dropping them from the row, which hides what a working agent is doing; a third line for the branch;
   the agent's name and the status in words on the second line, which repeat the icons; a 12px agent icon, too small to
-  see; every row at full strength, which gave the session in front nothing to stand out from.
+  see; every row at full strength, which gave the session in front nothing to stand out from; the branch before the pull
+  request and diff counts, where a long branch pushed them under the hover buttons; hover buttons over the first line
+  only, which sit off the row's centre.
 
 ## The design system is a package, `@pkg/ui`
 
