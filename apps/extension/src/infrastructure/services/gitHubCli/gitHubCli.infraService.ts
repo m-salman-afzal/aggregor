@@ -179,8 +179,9 @@ const refreshAllPullRequests = Effect.fn("GitHubCliInfraService.refreshAllPullRe
   isForced: boolean
 ) {
   const refreshStartedAt = yield* Clock.currentTimeMillis;
-  const lastRefreshedAt = yield* Ref.getAndSet(gitHubCliDependencies.lastRefreshedAt, refreshStartedAt);
+  const lastRefreshedAt = yield* Ref.get(gitHubCliDependencies.lastRefreshedAt);
   if (!isForced && refreshStartedAt - lastRefreshedAt < GITHUB_CLI.REFRESH_INTERVAL_MS) return;
+  yield* Ref.set(gitHubCliDependencies.lastRefreshedAt, refreshStartedAt);
   if (isForced) yield* Ref.set(gitHubCliDependencies.isSignedOutReported, false);
   const cachedPullRequests = yield* Ref.get(gitHubCliDependencies.cachedPullRequests);
 
