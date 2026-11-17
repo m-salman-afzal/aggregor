@@ -35,6 +35,9 @@ heading there. Update this file in the same commit as a change that adds, remove
     `-A` attaches when the tmux session runs and starts it otherwise; `-e` passes the agent's `env` setting.
   - `list-sessions -F '#{session_name}'` reads which agents run; `kill-session -t =‹sessionId›` stops one;
     `source-file ‹conf›` reloads the config into a server that already runs, since `-f` is read only at server start.
+  - `list-clients -F '#{client_pid} #{client_name} #{session_name}'` reads which session each tab shows, a tab being the
+    tmux client with its process id; `switch-client -E -c ‹client› -t =‹sessionId›` attaches the shared tab to another
+    running session, and `-E` leaves that session's environment as it is.
   - `assets/tmux.conf` replaces `~/.tmux.conf`: no prefix, no status bar, mouse on, 50,000 lines of history,
     `escape-time 0`, `focus-events`, `extended-keys`, `window-size latest`, 24-bit colour, OSC 52, and
     `update-environment` for VS Code's terminal variables and `AGGREGOR_SESSION_ID`.

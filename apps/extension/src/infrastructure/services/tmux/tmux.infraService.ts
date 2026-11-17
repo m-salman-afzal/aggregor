@@ -3,6 +3,7 @@ import {getTmuxSocketPath} from "@infraUtils/tmuxSocket.utils.ts";
 import {
   ITmuxInfraService,
   PtyBinaryNotFoundError,
+  SessionTabSwitchFailedError,
   TmuxUnavailableError
 } from "@interfaces/tmux.infraService.interface.ts";
 import {PLATFORMS} from "@pkg/constants/src/process.constant.ts";
@@ -20,6 +21,12 @@ import {platform} from "node:os";
 import type {SessionTabCommand} from "@interfaces/terminal.infraService.interface.ts";
 import type {SessionTabCommandRequest} from "@interfaces/tmux.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+
+interface TabClient {
+  readonly clientName: string;
+  readonly sessionName: string;
+  readonly tabProcessId: number;
+}
 
 interface TmuxDependencies {
   readonly canRunInOwnScope: boolean;
@@ -92,6 +99,63 @@ const refreshRunningSessionIds = Effect.fn("TmuxInfraService.refreshRunningSessi
       (runningSessionIds) => [runningSessionIds, runningSessionIds] as const
     )
   );
+});
+
+// A tab runs tmux in place, so the client's process id is the tab's; no tmux, or no server yet, has no clients.
+const listTabClients = Effect.fn("TmuxInfraService.listTabClients")(function* (
+  tmuxServer: Pick<TmuxDependencies, "childProcessSpawner" | "tmuxSocketPath">
+) {
+  const clientLines = yield* Effect.orElseSucceed(
+    runTmuxCommand(tmuxServer, ["list-clients", "-F", "#{client_pid} #{client_name} #{session_name}"]),
+    (): readonly string[] => []
+  );
+
+  return Array.map(clientLines, (clientLine): TabClient => {
+    const [clientProcessId, clientName = "", sessionName = ""] = String.split(" ")(clientLine);
+
+    return {clientName, sessionName, tabProcessId: Number(clientProcessId)};
+  });
+});
+
+const readShownSessionIdsByTabProcessId = Effect.fn("TmuxInfraService.readShownSessionIdsByTabProcessId")(function* (
+  tmuxServer: Pick<TmuxDependencies, "childProcessSpawner" | "tmuxSocketPath">
+) {
+  const tabClients = yield* listTabClients(tmuxServer);
+  const shownSessionIdsByTabProcessId: ReadonlyMap<number, EntityIdValueObject> = new Map(
+    Array.getSuccesses(
+      Array.map(tabClients, (tabClient) =>
+        Result.map(decodeEntityId(tabClient.sessionName), (sessionId) => [tabClient.tabProcessId, sessionId] as const)
+      )
+    )
+  );
+
+  return shownSessionIdsByTabProcessId;
+});
+
+// -E keeps the tab's own variables, the id of the session it opened with among them, out of the session it now shows.
+const showSessionInTab = Effect.fn("TmuxInfraService.showSessionInTab")(function* (
+  tmuxDependencies: TmuxDependencies,
+  tabProcessId: number,
+  sessionId: EntityIdValueObject
+) {
+  const tabClients = yield* listTabClients(tmuxDependencies);
+  const tabClient = yield* Effect.fromResult(
+    Result.fromOption(
+      Array.findFirst(tabClients, (client) => client.tabProcessId === tabProcessId),
+      () => SessionTabSwitchFailedError.make({sessionId})
+    )
+  );
+  const switchExitCode = yield* Effect.orElseSucceed(
+    tmuxDependencies.childProcessSpawner.exitCode(
+      ChildProcess.make(TMUX.COMMAND, [
+        ...["-S", tmuxDependencies.tmuxSocketPath, "switch-client", "-E"],
+        ...["-c", tabClient.clientName, "-t", `=${sessionId}`]
+      ])
+    ),
+    () => -1
+  );
+
+  return yield* switchExitCode === 0 ? Effect.void : Effect.fail(SessionTabSwitchFailedError.make({sessionId}));
 });
 
 // -A attaches to the session's tmux session when it runs, and otherwise starts it.
@@ -333,8 +397,11 @@ const makeTmuxInfraService = Effect.fn("TmuxInfraService.make")(function* () {
     checkTmuxVersion: checkTmuxVersion(tmuxDependencies.childProcessSpawner),
     prepareSessionTabCommand: (sessionTabCommandRequest: SessionTabCommandRequest) =>
       prepareSessionTabCommand(tmuxDependencies, sessionTabCommandRequest),
+    readShownSessionIdsByTabProcessId: readShownSessionIdsByTabProcessId(tmuxDependencies),
     refreshRunningSessionIds: refreshRunningSessionIds(tmuxDependencies),
     runningSessionIds: tmuxDependencies.runningSessionIds,
+    showSessionInTab: (tabProcessId: number, sessionId: EntityIdValueObject) =>
+      showSessionInTab(tmuxDependencies, tabProcessId, sessionId),
     startedOrStoppedSessionIds: yield* watchStartedOrStoppedSessionIds(tmuxDependencies.runningSessionIds),
     stopSessionAgent: (sessionId: EntityIdValueObject) => stopSessionAgent(tmuxDependencies, sessionId),
     waitForSessionAgentStart: (sessionId: EntityIdValueObject) => waitForSessionAgentStart(tmuxDependencies, sessionId)

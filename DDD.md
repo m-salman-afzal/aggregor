@@ -260,7 +260,7 @@ apps/extension/src/
                                            watchSessionListChanges, watchViewedSessionIds, findViewedSessionId,
                                            listSessionsWaitingOnUser (the badge and each view's count);
                                            startSessionTitleSync, startSessionTabNameSync, startViewedAtSync,
-                                           startRunStateSync
+                                           startRunStateSync, syncSessionTabsWithTmux
       agent.service.ts                     listAgents (the installed agents, the default first), setDefaultAgent,
                                            findAgentToStart; NoAgentInstalledError
       sessionAlert.service.ts              watchSessionAlerts: the states sessions out of view hold for 3 seconds,
@@ -298,15 +298,18 @@ apps/extension/src/
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
     interfaces/                            each with the errors and types its signatures name
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
-                                           closeOtherSessionTerminals,
+                                           closeOtherSessionTerminals, findOpenSessionTerminalProcessId,
+                                           assignShownSessions,
                                            openFolderTerminal, closeFolderTerminal, switchToFolderTerminal,
                                            nameActiveSessionTab, activatedSessionIds, viewedSessionId,
                                            openSetupTerminal, closedSetupTerminals;
                                            FolderTerminalRequest, SessionTabRequest, SessionTabCommand,
-                                           TerminalLaunchFailedError
+                                           TerminalLaunchFailedError, NoSessionTabOpenError
       tmux.infraService.interface.ts       checkTmuxVersion, prepareSessionTabCommand, waitForSessionAgentStart, stopSessionAgent,
-                                           runningSessionIds, refreshRunningSessionIds, startedOrStoppedSessionIds;
-                                           SessionTabCommandRequest, PtyBinaryNotFoundError, TmuxUnavailableError
+                                           runningSessionIds, refreshRunningSessionIds, startedOrStoppedSessionIds,
+                                           showSessionInTab, readShownSessionIdsByTabProcessId;
+                                           SessionTabCommandRequest, PtyBinaryNotFoundError, TmuxUnavailableError,
+                                           SessionTabSwitchFailedError
       userInputPrompt.infraService.interface.ts
                                            pickProjectFolderPaths: the system's folder dialog;
                                            FolderPickCancelledError
@@ -363,7 +366,8 @@ apps/extension/src/
                                            osascript on macOS, a PowerShell toast from WSL
       tmux/tmux.infraService.ts            TmuxInfraService: the command a session's tab runs, which starts its
                                            agent under aggregor-pty in a tmux session or attaches to it; stops it;
-                                           reads which sessions tmux runs
+                                           attaches a tab to another session; reads which sessions tmux runs and
+                                           which one each tab shows
       vscode/                              UserInputPromptInfraService, WorkspaceInfraService (also syncs the
                                            shown project's .vscode/settings.json with Aggregor's workspace file),
                                            GitInfraService, ProgressInfraService
@@ -528,7 +532,9 @@ apps/extension/tests/
   `LaunchPlanValueObject`, and the tmux infra service runs it under `aggregor-pty` in the session's tmux session;
   neither knows the other.
 - **The agent and its tab are apart:** `ITmuxInfraService` starts and stops agents and says which run;
-  `ITerminalInfraService` only opens, focuses, names, pins and closes the tabs attached to them.
+  `ITerminalInfraService` only opens, focuses, names, pins and closes the tabs attached to them. Neither calls the
+  other: where a step needs both, as when the shared tab switches session, the use case hands the tab's process id,
+  which is its tmux client's, from one to the other.
 - **Worktrees on the git command line:** `IWorktreeInfraService` runs `git worktree` itself rather than through the Git
   extension, whose API reaches only repositories open in Source Control.
 - **Planned with their roadmap items:** a `Hosts` LayerMap keyed by host id for SSH.

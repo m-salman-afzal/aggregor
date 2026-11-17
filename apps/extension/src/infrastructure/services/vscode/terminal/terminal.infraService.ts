@@ -9,15 +9,17 @@ import {
 } from "@infraServices/vscode/terminal/terminal.utils.ts";
 import {
   ITerminalInfraService,
+  NoSessionTabOpenError,
   NoViewedSessionError,
   TerminalLaunchFailedError,
   TerminalNotFoundError
 } from "@interfaces/terminal.infraService.interface.ts";
+import {AGENT_ICON} from "@pkg/constants/src/agent.constant.ts";
 import {SETUP_TERMINAL} from "@pkg/constants/src/requiredTools.constant.ts";
 import {FOLDER_PATH_ENV, SESSION_ID_ENV, VIEWED_SESSION_SETTLE_INTERVAL} from "@pkg/constants/src/terminal.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
-import {Effect, Layer, Ref, Result, Schema, Stream, SubscriptionRef} from "effect";
+import {Array, Effect, Layer, Ref, Result, Schema, Stream, SubscriptionRef} from "effect";
 
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {
@@ -65,7 +67,9 @@ const launchSessionTerminal = Effect.fn("TerminalInfraService.launchSessionTermi
       terminalDependencies.window.createTerminal({
         cwd: session.workingFolderPath,
         env: {[SESSION_ID_ENV]: session.id},
-        iconPath: terminalDependencies.Uri.file(sessionTabRequest.icon),
+        iconPath: sessionTabRequest.isShared
+          ? terminalDependencies.Uri.joinPath(terminalDependencies.extensionUri, AGENT_ICON.DEFAULT)
+          : terminalDependencies.Uri.file(sessionTabRequest.icon),
         isTransient: true,
         location: {viewColumn: terminalDependencies.ViewColumn.Active},
         name: sessionTabRequest.tabName,
@@ -180,6 +184,36 @@ const focusSessionTerminal = Effect.fn("TerminalInfraService.focusSessionTermina
 ) {
   const sessionTerminal = yield* findSessionTerminal(sessionTerminals, sessionId);
   yield* showTerminal(sessionTerminal);
+});
+
+const readTerminalProcessId = Effect.fn("TerminalInfraService.readTerminalProcessId")(function* (terminal: Terminal) {
+  return yield* Effect.promise(() => terminal.processId);
+});
+
+// tmux can attach any open session tab to another session, so the first one is taken.
+const findOpenSessionTerminalProcessId = Effect.fn("TerminalInfraService.findOpenSessionTerminalProcessId")(function* (
+  sessionTerminals: SessionTerminalsReference
+) {
+  const openTerminals = yield* SubscriptionRef.get(sessionTerminals);
+  const openTerminal = yield* Effect.fromResult(
+    Result.fromOption(Array.head([...openTerminals.values()]), () => NoSessionTabOpenError.make())
+  );
+  const terminalProcessId = yield* readTerminalProcessId(openTerminal);
+
+  return yield* Effect.fromResult(Result.fromNullishOr(terminalProcessId, () => NoSessionTabOpenError.make()));
+});
+
+// A tab tmux lists no client for, such as one still starting, keeps the session it has.
+const findShownSessionTerminal = Effect.fn("TerminalInfraService.findShownSessionTerminal")(function* (
+  shownSessionIdsByTabProcessId: ReadonlyMap<number, EntityIdValueObject>,
+  assignedSessionId: EntityIdValueObject,
+  sessionTerminal: Terminal
+) {
+  const terminalProcessId = yield* readTerminalProcessId(sessionTerminal);
+  const shownSessionId =
+    terminalProcessId === undefined ? undefined : shownSessionIdsByTabProcessId.get(terminalProcessId);
+
+  return [shownSessionId === undefined ? assignedSessionId : shownSessionId, sessionTerminal] as const;
 });
 
 // Serialized on the map's permit, so a double-click shows the terminal the first click launched.
@@ -311,6 +345,23 @@ const updateViewedSessionId = Effect.fn("TerminalInfraService.updateViewedSessio
   yield* SubscriptionRef.set(viewedSessionId, nextViewedSessionId);
 });
 
+// The session in view is read at once, since the jobs that start next read it before the focus changes settle.
+const assignShownSessions = Effect.fn("TerminalInfraService.assignShownSessions")(function* (
+  terminalDependencies: TerminalDependencies,
+  viewedSessionId: SubscriptionRef.SubscriptionRef<Result.Result<EntityIdValueObject, NoViewedSessionError>>,
+  shownSessionIdsByTabProcessId: ReadonlyMap<number, EntityIdValueObject>
+) {
+  yield* SubscriptionRef.updateEffect(terminalDependencies.sessionTerminals, (currentTerminals) =>
+    Effect.map(
+      Effect.forEach([...currentTerminals], ([assignedSessionId, sessionTerminal]) =>
+        findShownSessionTerminal(shownSessionIdsByTabProcessId, assignedSessionId, sessionTerminal)
+      ),
+      (shownSessionTerminals): ReadonlyMap<EntityIdValueObject, Terminal> => new Map(shownSessionTerminals)
+    )
+  );
+  yield* updateViewedSessionId(terminalDependencies, viewedSessionId);
+});
+
 // Reading between the events of one tab switch could credit the tab being left.
 const watchFocusChanges = Effect.fn("TerminalInfraService.watchFocusChanges")(function* (
   terminalDependencies: TerminalDependencies
@@ -390,9 +441,12 @@ const makeTerminalDependencies = Effect.fn("TerminalInfraService.makeTerminalDep
 const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function* () {
   const terminalDependencies = yield* makeTerminalDependencies();
   yield* forgetClosedTerminals(terminalDependencies);
+  const viewedSessionId = yield* trackViewedSessionId(terminalDependencies);
 
   return {
     activatedSessionIds: yield* watchActivatedSessionIds(terminalDependencies),
+    assignShownSessions: (shownSessionIdsByTabProcessId: ReadonlyMap<number, EntityIdValueObject>) =>
+      assignShownSessions(terminalDependencies, viewedSessionId, shownSessionIdsByTabProcessId),
     closedSetupTerminals: yield* watchClosedSetupTerminals(terminalDependencies.window),
     closeFolderTerminal: (folderPath: ProjectPathValueObject) =>
       closeFolderTerminal(terminalDependencies.window, folderPath),
@@ -400,6 +454,7 @@ const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function
       closeOtherSessionTerminals(terminalDependencies.sessionTerminals, shownSessionId),
     closeSessionTerminal: (sessionId: EntityIdValueObject) =>
       closeSessionTerminal(terminalDependencies.sessionTerminals, sessionId),
+    findOpenSessionTerminalProcessId: findOpenSessionTerminalProcessId(terminalDependencies.sessionTerminals),
     focusSessionTerminal: (sessionId: EntityIdValueObject) =>
       focusSessionTerminal(terminalDependencies.sessionTerminals, sessionId),
     nameActiveSessionTab: (sessionId: EntityIdValueObject, tabName: string) =>
@@ -411,7 +466,7 @@ const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function
     openSetupTerminal: (commandLine: string) => openSetupTerminal(terminalDependencies.window, commandLine),
     switchToFolderTerminal: (workingFolderPath: ProjectPathValueObject, projectPath: ProjectPathValueObject) =>
       switchToFolderTerminal(terminalDependencies, workingFolderPath, projectPath),
-    viewedSessionId: yield* trackViewedSessionId(terminalDependencies)
+    viewedSessionId
   };
 });
 

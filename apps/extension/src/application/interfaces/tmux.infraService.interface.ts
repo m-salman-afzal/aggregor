@@ -1,3 +1,4 @@
+import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {Context, Schema} from "effect";
 
 import type {SessionTabCommand} from "@interfaces/terminal.infraService.interface.ts";
@@ -19,6 +20,11 @@ export class PtyBinaryNotFoundError extends Schema.TaggedError<
   PtyBinaryNotFoundError,
   {readonly brand: unique symbol}
 >()("PtyBinaryNotFoundError", {isWindows: Schema.Boolean}) {}
+// tmux doesn't run the session's agent, or the tab's process is no tmux client.
+export class SessionTabSwitchFailedError extends Schema.TaggedError<
+  SessionTabSwitchFailedError,
+  {readonly brand: unique symbol}
+>()("SessionTabSwitchFailedError", {sessionId: EntityIdValueObjectSchema}) {}
 // tmux is missing from PATH, or older than the version Aggregor's tmux.conf needs.
 export class TmuxUnavailableError extends Schema.TaggedError<TmuxUnavailableError, {readonly brand: unique symbol}>()(
   "TmuxUnavailableError",
@@ -34,9 +40,16 @@ export class ITmuxInfraService extends Context.Service<
     readonly prepareSessionTabCommand: (
       sessionTabCommandRequest: SessionTabCommandRequest
     ) => Effect.Effect<SessionTabCommand, PtyBinaryNotFoundError | TmuxUnavailableError>;
+    // A tab's process is a tmux client, and tmux knows which session each client is attached to.
+    readonly readShownSessionIdsByTabProcessId: Effect.Effect<ReadonlyMap<number, EntityIdValueObject>>;
     readonly refreshRunningSessionIds: Effect.Effect<ReadonlySet<EntityIdValueObject>>;
     // As last read: at window start or focus, when a terminal closes, after a tab opens and after each stop.
     readonly runningSessionIds: SubscriptionRef.SubscriptionRef<ReadonlySet<EntityIdValueObject>>;
+    // Attaches the tab's tmux client to another running session, so the tab itself stays as it is.
+    readonly showSessionInTab: (
+      tabProcessId: number,
+      sessionId: EntityIdValueObject
+    ) => Effect.Effect<void, SessionTabSwitchFailedError>;
     readonly startedOrStoppedSessionIds: Stream.Stream<EntityIdValueObject>;
     readonly stopSessionAgent: (sessionId: EntityIdValueObject) => Effect.Effect<void>;
     readonly waitForSessionAgentStart: (sessionId: EntityIdValueObject) => Effect.Effect<void>;
