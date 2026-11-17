@@ -1,3 +1,5 @@
+import {Checkbox} from "@pkg/ui/src/components/base/checkbox.tsx";
+
 import type {ChecklistRowData} from "@/modules/sessions/components/userInputDialog/components/checklistSection/checklistSection.type.ts";
 
 interface ChecklistSectionProps {
@@ -15,14 +17,13 @@ export const ChecklistSection = (props: ChecklistSectionProps) =>
         <label
           className="flex min-w-0 items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-lift-1 has-disabled:opacity-60"
           key={checklistRow.rowKey}>
-          <input
+          <Checkbox
             checked={props.tickedRowKeys.has(checklistRow.rowKey)}
-            className="mt-0.5 accent-primary"
+            className="mt-0.5"
             disabled={checklistRow.isDisabled}
-            onChange={() => {
+            onCheckedChange={() => {
               props.onToggleRow(checklistRow.rowKey);
             }}
-            type="checkbox"
           />
           <span className="flex min-w-0 flex-col">
             <span className="truncate text-foreground">{checklistRow.label}</span>

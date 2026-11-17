@@ -120,6 +120,10 @@ to `<logs>/window<n>/exthost/SalmanAfzal.aggregor-app/Aggregor App.log`, so a ru
 `trace` skill (`.claude/skills/trace`) reads it to find a problem's cause and files the issue. Callbacks VS Code makes
 per row or per spinner frame (tree items, badges, the spinner) run untraced.
 
+`decisions/backgroundJobs.md` lists every job no command started: each poll, schedule, watcher, `forkScoped` stream,
+process left running, and call that leaves the machine, with its interval (scheduled, on event or always running), what
+triggers it and what it reaches. Add, change or delete its row in the same commit as the job.
+
 ## Dependencies
 
 `components.md` lists what Aggregor is built from, runs on, and is checked and released with: which part of each it

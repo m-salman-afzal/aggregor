@@ -37,6 +37,17 @@ Who decides what, and where decisions, components and problems are written down.
   use and its reason read in one place, without walking the decision history.
 - **Alternatives considered:** keeping it in the decisions only, which are grouped by feature, not by component.
 
+## Background jobs are listed in one table
+
+- **Problem:** what Aggregor keeps running on its own (database polls, `gh` lookups, watchers, the processes that
+  outlive VS Code) was spread across services and layers, with no one place saying what checks what, how often, and what
+  leaves the machine.
+- **Decision:** `decisions/backgroundJobs.md` lists every job no command started, as one table: when it runs, what it
+  checks or does, what it reaches, and its code. `AGENTS.md` asks for the table to change in the same commit as the job.
+  The user asked for it beside the decisions.
+- **Alternatives considered:** a root ledger beside `storage.md` and `components.md`; leaving it to the trace log, which
+  shows only what ran in one session.
+
 ## Explainers are linked from the decision they explain
 
 - **Problem:** the pages made to show how something works (a migration run, the layers, the Effect rules) were found
