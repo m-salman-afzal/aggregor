@@ -29,6 +29,8 @@ export class TmuxUnavailableError extends Schema.TaggedError<TmuxUnavailableErro
 export class ITmuxInfraService extends Context.Service<
   ITmuxInfraService,
   {
+    // tmux's version, when it is on PATH and new enough for Aggregor's tmux.conf.
+    readonly checkTmuxVersion: Effect.Effect<string, TmuxUnavailableError>;
     readonly prepareSessionTabCommand: (
       sessionTabCommandRequest: SessionTabCommandRequest
     ) => Effect.Effect<SessionTabCommand, PtyBinaryNotFoundError | TmuxUnavailableError>;

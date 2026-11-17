@@ -5,6 +5,12 @@ import {Effect, Queue, Stream} from "effect";
 
 import type {Disposable, Event, ProgressOptions} from "vscode";
 
+interface ErrorButtons {
+  readonly commandToRun?: {readonly commandId: string; readonly label: string} | undefined;
+  readonly pageToOpen?: {readonly label: string; readonly url: string} | undefined;
+  readonly settingToOpen?: string | undefined;
+}
+
 export const acquireScopedDisposable = Effect.fn("acquireScopedDisposable")(function* <
   VsCodeDisposable extends Disposable
 >(createVsCodeDisposable: () => VsCodeDisposable) {
@@ -59,33 +65,42 @@ export const openAggregorSettingsInSettingsEditor = Effect.fn("openAggregorSetti
   );
 });
 
+const runChosenErrorButton = Effect.fn("runChosenErrorButton")(function* (
+  errorButtons: ErrorButtons,
+  chosenButton: string | undefined
+) {
+  const vsCodeApi = yield* VsCodeApi;
+  const pageToOpen = errorButtons.pageToOpen;
+  const commandToRun = errorButtons.commandToRun;
+  if (chosenButton === APP_LABELS.OPEN_SETTINGS && errorButtons.settingToOpen !== undefined)
+    yield* Effect.promise(() =>
+      vsCodeApi.commands.executeCommand(VS_CODE_COMMANDS.OPEN_SETTINGS, errorButtons.settingToOpen)
+    );
+  if (pageToOpen !== undefined && chosenButton === pageToOpen.label)
+    yield* Effect.promise(() => vsCodeApi.env.openExternal(vsCodeApi.Uri.parse(pageToOpen.url)));
+  if (commandToRun !== undefined && chosenButton === commandToRun.label)
+    yield* Effect.promise(() => vsCodeApi.commands.executeCommand(commandToRun.commandId));
+});
+
 // Without waiting for the user to dismiss it, so whatever failed can finish now.
 export const showErrorNotificationWithoutWaiting = Effect.fn("showErrorNotificationWithoutWaiting")(function* (
   errorMessage: string,
-  errorButtons: {
-    readonly pageToOpen?: {readonly label: string; readonly url: string} | undefined;
-    readonly settingToOpen?: string | undefined;
-  } = {}
+  errorButtons: ErrorButtons = {}
 ) {
   const vsCodeApi = yield* VsCodeApi;
   const settingButtons = errorButtons.settingToOpen === undefined ? [] : [APP_LABELS.OPEN_SETTINGS];
   const pageButtons = errorButtons.pageToOpen === undefined ? [] : [errorButtons.pageToOpen.label];
+  const commandButtons = errorButtons.commandToRun === undefined ? [] : [errorButtons.commandToRun.label];
   const showErrorMessageAndWaitForButton = Effect.promise(() =>
-    vsCodeApi.window.showErrorMessage(`${APP_NAME}: ${errorMessage}`, ...settingButtons, ...pageButtons)
+    vsCodeApi.window.showErrorMessage(
+      `${APP_NAME}: ${errorMessage}`,
+      ...settingButtons,
+      ...pageButtons,
+      ...commandButtons
+    )
   );
 
-  const pageToOpen = errorButtons.pageToOpen;
-
   yield* Effect.forkDetach(
-    Effect.flatMap(showErrorMessageAndWaitForButton, (chosenButton) => {
-      if (chosenButton === APP_LABELS.OPEN_SETTINGS && errorButtons.settingToOpen !== undefined)
-        return Effect.promise(() =>
-          vsCodeApi.commands.executeCommand(VS_CODE_COMMANDS.OPEN_SETTINGS, errorButtons.settingToOpen)
-        );
-      if (pageToOpen !== undefined && chosenButton === pageToOpen.label)
-        return Effect.promise(() => vsCodeApi.env.openExternal(vsCodeApi.Uri.parse(pageToOpen.url)));
-
-      return Effect.void;
-    })
+    Effect.flatMap(showErrorMessageAndWaitForButton, (chosenButton) => runChosenErrorButton(errorButtons, chosenButton))
   );
 });

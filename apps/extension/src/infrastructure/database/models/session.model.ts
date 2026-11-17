@@ -12,6 +12,7 @@ export const SessionTableModel = sqliteTable("sessions", {
   baseBranchName: text(),
   customName: text(),
   hasWorked: integer({mode: "boolean"}).notNull().default(false),
+  importedAgentSessionId: text(),
   lifecycle: text().notNull().default(SESSION_LIFECYCLES.ONGOING),
   name: text().notNull(),
   projectId: text()

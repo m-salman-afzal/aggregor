@@ -20,6 +20,7 @@ import {
   drawBranches,
   drawChange,
   drawEverything,
+  drawImportableSessions,
   drawLeftovers,
   drawMoreSessions,
   drawViewedSession,
@@ -47,6 +48,7 @@ type WebviewViewReference = Ref.Ref<Result.Result<WebviewView, WebviewNotShownEr
 
 const SessionsWebviewMessageSchema = Schema.TaggedUnion({
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_BRANCHES]: {projectPath: Schema.String},
+  [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_IMPORTABLE_SESSIONS]: {projectPath: Schema.String},
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_LEFTOVERS]: {projectPath: Schema.String},
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.READY]: {},
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND]: {
@@ -141,6 +143,8 @@ const handleWebviewMessage = Effect.fn("SessionsView.handleWebviewMessage", {roo
     yield* Match.valueTags(sessionsWebviewMessage, {
       [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_BRANCHES]: (listBranches) =>
         drawBranches(webviewView, listBranches.projectPath),
+      [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_IMPORTABLE_SESSIONS]: (listImportableSessions) =>
+        drawImportableSessions(webviewView, listImportableSessions.projectPath),
       [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_LEFTOVERS]: (listLeftovers) =>
         drawLeftovers(webviewView, listLeftovers.projectPath),
       [SESSIONS_WEBVIEW_MESSAGE_TAGS.READY]: () => drawEverything(webviewView, shownSessionPages),

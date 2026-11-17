@@ -47,6 +47,8 @@ Alternatives considered with why it was dropped. Leave a field out rather than g
 - [sessions/worktrees.md](sessions/worktrees.md): Where a session works: its project's root, or a git worktree.
 - [sessions/titles.md](sessions/titles.md): The name a session shows.
 - [sessions/pullRequests.md](sessions/pullRequests.md): A session's pull request on its row, gh, and opening it.
+- [sessions/requiredTools.md](sessions/requiredTools.md): How tmux and gh get installed when they are missing.
+- [sessions/import.md](sessions/import.md): Importing an agent's earlier conversations as sessions.
 - [agents.md](agents.md): Which CLIs a session can run, and how a session picks one.
 - [status/pty.md](status/pty.md): The binary that runs each agent and records its status.
 - [status/statusDisplay.md](status/statusDisplay.md): How a session's status shows on its row.

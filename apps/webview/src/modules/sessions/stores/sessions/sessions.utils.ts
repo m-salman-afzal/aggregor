@@ -3,6 +3,7 @@ import {SESSION_LISTS, SESSIONS_VIEW_MESSAGE_TAGS} from "@pkg/constants/src/sess
 
 import type {SessionListId, UserInput} from "@/modules/sessions/sessions.type.ts";
 import type {HostMessagesByTag, SessionsData} from "@/modules/sessions/stores/sessions/sessions.type.ts";
+import type {ImportableSessionsDto} from "@dtos/sessionImport.dto.ts";
 import type {ProjectBranchesDto, ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
 import type {ProjectRowData, SessionRowData, SessionsViewMessage} from "@views/sessions/sessions.view.type.ts";
 
@@ -15,6 +16,12 @@ const replaceProjectRow = (projectRows: readonly ProjectRowData[], changedProjec
 const fillLeftovers = (userInput: undefined | UserInput, leftovers: ProjectLeftoversDto) =>
   userInput?._tag === USER_INPUT_TAGS.CLEAN_UP && userInput.projectPath === leftovers.projectPath
     ? {...userInput, leftovers}
+    : userInput;
+
+// Conversations listed for a dialog already closed, or for another project, are dropped.
+const fillImportableSessions = (userInput: undefined | UserInput, importableSessions: ImportableSessionsDto) =>
+  userInput?._tag === USER_INPUT_TAGS.IMPORT_SESSIONS && userInput.projectPath === importableSessions.projectPath
+    ? {...userInput, importableSessions}
     : userInput;
 
 // The dialog keeps the last project's branches, and offers them only while that project is chosen.
@@ -61,6 +68,10 @@ const hostMessageReducers: {
   [SESSIONS_VIEW_MESSAGE_TAGS.BRANCHES_DRAWN]: (sessionsData, branchesDrawn) => ({
     ...sessionsData,
     userInput: fillBranches(sessionsData.userInput, branchesDrawn.branches)
+  }),
+  [SESSIONS_VIEW_MESSAGE_TAGS.IMPORTABLE_SESSIONS_DRAWN]: (sessionsData, importableSessionsDrawn) => ({
+    ...sessionsData,
+    userInput: fillImportableSessions(sessionsData.userInput, importableSessionsDrawn.importableSessions)
   }),
   [SESSIONS_VIEW_MESSAGE_TAGS.LEFTOVERS_DRAWN]: (sessionsData, leftoversDrawn) => ({
     ...sessionsData,

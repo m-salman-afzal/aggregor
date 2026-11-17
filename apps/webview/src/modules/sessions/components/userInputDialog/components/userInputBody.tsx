@@ -1,4 +1,5 @@
 import {CleanUpInput} from "@/modules/sessions/components/userInputDialog/components/cleanUpInput/cleanUpInput.tsx";
+import {ImportSessionsInput} from "@/modules/sessions/components/userInputDialog/components/importSessionsInput/importSessionsInput.tsx";
 import {NewSessionInput} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.tsx";
 import {ProjectSettingsInput} from "@/modules/sessions/components/userInputDialog/components/projectSettingsInput/projectSettingsInput.tsx";
 import {QuestionInput} from "@/modules/sessions/components/userInputDialog/components/questionInput.tsx";
@@ -31,6 +32,8 @@ export const UserInputBody = (props: UserInputBodyProps) => {
     );
   if (props.userInput._tag === USER_INPUT_TAGS.CLEAN_UP)
     return <CleanUpInput leftovers={props.userInput.leftovers} onCancel={props.onCancel} onDelete={props.onCleanUp} />;
+  if (props.userInput._tag === USER_INPUT_TAGS.IMPORT_SESSIONS)
+    return <ImportSessionsInput onCancel={props.onCancel} userInput={props.userInput} />;
   if (props.userInput._tag === USER_INPUT_TAGS.QUESTION)
     return <QuestionInput answers={props.userInput.answers} onCancel={props.onCancel} onChoose={props.onChoose} />;
   if (props.userInput._tag === USER_INPUT_TAGS.PROJECT_SETTINGS)

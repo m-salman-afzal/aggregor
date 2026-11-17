@@ -8,7 +8,12 @@ import {
   makeNewSessionRequest
 } from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.utils.ts";
 import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
-import {askHostForLeftovers, runCommandOnHost} from "@/modules/sessions/sessions.service.ts";
+import {
+  askHostForImportableSessions,
+  askHostForLeftovers,
+  runCommandOnHost
+} from "@/modules/sessions/sessions.service.ts";
+import {SESSION_IMPORT_LABELS} from "@pkg/constants/src/agentHistory.constant.ts";
 import {LEFTOVER_LABELS, WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
 import {PROJECT_COMMANDS, PROJECT_SETTINGS_LABELS} from "@pkg/constants/src/project.constant.ts";
 import {SESSION_COMMANDS, SESSION_LABELS, SESSION_NOTICES} from "@pkg/constants/src/session.constant.ts";
@@ -209,6 +214,24 @@ const cleanUpLeftoversAsking = (askingContext: AskingContext, commandArgument: R
   askHostForLeftovers(projectListItem.path);
 };
 
+// The dialog opens at once and fills in when the host has read each agent's history.
+const importSessionsAsking = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
+  const projectListItem = findListedProject(askingContext, commandArgument);
+  if (projectListItem === undefined) return;
+
+  askingContext.showUserInput({
+    _tag: USER_INPUT_TAGS.IMPORT_SESSIONS,
+    importableSessions: undefined,
+    onImport: (importedSessions) => {
+      askingContext.revealSessionsProject(projectListItem.path);
+      runCommandOnHost(SESSION_COMMANDS.IMPORT, {importedSessions, projectPath: projectListItem.path});
+    },
+    projectPath: projectListItem.path,
+    title: SESSION_IMPORT_LABELS.TITLE(projectListItem.name)
+  });
+  askHostForImportableSessions(projectListItem.path);
+};
+
 const startSession = (askingContext: AskingContext, newSessionRequest: CommandRequest) => {
   if (typeof newSessionRequest.projectPath === "string")
     askingContext.revealSessionsProject(newSessionRequest.projectPath);
@@ -263,6 +286,9 @@ const startSessionAsking = (askingContext: AskingContext, commandArgument: RowCo
 const askingActions: Partial<Record<RowAction["commandId"], AskingAction>> = {
   [PROJECT_COMMANDS.SAVE_SETTINGS]: (askingContext, _rowAction, commandArgument) => {
     editProjectSettings(askingContext, commandArgument);
+  },
+  [SESSION_COMMANDS.IMPORT]: (askingContext, _rowAction, commandArgument) => {
+    importSessionsAsking(askingContext, commandArgument);
   },
   [SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT]: (askingContext, _rowAction, commandArgument) => {
     startSessionAsking(askingContext, commandArgument);

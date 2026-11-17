@@ -2,6 +2,7 @@ export const SESSION_COMMANDS = {
   ARCHIVE: "aggregorApp.archiveSession",
   ARCHIVE_ONGOING: "aggregorApp.archiveOngoingSessions",
   ARCHIVE_PROJECT_SESSIONS: "aggregorApp.archiveProjectSessions",
+  IMPORT: "aggregorApp.importSessions",
   MOVE_DOWN: "aggregorApp.moveSessionDown",
   MOVE_UP: "aggregorApp.moveSessionUp",
   NEW_IN_CHOSEN_PROJECT: "aggregorApp.newSessionInChosenProject",

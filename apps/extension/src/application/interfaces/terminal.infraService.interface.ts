@@ -44,6 +44,7 @@ export class ITerminalInfraService extends Context.Service<
   ITerminalInfraService,
   {
     readonly activatedSessionIds: Stream.Stream<EntityIdValueObject>;
+    readonly closedSetupTerminals: Stream.Stream<void>;
     readonly closeFolderTerminal: (folderPath: ProjectPathValueObject) => Effect.Effect<void>;
     readonly closeSessionTerminal: (sessionId: EntityIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
     readonly focusSessionTerminal: (sessionId: EntityIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
@@ -57,6 +58,8 @@ export class ITerminalInfraService extends Context.Service<
       session: SessionEntity,
       sessionTabRequest: SessionTabRequest
     ) => Effect.Effect<void, TerminalLaunchFailedError>;
+    // A command the user watches and answers, such as sudo's password; its output stays until they press Enter.
+    readonly openSetupTerminal: (commandLine: string) => Effect.Effect<void>;
     // The Terminal panel follows the shown session's folder, or its project's, while it shows another folder's terminal.
     readonly switchToFolderTerminal: (
       workingFolderPath: ProjectPathValueObject,

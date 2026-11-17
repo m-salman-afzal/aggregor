@@ -8,11 +8,8 @@ import {
   removeChosenProject,
   saveChosenProjectSettings
 } from "@controllers/project.controller.ts";
-import {
-  installGitHubCliFromNotice,
-  openChosenSessionPullRequest,
-  signInToGitHubCliFromNotice
-} from "@controllers/pullRequest.controller.ts";
+import {openChosenSessionPullRequest, signInToGitHubCliFromNotice} from "@controllers/pullRequest.controller.ts";
+import {installRequiredToolsFromNotice} from "@controllers/requiredTools.controller.ts";
 import {
   archiveAllOngoingSessions,
   archiveChosenProjectSessions,
@@ -32,6 +29,7 @@ import {
   stopChosenSessionAgent,
   unarchiveChosenSession
 } from "@controllers/session.controller.ts";
+import {importChosenSessions} from "@controllers/sessionImport.controller.ts";
 import {cleanUpChosenProjectLeftovers} from "@controllers/worktree.controller.ts";
 import {registerCommand} from "@middlewares/registerCommand.middleware.ts";
 import {AGENT_COMMANDS} from "@pkg/constants/src/agent.constant.ts";
@@ -40,6 +38,7 @@ import {COMMIT_MESSAGE_COMMANDS} from "@pkg/constants/src/commitMessage.constant
 import {WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
 import {GITHUB_CLI_COMMANDS} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {PROJECT_COMMANDS} from "@pkg/constants/src/project.constant.ts";
+import {REQUIRED_TOOLS_COMMANDS} from "@pkg/constants/src/requiredTools.constant.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {TERMINAL_COMMANDS} from "@pkg/constants/src/terminal.constant.ts";
 import {openAggregorSettingsInSettingsEditor} from "@pkg/vscode/src/vscode.utils.ts";
@@ -47,7 +46,9 @@ import {presentAppCommandError} from "@presenters/app.presenter.ts";
 import {presentCommitMessageCommandError} from "@presenters/commitMessage.presenter.ts";
 import {presentProjectCommandError} from "@presenters/project.presenter.ts";
 import {presentPullRequestCommandError} from "@presenters/pullRequest.presenter.ts";
+import {presentRequiredToolsCommandError} from "@presenters/requiredTools.presenter.ts";
 import {presentSessionCommandError} from "@presenters/session.presenter.ts";
+import {presentSessionImportCommandError} from "@presenters/sessionImport.presenter.ts";
 import {presentWorktreeCommandError} from "@presenters/worktree.presenter.ts";
 import {Effect, Layer} from "effect";
 
@@ -73,6 +74,7 @@ export const RoutesLayer = Layer.effectDiscard(
       archiveChosenProjectSessions,
       presentSessionCommandError
     ),
+    registerCommand(SESSION_COMMANDS.IMPORT, importChosenSessions, presentSessionImportCommandError),
     registerCommand(SESSION_COMMANDS.MOVE_DOWN, moveChosenSessionDown, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.MOVE_UP, moveChosenSessionUp, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT, newSessionInChosenProject, presentSessionCommandError),
@@ -96,13 +98,13 @@ export const RoutesLayer = Layer.effectDiscard(
       openChosenSessionFolderTerminal,
       presentSessionCommandError
     ),
-    registerCommand(GITHUB_CLI_COMMANDS.INSTALL, installGitHubCliFromNotice, presentPullRequestCommandError),
     registerCommand(
       GITHUB_CLI_COMMANDS.OPEN_SESSION_PULL_REQUEST,
       openChosenSessionPullRequest,
       presentPullRequestCommandError
     ),
     registerCommand(GITHUB_CLI_COMMANDS.SIGN_IN, signInToGitHubCliFromNotice, presentPullRequestCommandError),
+    registerCommand(REQUIRED_TOOLS_COMMANDS.INSTALL, installRequiredToolsFromNotice, presentRequiredToolsCommandError),
     registerCommand(WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS, cleanUpChosenProjectLeftovers, presentWorktreeCommandError)
   ])
 );

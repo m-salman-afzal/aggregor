@@ -52,13 +52,15 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
   (the branch, or detached commit, its project had checked out when Aggregor made that worktree, which its diff counts
   from; NULL in the project's root, in a worktree it didn't make, and for sessions made before the column) and
   `runState` (`running` while Aggregor last saw its agent run, `interrupted` once a window started with every agent
-  gone, as after a restart, else NULL). The `id` is also the agent's session id.
-- **Written by:** `SessionService` through the base service: a row per New Session, `name` when the agent's title in the
-  row changes, `customName` on Rename, `viewedAt` as the session comes into and leaves view, `sortId` on Move Up, Move
-  Down and a drop on another of its project's sessions in the same list, `lifecycle` and `sortId` on Archive and
-  Unarchive, which place the session last in its new list, `runState` as tmux's list of agents changes and as a window
-  starts, and a soft delete on Remove Session. Removing a project keeps its sessions, so adding the project again lists
-  them again.
+  gone, as after a restart, else NULL) and `importedAgentSessionId` (the agent's own id for a conversation imported from
+  its history, which its arguments resume in place of the `id`; NULL for a session Aggregor started). Otherwise the `id`
+  is also the agent's session id.
+- **Written by:** `SessionService` through the base service: a row per New Session (and `SessionImportService`'s, a row
+  per imported conversation), `name` when the agent's title in the row changes, `customName` on Rename, `viewedAt` as
+  the session comes into and leaves view, `sortId` on Move Up, Move Down and a drop on another of its project's sessions
+  in the same list, `lifecycle` and `sortId` on Archive and Unarchive, which place the session last in its new list,
+  `runState` as tmux's list of agents changes and as a window starts, and a soft delete on Remove Session. Removing a
+  project keeps its sessions, so adding the project again lists them again.
 - **Read by:** `SessionService`, with the project's path: the Sessions view reads each row of both lists as it draws it.
 - **Status columns:** `status` (`unknown` until a report, `exited` once the agent is gone), `statusKind`,
   `statusMessage`, `statusProgress`, `statusChangedAt` (when the state last changed), `hasWorked` (it has reported

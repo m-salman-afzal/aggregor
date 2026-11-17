@@ -1,11 +1,6 @@
 import {OpenSessionPullRequestRequestDtoSchema} from "@dtos/pullRequest.dto.ts";
 import {decodeVsCodeArgument} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
-import {
-  installGitHubCli,
-  openSessionPullRequest,
-  signInToGitHubCli,
-  watchGitHubCliProblems
-} from "@services/pullRequest.service.ts";
+import {openSessionPullRequest, signInToGitHubCli, watchGitHubCliSignedOut} from "@services/pullRequest.service.ts";
 import {Effect} from "effect";
 
 export const openChosenSessionPullRequest = Effect.fn("PullRequestController.openChosenSessionPullRequest")(function* (
@@ -15,16 +10,12 @@ export const openChosenSessionPullRequest = Effect.fn("PullRequestController.ope
   yield* openSessionPullRequest(request);
 });
 
-export const installGitHubCliFromNotice = Effect.fn("PullRequestController.installGitHubCliFromNotice")(function* () {
-  yield* installGitHubCli();
-});
-
 export const signInToGitHubCliFromNotice = Effect.fn("PullRequestController.signInToGitHubCliFromNotice")(function* () {
   yield* signInToGitHubCli();
 });
 
-export const watchGitHubCliProblemsForGitHubCliNoticesView = Effect.fn(
-  "PullRequestController.watchGitHubCliProblemsForGitHubCliNoticesView"
+export const watchGitHubCliSignedOutForGitHubCliNoticesView = Effect.fn(
+  "PullRequestController.watchGitHubCliSignedOutForGitHubCliNoticesView"
 )(function* () {
-  return yield* watchGitHubCliProblems();
+  return yield* watchGitHubCliSignedOut();
 });

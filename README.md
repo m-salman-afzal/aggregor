@@ -22,7 +22,10 @@ terminals, tree views, Source Control and diffs.
   to run in one window. A project row's + starts a session in it, the Sessions title's + asks which project to use, its
   terminal button opens the project's own terminal, and its … menu edits its settings (Project Settings…: where its
   worktrees go, the files copied into them, a setup script, and whether new sessions start in a worktree) and, for an
-  added project, removes it. Everything runs from the view; the Command Palette lists no Aggregor command.
+  added project, removes it. Its Import Sessions… lists the conversations Claude Code, Codex, OpenCode and GitHub
+  Copilot had in the project's folder that aren't sessions yet, newest first under each agent; the ones you tick become
+  sessions, and clicking one resumes that conversation. Everything runs from the view; the Command Palette lists no
+  Aggregor command.
 - **One project in view.** Like VS Code's Agents window, the workspace follows the session in front of you: its project
   is the only folder Explorer, search, file watching and Source Control see. Opening a file keeps the project. The first
   switch opens Aggregor's own workspace, `~/.aggregor/anchor/Aggregor.code-workspace`, in the window: a hidden, empty
@@ -78,8 +81,10 @@ terminals, tree views, Source Control and diffs.
 - **Pull requests.** A worktree session's row shows its branch's pull request, `#123` coloured by whether it is open, a
   draft, merged or closed, as the GitHub CLI (`gh`) finds it, looked up again when the window regains focus and when the
   session's turn ends. Clicking it, or Open Pull Request in the row's … menu, opens it in the browser, or in the GitHub
-  Pull Requests extension with `aggregorApp.openPullRequestIn` set to `vscode`. Without `gh`, or signed out, a
-  notification offers to run the install command for the system's package manager, or `gh auth login`, in a terminal.
+  Pull Requests extension with `aggregorApp.openPullRequestIn` set to `vscode`. Signed out of `gh`, a notification
+  offers to run `gh auth login` in a terminal.
+- **Setup.** When the window starts without tmux or `gh`, one notification names what is missing, and its Install runs
+  one command for the system's package manager, such as `sudo apt-get install -y tmux gh`, in a terminal.
 - **AI commit messages.** A Source Control button writes the commit message for the staged diff.
 - **Trace logging.** `aggregorApp.traceLogging` writes every step Aggregor runs, with the fields of every error it
   meets, to the **Aggregor App** output channel and its log file, to attach to a bug report.
@@ -117,6 +122,8 @@ solution and what was turned down.
 - [ ] Bookmarks
 - [x] A session's pull request on its row, from the GitHub CLI
 - [ ] Create a pull request from a session
+- [x] One Install for whatever of tmux and gh is missing, through the system's package manager
+- [x] Import a project's earlier Claude Code, Codex, OpenCode and Copilot conversations as sessions
 
 ### M4: SSH
 
@@ -132,7 +139,7 @@ solution and what was turned down.
     arm64 (musl, with libevent and ncurses), and for macOS x64 and arm64 with libevent and ncurses linked in and only
     the system library dynamic, as every macOS binary is. A WSL window installs the Linux VSIX, so it gets one too.
   - A Linux or macOS VSIX always runs its own `bin/tmux`. A local build without it keeps `tmux` from `PATH`, with the
-    version check and the Install tmux button.
+    version check and the Install button.
   - Ship the `xterm-256color` and `tmux-256color` terminfo entries and point tmux at them (`TERMINFO_DIRS`): Linux
     distributions keep them in different places, and macOS has no `tmux-256color`.
   - `pnpm --filter=aggregor-app build:tmux` builds it for this machine into `apps/extension/bin`, like `build:pty`; it
@@ -157,7 +164,6 @@ Each is an `enhancement` issue, built when users ask for it:
 - [ ] Sub agents view in the sidebar (#140)
 - [ ] A terminal client, light like neovim, for working without VS Code (#141)
 - [ ] Show a project in the window without opening a session (#136)
-- [ ] Import an agent's earlier conversations into a project (#137)
 - [ ] A session that belongs to no project, working in the home folder (#138)
 
 ### Later

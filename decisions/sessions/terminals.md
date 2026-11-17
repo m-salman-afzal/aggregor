@@ -64,7 +64,8 @@ Where a session's agent runs, its tab, and resuming it.
     starts or regains focus, when a terminal closes, after a session's tab opens and after each stop; it isn't written
     to the database, so the status column keeps one writer.
   - Remove Session asks first while the agent runs, then kills its tmux session and closes its tab.
-  - tmux missing or too old fails a start with an error and an **Install tmux** button for tmux's install page.
+  - tmux missing or too old fails a start with an error whose **Install** runs the system's package manager in a
+    terminal (see [requiredTools.md](requiredTools.md)).
   - `extensionKind: ["workspace"]`, so in a WSL or remote window the extension, tmux and the agents run there.
 
   An agent outlives its tab, a reload and VS Code, sees the terminal's real colours and VS Code's terminal environment,
@@ -88,8 +89,6 @@ Where a session's agent runs, its tab, and resuming it.
   - One tmux client for every tab, through tmux control mode (`-CC`), with the extension drawing each tab as a
     Pseudoterminal: one process instead of a small tmux client (about 1.4 MB) per open tab, but all agent output would
     pass through the extension host, and tabs would no longer survive a reload by themselves.
-  - One-click tmux install through a terminal running the system's package manager: held back for now; `pkexec` is
-    missing in WSL and over SSH, so the error links to tmux's install page instead.
   - Bundling tmux in the VSIX: it means shipping and patching tmux, and macOS has no fully static build. The README's M5
     plans to bundle it after all, with libevent and ncurses linked in.
 

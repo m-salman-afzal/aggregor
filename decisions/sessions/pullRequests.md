@@ -36,19 +36,15 @@ A session's pull request on its row, and opening it.
   review state on the row; a timer that looks every branch up every few minutes (Superset, Vibe Kanban); the number as
   its own button over the row, which would have meant drawing the row's button as an overlay.
 
-## A missing or signed-out gh asks once, and installs only through the system's package manager
+## A signed-out gh asks once to sign in
 
-- **Problem:** without gh, or with gh signed out, no pull request ever shows, and nothing would say why.
-- **Decision:** the first lookup that meets either raises an information notification, once per window: gh missing names
-  the command that would install it, as gh's install guide gives it for the first package manager on `PATH`
-  (`brew install gh`, `sudo apt-get install -y gh`, `dnf`, `pacman`, `zypper`, `apk`), and its **Install gh** button
-  runs that command in a terminal, where sudo asks for the password; with no known package manager, **Install Page**
-  opens gh's install page. Signed out, **Sign In** runs `gh auth login` in a terminal. Aggregor never ships or downloads
-  a gh of its own: gh comes from `PATH`, installed the way the user installs everything else, and updated with it.
-- **Solution:** the terminal, named GitHub CLI, runs the command through `sh -c` and waits for Enter so its output stays
-  readable; its close looks every branch up again and lets each notice show once more, so a sign-in still missing asks
-  again. `GitHubCliNoticesView` shows the notices; `PullRequestService` picks the install command with
-  `IShellCommandInfraService.listInstalledCommands`.
-- **Alternatives considered:** downloading gh's release for the platform into the Aggregor folder, checked against the
-  release's checksums, and using it when gh isn't on `PATH`: turned down, since a gh Aggregor ships is one the user
-  never installed or updates; a link to the install page only, as tmux has, which leaves the user to find the command.
+- **Problem:** with gh signed out, no pull request ever shows, and nothing would say why.
+- **Decision:** the first lookup that meets exit code 4 raises an information notification, once per window, whose
+  **Sign In** runs `gh auth login` in the setup terminal. A gh missing from `PATH` is the startup check's to report (see
+  [requiredTools.md](requiredTools.md)); a lookup that can't run gh, or runs in a folder deleted since, is only no pull
+  request.
+- **Solution:** the setup terminal's close looks every branch up again and lets the notice show once more, so a sign-in
+  still missing asks again. `GitHubCliNoticesView` shows it.
+- **Alternatives considered:** each lookup that can't start gh raising its own "gh is missing" notice, as before the
+  startup check: a lookup whose worktree folder had just been deleted failed the same way, and said gh was missing while
+  it was installed.
