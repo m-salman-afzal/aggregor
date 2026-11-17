@@ -6,3 +6,4 @@ src/**
 **/*.map
 **/*.ts
 assets/migrations/**/snapshot.json
+media/**

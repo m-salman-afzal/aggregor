@@ -140,3 +140,16 @@ What lint checks, where its setup lives, and how its messages read.
   value or type, everywhere. Tags that `Schema.TaggedError` and `Schema.TaggedUnion` define stay their schemas', and
   matches on them keep the tag names as keys.
 - **Alternatives considered:** only the webview's messages, which leaves the same string copies in the extension.
+
+## Every scrolling element uses `scrollbar-minimal`
+
+- **Problem:** the thin scrollbar was a class to remember, and new scroll areas (the import and cleanup lists, the
+  menus) kept shipping VS Code's thick webview scrollbar.
+- **Decision:** any class list in `apps/webview` or `@pkg/ui` that scrolls (`overflow-auto`, `overflow-y-scroll` and the
+  like, with any variant prefix) carries `scrollbar-minimal` too. shadcn's components are checked as well, since their
+  menus scroll.
+- **Solution:** `aggregor/minimal-scrollbar` reads every string and template part; when one scrolls, it looks for
+  `scrollbar-minimal` across the whole expression around it, so a class list split over `+`, `cn(...)` or a template
+  still counts as one.
+- **Alternatives considered:** a `ScrollArea` component, which every list would have to be rewritten into; a global
+  `::-webkit-scrollbar` style, which would also restyle scrollbars we don't own and lose the per-element hover reveal.
