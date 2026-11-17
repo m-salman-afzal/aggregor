@@ -58,6 +58,8 @@ Alternatives considered with why it was dropped. Leave a field out rather than g
 - [sessionsView/webview.md](sessionsView/webview.md): The Sessions view drawn in a webview of our own.
 - [commitMessage.md](commitMessage.md): The Source Control button that writes a commit message.
 - [tracing.md](tracing.md): Span names, the trace log, and the skill that reads it.
+- [backgroundJobs.md](backgroundJobs.md): Every timer, poll, watcher and lasting process Aggregor runs, and what reaches
+  the network, as one table kept current.
 - [release/build.md](release/build.md): How the extension is bundled, checked and packaged.
 - [release/dependencies.md](release/dependencies.md): How dependency versions are pinned and updated.
 - [release/publishing.md](release/publishing.md): How a version is bumped, released and published.
