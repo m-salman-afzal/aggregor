@@ -13,6 +13,7 @@ import {useSyncExternalStore} from "react";
 import type {ChosenLeftovers, SessionListId, UserInput} from "@/modules/sessions/sessions.type.ts";
 import type {SessionsData, SessionsState} from "@/modules/sessions/stores/sessions/sessions.type.ts";
 import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
+import type {ImportedSessionDto} from "@dtos/sessionImport.dto.ts";
 import type {CommandRequest} from "@views/sessions/sessions.view.type.ts";
 
 interface UseSessionsStoreProps<Selected> {
@@ -104,6 +105,11 @@ const deleteChosenLeftovers = (chosenLeftovers: ChosenLeftovers) => {
   if (userInput?._tag === USER_INPUT_TAGS.CLEAN_UP) userInput.onDelete(chosenLeftovers);
 };
 
+const importChosenSessions = (importedSessions: readonly ImportedSessionDto[]) => {
+  const userInput = takeUserInput();
+  if (userInput?._tag === USER_INPUT_TAGS.IMPORT_SESSIONS) userInput.onImport(importedSessions);
+};
+
 const answerWithText = (enteredText: string) => {
   const userInput = takeUserInput();
   if (userInput?._tag === USER_INPUT_TAGS.TEXT) userInput.onEnterText(enteredText);
@@ -151,6 +157,7 @@ export const useSessionsStore = <Selected>(props: UseSessionsStoreProps<Selected
       confirmQuestion,
       deleteChosenLeftovers,
       hideWorktreeTrustHint,
+      importChosenSessions,
       markViewedSession,
       revealSessionsProject,
       saveProjectSettings,

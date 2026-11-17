@@ -22,7 +22,10 @@ terminals, tree views, Source Control and diffs.
   to run in one window. A project row's + starts a session in it, the Sessions title's + asks which project to use, its
   terminal button opens the project's own terminal, and its … menu edits its settings (Project Settings…: where its
   worktrees go, the files copied into them, a setup script, and whether new sessions start in a worktree) and, for an
-  added project, removes it. Everything runs from the view; the Command Palette lists no Aggregor command.
+  added project, removes it. Its Import Sessions… lists the conversations Claude Code, Codex, OpenCode and GitHub
+  Copilot had in the project's folder that aren't sessions yet, newest first under each agent; the ones you tick become
+  sessions, and clicking one resumes that conversation. Everything runs from the view; the Command Palette lists no
+  Aggregor command.
 - **One project in view.** Like VS Code's Agents window, the workspace follows the session in front of you: its project
   is the only folder Explorer, search, file watching and Source Control see. Opening a file keeps the project. The first
   switch opens Aggregor's own workspace, `~/.aggregor/anchor/Aggregor.code-workspace`, in the window: a hidden, empty
@@ -120,6 +123,7 @@ solution and what was turned down.
 - [x] A session's pull request on its row, from the GitHub CLI
 - [ ] Create a pull request from a session
 - [x] One Install for whatever of tmux and gh is missing, through the system's package manager
+- [x] Import a project's earlier Claude Code, Codex, OpenCode and Copilot conversations as sessions
 
 ### M4: SSH
 
@@ -160,7 +164,6 @@ Each is an `enhancement` issue, built when users ask for it:
 - [ ] Sub agents view in the sidebar (#140)
 - [ ] A terminal client, light like neovim, for working without VS Code (#141)
 - [ ] Show a project in the window without opening a session (#136)
-- [ ] Import an agent's earlier conversations into a project (#137)
 - [ ] A session that belongs to no project, working in the home folder (#138)
 
 ### Later

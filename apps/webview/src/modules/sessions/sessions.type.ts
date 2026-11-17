@@ -1,5 +1,6 @@
 import type {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
+import type {ImportableSessionsDto, ImportedSessionDto} from "@dtos/sessionImport.dto.ts";
 import type {ProjectBranchesDto, ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
 import type {SESSION_LISTS, SESSIONS_WEBVIEW_COMMANDS} from "@pkg/constants/src/sessionsView.constant.ts";
 import type {CommandRequest} from "@views/sessions/sessions.view.type.ts";
@@ -27,6 +28,13 @@ export type UserInput =
       readonly _tag: typeof USER_INPUT_TAGS.CLEAN_UP;
       readonly leftovers: ProjectLeftoversDto | undefined;
       readonly onDelete: (chosenLeftovers: ChosenLeftovers) => void;
+      readonly projectPath: string;
+      readonly title: string;
+    }
+  | {
+      readonly _tag: typeof USER_INPUT_TAGS.IMPORT_SESSIONS;
+      readonly importableSessions: ImportableSessionsDto | undefined;
+      readonly onImport: (importedSessions: readonly ImportedSessionDto[]) => void;
       readonly projectPath: string;
       readonly title: string;
     }

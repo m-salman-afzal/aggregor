@@ -29,6 +29,7 @@ import {
   stopChosenSessionAgent,
   unarchiveChosenSession
 } from "@controllers/session.controller.ts";
+import {importChosenSessions} from "@controllers/sessionImport.controller.ts";
 import {cleanUpChosenProjectLeftovers} from "@controllers/worktree.controller.ts";
 import {registerCommand} from "@middlewares/registerCommand.middleware.ts";
 import {AGENT_COMMANDS} from "@pkg/constants/src/agent.constant.ts";
@@ -47,6 +48,7 @@ import {presentProjectCommandError} from "@presenters/project.presenter.ts";
 import {presentPullRequestCommandError} from "@presenters/pullRequest.presenter.ts";
 import {presentRequiredToolsCommandError} from "@presenters/requiredTools.presenter.ts";
 import {presentSessionCommandError} from "@presenters/session.presenter.ts";
+import {presentSessionImportCommandError} from "@presenters/sessionImport.presenter.ts";
 import {presentWorktreeCommandError} from "@presenters/worktree.presenter.ts";
 import {Effect, Layer} from "effect";
 
@@ -72,6 +74,7 @@ export const RoutesLayer = Layer.effectDiscard(
       archiveChosenProjectSessions,
       presentSessionCommandError
     ),
+    registerCommand(SESSION_COMMANDS.IMPORT, importChosenSessions, presentSessionImportCommandError),
     registerCommand(SESSION_COMMANDS.MOVE_DOWN, moveChosenSessionDown, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.MOVE_UP, moveChosenSessionUp, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT, newSessionInChosenProject, presentSessionCommandError),

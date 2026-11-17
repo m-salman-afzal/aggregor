@@ -1,0 +1,46 @@
+import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
+import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
+import {Schema} from "effect";
+
+export const ListImportableSessionsRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
+
+export type ListImportableSessionsRequestDto = typeof ListImportableSessionsRequestDtoSchema.Type;
+
+export const ImportableSessionDtoSchema = Schema.Struct({
+  agentSessionId: Schema.NonEmptyString,
+  title: Schema.String,
+  updatedAt: Schema.String
+});
+
+export type ImportableSessionDto = typeof ImportableSessionDtoSchema.Type;
+
+// Newest first.
+export const AgentImportableSessionsDtoSchema = Schema.Struct({
+  agentId: AgentIdValueObjectSchema,
+  agentName: Schema.String,
+  importableSessions: Schema.Array(ImportableSessionDtoSchema)
+});
+
+export type AgentImportableSessionsDto = typeof AgentImportableSessionsDtoSchema.Type;
+
+export const ImportableSessionsDtoSchema = Schema.Struct({
+  agentGroups: Schema.Array(AgentImportableSessionsDtoSchema),
+  projectPath: ProjectPathValueObjectSchema
+});
+
+export type ImportableSessionsDto = typeof ImportableSessionsDtoSchema.Type;
+
+export const ImportedSessionDtoSchema = Schema.Struct({
+  agentId: AgentIdValueObjectSchema,
+  agentSessionId: Schema.NonEmptyString,
+  title: Schema.String
+});
+
+export type ImportedSessionDto = typeof ImportedSessionDtoSchema.Type;
+
+export const ImportSessionsRequestDtoSchema = Schema.Struct({
+  importedSessions: Schema.Array(ImportedSessionDtoSchema),
+  projectPath: ProjectPathValueObjectSchema
+});
+
+export type ImportSessionsRequestDto = typeof ImportSessionsRequestDtoSchema.Type;

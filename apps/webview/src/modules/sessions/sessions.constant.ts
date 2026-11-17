@@ -1,3 +1,4 @@
+import {SESSION_IMPORT_LABELS} from "@pkg/constants/src/agentHistory.constant.ts";
 import {APP_COMMANDS, APP_LABELS} from "@pkg/constants/src/app.constant.ts";
 import {LEFTOVER_LABELS, WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
 import {GITHUB_CLI_COMMANDS} from "@pkg/constants/src/gitHubCli.constant.ts";
@@ -16,6 +17,7 @@ import {
   FolderPlusIcon,
   GitBranchIcon,
   GitPullRequestIcon,
+  ImportIcon,
   PencilIcon,
   PlusIcon,
   SettingsIcon,
@@ -57,6 +59,7 @@ export const APPEARANCE = {
 
 export const USER_INPUT_TAGS = {
   CLEAN_UP: "CleanUpInput",
+  IMPORT_SESSIONS: "ImportSessionsInput",
   NEW_SESSION: "NewSessionInput",
   PROJECT_SETTINGS: "ProjectSettingsInput",
   QUESTION: "QuestionInput",
@@ -80,6 +83,7 @@ export const ROW_ACTIONS = {
     icon: BroomIcon,
     label: LEFTOVER_LABELS.CLEAN_UP
   },
+  IMPORT_SESSIONS: {commandId: SESSION_COMMANDS.IMPORT, icon: ImportIcon, label: SESSION_IMPORT_LABELS.MENU},
   MOVE_PROJECT_DOWN: {
     commandId: PROJECT_COMMANDS.MOVE_DOWN,
     icon: ArrowDownIcon,

@@ -148,7 +148,12 @@ heading there. Update this file in the same commit as a change that adds, remove
 - **What we use:** the built-ins in `aggregorApp.agents`' default (`apps/extension/package.json`): `claude` (Claude
   Code), `codex`, `agy` (Antigravity), `opencode` and `copilot` (GitHub Copilot), each with its start and resume
   arguments; any other CLI is one settings entry. Each reports status through OSC 7501, except Copilot, which sends none
-  and shows as idle. New Session lists those whose command is on `PATH` (`os/shellCommand.infraService.ts`).
+  and shows as idle. New Session lists those whose command is on `PATH` (`os/shellCommand.infraService.ts`). Import
+  Sessions reads four agents' own stores, read-only, for the conversations a project's folder had
+  (`infrastructure/services/agentHistory/`): Claude Code's `~/.claude/projects/<folder>/*.jsonl` (the first and last 64
+  KB of each), Codex's `threads` table in `~/.codex/state_5.sqlite`, OpenCode's `session_v2` in
+  `~/.local/share/opencode/opencode.db`, and Copilot's `~/.copilot/session-state/*/workspace.yaml`, each moved by the
+  variable the agent itself reads (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_DATA_HOME` or `OPENCODE_DB`, `COPILOT_HOME`).
 - **Why:** each agent keeps its own UI, and VS Code supplies the rest.
 - **Alternatives:** "Agents run in their own terminal UIs": an ACP client with a webview chat UI, VS Code's chat
   sessions API. The harness-foundation plan: Antigravity in place of Gemini CLI, which is deprecated; crush, goose, pi

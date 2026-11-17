@@ -23,6 +23,10 @@ export const askHostForBranches = (projectPath: string) => {
   postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_BRANCHES, projectPath});
 };
 
+export const askHostForImportableSessions = (projectPath: string) => {
+  postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_IMPORTABLE_SESSIONS, projectPath});
+};
+
 export const askHostForLeftovers = (projectPath: string) => {
   postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_LEFTOVERS, projectPath});
 };

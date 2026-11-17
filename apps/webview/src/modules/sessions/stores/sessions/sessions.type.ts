@@ -1,5 +1,6 @@
 import type {ChosenLeftovers, SessionListId, UserInput} from "@/modules/sessions/sessions.type.ts";
 import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
+import type {ImportedSessionDto} from "@dtos/sessionImport.dto.ts";
 import type {
   AgentRowData,
   CommandRequest,
@@ -33,6 +34,7 @@ export interface SessionsState extends SessionsData {
   readonly confirmQuestion: () => void;
   readonly deleteChosenLeftovers: (chosenLeftovers: ChosenLeftovers) => void;
   readonly hideWorktreeTrustHint: () => void;
+  readonly importChosenSessions: (importedSessions: readonly ImportedSessionDto[]) => void;
   readonly markViewedSession: (sessionId: string) => void;
   readonly revealSessionsProject: (projectPath: string) => void;
   readonly saveProjectSettings: (projectSettings: ProjectSettingsDto) => void;

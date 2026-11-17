@@ -7,6 +7,7 @@ import {
   listProjectsWithSessionsForSessionsView,
   listSessionsWaitingOnUserForSessionsView
 } from "@controllers/session.controller.ts";
+import {listImportableSessionsForSessionsView} from "@controllers/sessionImport.controller.ts";
 import {
   listProjectBranchesForSessionsView,
   listProjectLeftoversForSessionsView
@@ -148,6 +149,19 @@ export const drawMoreSessions = Effect.fn("SessionsView.drawMoreSessions")(funct
     ? drawArchive(webviewView, shownSessionPages)
     : drawProject(webviewView, shownSessionPages, moreSessionsRequest.projectPath);
 });
+
+// A project no longer listed draws no list; the webview's dialog keeps waiting until closed.
+export const drawImportableSessions = Effect.fn("SessionsView.drawImportableSessions")(
+  function* (webviewView: WebviewView, projectPath: string) {
+    const importableSessions = yield* listImportableSessionsForSessionsView(projectPath);
+
+    yield* postToWebview(webviewView, {
+      _tag: SESSIONS_VIEW_MESSAGE_TAGS.IMPORTABLE_SESSIONS_DRAWN,
+      importableSessions
+    });
+  },
+  Effect.catch((importError) => Effect.logWarning("Could not list the project's importable sessions", importError))
+);
 
 // A project no longer listed, or no git repository, draws no list; the webview's dialog keeps waiting until closed.
 export const drawLeftovers = Effect.fn("SessionsView.drawLeftovers")(

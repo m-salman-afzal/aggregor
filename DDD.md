@@ -271,6 +271,8 @@ apps/extension/src/
                                            saveProjectSettings; ProjectNotListedError
       pullRequest.service.ts               openSessionPullRequest, signInToGitHubCli, watchGitHubCliSignedOut,
                                            startPullRequestRefreshOnTurnEnd
+      sessionImport.service.ts             listImportableSessions (each agent's conversations in a project's folder
+                                           that aren't sessions yet), importSessions
       requiredTools.service.ts             watchMissingTools: tmux and gh checked at start and after the setup
                                            terminal closes; installRequiredTools; NoPackageManagerError
       worktree.service.ts                  listProjectLeftovers, cleanUpProjectLeftovers (a project's worktrees and
@@ -289,6 +291,8 @@ apps/extension/src/
                                            project use case
       pullRequest.dto.ts                   OpenSessionPullRequestRequestDto
       requiredTools.dto.ts                 MissingToolsDto with its MissingToolDto
+      sessionImport.dto.ts                 ImportableSessionsDto (AgentImportableSessionsDto, ImportableSessionDto),
+                                           ImportSessionsRequestDto with its ImportedSessionDto
       worktree.dto.ts                      ProjectLeftoversDto (LeftoverWorktreeDto, LeftoverBranchDto), and a
                                            request DTO per worktree use case
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
@@ -325,6 +329,9 @@ apps/extension/src/
                                            BranchRenameFailedError, WorktreeHasChangesError,
                                            WorktreeRemoveFailedError, BranchDeleteFailedError
       commitCli.infraService.interface.ts  generateCommitMessage; CommitMessageRequest
+      agentHistory.infraService.interface.ts
+                                           listAgentConversations; AgentConversation, AgentHistoryNotReadError,
+                                           AgentHistoryReadFailedError
       gitHubCli.infraService.interface.ts  findPullRequest, refreshPullRequest, pullRequestChangedFolderPaths,
                                            gitHubCliSignedOutProblems, openPullRequestInBrowser,
                                            openPullRequestInVsCode; PullRequestBranch, BranchPullRequest,
@@ -362,6 +369,9 @@ apps/extension/src/
       vscode/terminal/                     TerminalInfraService: session tabs, each a tmux client attached to its
                                            agent, project shells, and the setup terminal that installs tools;
                                            terminal.utils finds a tab's session id in its env
+      agentHistory/                        AgentHistoryInfraService: a folder's conversations from each agent's own
+                                           store, read-only; a <agent>History.utils.ts per agent (Claude Code,
+                                           Codex, OpenCode, Copilot)
       commitCli/                           CommitCliInfraService: runs the configured commit command
       gitHubCli/                           GitHubCliInfraService: each worktree branch's pull request from gh, cached and
                                            looked up in the background, again when the setup terminal closes;
@@ -387,9 +397,9 @@ apps/extension/src/
     middlewares/registerCommand.middleware.ts
                                            registerCommand: root span per command; shows the presenter's message
                                            for a failure, and logs a crash
-    controllers/                           session, agent, sessionAlert, project, worktree, pullRequest, requiredTools, commitMessage: decode the input into a
+    controllers/                           session, sessionImport, agent, sessionAlert, project, worktree, pullRequest, requiredTools, commitMessage: decode the input into a
                                            request DTO and call one service; the views' reads
-    presenters/                            session, project, worktree, pullRequest, requiredTools, commitMessage: a failed command's message, and the
+    presenters/                            session, sessionImport, project, worktree, pullRequest, requiredTools, commitMessage: a failed command's message, and the
                                            setting that fixes it; app: none, for commands that cannot fail
     views/sessions/                        SessionsView (sessions.view.ts): the webview view provider, the webview's
                                            messages and the commands it asks for; sessionsDrawing.utils.ts what it

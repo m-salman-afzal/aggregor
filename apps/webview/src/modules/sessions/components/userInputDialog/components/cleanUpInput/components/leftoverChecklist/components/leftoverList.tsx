@@ -1,4 +1,4 @@
-import {LeftoverSection} from "@/modules/sessions/components/userInputDialog/components/cleanUpInput/components/leftoverChecklist/components/leftoverSection.tsx";
+import {ChecklistSection} from "@/modules/sessions/components/userInputDialog/components/checklistSection/checklistSection.tsx";
 import {LEFTOVER_LABELS} from "@pkg/constants/src/git.constant.ts";
 
 import type {LeftoverRowData} from "@/modules/sessions/components/userInputDialog/components/cleanUpInput/components/leftoverChecklist/leftoverChecklist.type.ts";
@@ -18,14 +18,14 @@ export const LeftoverList = (props: LeftoverListProps) => (
       <input checked={props.areAllTicked} className="accent-primary" onChange={props.onToggleAll} type="checkbox" />
       {LEFTOVER_LABELS.SELECT_ALL}
     </label>
-    <LeftoverSection
-      leftoverRows={props.worktreeRows}
+    <ChecklistSection
+      checklistRows={props.worktreeRows}
       legend={LEFTOVER_LABELS.WORKTREES_SECTION}
       onToggleRow={props.onToggleRow}
       tickedRowKeys={props.tickedRowKeys}
     />
-    <LeftoverSection
-      leftoverRows={props.branchRows}
+    <ChecklistSection
+      checklistRows={props.branchRows}
       legend={LEFTOVER_LABELS.BRANCHES_SECTION}
       onToggleRow={props.onToggleRow}
       tickedRowKeys={props.tickedRowKeys}
