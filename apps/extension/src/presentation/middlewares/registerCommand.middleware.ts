@@ -6,6 +6,7 @@ import {Effect} from "effect";
 import type {InvalidVsCodeArgumentError} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
 
 interface PresentedCommandError {
+  readonly commandToRun?: {readonly commandId: string; readonly label: string};
   readonly message: string;
   readonly pageToOpen?: {readonly label: string; readonly url: string};
   readonly settingToOpen?: string;

@@ -8,6 +8,7 @@ export type AddSessionRequest = Pick<
   | "agentId"
   | "baseBranchName"
   | "customName"
+  | "importedAgentSessionId"
   | "lifecycle"
   | "name"
   | "projectId"

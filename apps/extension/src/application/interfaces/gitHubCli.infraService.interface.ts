@@ -16,21 +16,15 @@ export interface BranchPullRequest {
   readonly url: string;
 }
 
-export class GitHubCliNotFoundError extends Schema.TaggedError<
-  GitHubCliNotFoundError,
-  {readonly brand: unique symbol}
->()("GitHubCliNotFoundError", {}) {}
 export class GitHubCliSignedOutError extends Schema.TaggedError<
   GitHubCliSignedOutError,
   {readonly brand: unique symbol}
 >()("GitHubCliSignedOutError", {}) {}
-// None was found, it isn't looked up yet, or gh couldn't look; the lookup's span says which.
+// None was found, it isn't looked up yet, or gh couldn't look or isn't installed; the lookup's span says which.
 export class PullRequestNotFoundError extends Schema.TaggedError<
   PullRequestNotFoundError,
   {readonly brand: unique symbol}
 >()("PullRequestNotFoundError", {}) {}
-
-export type GitHubCliProblem = GitHubCliNotFoundError | GitHubCliSignedOutError;
 
 // gh from PATH, never one of Aggregor's own; lookups are cached and run in the background.
 export class IGitHubCliInfraService extends Context.Service<
@@ -40,10 +34,8 @@ export class IGitHubCliInfraService extends Context.Service<
     readonly findPullRequest: (
       pullRequestBranch: PullRequestBranch
     ) => Effect.Effect<BranchPullRequest, PullRequestNotFoundError>;
-    // Each problem once per window, the first time a lookup meets it.
-    readonly gitHubCliProblems: Stream.Stream<GitHubCliProblem>;
-    // A terminal running gh's install or sign-in, which the user watches and answers.
-    readonly openGitHubCliTerminal: (commandLine: string) => Effect.Effect<void>;
+    // Once per window, the first time a lookup meets it, and again after the setup terminal closes.
+    readonly gitHubCliSignedOutProblems: Stream.Stream<GitHubCliSignedOutError>;
     readonly openPullRequestInBrowser: (pullRequest: BranchPullRequest) => Effect.Effect<void>;
     // Falls back to the browser without the GitHub Pull Requests extension.
     readonly openPullRequestInVsCode: (pullRequest: BranchPullRequest) => Effect.Effect<void>;

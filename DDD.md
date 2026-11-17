@@ -269,9 +269,12 @@ apps/extension/src/
                                            (asks for folders), addProjectPaths, findOrAddProject, removeProject,
                                            moveProjectUp, moveProjectDown, openProjectTerminal,
                                            saveProjectSettings; ProjectNotListedError
-      pullRequest.service.ts               openSessionPullRequest, installGitHubCli, signInToGitHubCli,
-                                           watchGitHubCliProblems, startPullRequestRefreshOnTurnEnd;
-                                           NoPackageManagerError
+      pullRequest.service.ts               openSessionPullRequest, signInToGitHubCli, watchGitHubCliSignedOut,
+                                           startPullRequestRefreshOnTurnEnd
+      sessionImport.service.ts             listImportableSessions (each agent's conversations in a project's folder
+                                           that aren't sessions yet), importSessions
+      requiredTools.service.ts             watchMissingTools: tmux and gh checked at start and after the setup
+                                           terminal closes; installRequiredTools; NoPackageManagerError
       worktree.service.ts                  listProjectLeftovers, cleanUpProjectLeftovers (a project's worktrees and
                                            aggregor/* branches left over), hasProjectLeftovers (its row's dot),
                                            removeSessionWorktree (Remove's first step); LeftoversKeptError
@@ -286,17 +289,21 @@ apps/extension/src/
       agent.dto.ts                         AgentListItemDto: a row of the agent picker; SetDefaultAgentRequestDto
       project.dto.ts                       ProjectListItemDto with its ProjectSettingsDto, and a request DTO per
                                            project use case
-      pullRequest.dto.ts                   GitHubCliProblemDto, OpenSessionPullRequestRequestDto
+      pullRequest.dto.ts                   OpenSessionPullRequestRequestDto
+      requiredTools.dto.ts                 MissingToolsDto with its MissingToolDto
+      sessionImport.dto.ts                 ImportableSessionsDto (AgentImportableSessionsDto, ImportableSessionDto),
+                                           ImportSessionsRequestDto with its ImportedSessionDto
       worktree.dto.ts                      ProjectLeftoversDto (LeftoverWorktreeDto, LeftoverBranchDto), and a
                                            request DTO per worktree use case
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
     interfaces/                            each with the errors and types its signatures name
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
                                            openFolderTerminal, closeFolderTerminal, switchToFolderTerminal,
-                                           nameActiveSessionTab, activatedSessionIds, viewedSessionId;
+                                           nameActiveSessionTab, activatedSessionIds, viewedSessionId,
+                                           openSetupTerminal, closedSetupTerminals;
                                            FolderTerminalRequest, SessionTabRequest, SessionTabCommand,
                                            TerminalLaunchFailedError
-      tmux.infraService.interface.ts       prepareSessionTabCommand, waitForSessionAgentStart, stopSessionAgent,
+      tmux.infraService.interface.ts       checkTmuxVersion, prepareSessionTabCommand, waitForSessionAgentStart, stopSessionAgent,
                                            runningSessionIds, refreshRunningSessionIds, startedOrStoppedSessionIds;
                                            SessionTabCommandRequest, PtyBinaryNotFoundError, TmuxUnavailableError
       userInputPrompt.infraService.interface.ts
@@ -322,10 +329,13 @@ apps/extension/src/
                                            BranchRenameFailedError, WorktreeHasChangesError,
                                            WorktreeRemoveFailedError, BranchDeleteFailedError
       commitCli.infraService.interface.ts  generateCommitMessage; CommitMessageRequest
+      agentHistory.infraService.interface.ts
+                                           listAgentConversations; AgentConversation, AgentHistoryNotReadError,
+                                           AgentHistoryReadFailedError
       gitHubCli.infraService.interface.ts  findPullRequest, refreshPullRequest, pullRequestChangedFolderPaths,
-                                           gitHubCliProblems, openGitHubCliTerminal, openPullRequestInBrowser,
+                                           gitHubCliSignedOutProblems, openPullRequestInBrowser,
                                            openPullRequestInVsCode; PullRequestBranch, BranchPullRequest,
-                                           GitHubCliNotFoundError, GitHubCliSignedOutError, PullRequestNotFoundError
+                                           GitHubCliSignedOutError, PullRequestNotFoundError
       settings.config.interface.ts         readSettings, readSessionSettings, readAlertSettings,
                                            saveDefaultAgentId; Settings, SessionSettings, AlertSettings
   infrastructure/
@@ -357,11 +367,14 @@ apps/extension/src/
                                            shown project's .vscode/settings.json with Aggregor's workspace file),
                                            GitInfraService, ProgressInfraService
       vscode/terminal/                     TerminalInfraService: session tabs, each a tmux client attached to its
-                                           agent, and project shells; terminal.utils finds a tab's session id in
-                                           its env
+                                           agent, project shells, and the setup terminal that installs tools;
+                                           terminal.utils finds a tab's session id in its env
+      agentHistory/                        AgentHistoryInfraService: a folder's conversations from each agent's own
+                                           store, read-only; a <agent>History.utils.ts per agent (Claude Code,
+                                           Codex, OpenCode, Copilot)
       commitCli/                           CommitCliInfraService: runs the configured commit command
       gitHubCli/                           GitHubCliInfraService: each worktree branch's pull request from gh, cached and
-                                           looked up in the background; gh's install and sign-in terminals;
+                                           looked up in the background, again when the setup terminal closes;
                                            gitHubCli.transformer.ts reads gh's JSON
     config/settings.config.ts              SettingsConfig
     di/
@@ -384,9 +397,9 @@ apps/extension/src/
     middlewares/registerCommand.middleware.ts
                                            registerCommand: root span per command; shows the presenter's message
                                            for a failure, and logs a crash
-    controllers/                           session, agent, sessionAlert, project, worktree, pullRequest, commitMessage: decode the input into a
+    controllers/                           session, sessionImport, agent, sessionAlert, project, worktree, pullRequest, requiredTools, commitMessage: decode the input into a
                                            request DTO and call one service; the views' reads
-    presenters/                            session, project, worktree, pullRequest, commitMessage: a failed command's message, and the
+    presenters/                            session, sessionImport, project, worktree, pullRequest, requiredTools, commitMessage: a failed command's message, and the
                                            setting that fixes it; app: none, for commands that cannot fail
     views/sessions/                        SessionsView (sessions.view.ts): the webview view provider, the webview's
                                            messages and the commands it asks for; sessionsDrawing.utils.ts what it
@@ -397,8 +410,10 @@ apps/extension/src/
                                            messages both ways, which apps/webview imports
     views/sessionAlerts/                   SessionAlertsView: shows each alert in the focused window or hands it to
                                            the system, and handles the session links desktop notifications open
-    views/gitHubCliNotices/                GitHubCliNoticesView: the notice that gh is missing or signed out, with
-                                           its Install gh, Install Page or Sign In button
+    views/gitHubCliNotices/                GitHubCliNoticesView: the notice that gh is signed out, with its Sign In
+                                           button
+    views/requiredToolsNotices/            RequiredToolsNoticesView: the notice that tmux or gh is missing, with its
+                                           Install button, or each tool's install page
   extension.ts                             activate
 apps/extension/tests/
   migrations.test.ts                       every migration on a new database, and on a filled one at each earlier

@@ -1,6 +1,7 @@
 import {SettingsConfig} from "@config/settings.config.ts";
 import {DatabaseLayer} from "@di/database.layer.ts";
 import {NodeServices} from "@effect/platform-node";
+import {AgentHistoryInfraService} from "@infraServices/agentHistory/agentHistory.infraService.ts";
 import {CommitCliInfraService} from "@infraServices/commitCli/commitCli.infraService.ts";
 import {WorktreeInfraService} from "@infraServices/git/worktree.infraService.ts";
 import {GitHubCliInfraService} from "@infraServices/gitHubCli/gitHubCli.infraService.ts";
@@ -54,6 +55,7 @@ export const AppLayer = BackgroundLayer.pipe(
   Layer.provideMerge(SessionRepository),
   Layer.provideMerge(ProjectRepository),
   Layer.provideMerge(DatabaseLayer),
+  Layer.provideMerge(AgentHistoryInfraService),
   Layer.provideMerge(CommitCliInfraService),
   Layer.provideMerge(DesktopNotificationInfraService),
   Layer.provideMerge(ShellCommandInfraService),

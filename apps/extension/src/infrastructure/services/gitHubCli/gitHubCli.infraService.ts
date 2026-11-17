@@ -1,23 +1,19 @@
 import {toBranchPullRequest} from "@infraServices/gitHubCli/gitHubCli.transformer.ts";
 import {
-  GitHubCliNotFoundError,
   GitHubCliSignedOutError,
   IGitHubCliInfraService,
   PullRequestNotFoundError
 } from "@interfaces/gitHubCli.infraService.interface.ts";
 import {GITHUB_CLI, GITHUB_PULL_REQUESTS_EXTENSION} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {EXIT_CODES} from "@pkg/constants/src/process.constant.ts";
+import {SETUP_TERMINAL} from "@pkg/constants/src/requiredTools.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
 import {Array, Clock, Effect, Layer, Match, PubSub, Queue, Ref, Result, Stream} from "effect";
 import {ChildProcess} from "effect/process";
 import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 
-import type {
-  BranchPullRequest,
-  GitHubCliProblem,
-  PullRequestBranch
-} from "@interfaces/gitHubCli.infraService.interface.ts";
+import type {BranchPullRequest, PullRequestBranch} from "@interfaces/gitHubCli.infraService.interface.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
 interface CachedPullRequest {
@@ -28,12 +24,12 @@ interface CachedPullRequest {
 interface GitHubCliDependencies {
   readonly cachedPullRequests: Ref.Ref<ReadonlyMap<string, CachedPullRequest>>;
   readonly childProcessSpawner: ChildProcessSpawner["Service"];
-  readonly gitHubCliProblems: PubSub.PubSub<GitHubCliProblem>;
+  readonly gitHubCliSignedOutProblems: PubSub.PubSub<GitHubCliSignedOutError>;
+  readonly isSignedOutReported: Ref.Ref<boolean>;
   readonly lastRefreshedAt: Ref.Ref<number>;
   readonly pendingLookupKeys: Ref.Ref<ReadonlySet<string>>;
   readonly pullRequestChanges: PubSub.PubSub<ProjectPathValueObject>;
   readonly pullRequestLookups: Queue.Queue<PullRequestBranch>;
-  readonly reportedProblemTags: Ref.Ref<ReadonlySet<string>>;
   readonly vsCodeApi: VsCodeApi["Service"];
 }
 
@@ -80,20 +76,19 @@ const lookUpPullRequest = Effect.fn("GitHubCliInfraService.lookUpPullRequest")(
   },
   Effect.timeout(GITHUB_CLI.LOOKUP_TIMEOUT),
   Effect.catchTags({
-    PlatformError: () => Effect.fail(GitHubCliNotFoundError.make()),
+    PlatformError: () => Effect.fail(PullRequestNotFoundError.make()),
     SchemaError: () => Effect.fail(PullRequestNotFoundError.make()),
     TimeoutError: () => Effect.fail(PullRequestNotFoundError.make())
   })
 );
 
-const reportGitHubCliProblem = Effect.fn("GitHubCliInfraService.reportGitHubCliProblem")(function* (
+const reportSignedOut = Effect.fn("GitHubCliInfraService.reportSignedOut")(function* (
   gitHubCliDependencies: GitHubCliDependencies,
-  gitHubCliProblem: GitHubCliProblem
+  gitHubCliSignedOutError: GitHubCliSignedOutError
 ) {
-  const reportedProblemTags = yield* Ref.get(gitHubCliDependencies.reportedProblemTags);
-  if (reportedProblemTags.has(gitHubCliProblem._tag)) return;
-  yield* Ref.set(gitHubCliDependencies.reportedProblemTags, new Set([...reportedProblemTags, gitHubCliProblem._tag]));
-  yield* PubSub.publish(gitHubCliDependencies.gitHubCliProblems, gitHubCliProblem);
+  const wasReported = yield* Ref.getAndSet(gitHubCliDependencies.isSignedOutReported, true);
+  if (wasReported) return;
+  yield* PubSub.publish(gitHubCliDependencies.gitHubCliSignedOutProblems, gitHubCliSignedOutError);
 });
 
 const toComparablePullRequest = Effect.fn("GitHubCliInfraService.toComparablePullRequest")(function* (
@@ -139,8 +134,8 @@ const fetchPullRequest = Effect.fn("GitHubCliInfraService.fetchPullRequest")(fun
   );
   if (Result.isFailure(lookupResult))
     yield* Match.valueTags(lookupResult.failure, {
-      GitHubCliNotFoundError: (gitHubCliProblem) => reportGitHubCliProblem(gitHubCliDependencies, gitHubCliProblem),
-      GitHubCliSignedOutError: (gitHubCliProblem) => reportGitHubCliProblem(gitHubCliDependencies, gitHubCliProblem),
+      GitHubCliSignedOutError: (gitHubCliSignedOutError) =>
+        reportSignedOut(gitHubCliDependencies, gitHubCliSignedOutError),
       PullRequestNotFoundError: () => Effect.void
     });
 
@@ -186,30 +181,12 @@ const refreshAllPullRequests = Effect.fn("GitHubCliInfraService.refreshAllPullRe
   const refreshStartedAt = yield* Clock.currentTimeMillis;
   const lastRefreshedAt = yield* Ref.getAndSet(gitHubCliDependencies.lastRefreshedAt, refreshStartedAt);
   if (!isForced && refreshStartedAt - lastRefreshedAt < GITHUB_CLI.REFRESH_INTERVAL_MS) return;
-  if (isForced) yield* Ref.set(gitHubCliDependencies.reportedProblemTags, new Set());
+  if (isForced) yield* Ref.set(gitHubCliDependencies.isSignedOutReported, false);
   const cachedPullRequests = yield* Ref.get(gitHubCliDependencies.cachedPullRequests);
 
   yield* Effect.forEach(cachedPullRequests.values(), (cachedPullRequest) =>
     refreshPullRequest(gitHubCliDependencies, cachedPullRequest.pullRequestBranch)
   );
-});
-
-// Its close, once the user is done with it, looks every branch up again.
-const openGitHubCliTerminal = Effect.fn("GitHubCliInfraService.openGitHubCliTerminal")(function* (
-  vsCodeApi: VsCodeApi["Service"],
-  commandLine: string
-) {
-  yield* Effect.annotateCurrentSpan({commandLine});
-
-  yield* Effect.sync(() => {
-    vsCodeApi.window
-      .createTerminal({
-        name: GITHUB_CLI.TERMINAL_NAME,
-        shellArgs: ["-c", `${commandLine}${GITHUB_CLI.TERMINAL_CLOSE_PROMPT}`],
-        shellPath: GITHUB_CLI.TERMINAL_SHELL
-      })
-      .show();
-  });
 });
 
 const openPullRequestInBrowser = Effect.fn("GitHubCliInfraService.openPullRequestInBrowser")(function* (
@@ -238,7 +215,7 @@ const openPullRequestInVsCode = Effect.fn("GitHubCliInfraService.openPullRequest
   return yield* Effect.promise(() => vsCodeApi.env.openExternal(pullRequestLink));
 });
 
-// A focus back from the browser, where a pull request may have opened or merged, or gh's own terminal closing.
+// A focus back from the browser, where a pull request may have opened or merged, or the setup terminal closing.
 const watchRefreshHints = Effect.fn("GitHubCliInfraService.watchRefreshHints")(function* (
   gitHubCliDependencies: GitHubCliDependencies
 ) {
@@ -250,7 +227,7 @@ const watchRefreshHints = Effect.fn("GitHubCliInfraService.watchRefreshHints")(f
       false
     ),
     Stream.as(
-      Stream.filter(closedTerminals, (closedTerminal) => closedTerminal.name === GITHUB_CLI.TERMINAL_NAME),
+      Stream.filter(closedTerminals, (closedTerminal) => closedTerminal.name === SETUP_TERMINAL.NAME),
       true
     )
   );
@@ -275,12 +252,12 @@ const makeGitHubCliDependencies = Effect.fn("GitHubCliInfraService.makeGitHubCli
   const gitHubCliDependencies: GitHubCliDependencies = {
     cachedPullRequests: yield* Ref.make<ReadonlyMap<string, CachedPullRequest>>(new Map()),
     childProcessSpawner: yield* ChildProcessSpawner,
-    gitHubCliProblems: yield* PubSub.unbounded<GitHubCliProblem>(),
+    gitHubCliSignedOutProblems: yield* PubSub.unbounded<GitHubCliSignedOutError>(),
+    isSignedOutReported: yield* Ref.make(false),
     lastRefreshedAt: yield* Ref.make(0),
     pendingLookupKeys: yield* Ref.make<ReadonlySet<string>>(new Set()),
     pullRequestChanges: yield* PubSub.unbounded<ProjectPathValueObject>(),
     pullRequestLookups: yield* Queue.unbounded<PullRequestBranch>(),
-    reportedProblemTags: yield* Ref.make<ReadonlySet<string>>(new Set()),
     vsCodeApi: yield* VsCodeApi
   };
 
@@ -295,8 +272,7 @@ const makeGitHubCliInfraService = Effect.fn("GitHubCliInfraService.make")(functi
   return {
     findPullRequest: (pullRequestBranch: PullRequestBranch) =>
       findPullRequest(gitHubCliDependencies, pullRequestBranch),
-    gitHubCliProblems: Stream.fromPubSub(gitHubCliDependencies.gitHubCliProblems),
-    openGitHubCliTerminal: (commandLine: string) => openGitHubCliTerminal(gitHubCliDependencies.vsCodeApi, commandLine),
+    gitHubCliSignedOutProblems: Stream.fromPubSub(gitHubCliDependencies.gitHubCliSignedOutProblems),
     openPullRequestInBrowser: (pullRequest: BranchPullRequest) =>
       openPullRequestInBrowser(gitHubCliDependencies.vsCodeApi, pullRequest),
     openPullRequestInVsCode: (pullRequest: BranchPullRequest) =>

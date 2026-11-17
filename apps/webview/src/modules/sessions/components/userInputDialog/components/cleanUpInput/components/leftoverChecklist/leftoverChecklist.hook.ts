@@ -1,7 +1,7 @@
+import {toggleRowKey} from "@/modules/sessions/components/userInputDialog/components/checklistSection/checklistSection.utils.ts";
 import {
   takeChosenLeftovers,
   toBranchRows,
-  toggleRowKey,
   toWorktreeRows
 } from "@/modules/sessions/components/userInputDialog/components/cleanUpInput/components/leftoverChecklist/leftoverChecklist.utils.ts";
 import {useState} from "react";

@@ -2,6 +2,7 @@ import {AppLayer} from "@di/app.layer.ts";
 import {TraceLogLayer} from "@logger/traceLog.layer.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {GitHubCliNoticesView} from "@views/gitHubCliNotices/gitHubCliNotices.view.ts";
+import {RequiredToolsNoticesView} from "@views/requiredToolsNotices/requiredToolsNotices.view.ts";
 import {SessionAlertsView} from "@views/sessionAlerts/sessionAlerts.view.ts";
 import {SessionsView} from "@views/sessions/sessions.view.ts";
 import {Effect, Layer, ManagedRuntime} from "effect";
@@ -16,7 +17,7 @@ let activeRuntime: {readonly dispose: () => Promise<void>} | undefined;
 const activate = (extensionContext: ExtensionContext) => {
   // TraceLogLayer goes under everything, so every layer's startup work is traced and logged too.
   const runtime = ManagedRuntime.make(
-    Layer.mergeAll(RoutesLayer, SessionsView, SessionAlertsView, GitHubCliNoticesView).pipe(
+    Layer.mergeAll(RoutesLayer, SessionsView, SessionAlertsView, GitHubCliNoticesView, RequiredToolsNoticesView).pipe(
       Layer.provideMerge(AppLayer),
       Layer.provide(TraceLogLayer),
       Layer.provideMerge(VsCodeApi.layer(extensionContext))

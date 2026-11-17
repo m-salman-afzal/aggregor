@@ -55,18 +55,19 @@ const fillInVariables = Effect.fn("SessionDomainService.fillInVariables")(functi
   agent: AgentEntity,
   session: SessionEntity
 ) {
-  const filledInArgument = String.replaceAll(SESSION_ID_VARIABLE, session.id)(agentArgument);
+  const filledInArgument = String.replaceAll(SESSION_ID_VARIABLE, session.conversationId)(agentArgument);
   if (!String.includes(AGENT_SESSION_ID_VARIABLE)(filledInArgument)) return filledInArgument;
-  if (session.agentSessionId === undefined) return yield* AgentSessionIdNotFoundError.make({agentName: agent.name});
+  const latestAgentSessionId = session.latestAgentSessionId;
+  if (latestAgentSessionId === undefined) return yield* AgentSessionIdNotFoundError.make({agentName: agent.name});
 
-  return String.replaceAll(AGENT_SESSION_ID_VARIABLE, session.agentSessionId)(filledInArgument);
+  return String.replaceAll(AGENT_SESSION_ID_VARIABLE, latestAgentSessionId)(filledInArgument);
 });
 
 export const prepareLaunchPlan = Effect.fn("SessionDomainService.prepareLaunchPlan")(function* (
   agent: AgentEntity,
   session: SessionEntity
 ) {
-  const agentArguments = session.hasWorked ? agent.resumeArgs : agent.args;
+  const agentArguments = session.hasConversation ? agent.resumeArgs : agent.args;
 
   return LaunchPlanValueObjectSchema.make({
     command: agent.command,
