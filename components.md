@@ -165,10 +165,11 @@ heading there. Update this file in the same commit as a change that adds, remove
 - **What it is:** Claude Code's non-interactive mode, the default command behind the Source Control commit message
   button.
 - **What we use:** `aggregorApp.commitCommand`, by default
-  `claude -p "…" --system-prompt "…" --tools "" --no-session-persistence --model claude-haiku-5-5 --effort low`, run
-  through a shell in the repository root with the staged diff on stdin; stdout is the message
+  `claude -p "…" --system-prompt "…" --tools "" --strict-mcp-config --setting-sources "" --no-session-persistence --model claude-haiku-5-5 --effort low`,
+  run through a shell in the repository root with the staged diff on stdin; stdout is the message
   (`infrastructure/services/commitCli/commitCli.infraService.ts`). The prompt has no inner double quotes, so it runs the
-  same under sh and cmd.exe. `.vscode/settings.json` overrides it here with aggregor's scopes.
+  same under sh and cmd.exe. The two flags after `--tools` keep the user's settings, plugins, hooks and MCP servers out
+  of the run. `.vscode/settings.json` overrides it here with aggregor's scopes.
 - **Why:** not recorded; "Commit messages come from a shell command" makes it a setting any command can replace.
 - **Alternatives:** Not weighed in `decisions/`.
   - Other options: the Anthropic API called from the extension, or VS Code's Language Model API (`vscode.lm`).
