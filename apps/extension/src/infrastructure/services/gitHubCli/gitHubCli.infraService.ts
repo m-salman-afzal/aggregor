@@ -6,7 +6,7 @@ import {
   PullRequestNotFoundError
 } from "@interfaces/gitHubCli.infraService.interface.ts";
 import {GITHUB_CLI, GITHUB_PULL_REQUESTS_EXTENSION} from "@pkg/constants/src/gitHubCli.constant.ts";
-import {EXIT_CODES} from "@pkg/constants/src/process.constant.ts";
+import {CHILD_PROCESS_SPAWN_METHOD, EXIT_CODES} from "@pkg/constants/src/process.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
 import {Array, Clock, Effect, Layer, Match, PubSub, Queue, Ref, Result, Stream} from "effect";
@@ -64,7 +64,7 @@ const runGitHubCli = Effect.fn("GitHubCliInfraService.runGitHubCli")(function* (
   return {exitCode, stderr, stdout};
 }, Effect.scoped);
 
-// Exit code 1 covers no pull request, no GitHub remote and no repository; stderr says which. A hung gh is killed.
+// Exit code 1 covers no pull request, no GitHub remote and no repository; stderr says which. A hung gh is killed; a deleted folder isn't a missing gh.
 const lookUpPullRequest = Effect.fn("GitHubCliInfraService.lookUpPullRequest")(
   function* (childProcessSpawner: ChildProcessSpawner["Service"], pullRequestBranch: PullRequestBranch) {
     yield* Effect.annotateCurrentSpan({
@@ -80,7 +80,12 @@ const lookUpPullRequest = Effect.fn("GitHubCliInfraService.lookUpPullRequest")(
   },
   Effect.timeout(GITHUB_CLI.LOOKUP_TIMEOUT),
   Effect.catchTags({
-    PlatformError: () => Effect.fail(GitHubCliNotFoundError.make()),
+    PlatformError: (platformError) =>
+      Effect.fail(
+        platformError.reason.method === CHILD_PROCESS_SPAWN_METHOD
+          ? GitHubCliNotFoundError.make()
+          : PullRequestNotFoundError.make()
+      ),
     SchemaError: () => Effect.fail(PullRequestNotFoundError.make()),
     TimeoutError: () => Effect.fail(PullRequestNotFoundError.make())
   })
