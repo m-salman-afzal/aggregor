@@ -13,7 +13,7 @@ interface LeftoverListProps {
 }
 
 export const LeftoverList = (props: LeftoverListProps) => (
-  <div className="flex max-h-80 min-w-0 flex-col gap-3 overflow-y-auto">
+  <div className="scrollbar-minimal -mr-2 flex max-h-80 min-w-0 flex-col gap-3 overflow-y-auto pr-2">
     <label className="flex items-center gap-2 px-2 text-xs font-medium text-foreground-strong">
       <input checked={props.areAllTicked} className="accent-primary" onChange={props.onToggleAll} type="checkbox" />
       {LEFTOVER_LABELS.SELECT_ALL}

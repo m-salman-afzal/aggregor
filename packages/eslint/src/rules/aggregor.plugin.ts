@@ -4,6 +4,7 @@ import {constantPlacementRule} from "@pkg/eslint/src/rules/constantPlacement.rul
 import {declaringFileRule} from "@pkg/eslint/src/rules/declaringFile.rule.ts";
 import {fileRoleRule} from "@pkg/eslint/src/rules/fileRole.rule.ts";
 import {kindFolderRule} from "@pkg/eslint/src/rules/kindFolder.rule.ts";
+import {minimalScrollbarRule} from "@pkg/eslint/src/rules/minimalScrollbar.rule.ts";
 import {moduleBoundaryRule} from "@pkg/eslint/src/rules/moduleBoundary.rule.ts";
 import {noPassThroughRule} from "@pkg/eslint/src/rules/noPassThrough.rule.ts";
 import {oneLineCommentRule} from "@pkg/eslint/src/rules/oneLineComment.rule.ts";
@@ -21,6 +22,7 @@ export const AGGREGOR_PLUGIN = {
     "declaring-file": declaringFileRule,
     "file-role": fileRoleRule,
     "kind-folder": kindFolderRule,
+    "minimal-scrollbar": minimalScrollbarRule,
     "module-boundary": moduleBoundaryRule,
     "no-pass-through": noPassThroughRule,
     "one-line-comment": oneLineCommentRule,
@@ -49,5 +51,11 @@ export const AGGREGOR_PLUGIN_CONFIGS: Config[] = [
     ignores: [SHADCN_COMPONENT_FILES],
     plugins: {aggregor: AGGREGOR_PLUGIN},
     rules: {"aggregor/one-line-comment": "error", "aggregor/type-placement": "error"}
+  },
+  // shadcn's components scroll too (menus, comboboxes), so they aren't ignored here.
+  {
+    files: ["apps/webview/src/**/*.{ts,tsx}", "packages/ui/src/**/*.{ts,tsx}"],
+    plugins: {aggregor: AGGREGOR_PLUGIN},
+    rules: {"aggregor/minimal-scrollbar": "error"}
   }
 ];
