@@ -57,12 +57,13 @@ terminals, tree views, Source Control and diffs.
   long as the panel showed another folder's terminal. Removing a worktree closes its terminal.
 - **Persistent sessions.** Every agent runs in tmux (3.2 or newer), so it keeps working when you close its tab, reload
   the window or quit VS Code; those close the tab, and clicking the session attaches a new one. With
-  `aggregorApp.openSessionIn` set to `sharedTab`, one tab shows the session opened last: opening a session closes the
-  other sessions' tabs. `aggregorApp.pinSessionTabs` pins a session's tab as it opens. An agent that has stopped shows
-  exited, and clicking it resumes the conversation; one that was running when the computer restarted shows interrupted,
-  with a restart icon, until it is resumed. Every window that lists a project shows its sessions. The row's … menu
-  removes a session and stops its agent. When memory runs out on Linux, agents are killed before VS Code; with systemd,
-  each agent runs in a cgroup of its own, so only that session goes, and `aggregorApp.sessionMemoryLimit` caps each one.
+  `aggregorApp.openSessionIn` set to `sharedTab`, one tab shows the session opened last: a running session switches into
+  it in place, with no tab opening or closing. `aggregorApp.pinSessionTabs` pins a session's tab as it opens. An agent
+  that has stopped shows exited, and clicking it resumes the conversation; one that was running when the computer
+  restarted shows interrupted, with a restart icon, until it is resumed. Every window that lists a project shows its
+  sessions. The row's … menu removes a session and stops its agent. When memory runs out on Linux, agents are killed
+  before VS Code; with systemd, each agent runs in a cgroup of its own, so only that session goes, and
+  `aggregorApp.sessionMemoryLimit` caps each one.
 - **Session titles.** Each tab and row shows the title the agent gives its terminal, as it changes (for Claude, its own
   title for the conversation or the one set with `/rename`); a closed session keeps the last one. Rename in the row's …
   menu gives a session your own name in the row and the tab; an empty name hands both back to the agent.

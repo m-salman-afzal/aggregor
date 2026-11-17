@@ -21,10 +21,16 @@ export interface FolderTerminalRequest {
 export interface SessionTabRequest {
   readonly icon: AgentIconValueObject;
   readonly isPinned: boolean;
+  // A shared tab shows sessions of any agent, and a tab's icon can't change, so it takes Aggregor's.
+  readonly isShared: boolean;
   readonly tabCommand: SessionTabCommand;
   readonly tabName: string;
 }
 
+export class NoSessionTabOpenError extends Schema.TaggedError<NoSessionTabOpenError, {readonly brand: unique symbol}>()(
+  "NoSessionTabOpenError",
+  {}
+) {}
 // No session's tab is in front of the user; TerminalInfraService's trace says why.
 export class NoViewedSessionError extends Schema.TaggedError<NoViewedSessionError, {readonly brand: unique symbol}>()(
   "NoViewedSessionError",
@@ -45,10 +51,15 @@ export class ITerminalInfraService extends Context.Service<
   ITerminalInfraService,
   {
     readonly activatedSessionIds: Stream.Stream<EntityIdValueObject>;
+    // tmux can attach a tab to another session, so each tab counts as the session its tmux client shows.
+    readonly assignShownSessions: (
+      shownSessionIdsByTabProcessId: ReadonlyMap<number, EntityIdValueObject>
+    ) => Effect.Effect<void>;
     readonly closedSetupTerminals: Stream.Stream<void>;
     readonly closeFolderTerminal: (folderPath: ProjectPathValueObject) => Effect.Effect<void>;
     readonly closeOtherSessionTerminals: (shownSessionId: EntityIdValueObject) => Effect.Effect<void>;
     readonly closeSessionTerminal: (sessionId: EntityIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
+    readonly findOpenSessionTerminalProcessId: Effect.Effect<number, NoSessionTabOpenError>;
     readonly focusSessionTerminal: (sessionId: EntityIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
     // VS Code can rename only the active terminal.
     readonly nameActiveSessionTab: (sessionId: EntityIdValueObject, tabName: string) => Effect.Effect<void>;

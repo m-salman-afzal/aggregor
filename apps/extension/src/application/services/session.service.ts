@@ -253,6 +253,7 @@ const openSessionTab = Effect.fn("SessionService.openSessionTab")(function* (
   const sessionTabRequest: SessionTabRequest = {
     icon: sessionAgent.icon,
     isPinned: sessionSettings.pinSessionTabs,
+    isShared: sessionSettings.openSessionIn === SESSION_OPEN_PLACES.SHARED_TAB,
     tabCommand,
     tabName: session.displayName
   };
@@ -278,10 +279,43 @@ const launchNewSession = Effect.fn("SessionService.launchNewSession")(
     )
 );
 
+// The extension can restart under open tabs, each showing the session tmux last attached it to.
+export const syncSessionTabsWithTmux = Effect.fn("SessionService.syncSessionTabsWithTmux")(function* () {
+  const shownSessionIdsByTabProcessId = yield* ITmuxInfraService.use(
+    (tmuxInfraService) => tmuxInfraService.readShownSessionIdsByTabProcessId
+  );
+
+  yield* ITerminalInfraService.use((terminalInfraService) =>
+    terminalInfraService.assignShownSessions(shownSessionIdsByTabProcessId)
+  );
+});
+
+// tmux attaches the open tab to the session, so no tab opens or closes; an agent that has stopped needs a new tab.
+const showSessionInSharedTab = Effect.fn("SessionService.showSessionInSharedTab")(
+  function* (session: SessionEntity) {
+    const terminalInfraService = yield* ITerminalInfraService;
+    const sharedTabProcessId = yield* terminalInfraService.findOpenSessionTerminalProcessId;
+    yield* ITmuxInfraService.use((tmuxInfraService) =>
+      tmuxInfraService.showSessionInTab(sharedTabProcessId, session.id)
+    );
+    yield* syncSessionTabsWithTmux();
+    yield* terminalInfraService.focusSessionTerminal(session.id);
+    yield* terminalInfraService.nameActiveSessionTab(session.id, session.displayName);
+    yield* terminalInfraService.closeOtherSessionTerminals(session.id);
+  },
+  (effect, session) =>
+    Effect.catchTag(effect, ["NoSessionTabOpenError", "SessionTabSwitchFailedError", "TerminalNotFoundError"], () =>
+      openSessionTab(session, undefined)
+    )
+);
+
 const reopenSession = Effect.fn("SessionService.reopenSession")(function* (sessionId: EntityIdValueObject) {
   const session = yield* findSession(sessionId);
+  const sessionSettings = yield* ISettingsConfig.use((settingsConfig) => settingsConfig.readSessionSettings);
 
-  yield* openSessionTab(session, undefined);
+  return yield* sessionSettings.openSessionIn === SESSION_OPEN_PLACES.SHARED_TAB
+    ? showSessionInSharedTab(session)
+    : openSessionTab(session, undefined);
 });
 
 // A tab that closed meanwhile has nothing left to close.

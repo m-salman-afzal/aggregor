@@ -20,34 +20,51 @@ Where a session's agent runs, its tab, and resuming it.
   text. Under `aggregor-pty` only Claude and Copilot are recognized, by their titles, and every other tab showed
   `aggregor-pty`.
 - **Decision:** a session's tab opens with the session's `displayName` and `startSessionTabNameSync` keeps it there:
-  after any write to a session and whenever a session's tab becomes the active terminal, the active tab is renamed if
-  its name differs. VS Code renames only the active terminal, so a tab in the background takes a new name when it next
-  comes to the front. Rename from the row menu no longer brings the tab to the front, and an empty name hands the tab
-  back to the agent's title at once. The row and the tab say the same thing for every agent, from the one name in the
-  database. Claude's and Copilot's tabs lose their live marks (✳, the spinner); the row's badge shows the status.
+  after any write to a session, whenever a session's tab becomes the active terminal and when the shared tab switches
+  session, the active tab is renamed if its name differs. VS Code renames only the active terminal, so a tab in the
+  background takes a new name when it next comes to the front. Rename from the row menu no longer brings the tab to the
+  front, and an empty name hands the tab back to the agent's title at once. The row and the tab say the same thing for
+  every agent, from the one name in the database. Claude's and Copilot's tabs lose their live marks (✳, the spinner);
+  the row's badge shows the status.
 - **Alternatives considered:** `aggregor-pty` writing the session's name as the terminal title, with the window showing
   terminal titles in tabs: background tabs follow too, but every terminal tab in the window, shells included, would
   change. The extension hosting the terminal as a Pseudoterminal, which can rename any tab: all agent output would pass
   through the extension host, and the tmux attach would change. `titleTemplate`, a proposed API the Marketplace refuses.
 
-## One shared tab can show the session opened last
+## One shared tab shows the session opened last, switching in place
 
 - **Problem:** every session opens in a tab of its own, so a user who switches sessions from the Sessions view ends up
-  with a row of session tabs beside their files.
+  with a row of session tabs beside their files. Replacing the tab on each switch made the tab bar jump three times a
+  click: a tab opened, was pinned, and the old one closed.
 - **Decision:** `aggregorApp.openSessionIn` picks between `ownTab` (the default, a tab per session) and `sharedTab`,
-  where opening a session closes every other session's tab. It holds after every open through Aggregor, a click on a
-  session whose tab is already open included; switching tabs by hand closes nothing. A tab is only a tmux client, so
-  closing one detaches it and its agent keeps running, which makes replacing the tab a small change.
-- **Solution:** `SessionService.closeOtherSessionTabs` reads the setting once a session's tab is opened or focused and
-  calls `ITerminalInfraService.closeOtherSessionTerminals`, which disposes every session terminal but the shown one. The
-  new tab opens before the others close, so it takes the place of the one in front. It opens in the editor group in
-  focus, as an own tab does, so a shared tab left in another group moves to the focused one.
-- **Alternatives considered:** one long-lived tab whose tmux client switches sessions (`switch-client`): no tab closes
-  or opens, but a tab's icon can't change once it is open, a tab is matched to its session by the `AGGREGOR_SESSION_ID`
-  it opened with, and a new session would start detached, which gave agents the wrong colours (see "Every session's
-  agent runs in tmux"). A boolean `reuseSessionTab`, which says less than two named places. Closing the other tabs
-  whenever a session's tab comes to the front: a background job, and tabs the user switches between by hand would close.
-  Finding the old tab's editor group by its label, since a tab does not say which terminal it holds.
+  where one tab stays and tmux attaches its client to the session opened (`switch-client`). No tab opens or closes, so
+  the tab keeps its place and its pin, and only its name changes. It holds after every open through Aggregor; switching
+  tabs by hand changes nothing. A session whose agent isn't running still opens a new tab, which takes the place of the
+  shared one, since an agent has to start under an attached client (see "Every session's agent runs in tmux"). The
+  shared tab carries Aggregor's icon: it shows sessions of any agent, and a tab's icon can't change once it is open.
+- **Solution:** `SessionService.showSessionInSharedTab` asks `ITerminalInfraService` for the open session tab's process
+  id, which is its tmux client's, since `systemd-run --scope` runs tmux in place. `ITmuxInfraService.showSessionInTab`
+  finds that client in `list-clients` and runs `switch-client -E -c ‹client› -t =‹sessionId›`; `-E` keeps the tab's own
+  variables, the id of the session it opened with among them, out of the session it now shows.
+  `SessionService.syncSessionTabsWithTmux` then reads from tmux which session each tab's client shows, and
+  `assignShownSessions` re-keys the tabs by it, so two quick clicks end on what tmux shows. The same sync runs when the
+  extension starts, before the background jobs read the session in view: a tab's `AGGREGOR_SESSION_ID` names only the
+  session it opened with, and the extension can restart under open tabs. When the switch fails (the agent has stopped,
+  or no session tab is open), the session opens a tab as under `ownTab`, in the editor group in focus, and
+  `closeOtherSessionTerminals` closes the others once it is open, so it takes the place of the one in front. With
+  several session tabs open, as right after the setting changes, the first one is kept and the rest close. A tab opened
+  under `ownTab` keeps its agent's icon when it becomes the shared one. A switch takes about 55 ms.
+- **Alternatives considered:** closing every other session's tab once the new one is open (built first): VS Code can't
+  swap a tab's terminal, open a tab pinned or batch tab changes, so every switch showed all three steps. A boolean
+  `reuseSessionTab`, which says less than two named places. Closing the other tabs whenever a session's tab comes to the
+  front: a background job, and tabs the user switches between by hand would close. `TerminalInfraService` asking
+  `ITmuxInfraService` itself: the two adapters stay apart, and the use case hands the tab's process id from one to the
+  other. Re-keying the tab to the clicked session without asking tmux: two clicks whose switches and re-keys interleave
+  leave the tab under the wrong session. Keeping which session a tab shows in `workspaceState`: a second copy of what
+  tmux knows, and gone when the window turns into a workspace. VS Code's change-icon command, which only opens its
+  picker. Finding the old tab's editor group by its label for the new tab, since a tab does not say which terminal it
+  holds. Drawing the terminal in a webview tab (xterm.js), whose name and icon can change: a terminal emulator of our
+  own, with all agent output through the extension host.
 
 ## A session's tab can be pinned as it opens
 
@@ -55,8 +72,8 @@ Where a session's agent runs, its tab, and resuming it.
 - **Decision:** `aggregorApp.pinSessionTabs` (off by default, in both `openSessionIn` places) pins a session's tab once,
   when Aggregor opens it, with `workbench.action.pinEditor`, the command behind **View: Pin Editor**. An extension can't
   press the shortcut, and the command works whatever key it is bound to. A tab the user unpins stays unpinned until it
-  opens again, and tabs open before the setting was turned on stay as they are; with `sharedTab` every switch opens a
-  new tab, so the shared tab is always pinned.
+  opens again, and tabs open before the setting was turned on stay as they are; the shared tab is pinned when it opens
+  and keeps its pin through every switch.
 - **Solution:** the command pins the tab in front, and a tab comes to the front a moment after it is shown, so
   `pinSessionTab` (`terminal.utils.ts`) first waits, every 50 ms for up to 5 s (`SESSION_TAB_PIN_WAIT`), until the
   active tab is a terminal tab labelled with the terminal's name and the terminal is the active one; run sooner, the
@@ -64,7 +81,7 @@ Where a session's agent runs, its tab, and resuming it.
   terminal stand in for that, and between two sessions of the same name the wait can settle on the other's tab. A tab is
   in front, and pinned, about 100 ms after it opens; after 5 s it stays unpinned, and the trace shows the failed checks.
   VS Code keeps Ctrl+W from closing a pinned tab by default (`workbench.editor.preventPinnedEditorClose`); disposing its
-  terminal still closes it, so Remove, Archive and the shared tab close a pinned tab.
+  terminal still closes it, so Remove, Archive and a new shared tab close a pinned tab.
 - **Alternatives considered:** pinning whenever a session's tab comes to the front: a background job that would pin
   again a tab the user unpinned. A third `openSessionIn` value, `pinnedSharedTab`, which leaves own tabs without a pin.
   Waiting on `viewedSessionId`, which names a session only while the window has focus.
@@ -86,11 +103,12 @@ Where a session's agent runs, its tab, and resuming it.
     first byte, tmux answers its colour queries, and the agent gets the tab's own environment.
   - The tab is transient: a reload or a quit closes it, which only detaches, and clicking the session attaches a new
     one. A tab is matched to its session by `AGGREGOR_SESSION_ID` in its env, which VS Code keeps through an extension
-    restart. Tabs VS Code kept over a reload and restored after a quit by re-running their command (found by their
-    command line through `ps`) lost their icon: VS Code 1.145 revives a reattached tab's file icon as plain data, fails
-    its `instanceof URI` check and draws none, and has no API to set it again. An icon font (`contributes.icons`)
-    survives a reload but, per microsoft/vscode#329750, not a restart, and closing and reopening every restored tab at
-    start reorders and flickers them.
+    restart, and then by the session its tmux client shows, which the shared tab changes. Tabs VS Code kept over a
+    reload and restored after a quit by re-running their command (found by their command line through `ps`) lost their
+    icon: VS Code 1.145 revives a reattached tab's file icon as plain data, fails its `instanceof URI` check and draws
+    none, and has no API to set it again. An icon font (`contributes.icons`) survives a reload but, per
+    microsoft/vscode#329750, not a restart, and closing and reopening every restored tab at start reorders and flickers
+    them.
   - When `aggregor-pty` can't start the agent (a command it can't run), it prints why and waits for Enter, so the tab
     doesn't vanish without a word.
   - tmux learns the tab's colours about 20 ms after the tab attaches and leaves a colour query unanswered until then.
