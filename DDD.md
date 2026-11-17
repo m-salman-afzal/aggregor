@@ -298,6 +298,7 @@ apps/extension/src/
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
     interfaces/                            each with the errors and types its signatures name
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
+                                           closeOtherSessionTerminals,
                                            openFolderTerminal, closeFolderTerminal, switchToFolderTerminal,
                                            nameActiveSessionTab, activatedSessionIds, viewedSessionId,
                                            openSetupTerminal, closedSetupTerminals;
@@ -368,7 +369,7 @@ apps/extension/src/
                                            GitInfraService, ProgressInfraService
       vscode/terminal/                     TerminalInfraService: session tabs, each a tmux client attached to its
                                            agent, project shells, and the setup terminal that installs tools;
-                                           terminal.utils finds a tab's session id in its env
+                                           terminal.utils finds a tab's session id in its env and pins a tab
       agentHistory/                        AgentHistoryInfraService: a folder's conversations from each agent's own
                                            store, read-only; a <agent>History.utils.ts per agent (Claude Code,
                                            Codex, OpenCode, Copilot)
@@ -527,7 +528,7 @@ apps/extension/tests/
   `LaunchPlanValueObject`, and the tmux infra service runs it under `aggregor-pty` in the session's tmux session;
   neither knows the other.
 - **The agent and its tab are apart:** `ITmuxInfraService` starts and stops agents and says which run;
-  `ITerminalInfraService` only opens, focuses, names and closes the tabs attached to them.
+  `ITerminalInfraService` only opens, focuses, names, pins and closes the tabs attached to them.
 - **Worktrees on the git command line:** `IWorktreeInfraService` runs `git worktree` itself rather than through the Git
   extension, whose API reaches only repositories open in Source Control.
 - **Planned with their roadmap items:** a `Hosts` LayerMap keyed by host id for SSH.

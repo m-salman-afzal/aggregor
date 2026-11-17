@@ -37,7 +37,7 @@ import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interfa
 import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
 import {GIT_COMMAND} from "@pkg/constants/src/git.constant.ts";
 import {NEW_SESSION_WORKING_TREE_TAGS, SESSION_PAGES, SESSION_RUN_STATE} from "@pkg/constants/src/session.constant.ts";
-import {FOLDER_TERMINAL_NAME} from "@pkg/constants/src/terminal.constant.ts";
+import {FOLDER_TERMINAL_NAME, SESSION_OPEN_PLACES} from "@pkg/constants/src/terminal.constant.ts";
 import {findAgentToStart} from "@services/agent.service.ts";
 import {
   addEntity,
@@ -223,6 +223,18 @@ const findSessionAgent = Effect.fn("SessionService.findSessionAgent")(function* 
   return yield* IAgentRepository.use((agentRepository) => agentRepository.findById(session.agentId));
 });
 
+// Closing a tab only detaches it from its agent, which keeps running.
+const closeOtherSessionTabs = Effect.fn("SessionService.closeOtherSessionTabs")(function* (
+  shownSessionId: EntityIdValueObject
+) {
+  const sessionSettings = yield* ISettingsConfig.use((settingsConfig) => settingsConfig.readSessionSettings);
+  if (sessionSettings.openSessionIn !== SESSION_OPEN_PLACES.SHARED_TAB) return;
+
+  yield* ITerminalInfraService.use((terminalInfraService) =>
+    terminalInfraService.closeOtherSessionTerminals(shownSessionId)
+  );
+});
+
 const openSessionTab = Effect.fn("SessionService.openSessionTab")(function* (
   session: SessionEntity,
   setupScript: string | undefined
@@ -238,11 +250,17 @@ const openSessionTab = Effect.fn("SessionService.openSessionTab")(function* (
     setupScript,
     workingFolderPath: session.workingFolderPath
   });
-  const sessionTabRequest: SessionTabRequest = {icon: sessionAgent.icon, tabCommand, tabName: session.displayName};
+  const sessionTabRequest: SessionTabRequest = {
+    icon: sessionAgent.icon,
+    isPinned: sessionSettings.pinSessionTabs,
+    tabCommand,
+    tabName: session.displayName
+  };
 
   yield* ITerminalInfraService.use((terminalInfraService) =>
     terminalInfraService.openSessionTerminal(session, sessionTabRequest)
   );
+  yield* closeOtherSessionTabs(session.id);
   yield* tmuxInfraService.waitForSessionAgentStart(session.id);
 });
 
@@ -359,6 +377,7 @@ export const openSession = Effect.fn("SessionService.openSession")(
     yield* ITerminalInfraService.use((terminalInfraService) =>
       terminalInfraService.focusSessionTerminal(request.sessionId)
     );
+    yield* closeOtherSessionTabs(request.sessionId);
   },
   (effect, request) => Effect.catchTag(effect, "TerminalNotFoundError", () => reopenSession(request.sessionId))
 );
