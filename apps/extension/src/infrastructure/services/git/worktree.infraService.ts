@@ -369,6 +369,24 @@ const hasChanges = Effect.fn("WorktreeInfraService.hasChanges")(function* (
   });
 });
 
+// shortcut: reads, then removes, so a worktree added in between goes too; use rmdir once Effect's FileSystem has one.
+const removeEmptyProjectFolder = Effect.fn("WorktreeInfraService.removeEmptyProjectFolder")(
+  function* (worktreeDependencies: WorktreeDependencies, worktreePath: ProjectPathValueObject) {
+    const projectFolderPath = worktreeDependencies.path.dirname(worktreePath);
+    const worktreesRootPath = worktreeDependencies.path.join(
+      worktreeDependencies.aggregorFolderPath,
+      WORKTREES.FOLDER_NAME
+    );
+    // A project's own worktree folder setting names the user's folder, which stays.
+    if (worktreeDependencies.path.dirname(projectFolderPath) !== worktreesRootPath) return;
+    const remainingNames = yield* worktreeDependencies.fileSystem.readDirectory(projectFolderPath);
+    if (remainingNames.length > 0) return;
+
+    yield* worktreeDependencies.fileSystem.remove(projectFolderPath, {recursive: true});
+  },
+  Effect.ignore({log: "Debug", message: "Could not remove the project's empty worktrees folder"})
+);
+
 const removeWorktree = Effect.fn("WorktreeInfraService.removeWorktree")(
   function* (
     worktreeDependencies: WorktreeDependencies,
@@ -376,11 +394,15 @@ const removeWorktree = Effect.fn("WorktreeInfraService.removeWorktree")(
     worktreePath: ProjectPathValueObject
   ) {
     const isFolderThere = yield* Effect.orElseSucceed(worktreeDependencies.fileSystem.exists(worktreePath), () => true);
-    if (!isFolderThere) return yield* runGitCommand(worktreeDependencies, projectPath, ["worktree", "prune"]);
-    if (yield* hasChanges(worktreeDependencies, worktreePath))
+    if (isFolderThere && (yield* hasChanges(worktreeDependencies, worktreePath)))
       return yield* WorktreeHasChangesError.make({worktreePath});
+    yield* runGitCommand(
+      worktreeDependencies,
+      projectPath,
+      isFolderThere ? ["worktree", "remove", worktreePath] : ["worktree", "prune"]
+    );
 
-    return yield* runGitCommand(worktreeDependencies, projectPath, ["worktree", "remove", worktreePath]);
+    return yield* removeEmptyProjectFolder(worktreeDependencies, worktreePath);
   },
   Effect.catchTag("GitCommandFailedError", (gitCommandFailed) =>
     Effect.fail(WorktreeRemoveFailedError.make({gitError: gitCommandFailed.gitError}))

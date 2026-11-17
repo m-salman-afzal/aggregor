@@ -8,7 +8,7 @@ export const UserInputDialog = () => {
 
   return (
     <Dialog onOpenChange={userInputDialogView.closeOnDismiss} open={userInputDialogView.userInput !== undefined}>
-      <DialogContent showCloseButton={false}>
+      <DialogContent finalFocus={userInputDialogView.shouldReturnFocus} showCloseButton={false}>
         <UserInputHeader
           Icon={userInputDialogView.UserInputIcon}
           isDestructive={userInputDialogView.isDestructive}

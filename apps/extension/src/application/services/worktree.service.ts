@@ -3,6 +3,7 @@ import {IProjectRepository} from "@entities/project/project.repository.interface
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
+import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
 import {findEntities, findEntityById, removeEntity, updateEntity} from "@services/base.service.ts";
 import {findProjectListItem} from "@services/project.service.ts";
@@ -150,6 +151,21 @@ export const listProjectLeftovers = Effect.fn("WorktreeService.listProjectLeftov
   });
 });
 
+// A deleted worktree still shown would be listed as a project of its own, and saved as one on the next switch.
+const showProjectInPlaceOfWorktree = Effect.fn("WorktreeService.showProjectInPlaceOfWorktree")(function* (
+  projectPath: ProjectPathValueObject,
+  worktreePath: ProjectPathValueObject
+) {
+  const workspaceInfraService = yield* IWorkspaceInfraService;
+  const workspaceFolderProjects = yield* workspaceInfraService.listWorkspaceFolderProjects;
+  const isWorktreeShown = Array.some(
+    workspaceFolderProjects,
+    (workspaceFolderProject) => workspaceFolderProject.path === worktreePath
+  );
+  yield* Effect.annotateCurrentSpan({isWorktreeShown});
+  if (isWorktreeShown) yield* workspaceInfraService.showOnlyProjectFolder(projectPath, undefined);
+});
+
 // The archived sessions that worked there have no folder left to reopen in.
 const removeLeftoverWorktree = Effect.fn("WorktreeService.removeLeftoverWorktree")(function* (
   projectPath: ProjectPathValueObject,
@@ -166,6 +182,7 @@ const removeLeftoverWorktree = Effect.fn("WorktreeService.removeLeftoverWorktree
   yield* ITerminalInfraService.use((terminalInfraService) =>
     terminalInfraService.closeFolderTerminal(leftoverWorktree.worktreePath)
   );
+  yield* showProjectInPlaceOfWorktree(projectPath, leftoverWorktree.worktreePath);
   const worktreeSessions = yield* findEntities(ISessionRepository, {worktreePath: leftoverWorktree.worktreePath});
   yield* Effect.forEach(worktreeSessions, (worktreeSession) => removeEntity(ISessionRepository, worktreeSession.id));
   const keptNames: readonly string[] = [];
@@ -237,6 +254,7 @@ export const removeSessionWorktree = Effect.fn("WorktreeService.removeSessionWor
 
     yield* worktreeInfraService.removeWorktree(sessionProject.path, worktreePath);
     yield* ITerminalInfraService.use((terminalInfraService) => terminalInfraService.closeFolderTerminal(worktreePath));
+    yield* showProjectInPlaceOfWorktree(sessionProject.path, worktreePath);
   },
   Effect.catchTag("EntityNotFoundError", () => Effect.void)
 );

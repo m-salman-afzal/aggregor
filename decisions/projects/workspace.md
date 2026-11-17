@@ -72,10 +72,13 @@ The project in view, and the workspace file Aggregor writes for it.
   workspace file anew, syncs the last copy's project first. String values starting with `./` or `../` become absolute
   paths in the project, and `${workspaceFolder}` and `${workspaceFolderBasename}` its path and name; a relative path
   written in the workspace file goes into the project's file relative to the project. Files are parsed and edited with
-  `jsonc-parser` (3.3.1, Microsoft's, as VS Code uses). A window showing several projects syncs nothing. The workspace
-  level takes every setting but application- and machine-scoped ones, VS Code applies a change to the file without a
-  reload, and edits land where they would with the project open alone, so the project's own settings work as then,
-  Peacock included. Writing through VS Code's copy and in turns keeps every writer from racing another.
+  `jsonc-parser` (3.3.1, Microsoft's, as VS Code uses). A window showing several projects syncs nothing, and neither
+  does a project whose folder is gone: a worktree deleted while shown is still the window's folder when the switch away
+  syncs it, and in any other window until its next switch, and writing a workspace edit into its settings file brought
+  the folder back with only `.vscode/settings.json` in it. The workspace level takes every setting but application- and
+  machine-scoped ones, VS Code applies a change to the file without a reload, and edits land where they would with the
+  project open alone, so the project's own settings work as then, Peacock included. Writing through VS Code's copy and
+  in turns keeps every writer from racing another.
 - **Solution:** a string that starts with `./` or `../` but isn't a path is made one too. An extension that rewrites its
   own settings whenever they change, as Peacock does, can still be caught mid-write by a switch; copying the next
   project's settings in first leaves it one value to apply. A switch while the leaving project's file has unsaved

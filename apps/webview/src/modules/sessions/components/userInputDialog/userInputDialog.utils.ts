@@ -52,6 +52,9 @@ export const takeEnteredText = (formEvent: SubmitEvent<HTMLFormElement>) => {
   return typeof enteredText === "string" ? enteredText : "";
 };
 
+// Base UI returns focus once the dialog has faded out, by when a new session's tab may hold it.
+export const shouldReturnFocus = () => document.hasFocus();
+
 // The dialog closes before the answer runs, so an answer may open the next one.
 export const describeUserInput = (userInput: undefined | UserInput) => ({
   isDestructive: userInput !== undefined && isDestructiveUserInput(userInput),
