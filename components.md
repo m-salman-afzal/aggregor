@@ -330,8 +330,9 @@ the theme and the base components.
   context menu, dialog, input, and the combobox with the input group and textarea it brings), which lint checks only for
   arrow components, so the CLI can update them and its `function`s are rewritten as arrows; the CLI writes its imports
   without the `.tsx` the webview's typecheck needs, so they are added by hand; `class-variance-authority` 0.7.1 for the
-  button's variants, and `cn` 0.5.2, shadcn's class-name merge, which the webview's own components use too. The theme's
-  tokens read VS Code's theme variables (`packages/ui/src/theme.css`).
+  button's variants, with Renovate's abandoned-package warning off for it, and `cn` 0.5.2, shadcn's class-name merge,
+  which the webview's own components use too. The theme's tokens read VS Code's theme variables
+  (`packages/ui/src/theme.css`).
 - **Why:** "The webview is React with shadcn on Base UI".
 - **Alternatives:** that decision.
 
@@ -552,7 +553,7 @@ the theme and the base components.
 - **What it is:** a dependency update bot.
 - **What we use:** `.github/renovate.json5`: weekly, minor and patch bumps in one `build(deps):` PR, Actions in a
   `ci(deps):` PR, a 1-day minimum release age, OSV alerts, `vscode` and `@types/vscode` moved together, Drizzle's
-  `-‹hash›` builds skipped, and no abandoned-package warning for husky and portable-pty.
+  `-‹hash›` builds skipped, and no abandoned-package warning for husky, portable-pty and class-variance-authority.
 - **Why:** it installs the Node that `devEngines` names.
 - **Alternatives:** "Renovate instead of Dependabot": Dependabot, whose container runs Node 24, so pnpm refuses to
   install. "Updates wait 1 day after a release": 7 days, then 3 days.

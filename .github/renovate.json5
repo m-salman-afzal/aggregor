@@ -20,7 +20,7 @@
       minimumReleaseAge: "1 day"
     },
     {
-      matchDepNames: ["husky", "portable-pty"],
+      matchDepNames: ["husky", "portable-pty", "class-variance-authority"],
       abandonmentThreshold: null
     },
     {
