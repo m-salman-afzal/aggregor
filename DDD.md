@@ -445,6 +445,8 @@ apps/extension/src/
                                            button
     views/requiredToolsNotices/            RequiredToolsNoticesView: the notice that tmux or gh is missing, with its
                                            Install button, or each tool's install page
+    views/folderShellProfile/              FolderShellProfileView: the Aggregor terminal profile's provider, which
+                                           VS Code calls for every terminal it opens itself in Aggregor's workspace
   extension.ts                             activate
 apps/extension/tests/
   migrations.test.ts                       every migration on a new database, and on a filled one at each earlier

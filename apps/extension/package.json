@@ -309,6 +309,14 @@
         }
       ]
     },
+    "terminal": {
+      "profiles": [
+        {
+          "id": "aggregorApp.folderShell",
+          "title": "Aggregor"
+        }
+      ]
+    },
     "views": {
       "aggregorApp": [
         {

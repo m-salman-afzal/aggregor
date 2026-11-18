@@ -9,10 +9,10 @@ export const PTY_BINARY = "bin/aggregor-pty";
 // Every session terminal carries its session id, so a restarted extension host can tell which tab is whose.
 export const SESSION_ID_ENV = "AGGREGOR_SESSION_ID";
 
-// The window's one terminal for folder shells carries the folder it opened with, so a restarted extension host finds it.
+// The profile's title in package.json is the name, which the default-profile setting names it by.
 export const FOLDER_SHELL_TERMINAL = {
-  FOLDER_PATH_ENV: "AGGREGOR_FOLDER_SHELL_PATH",
-  NAME: "Aggregor"
+  NAME: "Aggregor",
+  PROFILE_ID: "aggregorApp.folderShell"
 } as const;
 
 export const FOLDER_SHELL_STATUS_LABEL = {
