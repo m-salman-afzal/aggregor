@@ -240,15 +240,17 @@ apps/extension/src/
                                            rows move within an order
       pagination.domainService.ts          makePagination: what a page is, from its request and the row counts
       worktree.domainService.ts            getWorktreeName, getWorktreeBranchName, getWorktreesFolderName,
-                                           getTitledBranchName, hasWorktreeBranchFirstName: what a session's
-                                           worktree, its branch and its project's worktrees folder are called
+                                           getTitledBranchName, hasWorktreeBranchFirstName, toNamePart: what a
+                                           session's worktree, its branch and its project's worktrees folder are
+                                           called
+      folderShell.domainService.ts         getFolderShellName: what a folder's shell is called in tmux
   application/
     services/
       base.service.ts                      addEntity, findEntityById, findEntities, findEntityPage, updateEntity,
                                            upsertEntity, removeEntity, placeEntitiesAtEnd, on any repository
       session.service.ts                   newSession (in a project, with an agent or the default one, at the
                                            project's root, in a new worktree or in an existing one),
-                                           openSession, openSessionFolderTerminal, archiveSession,
+                                           openSession, archiveSession,
                                            unarchiveSession, removeSession,
                                            renameSession, renameSessionBranch, stopSessionAgent, stopProjectSessionAgents,
                                            stopArchivedProjectSessionAgents, stopOngoingSessionAgents,
@@ -260,15 +262,19 @@ apps/extension/src/
                                            watchSessionListChanges, watchViewedSessionIds, findViewedSessionId,
                                            listSessionsWaitingOnUser (the badge and each view's count);
                                            startSessionTitleSync, startSessionTabNameSync, startViewedAtSync,
-                                           startRunStateSync
+                                           startRunStateSync, syncSessionTabsWithTmux
       agent.service.ts                     listAgents (the installed agents, the default first), setDefaultAgent,
                                            findAgentToStart; NoAgentInstalledError
       sessionAlert.service.ts              watchSessionAlerts: the states sessions out of view hold for 3 seconds,
                                            as notifyOn picks them; notifyOnDesktop
       project.service.ts                   listProjects, getProjectListItem, findProjectListItem, addProject
                                            (asks for folders), addProjectPaths, findOrAddProject, removeProject,
-                                           moveProjectUp, moveProjectDown, openProjectTerminal,
-                                           saveProjectSettings; ProjectNotListedError
+                                           moveProjectUp, moveProjectDown, saveProjectSettings;
+                                           ProjectNotListedError
+      folderShell.service.ts               openProjectTerminal, openSessionFolderTerminal (a row's Open Terminal:
+                                           the window's Aggregor terminal on the shell of the project's folder, or
+                                           of the session's), syncFolderShellTerminalWithTmux,
+                                           startFolderShellEndOnTerminalClose
       pullRequest.service.ts               openSessionPullRequest, signInToGitHubCli, watchGitHubCliSignedOut,
                                            startPullRequestRefreshOnTurnEnd
       sessionImport.service.ts             listImportableSessions (each agent's conversations in a project's folder
@@ -289,6 +295,7 @@ apps/extension/src/
       agent.dto.ts                         AgentListItemDto: a row of the agent picker; SetDefaultAgentRequestDto
       project.dto.ts                       ProjectListItemDto with its ProjectSettingsDto, and a request DTO per
                                            project use case
+      folderShell.dto.ts                   OpenProjectTerminalRequestDto, OpenSessionFolderTerminalRequestDto
       pullRequest.dto.ts                   OpenSessionPullRequestRequestDto
       requiredTools.dto.ts                 MissingToolsDto with its MissingToolDto
       sessionImport.dto.ts                 ImportableSessionsDto (AgentImportableSessionsDto, ImportableSessionDto),
@@ -298,15 +305,24 @@ apps/extension/src/
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
     interfaces/                            each with the errors and types its signatures name
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
-                                           closeOtherSessionTerminals,
-                                           openFolderTerminal, closeFolderTerminal, switchToFolderTerminal,
+                                           closeOtherSessionTerminals, findOpenSessionTerminalProcessId,
+                                           assignShownSessions,
+                                           openFolderShellTerminal, findFolderShellTerminalProcessId,
+                                           assignShownFolderShellPath, folderShellPathsClosedByUser,
                                            nameActiveSessionTab, activatedSessionIds, viewedSessionId,
                                            openSetupTerminal, closedSetupTerminals;
-                                           FolderTerminalRequest, SessionTabRequest, SessionTabCommand,
-                                           TerminalLaunchFailedError
-      tmux.infraService.interface.ts       checkTmuxVersion, prepareSessionTabCommand, waitForSessionAgentStart, stopSessionAgent,
-                                           runningSessionIds, refreshRunningSessionIds, startedOrStoppedSessionIds;
-                                           SessionTabCommandRequest, PtyBinaryNotFoundError, TmuxUnavailableError
+                                           FolderShellTerminalRequest, SessionTabRequest, TerminalCommand,
+                                           TerminalLaunchFailedError, NoSessionTabOpenError,
+                                           NoFolderShellTerminalOpenError
+      tmux.infraService.interface.ts       checkTmuxVersion; for a session's agent: prepareSessionTabCommand,
+                                           waitForSessionAgentStart, stopSessionAgent, runningSessionIds,
+                                           refreshRunningSessionIds, startedOrStoppedSessionIds, showSessionInTab,
+                                           readShownSessionIdsByTabProcessId; for a folder's shell:
+                                           prepareFolderShellTerminalCommand, showFolderShellInTerminal,
+                                           readFolderShellPathShownInTerminal, endFolderShell;
+                                           SessionTabCommandRequest, FolderShellRequest, PtyBinaryNotFoundError,
+                                           TmuxUnavailableError, SessionTabSwitchFailedError,
+                                           FolderShellSwitchFailedError, FolderShellNotShownError
       userInputPrompt.infraService.interface.ts
                                            pickProjectFolderPaths: the system's folder dialog;
                                            FolderPickCancelledError
@@ -361,15 +377,29 @@ apps/extension/src/
       os/desktopNotification.infraService.ts
                                            DesktopNotificationInfraService: notify-send, filed under VS Code, on Linux,
                                            osascript on macOS, a PowerShell toast from WSL
-      tmux/tmux.infraService.ts            TmuxInfraService: the command a session's tab runs, which starts its
-                                           agent under aggregor-pty in a tmux session or attaches to it; stops it;
-                                           reads which sessions tmux runs
+      tmux/                                TmuxInfraService (tmux.infraService.ts): the layer, and what its helper
+                                           files share in tmux.infraService.type.ts. tmuxServer.utils.ts is tmux
+                                           itself, in tmux's own terms: runs a command on Aggregor's server, lists
+                                           its sessions and clients, attaches a terminal's client to another
+                                           session, kills a session, and builds the command a terminal runs, in a
+                                           scope of its own. On top of it, sessionAgent.utils.ts: the command a
+                                           session's tab runs, which starts its agent under aggregor-pty in a tmux
+                                           session or attaches to it; stops it; attaches a tab to another session;
+                                           reads which sessions tmux runs and which one each tab shows. And
+                                           folderShell.utils.ts: the command the window's Aggregor terminal runs,
+                                           which starts a folder's shell in a tmux session or attaches to it;
+                                           attaches the terminal to another folder's shell, started first with the
+                                           shown shell's variables; ends one; reads which folder's shell the
+                                           terminal shows
       vscode/                              UserInputPromptInfraService, WorkspaceInfraService (also syncs the
                                            shown project's .vscode/settings.json with Aggregor's workspace file),
                                            GitInfraService, ProgressInfraService
       vscode/terminal/                     TerminalInfraService: session tabs, each a tmux client attached to its
-                                           agent, project shells, and the setup terminal that installs tools;
-                                           terminal.utils finds a tab's session id in its env and pins a tab
+                                           agent, the window's one Aggregor terminal, a tmux client attached to a
+                                           folder's shell, and the setup terminal that installs tools;
+                                           terminal.utils finds a tab's session id in its env and pins a tab;
+                                           folderShellTerminal.utils opens the Aggregor terminal, finds it by its
+                                           env, and says which folder's shell it showed when the user closed it
       agentHistory/                        AgentHistoryInfraService: a folder's conversations from each agent's own
                                            store, read-only; a <agent>History.utils.ts per agent (Claude Code,
                                            Codex, OpenCode, Copilot)
@@ -398,9 +428,9 @@ apps/extension/src/
     middlewares/registerCommand.middleware.ts
                                            registerCommand: root span per command; shows the presenter's message
                                            for a failure, and logs a crash
-    controllers/                           session, sessionImport, agent, sessionAlert, project, worktree, pullRequest, requiredTools, commitMessage: decode the input into a
+    controllers/                           session, sessionImport, agent, sessionAlert, project, folderShell, worktree, pullRequest, requiredTools, commitMessage: decode the input into a
                                            request DTO and call one service; the views' reads
-    presenters/                            session, sessionImport, project, worktree, pullRequest, requiredTools, commitMessage: a failed command's message, and the
+    presenters/                            session, sessionImport, project, folderShell, worktree, pullRequest, requiredTools, commitMessage: a failed command's message, and the
                                            setting that fixes it; app: none, for commands that cannot fail
     views/sessions/                        SessionsView (sessions.view.ts): the webview view provider, the webview's
                                            messages and the commands it asks for; sessionsDrawing.utils.ts what it
@@ -527,8 +557,16 @@ apps/extension/tests/
   new agent CLI is a settings entry, not code. The domain's `prepareLaunchPlan` turns an agent and a session into a
   `LaunchPlanValueObject`, and the tmux infra service runs it under `aggregor-pty` in the session's tmux session;
   neither knows the other.
-- **The agent and its tab are apart:** `ITmuxInfraService` starts and stops agents and says which run;
-  `ITerminalInfraService` only opens, focuses, names, pins and closes the tabs attached to them.
+- **What runs in tmux and its terminal are apart:** `ITmuxInfraService` starts and stops agents and folder shells and
+  says which run; `ITerminalInfraService` only opens, focuses, names, pins and closes the terminals attached to them.
+  Neither calls the other: where a step needs both, as when the shared tab switches session or the Aggregor terminal
+  switches folder, the use case hands the terminal's process id, which is its tmux client's, from one to the other. The
+  application names a folder's shell by its folder's path; only `TmuxInfraService` knows its tmux session's name, which
+  the domain's `getFolderShellName` gives.
+- **tmux in tmux's terms, under what runs on it:** inside `infrastructure/services/tmux/`, `tmuxServer.utils.ts` knows
+  tmux and nothing of Aggregor (sessions by name, clients by their terminal's process id), and `sessionAgent.utils.ts`
+  and `folderShell.utils.ts` each say what one kind of tmux session is. A new kind of thing in tmux is a new file beside
+  them, and a new tmux command goes into `tmuxServer.utils.ts`.
 - **Worktrees on the git command line:** `IWorktreeInfraService` runs `git worktree` itself rather than through the Git
   extension, whose API reaches only repositories open in Source Control.
 - **Planned with their roadmap items:** a `Hosts` LayerMap keyed by host id for SSH.

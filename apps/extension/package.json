@@ -1,6 +1,6 @@
 {
   "name": "aggregor-app",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "private": true,
   "description": "Combines multiple coding agents.",
   "repository": "github:m-salman-afzal/aggregor",
@@ -94,6 +94,8 @@
               ],
               "resumeArgs": [
                 "resume",
+                "-C",
+                ".",
                 "--no-daemon",
                 "-c",
                 "tui.terminal_title=[\"thread-title\"]",
@@ -200,7 +202,7 @@
           ],
           "enumDescriptions": [
             "Every session opens in a tab of its own.",
-            "One tab shows the session opened last: opening a session closes the other sessions' tabs, and their agents keep running."
+            "One tab shows the session opened last, and a running session switches into it in place; the other sessions' agents keep running."
           ],
           "default": "ownTab",
           "markdownDescription": "Where a session opens when it starts or its row is clicked."

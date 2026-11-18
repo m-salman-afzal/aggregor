@@ -1,29 +1,27 @@
+import {ListedPullRequestDtoSchema, SessionPullRequestsDtoSchema} from "@dtos/pullRequest.dto.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {IGitHubCliInfraService} from "@interfaces/gitHubCli.infraService.interface.ts";
 import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
-import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
-import {GITHUB_CLI, PULL_REQUEST_OPEN_PLACES} from "@pkg/constants/src/gitHubCli.constant.ts";
-import {findSession, SessionNotInWorktreeError} from "@services/session.service.ts";
+import {
+  GITHUB_CLI,
+  PULL_REQUEST_LIST_PROBLEMS,
+  PULL_REQUEST_OPEN_PLACES
+} from "@pkg/constants/src/gitHubCli.constant.ts";
+import {updateEntity} from "@services/base.service.ts";
+import {findSession, findSessionPullRequestLookup} from "@services/session.service.ts";
 import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
 import {ENTITY_CHANGE_KINDS} from "@valueObjects/entityChangeKind.valueObject.ts";
-import {DateTime, Effect, Ref, Result, Stream} from "effect";
+import {Array, DateTime, Effect, Match, Ref, Result, Stream} from "effect";
 
-import type {OpenSessionPullRequestRequestDto} from "@dtos/pullRequest.dto.ts";
+import type {
+  LinkSessionPullRequestRequestDto,
+  ListSessionPullRequestsRequestDto,
+  OpenSessionPullRequestRequestDto,
+  UnlinkSessionPullRequestRequestDto
+} from "@dtos/pullRequest.dto.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-
-const findSessionPullRequestBranch = Effect.fn("PullRequestService.findSessionPullRequestBranch")(function* (
-  session: SessionEntity
-) {
-  const worktreePath = session.worktreePath;
-  if (worktreePath === undefined) return yield* SessionNotInWorktreeError.make();
-  const branchName = yield* IWorktreeInfraService.use((worktreeInfraService) =>
-    worktreeInfraService.readBranchName(worktreePath)
-  );
-
-  return {branchName, folderPath: worktreePath};
-});
 
 // Where aggregorApp.openPullRequestIn says.
 export const openSessionPullRequest = Effect.fn("PullRequestService.openSessionPullRequest")(function* (
@@ -31,14 +29,60 @@ export const openSessionPullRequest = Effect.fn("PullRequestService.openSessionP
 ) {
   const gitHubCliInfraService = yield* IGitHubCliInfraService;
   const session = yield* findSession(request.sessionId);
-  const pullRequestBranch = yield* findSessionPullRequestBranch(session);
-  const pullRequest = yield* gitHubCliInfraService.findPullRequest(pullRequestBranch);
+  const pullRequestLookup = yield* findSessionPullRequestLookup(session);
+  const pullRequest = yield* gitHubCliInfraService.findPullRequest(pullRequestLookup);
   const pullRequestSettings = yield* ISettingsConfig.use((settingsConfig) => settingsConfig.readPullRequestSettings);
   yield* Effect.annotateCurrentSpan({openPullRequestIn: pullRequestSettings.openPullRequestIn});
 
   yield* pullRequestSettings.openPullRequestIn === PULL_REQUEST_OPEN_PLACES.VS_CODE
     ? gitHubCliInfraService.openPullRequestInVsCode(pullRequest)
     : gitHubCliInfraService.openPullRequestInBrowser(pullRequest);
+});
+
+export const linkSessionPullRequest = Effect.fn("PullRequestService.linkSessionPullRequest")(
+  function* (request: LinkSessionPullRequestRequestDto) {
+    yield* updateEntity(ISessionRepository, request.sessionId, {pullRequestNumber: request.pullRequestNumber});
+  },
+  Effect.catchTag("EntityNotFoundError", () => Effect.void)
+);
+
+// The row goes back to the worktree branch's pull request, or none in the project root.
+export const unlinkSessionPullRequest = Effect.fn("PullRequestService.unlinkSessionPullRequest")(
+  function* (request: UnlinkSessionPullRequestRequestDto) {
+    yield* updateEntity(ISessionRepository, request.sessionId, {pullRequestNumber: undefined});
+  },
+  Effect.catchTag("EntityNotFoundError", () => Effect.void)
+);
+
+// From the session's own folder, so gh asks the repository the session works in.
+export const listSessionPullRequests = Effect.fn("PullRequestService.listSessionPullRequests")(function* (
+  request: ListSessionPullRequestsRequestDto
+) {
+  const session = yield* findSession(request.sessionId);
+  const listedPullRequestsResult = yield* Effect.result(
+    IGitHubCliInfraService.use((gitHubCliInfraService) =>
+      gitHubCliInfraService.listPullRequests(session.workingFolderPath)
+    )
+  );
+
+  return Result.match(listedPullRequestsResult, {
+    onFailure: (listError) =>
+      SessionPullRequestsDtoSchema.make({
+        listProblem: Match.valueTags(listError, {
+          GitHubCliSignedOutError: () => PULL_REQUEST_LIST_PROBLEMS.SIGNED_OUT,
+          PullRequestListFailedError: () => PULL_REQUEST_LIST_PROBLEMS.FAILED
+        }),
+        pullRequests: [],
+        sessionId: session.id
+      }),
+    onSuccess: (listedPullRequests) =>
+      SessionPullRequestsDtoSchema.make({
+        pullRequests: Array.map(listedPullRequests, (listedPullRequest) =>
+          ListedPullRequestDtoSchema.make({...listedPullRequest})
+        ),
+        sessionId: session.id
+      })
+  });
 });
 
 export const signInToGitHubCli = Effect.fn("PullRequestService.signInToGitHubCli")(function* () {
@@ -53,13 +97,13 @@ export const watchGitHubCliSignedOut = Effect.fn("PullRequestService.watchGitHub
   return Stream.as(gitHubCliInfraService.gitHubCliSignedOutProblems, undefined);
 });
 
-// A session outside a worktree, or in one git no longer knows, has no branch to look up.
+// A root session with no linked pull request, or one in a worktree git no longer knows, has nothing to look up.
 const refreshSessionPullRequest = Effect.fn("PullRequestService.refreshSessionPullRequest")(
   function* (session: SessionEntity) {
-    const pullRequestBranch = yield* findSessionPullRequestBranch(session);
+    const pullRequestLookup = yield* findSessionPullRequestLookup(session);
 
     yield* IGitHubCliInfraService.use((gitHubCliInfraService) =>
-      gitHubCliInfraService.refreshPullRequest(pullRequestBranch)
+      gitHubCliInfraService.refreshPullRequest(pullRequestLookup)
     );
   },
   Effect.catchTags({NotGitRepositoryError: () => Effect.void, SessionNotInWorktreeError: () => Effect.void})

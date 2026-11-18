@@ -1,13 +1,13 @@
 import {
   ArchiveProjectSessionsRequestDtoSchema,
   ArchiveSessionRequestDtoSchema,
+  ChangeSessionWorkingTreeRequestDtoSchema,
   GetProjectSessionsRequestDtoSchema,
   GetSessionListItemRequestDtoSchema,
   ListProjectSessionsRequestDtoSchema,
   MoveSessionDownRequestDtoSchema,
   MoveSessionUpRequestDtoSchema,
   NewSessionRequestDtoSchema,
-  OpenSessionFolderTerminalRequestDtoSchema,
   OpenSessionRequestDtoSchema,
   RemoveSessionRequestDtoSchema,
   RenameSessionBranchRequestDtoSchema,
@@ -15,13 +15,15 @@ import {
   StopArchivedProjectSessionAgentsRequestDtoSchema,
   StopProjectSessionAgentsRequestDtoSchema,
   StopSessionAgentRequestDtoSchema,
-  UnarchiveSessionRequestDtoSchema
+  UnarchiveSessionRequestDtoSchema,
+  UnlinkSessionWorktreeRequestDtoSchema
 } from "@dtos/session.dto.ts";
 import {decodeVsCodeArgument} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
 import {
   archiveOngoingSessions,
   archiveProjectSessions,
   archiveSession,
+  changeSessionWorkingTree,
   findViewedSessionId,
   getProjectSessions,
   getSessionListItem,
@@ -32,7 +34,6 @@ import {
   moveSessionUp,
   newSession,
   openSession,
-  openSessionFolderTerminal,
   removeSession,
   renameSession,
   renameSessionBranch,
@@ -42,6 +43,7 @@ import {
   stopProjectSessionAgents,
   stopSessionAgent,
   unarchiveSession,
+  unlinkSessionWorktree,
   watchSessionListChanges,
   watchViewedSessionIds
 } from "@services/session.service.ts";
@@ -58,13 +60,6 @@ export const openChosenSession = Effect.fn("SessionController.openChosenSession"
   const request = yield* decodeVsCodeArgument(OpenSessionRequestDtoSchema, chosenSession);
   yield* openSession(request);
 });
-
-export const openChosenSessionFolderTerminal = Effect.fn("SessionController.openChosenSessionFolderTerminal")(
-  function* (chosenSession: unknown) {
-    const request = yield* decodeVsCodeArgument(OpenSessionFolderTerminalRequestDtoSchema, chosenSession);
-    yield* openSessionFolderTerminal(request);
-  }
-);
 
 export const removeChosenSession = Effect.fn("SessionController.removeChosenSession")(function* (
   chosenSession: unknown
@@ -139,6 +134,20 @@ export const renameChosenSessionBranch = Effect.fn("SessionController.renameChos
 ) {
   const request = yield* decodeVsCodeArgument(RenameSessionBranchRequestDtoSchema, chosenSession);
   yield* renameSessionBranch(request);
+});
+
+export const changeChosenSessionWorkingTree = Effect.fn("SessionController.changeChosenSessionWorkingTree")(function* (
+  chosenSession: unknown
+) {
+  const request = yield* decodeVsCodeArgument(ChangeSessionWorkingTreeRequestDtoSchema, chosenSession);
+  yield* changeSessionWorkingTree(request);
+});
+
+export const unlinkChosenSessionWorktree = Effect.fn("SessionController.unlinkChosenSessionWorktree")(function* (
+  chosenSession: unknown
+) {
+  const request = yield* decodeVsCodeArgument(UnlinkSessionWorktreeRequestDtoSchema, chosenSession);
+  yield* unlinkSessionWorktree(request);
 });
 
 export const moveChosenSessionUp = Effect.fn("SessionController.moveChosenSessionUp")(function* (

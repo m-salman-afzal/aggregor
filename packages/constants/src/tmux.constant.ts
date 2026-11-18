@@ -25,6 +25,21 @@ export const AGENT_START_WAIT = {
   TIMEOUT_MS: 5000
 } as const;
 
+export const FOLDER_SHELL = {
+  // tmux before 3.7 sizes a pane's history as the pane is made, so there a shell keeps tmux.conf's limit.
+  HISTORY_LINES: "100000",
+  // Runs the user's login shell, after the command line's own arguments: a systemd scope's, or none.
+  START_SCRIPT: 'unset TMUX TMUX_PANE; exec "$@" "$SHELL" -l',
+  // tmux.conf's status line shows this option of the shell's tmux session.
+  STATUS_LABEL_OPTION: "@aggregor_folder_label"
+} as const;
+
+// A terminal's tmux client attaches a moment after the terminal opens.
+export const TMUX_CLIENT_WAIT = {
+  POLL_INTERVAL_MS: 50,
+  TIMEOUT_MS: 1000
+} as const;
+
 export const TMUX_ERRORS = {
   NOT_INSTALLED: "Aggregor runs every session in tmux 3.2 or newer, which isn't installed.",
   TOO_OLD: (foundVersion: string) =>

@@ -1,4 +1,5 @@
 import {listAgentsForSessionsView} from "@controllers/agent.controller.ts";
+import {listSessionPullRequestsForSessionsView} from "@controllers/pullRequest.controller.ts";
 import {
   findViewedSessionIdForSessionsView,
   getProjectSessionsForSessionsView,
@@ -181,6 +182,18 @@ export const drawBranches = Effect.fn("SessionsView.drawBranches")(
     yield* postToWebview(webviewView, {_tag: SESSIONS_VIEW_MESSAGE_TAGS.BRANCHES_DRAWN, branches});
   },
   Effect.catch((branchesError) => Effect.logWarning("Could not list the project's branches", branchesError))
+);
+
+// A session removed meanwhile draws no list; the webview's dialog keeps waiting until closed.
+export const drawPullRequests = Effect.fn("SessionsView.drawPullRequests")(
+  function* (webviewView: WebviewView, sessionId: string) {
+    const pullRequests = yield* listSessionPullRequestsForSessionsView(sessionId);
+
+    yield* postToWebview(webviewView, {_tag: SESSIONS_VIEW_MESSAGE_TAGS.PULL_REQUESTS_DRAWN, pullRequests});
+  },
+  Effect.catch((pullRequestsError) =>
+    Effect.logWarning("Could not list the session's pull requests", pullRequestsError)
+  )
 );
 
 // A session removed meanwhile draws nothing: the change that removed it redraws its project.

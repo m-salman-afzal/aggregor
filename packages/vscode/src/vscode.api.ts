@@ -11,6 +11,7 @@ import {
   ProgressLocation,
   Range,
   TabInputTerminal,
+  TerminalExitReason,
   ThemeColor,
   ThemeIcon,
   TreeItem,
@@ -42,6 +43,7 @@ export class VsCodeApi extends Context.Service<
     readonly ProgressLocation: typeof ProgressLocation;
     readonly Range: typeof Range;
     readonly TabInputTerminal: typeof TabInputTerminal;
+    readonly TerminalExitReason: typeof TerminalExitReason;
     readonly ThemeColor: typeof ThemeColor;
     readonly ThemeIcon: typeof ThemeIcon;
     readonly TreeItem: typeof TreeItem;
@@ -69,6 +71,7 @@ export class VsCodeApi extends Context.Service<
       ProgressLocation,
       Range,
       TabInputTerminal,
+      TerminalExitReason,
       ThemeColor,
       ThemeIcon,
       TreeItem,

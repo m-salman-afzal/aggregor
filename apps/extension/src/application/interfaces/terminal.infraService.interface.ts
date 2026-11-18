@@ -7,24 +7,34 @@ import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Effect, Result, Stream, SubscriptionRef} from "effect";
 
-// Run as the tab's process, with no shell around it.
-export interface SessionTabCommand {
+// Run as the terminal's process, with no shell around it.
+export interface TerminalCommand {
   readonly command: string;
   readonly commandArguments: readonly string[];
 }
 
-export interface FolderTerminalRequest {
+export interface FolderShellTerminalRequest {
   readonly folderPath: ProjectPathValueObject;
-  readonly terminalName: string;
+  readonly terminalCommand: TerminalCommand;
 }
 
 export interface SessionTabRequest {
   readonly icon: AgentIconValueObject;
   readonly isPinned: boolean;
-  readonly tabCommand: SessionTabCommand;
+  // A shared tab shows sessions of any agent, and a tab's icon can't change, so it takes Aggregor's.
+  readonly isShared: boolean;
+  readonly tabCommand: TerminalCommand;
   readonly tabName: string;
 }
 
+export class NoFolderShellTerminalOpenError extends Schema.TaggedError<
+  NoFolderShellTerminalOpenError,
+  {readonly brand: unique symbol}
+>()("NoFolderShellTerminalOpenError", {}) {}
+export class NoSessionTabOpenError extends Schema.TaggedError<NoSessionTabOpenError, {readonly brand: unique symbol}>()(
+  "NoSessionTabOpenError",
+  {}
+) {}
 // No session's tab is in front of the user; TerminalInfraService's trace says why.
 export class NoViewedSessionError extends Schema.TaggedError<NoViewedSessionError, {readonly brand: unique symbol}>()(
   "NoViewedSessionError",
@@ -45,16 +55,25 @@ export class ITerminalInfraService extends Context.Service<
   ITerminalInfraService,
   {
     readonly activatedSessionIds: Stream.Stream<EntityIdValueObject>;
+    // tmux can attach the window's Aggregor terminal to another folder's shell, which VS Code can't see.
+    readonly assignShownFolderShellPath: (folderPath: ProjectPathValueObject) => Effect.Effect<void>;
+    // tmux can attach a tab to another session, so each tab counts as the session its tmux client shows.
+    readonly assignShownSessions: (
+      shownSessionIdsByTabProcessId: ReadonlyMap<number, EntityIdValueObject>
+    ) => Effect.Effect<void>;
     readonly closedSetupTerminals: Stream.Stream<void>;
-    readonly closeFolderTerminal: (folderPath: ProjectPathValueObject) => Effect.Effect<void>;
     readonly closeOtherSessionTerminals: (shownSessionId: EntityIdValueObject) => Effect.Effect<void>;
     readonly closeSessionTerminal: (sessionId: EntityIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
+    readonly findFolderShellTerminalProcessId: Effect.Effect<number, NoFolderShellTerminalOpenError>;
+    readonly findOpenSessionTerminalProcessId: Effect.Effect<number, NoSessionTabOpenError>;
     readonly focusSessionTerminal: (sessionId: EntityIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
+    // The folder whose shell the Aggregor terminal showed when the user closed it; a reload or a quit yields none.
+    readonly folderShellPathsClosedByUser: Stream.Stream<ProjectPathValueObject>;
     // VS Code can rename only the active terminal.
     readonly nameActiveSessionTab: (sessionId: EntityIdValueObject, tabName: string) => Effect.Effect<void>;
-    // A folder has one terminal: it opens the first time and comes to the front after that.
-    readonly openFolderTerminal: (
-      folderTerminalRequest: FolderTerminalRequest
+    // A window has one Aggregor terminal: it opens the first time and comes to the front after that.
+    readonly openFolderShellTerminal: (
+      folderShellTerminalRequest: FolderShellTerminalRequest
     ) => Effect.Effect<void, TerminalLaunchFailedError>;
     readonly openSessionTerminal: (
       session: SessionEntity,
@@ -62,11 +81,6 @@ export class ITerminalInfraService extends Context.Service<
     ) => Effect.Effect<void, TerminalLaunchFailedError>;
     // A command the user watches and answers, such as sudo's password; its output stays until they press Enter.
     readonly openSetupTerminal: (commandLine: string) => Effect.Effect<void>;
-    // The Terminal panel follows the shown session's folder, or its project's, while it shows another folder's terminal.
-    readonly switchToFolderTerminal: (
-      workingFolderPath: ProjectPathValueObject,
-      projectPath: ProjectPathValueObject
-    ) => Effect.Effect<void>;
     readonly viewedSessionId: SubscriptionRef.SubscriptionRef<Result.Result<EntityIdValueObject, NoViewedSessionError>>;
   }
 >()("aggregor-app/application/interfaces/terminal.infraService.interface/ITerminalInfraService") {}

@@ -1,4 +1,4 @@
-import {FOLDER_PATH_ENV, SESSION_ID_ENV, SESSION_TAB_PIN_WAIT} from "@pkg/constants/src/terminal.constant.ts";
+import {SESSION_ID_ENV, SESSION_TAB_PIN_WAIT} from "@pkg/constants/src/terminal.constant.ts";
 import {VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
 import {decodeEntityId} from "@valueObjects/entityId.valueObject.ts";
 import {Array, Effect, Result, Schedule, Schema, SubscriptionRef} from "effect";
@@ -20,44 +20,19 @@ class SessionTabNotInFrontError extends Schema.TaggedError<
   {readonly brand: unique symbol}
 >()("SessionTabNotInFrontError", {}) {}
 
-class FolderTerminalNotFoundError extends Schema.TaggedError<
-  FolderTerminalNotFoundError,
-  {readonly brand: unique symbol}
->()("FolderTerminalNotFoundError", {}) {}
+export const readTerminalEnvironmentVariable = Effect.fn("TerminalInfraService.readTerminalEnvironmentVariable")(
+  function* (terminal: Terminal | undefined, variableName: string) {
+    if (terminal === undefined) return undefined;
+    const environmentVariables = "env" in terminal.creationOptions ? terminal.creationOptions.env : undefined;
 
-const readTerminalEnvironmentVariable = Effect.fn("TerminalInfraService.readTerminalEnvironmentVariable")(function* (
-  terminal: Terminal | undefined,
-  variableName: string
+    return environmentVariables === undefined ? undefined : environmentVariables[variableName];
+  }
+);
+
+export const readTerminalProcessId = Effect.fn("TerminalInfraService.readTerminalProcessId")(function* (
+  terminal: Terminal
 ) {
-  if (terminal === undefined) return undefined;
-  const environmentVariables = "env" in terminal.creationOptions ? terminal.creationOptions.env : undefined;
-
-  return environmentVariables === undefined ? undefined : environmentVariables[variableName];
-});
-
-export const readTerminalFolderPath = Effect.fn("TerminalInfraService.readTerminalFolderPath")(function* (
-  terminal: Terminal | undefined
-) {
-  return yield* readTerminalEnvironmentVariable(terminal, FOLDER_PATH_ENV);
-});
-
-export const isSessionTerminal = Effect.fn("TerminalInfraService.isSessionTerminal")(function* (terminal: Terminal) {
-  const sessionIdValue = yield* readTerminalEnvironmentVariable(terminal, SESSION_ID_ENV);
-
-  return sessionIdValue !== undefined;
-});
-
-export const findFolderTerminal = Effect.fn("TerminalInfraService.findFolderTerminal")(function* (
-  terminals: readonly Terminal[],
-  folderPath: string
-) {
-  const terminalFolderPaths = yield* Effect.forEach(terminals, (terminal) => readTerminalFolderPath(terminal));
-  const folderTerminal = Array.findFirst(
-    terminals,
-    (terminal, terminalIndex) => terminal.exitStatus === undefined && terminalFolderPaths[terminalIndex] === folderPath
-  );
-
-  return yield* Effect.fromResult(Result.fromOption(folderTerminal, () => FolderTerminalNotFoundError.make()));
+  return yield* Effect.promise(() => terminal.processId);
 });
 
 // VS Code keeps the session id a tab is opened with for the tab's whole life, through an extension restart too.

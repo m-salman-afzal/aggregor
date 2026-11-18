@@ -12,6 +12,7 @@ export type AddSessionRequest = Pick<
   | "lifecycle"
   | "name"
   | "projectId"
+  | "pullRequestNumber"
   | "runState"
   | "viewedAt"
   | "worktreePath"

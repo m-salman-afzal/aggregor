@@ -1,5 +1,5 @@
 import {ProjectListItemDtoSchema} from "@dtos/project.dto.ts";
-import {NEW_SESSION_WORKING_TREE_TAGS} from "@pkg/constants/src/session.constant.ts";
+import {WORKING_TREE_CHOICE_TAGS} from "@pkg/constants/src/session.constant.ts";
 import {AgentIconValueObjectSchema} from "@valueObjects/agentIcon.valueObject.ts";
 import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
@@ -37,6 +37,7 @@ export const SessionListItemDtoSchema = Schema.Struct({
   icon: Schema.optional(AgentIconValueObjectSchema),
   isAgentRunning: Schema.Boolean,
   isArchived: Schema.Boolean,
+  isPullRequestLinked: Schema.Boolean,
   name: Schema.String,
   projectName: Schema.String,
   projectPath: ProjectPathValueObjectSchema,
@@ -88,15 +89,19 @@ export const SessionListChangeDtoSchema = Schema.TaggedUnion({
 export type SessionListChangeDto = typeof SessionListChangeDtoSchema.Type;
 
 // Without an agent, the default one starts, or the only one installed.
+export const WorkingTreeChoiceDtoSchema = Schema.TaggedUnion({
+  [WORKING_TREE_CHOICE_TAGS.EXISTING_WORKTREE]: {worktreePath: ProjectPathValueObjectSchema},
+  // Without a base branch, the worktree starts from the project's current commit.
+  [WORKING_TREE_CHOICE_TAGS.NEW_WORKTREE]: {baseBranchName: Schema.optional(Schema.NonEmptyString)},
+  [WORKING_TREE_CHOICE_TAGS.PROJECT_ROOT]: {}
+});
+
+export type WorkingTreeChoiceDto = typeof WorkingTreeChoiceDtoSchema.Type;
+
 export const NewSessionRequestDtoSchema = Schema.Struct({
   agentId: Schema.optional(AgentIdValueObjectSchema),
   projectPath: ProjectPathValueObjectSchema,
-  workingTree: Schema.TaggedUnion({
-    [NEW_SESSION_WORKING_TREE_TAGS.EXISTING_WORKTREE]: {worktreePath: ProjectPathValueObjectSchema},
-    // Without a base branch, the worktree starts from the project's current commit.
-    [NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE]: {baseBranchName: Schema.optional(Schema.NonEmptyString)},
-    [NEW_SESSION_WORKING_TREE_TAGS.PROJECT_ROOT]: {}
-  })
+  workingTree: WorkingTreeChoiceDtoSchema
 });
 
 export type NewSessionRequestDto = typeof NewSessionRequestDtoSchema.Type;
@@ -104,10 +109,6 @@ export type NewSessionRequestDto = typeof NewSessionRequestDtoSchema.Type;
 export const OpenSessionRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
 
 export type OpenSessionRequestDto = typeof OpenSessionRequestDtoSchema.Type;
-
-export const OpenSessionFolderTerminalRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
-
-export type OpenSessionFolderTerminalRequestDto = typeof OpenSessionFolderTerminalRequestDtoSchema.Type;
 
 export const RemoveSessionRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
 
@@ -153,6 +154,17 @@ export const RenameSessionBranchRequestDtoSchema = Schema.Struct({
 });
 
 export type RenameSessionBranchRequestDto = typeof RenameSessionBranchRequestDtoSchema.Type;
+
+export const ChangeSessionWorkingTreeRequestDtoSchema = Schema.Struct({
+  sessionId: EntityIdValueObjectSchema,
+  workingTree: WorkingTreeChoiceDtoSchema
+});
+
+export type ChangeSessionWorkingTreeRequestDto = typeof ChangeSessionWorkingTreeRequestDtoSchema.Type;
+
+export const UnlinkSessionWorktreeRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
+
+export type UnlinkSessionWorktreeRequestDto = typeof UnlinkSessionWorktreeRequestDtoSchema.Type;
 
 export const MoveSessionUpRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
 

@@ -20,34 +20,51 @@ Where a session's agent runs, its tab, and resuming it.
   text. Under `aggregor-pty` only Claude and Copilot are recognized, by their titles, and every other tab showed
   `aggregor-pty`.
 - **Decision:** a session's tab opens with the session's `displayName` and `startSessionTabNameSync` keeps it there:
-  after any write to a session and whenever a session's tab becomes the active terminal, the active tab is renamed if
-  its name differs. VS Code renames only the active terminal, so a tab in the background takes a new name when it next
-  comes to the front. Rename from the row menu no longer brings the tab to the front, and an empty name hands the tab
-  back to the agent's title at once. The row and the tab say the same thing for every agent, from the one name in the
-  database. Claude's and Copilot's tabs lose their live marks (✳, the spinner); the row's badge shows the status.
+  after any write to a session, whenever a session's tab becomes the active terminal and when the shared tab switches
+  session, the active tab is renamed if its name differs. VS Code renames only the active terminal, so a tab in the
+  background takes a new name when it next comes to the front. Rename from the row menu no longer brings the tab to the
+  front, and an empty name hands the tab back to the agent's title at once. The row and the tab say the same thing for
+  every agent, from the one name in the database. Claude's and Copilot's tabs lose their live marks (✳, the spinner);
+  the row's badge shows the status.
 - **Alternatives considered:** `aggregor-pty` writing the session's name as the terminal title, with the window showing
   terminal titles in tabs: background tabs follow too, but every terminal tab in the window, shells included, would
   change. The extension hosting the terminal as a Pseudoterminal, which can rename any tab: all agent output would pass
   through the extension host, and the tmux attach would change. `titleTemplate`, a proposed API the Marketplace refuses.
 
-## One shared tab can show the session opened last
+## One shared tab shows the session opened last, switching in place
 
 - **Problem:** every session opens in a tab of its own, so a user who switches sessions from the Sessions view ends up
-  with a row of session tabs beside their files.
+  with a row of session tabs beside their files. Replacing the tab on each switch made the tab bar jump three times a
+  click: a tab opened, was pinned, and the old one closed.
 - **Decision:** `aggregorApp.openSessionIn` picks between `ownTab` (the default, a tab per session) and `sharedTab`,
-  where opening a session closes every other session's tab. It holds after every open through Aggregor, a click on a
-  session whose tab is already open included; switching tabs by hand closes nothing. A tab is only a tmux client, so
-  closing one detaches it and its agent keeps running, which makes replacing the tab a small change.
-- **Solution:** `SessionService.closeOtherSessionTabs` reads the setting once a session's tab is opened or focused and
-  calls `ITerminalInfraService.closeOtherSessionTerminals`, which disposes every session terminal but the shown one. The
-  new tab opens before the others close, so it takes the place of the one in front. It opens in the editor group in
-  focus, as an own tab does, so a shared tab left in another group moves to the focused one.
-- **Alternatives considered:** one long-lived tab whose tmux client switches sessions (`switch-client`): no tab closes
-  or opens, but a tab's icon can't change once it is open, a tab is matched to its session by the `AGGREGOR_SESSION_ID`
-  it opened with, and a new session would start detached, which gave agents the wrong colours (see "Every session's
-  agent runs in tmux"). A boolean `reuseSessionTab`, which says less than two named places. Closing the other tabs
-  whenever a session's tab comes to the front: a background job, and tabs the user switches between by hand would close.
-  Finding the old tab's editor group by its label, since a tab does not say which terminal it holds.
+  where one tab stays and tmux attaches its client to the session opened (`switch-client`). No tab opens or closes, so
+  the tab keeps its place and its pin, and only its name changes. It holds after every open through Aggregor; switching
+  tabs by hand changes nothing. A session whose agent isn't running still opens a new tab, which takes the place of the
+  shared one, since an agent has to start under an attached client (see "Every session's agent runs in tmux"). The
+  shared tab carries Aggregor's icon: it shows sessions of any agent, and a tab's icon can't change once it is open.
+- **Solution:** `SessionService.showSessionInSharedTab` asks `ITerminalInfraService` for the open session tab's process
+  id, which is its tmux client's, since `systemd-run --scope` runs tmux in place. `ITmuxInfraService.showSessionInTab`
+  finds that client in `list-clients` and runs `switch-client -E -c ‹client› -t =‹sessionId›`; `-E` keeps the tab's own
+  variables, the id of the session it opened with among them, out of the session it now shows.
+  `SessionService.syncSessionTabsWithTmux` then reads from tmux which session each tab's client shows, and
+  `assignShownSessions` re-keys the tabs by it, so two quick clicks end on what tmux shows. The same sync runs when the
+  extension starts, before the background jobs read the session in view: a tab's `AGGREGOR_SESSION_ID` names only the
+  session it opened with, and the extension can restart under open tabs. When the switch fails (the agent has stopped,
+  or no session tab is open), the session opens a tab as under `ownTab`, in the editor group in focus, and
+  `closeOtherSessionTerminals` closes the others once it is open, so it takes the place of the one in front. With
+  several session tabs open, as right after the setting changes, the first one is kept and the rest close. A tab opened
+  under `ownTab` keeps its agent's icon when it becomes the shared one. A switch takes about 55 ms.
+- **Alternatives considered:** closing every other session's tab once the new one is open (built first): VS Code can't
+  swap a tab's terminal, open a tab pinned or batch tab changes, so every switch showed all three steps. A boolean
+  `reuseSessionTab`, which says less than two named places. Closing the other tabs whenever a session's tab comes to the
+  front: a background job, and tabs the user switches between by hand would close. `TerminalInfraService` asking
+  `ITmuxInfraService` itself: the two adapters stay apart, and the use case hands the tab's process id from one to the
+  other. Re-keying the tab to the clicked session without asking tmux: two clicks whose switches and re-keys interleave
+  leave the tab under the wrong session. Keeping which session a tab shows in `workspaceState`: a second copy of what
+  tmux knows, and gone when the window turns into a workspace. VS Code's change-icon command, which only opens its
+  picker. Finding the old tab's editor group by its label for the new tab, since a tab does not say which terminal it
+  holds. Drawing the terminal in a webview tab (xterm.js), whose name and icon can change: a terminal emulator of our
+  own, with all agent output through the extension host.
 
 ## A session's tab can be pinned as it opens
 
@@ -55,8 +72,8 @@ Where a session's agent runs, its tab, and resuming it.
 - **Decision:** `aggregorApp.pinSessionTabs` (off by default, in both `openSessionIn` places) pins a session's tab once,
   when Aggregor opens it, with `workbench.action.pinEditor`, the command behind **View: Pin Editor**. An extension can't
   press the shortcut, and the command works whatever key it is bound to. A tab the user unpins stays unpinned until it
-  opens again, and tabs open before the setting was turned on stay as they are; with `sharedTab` every switch opens a
-  new tab, so the shared tab is always pinned.
+  opens again, and tabs open before the setting was turned on stay as they are; the shared tab is pinned when it opens
+  and keeps its pin through every switch.
 - **Solution:** the command pins the tab in front, and a tab comes to the front a moment after it is shown, so
   `pinSessionTab` (`terminal.utils.ts`) first waits, every 50 ms for up to 5 s (`SESSION_TAB_PIN_WAIT`), until the
   active tab is a terminal tab labelled with the terminal's name and the terminal is the active one; run sooner, the
@@ -64,7 +81,7 @@ Where a session's agent runs, its tab, and resuming it.
   terminal stand in for that, and between two sessions of the same name the wait can settle on the other's tab. A tab is
   in front, and pinned, about 100 ms after it opens; after 5 s it stays unpinned, and the trace shows the failed checks.
   VS Code keeps Ctrl+W from closing a pinned tab by default (`workbench.editor.preventPinnedEditorClose`); disposing its
-  terminal still closes it, so Remove, Archive and the shared tab close a pinned tab.
+  terminal still closes it, so Remove, Archive and a new shared tab close a pinned tab.
 - **Alternatives considered:** pinning whenever a session's tab comes to the front: a background job that would pin
   again a tab the user unpinned. A third `openSessionIn` value, `pinnedSharedTab`, which leaves own tabs without a pin.
   Waiting on `viewedSessionId`, which names a session only while the window has focus.
@@ -76,21 +93,24 @@ Where a session's agent runs, its tab, and resuming it.
 - **Decision:**
   - Each session's agent runs under `aggregor-pty` in a tmux session named by the session's id, on Aggregor's own tmux
     server, whose socket is `tmux.sock` in the Aggregor folder (`-S`), apart from the user's tmux; a test's
-    `AGGREGOR_HOME` gets a server of its own. `assets/tmux.conf` replaces `~/.tmux.conf`: no prefix or status bar, mouse
-    on, `escape-time 0`, `focus-events`, `extended-keys`, a 50,000-line history, `window-size latest`,
-    `aggressive-resize`, 24-bit colour and OSC 52, and `update-environment` for VS Code's terminal variables and the
-    session's `AGGREGOR_SESSION_ID`. A window sources it again when tmux already runs. tmux 3.2 or newer is required.
+    `AGGREGOR_HOME` gets a server of its own. `assets/tmux.conf` replaces `~/.tmux.conf`: no prefix, no status bar but
+    the one line a folder's shell turns on for itself (see [workspace.md](../projects/workspace.md)), mouse on with only
+    a plain terminal's mouse bindings (see "tmux keeps a terminal running and shows it, nothing more"), `escape-time 0`,
+    `focus-events`, `extended-keys`, a 50,000-line history, `window-size latest`, `aggressive-resize`, 24-bit colour and
+    OSC 52, and `update-environment` for VS Code's terminal variables and the session's `AGGREGOR_SESSION_ID`. A window
+    sources it again when tmux already runs. tmux 3.2 or newer is required.
   - A session's tab runs tmux itself, with no shell:
     `tmux -S ‹socket› -f ‹conf› -u new-session -A -s ‹id› -c ‹project› -- aggregor-pty --database ‹db› --session ‹id› -- ‹command› ‹args›`.
     `-A` attaches when the session's tmux session runs and starts it otherwise, so the tab is attached from the agent's
     first byte, tmux answers its colour queries, and the agent gets the tab's own environment.
   - The tab is transient: a reload or a quit closes it, which only detaches, and clicking the session attaches a new
     one. A tab is matched to its session by `AGGREGOR_SESSION_ID` in its env, which VS Code keeps through an extension
-    restart. Tabs VS Code kept over a reload and restored after a quit by re-running their command (found by their
-    command line through `ps`) lost their icon: VS Code 1.145 revives a reattached tab's file icon as plain data, fails
-    its `instanceof URI` check and draws none, and has no API to set it again. An icon font (`contributes.icons`)
-    survives a reload but, per microsoft/vscode#329750, not a restart, and closing and reopening every restored tab at
-    start reorders and flickers them.
+    restart, and then by the session its tmux client shows, which the shared tab changes. Tabs VS Code kept over a
+    reload and restored after a quit by re-running their command (found by their command line through `ps`) lost their
+    icon: VS Code 1.145 revives a reattached tab's file icon as plain data, fails its `instanceof URI` check and draws
+    none, and has no API to set it again. An icon font (`contributes.icons`) survives a reload but, per
+    microsoft/vscode#329750, not a restart, and closing and reopening every restored tab at start reorders and flickers
+    them.
   - When `aggregor-pty` can't start the agent (a command it can't run), it prints why and waits for Enter, so the tab
     doesn't vanish without a word.
   - tmux learns the tab's colours about 20 ms after the tab attaches and leaves a colour query unanswered until then.
@@ -128,8 +148,57 @@ Where a session's agent runs, its tab, and resuming it.
   - One tmux client for every tab, through tmux control mode (`-CC`), with the extension drawing each tab as a
     Pseudoterminal: one process instead of a small tmux client (about 1.4 MB) per open tab, but all agent output would
     pass through the extension host, and tabs would no longer survive a reload by themselves.
-  - Bundling tmux in the VSIX: it means shipping and patching tmux, and macOS has no fully static build. The README's M5
+  - Bundling tmux in the VSIX: it means shipping and patching tmux, and macOS has no fully static build. The README's M6
     plans to bundle it after all, with libevent and ncurses linked in.
+
+## tmux keeps a terminal running and shows it, nothing more
+
+- **Problem:** Aggregor uses tmux so an agent or a folder's shell outlives its terminal, and so one terminal can show
+  another of them. With no prefix key, tmux's own features were still a mouse gesture away in a session's tab and in the
+  Aggregor terminal: tmux 3.8's right-click menus split, float, kill, respawn and swap panes and open windows, Ctrl+drag
+  makes a floating pane and Alt+drag moves one, and a click or the wheel on the status line switches windows. The user
+  treats these terminals as plain ones.
+- **Decision:** `assets/tmux.conf` removes every binding of tmux's root table and binds back only what a plain terminal
+  does with the mouse: the wheel scrolls back through tmux's history, a drag, a double click or a triple click selects
+  and copies (OSC 52 hands it to VS Code's clipboard), a middle click pastes, and an app that asks for the mouse gets
+  every click, the right one included. With no prefix, no key reaches tmux; the copy-mode keys work only while scrolled
+  back. A folder's shell also sees no tmux variables (see [workspace.md](../projects/workspace.md)); an agent's pane
+  keeps them, since agents read them to learn what terminal they run in.
+- **Solution:** a window reads `tmux.conf` into a server already running, so a server started with tmux's defaults loses
+  them at the next window start. The bindings are written out rather than taken from tmux's defaults, and use only what
+  tmux 3.2 has; tmux 3.8 is the only version checked.
+- **Alternatives considered:** the mouse off, which leaves no way to scroll back, since VS Code sees only tmux's screen;
+  unbinding the unwanted keys one by one, which misses those a new tmux adds, as 3.8 added the floating panes; keeping
+  the right-click menu for its Copy and Paste entries, which sit beside Split, Float and Kill.
+
+## The tmux code is tmux itself, with a file on top for each kind of thing that runs in it
+
+- **Problem:** `TmuxInfraService` was one file of 411 lines that knew tmux and agents at once: the command lines, the
+  version check, the systemd scope, the lists of sessions and clients and the client switch, all in terms of session
+  ids. A folder's shell is a second kind of tmux session on the same server, and needs the same clients, switches and
+  scopes: the shared session tab's client lookup and `switch-client` are what the Aggregor terminal does too.
+- **Decision:** inside `infrastructure/services/tmux/`, `tmuxServer.utils.ts` holds tmux in tmux's own terms and knows
+  nothing of Aggregor: sessions by name, and clients by the process id of the terminal that runs them.
+  `sessionAgent.utils.ts` and `folderShell.utils.ts` each say what one kind of tmux session is, on top of it: what it is
+  named, the command that starts it, when it ends. `tmux.infraService.ts` builds what they share and wires the port. The
+  port stays one, `ITmuxInfraService`, and its members stay named for what a use case asks (stop a session's agent, show
+  a folder's shell in a terminal), never for a tmux command. Each tmux command is written once, and a new kind of thing
+  in tmux is a file beside the two, not a longer one.
+- **Solution:**
+  - `tmuxServer.utils.ts`: `runTmuxCommand` (a command's lines), `runCheckedTmuxCommand` (fails on tmux's exit code,
+    since reading lines succeeds whatever tmux answers), `checkTmuxVersion`, `listTmuxSessionNames`, `listTmuxClients`
+    and `findTmuxClient`, `switchTmuxClient` (`switch-client -E`), `killTmuxSession`, `prepareTerminalCommand` (the
+    command a terminal runs: tmux on Aggregor's socket with its config, in a scope of its own),
+    `prepareOwnScopeArguments` (the scope for what runs inside tmux), `probeOwnScope` and `escapeTmuxFormat`.
+  - `TmuxServer` (`tmux.infraService.type.ts`) is what every call needs: the socket, the config, the process spawner and
+    whether a scope can be made. `TmuxDependencies` adds what only agents need: the database's path, `aggregor-pty`'s
+    and the running sessions.
+  - Every span in the folder is `TmuxInfraService.‹const›`, since a helper file belongs to its folder's one owner.
+  - A window reads `tmux.conf` into a running server when the server has any session, a shell's or an agent's.
+- **Alternatives considered:** a second port, `IFolderShellInfraService`, with a layer of its own: the two layers would
+  each probe the scope and hold the socket, or share them through a service only infrastructure uses, which `DDD.md` has
+  no place for. Port members in tmux's terms (`switchClient(processId, sessionName)`), which puts tmux session names and
+  tmux's vocabulary into the use cases. One file, as before.
 
 ## Each agent runs in a systemd scope of its own, and goes first when memory runs out
 
@@ -166,10 +235,12 @@ Where a session's agent runs, its tab, and resuming it.
 - **Decision:** Codex runs with `-c tui.terminal_title=["thread-title"]`, which makes its window title the thread's id
   until the thread has a name, then the name. `aggregor-pty` writes a window title that is a bare UUID to
   `agentSessionId`, the latest one, so a new thread started with `/new` replaces it. `${agentSessionId}` fills it in,
-  and Codex's `resumeArgs` are `resume --no-daemon -c tui.terminal_title=… ${agentSessionId}`; a resume that needs it
-  while it is unknown fails with `AgentSessionIdNotFoundError`. Codex runs with `--no-daemon` both ways, so its turns
-  stop with its tmux session. Agents that take our id keep it (Claude, OpenCode, Copilot), and Antigravity keeps `-c`.
-  An exact resume, from a title Codex shows by itself, with no prompt and no reading of Codex's files.
+  and Codex's `resumeArgs` are `resume -C . --no-daemon -c tui.terminal_title=… ${agentSessionId}`; a resume that needs
+  it while it is unknown fails with `AgentSessionIdNotFoundError`. `-C .` resumes in the folder the session works in
+  now, which Change Working Tree may have moved, where without it Codex asks whether to go back to the folder the
+  conversation last ran in. Codex runs with `--no-daemon` both ways, so its turns stop with its tmux session. Agents
+  that take our id keep it (Claude, OpenCode, Copilot), and Antigravity keeps `-c`. An exact resume, from a title Codex
+  shows by itself, with no prompt and no reading of Codex's files.
 - **Solution:** Codex showing the id as its title isn't documented, and the option replaces any `tui.terminal_title` of
   the user's. Codex sessions don't show in `codex agents`. Codex reports `working` for a moment at startup, so a session
   that never got a message counts as worked, and once its agent has stopped, `codex resume ‹id›` finds no saved thread

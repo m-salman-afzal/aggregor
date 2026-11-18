@@ -1,6 +1,8 @@
 import {
   BroomIcon,
   CircleHelpIcon,
+  FolderGit2Icon,
+  GitPullRequestIcon,
   PencilLineIcon,
   PlusIcon,
   SlidersHorizontalIcon,
@@ -12,8 +14,10 @@ export const USER_INPUT_ICONS = {
   DESTRUCTIVE_QUESTION: TriangleAlertIcon,
   NEW_SESSION: PlusIcon,
   PROJECT_SETTINGS: SlidersHorizontalIcon,
+  PULL_REQUEST: GitPullRequestIcon,
   QUESTION: CircleHelpIcon,
-  TEXT: PencilLineIcon
+  TEXT: PencilLineIcon,
+  WORKING_TREE: FolderGit2Icon
 } as const;
 
 export const PROJECT_SETTINGS_FIELDS = {

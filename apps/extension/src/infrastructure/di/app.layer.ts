@@ -16,12 +16,18 @@ import {WorkspaceInfraService} from "@infraServices/vscode/workspace.infraServic
 import {AgentRepository} from "@repositories/agent.repository.ts";
 import {ProjectRepository} from "@repositories/project.repository.ts";
 import {SessionRepository} from "@repositories/session.repository.ts";
+import {
+  startFolderShellEndOnTerminalClose,
+  startFolderShellFollow,
+  syncFolderShellTerminalWithTmux
+} from "@services/folderShell.service.ts";
 import {startPullRequestRefreshOnTurnEnd} from "@services/pullRequest.service.ts";
 import {
   startRunStateSync,
   startSessionTabNameSync,
   startSessionTitleSync,
-  startViewedAtSync
+  startViewedAtSync,
+  syncSessionTabsWithTmux
 } from "@services/session.service.ts";
 import {startSessionReopenAfterReload, startShownProjectSync} from "@services/workspace.service.ts";
 import {Layer} from "effect";
@@ -43,11 +49,16 @@ const BackgroundLayer = Layer.mergeAll(
   Layer.effectDiscard(startRunStateSync()),
   Layer.effectDiscard(startPullRequestRefreshOnTurnEnd()),
   Layer.effectDiscard(startShownProjectSync()),
+  Layer.effectDiscard(syncFolderShellTerminalWithTmux()),
+  Layer.effectDiscard(startFolderShellFollow()),
+  Layer.effectDiscard(startFolderShellEndOnTerminalClose()),
   Layer.effectDiscard(startSessionReopenAfterReload())
 );
 
 // It still needs VsCodeApi, and the trace log underneath.
 export const AppLayer = BackgroundLayer.pipe(
+  // Before the background jobs, which read the session in view as they start.
+  Layer.provideMerge(Layer.effectDiscard(syncSessionTabsWithTmux())),
   Layer.provideMerge(TerminalInfraService),
   Layer.provideMerge(TmuxInfraService),
   Layer.provideMerge(GitHubCliInfraService),

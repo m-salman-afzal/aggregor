@@ -1,24 +1,29 @@
 import {setChosenAgentAsDefault} from "@controllers/agent.controller.ts";
 import {generateCommitMessageForSourceControl} from "@controllers/commitMessage.controller.ts";
+import {openChosenProjectTerminal, openChosenSessionFolderTerminal} from "@controllers/folderShell.controller.ts";
 import {
   addProjectsAskingForFolders,
   moveChosenProjectDown,
   moveChosenProjectUp,
-  openChosenProjectTerminal,
   removeChosenProject,
   saveChosenProjectSettings
 } from "@controllers/project.controller.ts";
-import {openChosenSessionPullRequest, signInToGitHubCliFromNotice} from "@controllers/pullRequest.controller.ts";
+import {
+  linkChosenSessionPullRequest,
+  openChosenSessionPullRequest,
+  signInToGitHubCliFromNotice,
+  unlinkChosenSessionPullRequest
+} from "@controllers/pullRequest.controller.ts";
 import {installRequiredToolsFromNotice} from "@controllers/requiredTools.controller.ts";
 import {
   archiveAllOngoingSessions,
   archiveChosenProjectSessions,
   archiveChosenSession,
+  changeChosenSessionWorkingTree,
   moveChosenSessionDown,
   moveChosenSessionUp,
   newSessionInChosenProject,
   openChosenSession,
-  openChosenSessionFolderTerminal,
   removeChosenSession,
   renameChosenSession,
   renameChosenSessionBranch,
@@ -27,7 +32,8 @@ import {
   stopChosenArchivedProjectSessionAgents,
   stopChosenProjectSessionAgents,
   stopChosenSessionAgent,
-  unarchiveChosenSession
+  unarchiveChosenSession,
+  unlinkChosenSessionWorktree
 } from "@controllers/session.controller.ts";
 import {importChosenSessions} from "@controllers/sessionImport.controller.ts";
 import {cleanUpChosenProjectLeftovers} from "@controllers/worktree.controller.ts";
@@ -44,6 +50,7 @@ import {TERMINAL_COMMANDS} from "@pkg/constants/src/terminal.constant.ts";
 import {openAggregorSettingsInSettingsEditor} from "@pkg/vscode/src/vscode.utils.ts";
 import {presentAppCommandError} from "@presenters/app.presenter.ts";
 import {presentCommitMessageCommandError} from "@presenters/commitMessage.presenter.ts";
+import {presentFolderShellCommandError} from "@presenters/folderShell.presenter.ts";
 import {presentProjectCommandError} from "@presenters/project.presenter.ts";
 import {presentPullRequestCommandError} from "@presenters/pullRequest.presenter.ts";
 import {presentRequiredToolsCommandError} from "@presenters/requiredTools.presenter.ts";
@@ -74,6 +81,7 @@ export const RoutesLayer = Layer.effectDiscard(
       archiveChosenProjectSessions,
       presentSessionCommandError
     ),
+    registerCommand(SESSION_COMMANDS.CHANGE_WORKING_TREE, changeChosenSessionWorkingTree, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.IMPORT, importChosenSessions, presentSessionImportCommandError),
     registerCommand(SESSION_COMMANDS.MOVE_DOWN, moveChosenSessionDown, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.MOVE_UP, moveChosenSessionUp, presentSessionCommandError),
@@ -92,18 +100,29 @@ export const RoutesLayer = Layer.effectDiscard(
     registerCommand(SESSION_COMMANDS.STOP_ONGOING_AGENTS, stopAllOngoingSessionAgents, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.STOP_PROJECT_AGENTS, stopChosenProjectSessionAgents, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.UNARCHIVE, unarchiveChosenSession, presentSessionCommandError),
-    registerCommand(TERMINAL_COMMANDS.OPEN_PROJECT_TERMINAL, openChosenProjectTerminal, presentProjectCommandError),
+    registerCommand(SESSION_COMMANDS.UNLINK_WORKTREE, unlinkChosenSessionWorktree, presentSessionCommandError),
+    registerCommand(TERMINAL_COMMANDS.OPEN_PROJECT_TERMINAL, openChosenProjectTerminal, presentFolderShellCommandError),
     registerCommand(
       TERMINAL_COMMANDS.OPEN_SESSION_FOLDER_TERMINAL,
       openChosenSessionFolderTerminal,
-      presentSessionCommandError
+      presentFolderShellCommandError
     ),
     registerCommand(
       GITHUB_CLI_COMMANDS.OPEN_SESSION_PULL_REQUEST,
       openChosenSessionPullRequest,
       presentPullRequestCommandError
     ),
+    registerCommand(
+      GITHUB_CLI_COMMANDS.LINK_SESSION_PULL_REQUEST,
+      linkChosenSessionPullRequest,
+      presentPullRequestCommandError
+    ),
     registerCommand(GITHUB_CLI_COMMANDS.SIGN_IN, signInToGitHubCliFromNotice, presentPullRequestCommandError),
+    registerCommand(
+      GITHUB_CLI_COMMANDS.UNLINK_SESSION_PULL_REQUEST,
+      unlinkChosenSessionPullRequest,
+      presentPullRequestCommandError
+    ),
     registerCommand(REQUIRED_TOOLS_COMMANDS.INSTALL, installRequiredToolsFromNotice, presentRequiredToolsCommandError),
     registerCommand(WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS, cleanUpChosenProjectLeftovers, presentWorktreeCommandError)
   ])

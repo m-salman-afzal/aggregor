@@ -6,16 +6,17 @@ A session's pull request on its row, and opening it.
 
 - **Problem:** a session's branch was on its row, but its pull request lived only on GitHub, so seeing whether it was
   open, a draft or merged, or opening it, meant leaving VS Code to look it up.
-- **Decision:** a worktree session's row shows the pull request whose head is the worktree's checked-out branch, after
-  the agent's icon and before the branch name: a pull request icon and `#123`, coloured by its state (open green, draft
-  grey, merged purple, closed red, from the theme's terminal palette), with its title and state in the tooltip. It comes
-  from the GitHub CLI, run in the worktree as `gh pr view ‹branch› --json number,url,state,isDraft,title`, so gh's own
-  sign-in, hosts and remotes decide which repository it asks, as Orca, Crystal, Superset and Vibe Kanban do. A root
-  session shows none: its project's checked-out branch is every root session's. Clicking the number opens the pull
-  request where `aggregorApp.openPullRequestIn` says: `browser` (the default), or `vscode`, the GitHub Pull Requests
-  extension's own link (`vscode://GitHub.vscode-pull-request-github/open-pull-request-webview?uri=‹url›`, since its
-  0.122.0), which falls back to the browser without the extension. Open Pull Request in the row's … menu does the same
-  from the keyboard.
+- **Decision:** a worktree session's row shows the pull request whose head is the worktree's checked-out branch, unless
+  one is linked (see below), after the agent's icon and before the branch name: a pull request icon and `#123`, coloured
+  by its state (open green, draft grey, merged purple, closed red, from the theme's terminal palette), with its title
+  and state in the tooltip. It comes from the GitHub CLI, run in the worktree as
+  `gh pr view ‹branch› --json number,url,state,isDraft,title`, so gh's own sign-in, hosts and remotes decide which
+  repository it asks, as Orca, Crystal, Superset and Vibe Kanban do. A root session shows only a linked one: its
+  project's checked-out branch is every root session's. Clicking the number opens the pull request where
+  `aggregorApp.openPullRequestIn` says: `browser` (the default), or `vscode`, the GitHub Pull Requests extension's own
+  link (`vscode://GitHub.vscode-pull-request-github/open-pull-request-webview?uri=‹url›`, since its 0.122.0), which
+  falls back to the browser without the extension. Open Pull Request in the row's … menu does the same from the
+  keyboard.
 - **Solution:**
   - `IGitHubCliInfraService` (`infrastructure/services/gitHubCli/`) keeps each folder and branch's last answer in
     memory, never in the database, like the diff stats. Reading the list never waits on the network: a branch not looked
@@ -29,12 +30,37 @@ A session's pull request on its row, and opening it.
   - The number is a span inside the row's button: a click whose target is in it runs
     `aggregorApp.openSessionPullRequest` instead of opening the session, since a button can't hold another.
 - **Alternatives considered:** VS Code's GitHub sign-in with REST or GraphQL calls of our own (T3 Code's way), which
-  needs no gh but asks for the `repo` scope and parses remotes itself; storing the pull request on the session's row,
-  which would make GitHub a second writer of what the list shows; linking a worktree to a session from the agent's own
-  working folder (`/proc/‹pid›/cwd`, which Claude's EnterWorktree moves), dropped for New Session's own choice of an
-  existing worktree; a stored list of linked pull requests with manual link and unlink (T3 Code, Orca); CI checks and
-  review state on the row; a timer that looks every branch up every few minutes (Superset, Vibe Kanban); the number as
-  its own button over the row, which would have meant drawing the row's button as an overlay.
+  needs no gh but asks for the `repo` scope and parses remotes itself; storing the pull request's state on the session's
+  row, which would make GitHub a second writer of what the list shows; linking a worktree to a session from the agent's
+  own working folder (`/proc/‹pid›/cwd`, which Claude's EnterWorktree moves), dropped for New Session's own choice of an
+  existing worktree and Change Working Tree; CI checks and review state on the row; a timer that looks every branch up
+  every few minutes (Superset, Vibe Kanban); the number as its own button over the row, which would have meant drawing
+  the row's button as an overlay.
+
+## Link Pull Request ties a pull request to a session, and Unlink Pull Request lets it go
+
+- **Problem:** a session's row showed only its worktree branch's pull request, so a session in the project root, or one
+  whose work went into a pull request on another branch, showed none, and there was no way to say which it was.
+- **Decision:** Link Pull Request…, in a session's … menu in a git project, opens a dialog that lists the repository's
+  100 newest pull requests in any state, from `gh pr list --state all` run in the session's folder, in a dropdown with a
+  search box: `#123 title`, its branch and state under it, the session's own marked Current. Link stores the number on
+  the session's row, and the row shows that pull request in place of the branch's, root sessions included. With one
+  linked, the item reads Change Pull Request…, and Unlink Pull Request clears it, so the row goes back to the branch's
+  pull request, or none in the project root. One pull request per session. The dialog opens at once and fills in when gh
+  answers; gh signed out, missing, or with no GitHub repository to ask, it says which in place of the list.
+- **Solution:** `sessions.pullRequestNumber`, a nullable integer column (migration `add_session_pull_request_number`);
+  only the number is stored, its state and title still come from gh. `SessionService.findSessionPullRequestLookup` gives
+  the linked number, else the worktree's branch, as a `PullRequestLookup` (`pullRequestReference`, since `gh pr view`
+  takes a number or a branch alike), which the row, Open Pull Request and the turn-end refresh all read, so the cache,
+  the queue and the redraw stay as they were. A changed answer redraws every session working in that folder, root
+  sessions included. The webview asks with `LIST_PULL_REQUESTS {sessionId}` and fills the dialog when
+  `PULL_REQUESTS_DRAWN` comes back, its `listProblem` saying why a list is empty. `PullRequestService` writes the link
+  with `linkSessionPullRequest` and `unlinkSessionPullRequest`.
+- **Alternatives considered:** no stored pull request at all, only the branch's (the earlier decision), which left root
+  sessions without one; a stored list of linked pull requests per session (T3 Code, Orca), more than the row can show;
+  "Link Pull Request" checking the pull request's branch out into a new worktree, which is a separate feature (review a
+  pull request in a session); a "Follow branch" choice in the dialog in place of Unlink Pull Request; only open pull
+  requests, which can't link a session to one already merged.
 
 ## A signed-out gh asks once to sign in
 

@@ -24,6 +24,7 @@ import {
   SessionListItemDtoSchema,
   SessionPageDtoSchema,
   SessionPullRequestDtoSchema,
+  WorkingTreeChoiceDtoSchema,
   WorktreeListItemDtoSchema
 } from "@dtos/session.dto.ts";
 import {IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
@@ -36,8 +37,8 @@ import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
 import {GIT_COMMAND} from "@pkg/constants/src/git.constant.ts";
-import {NEW_SESSION_WORKING_TREE_TAGS, SESSION_PAGES, SESSION_RUN_STATE} from "@pkg/constants/src/session.constant.ts";
-import {FOLDER_TERMINAL_NAME, SESSION_OPEN_PLACES} from "@pkg/constants/src/terminal.constant.ts";
+import {SESSION_PAGES, SESSION_RUN_STATE, WORKING_TREE_CHOICE_TAGS} from "@pkg/constants/src/session.constant.ts";
+import {SESSION_OPEN_PLACES} from "@pkg/constants/src/terminal.constant.ts";
 import {findAgentToStart} from "@services/agent.service.ts";
 import {
   addEntity,
@@ -62,13 +63,13 @@ import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {
   ArchiveProjectSessionsRequestDto,
   ArchiveSessionRequestDto,
+  ChangeSessionWorkingTreeRequestDto,
   GetProjectSessionsRequestDto,
   GetSessionListItemRequestDto,
   ListProjectSessionsRequestDto,
   MoveSessionDownRequestDto,
   MoveSessionUpRequestDto,
   NewSessionRequestDto,
-  OpenSessionFolderTerminalRequestDto,
   OpenSessionRequestDto,
   RemoveSessionRequestDto,
   RenameSessionBranchRequestDto,
@@ -77,22 +78,28 @@ import type {
   StopArchivedProjectSessionAgentsRequestDto,
   StopProjectSessionAgentsRequestDto,
   StopSessionAgentRequestDto,
-  UnarchiveSessionRequestDto
+  UnarchiveSessionRequestDto,
+  UnlinkSessionWorktreeRequestDto,
+  WorkingTreeChoiceDto
 } from "@dtos/session.dto.ts";
 import type {AgentEntity} from "@entities/agent/agent.entity.ts";
 import type {EntityPage} from "@entities/base/base.repository.interface.ts";
 import type {ProjectEntity} from "@entities/project/project.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
+import type {PullRequestLookup} from "@interfaces/gitHubCli.infraService.interface.ts";
 import type {SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {SessionLifecycleValueObject} from "@valueObjects/sessionLifecycle.valueObject.ts";
 
-interface NewSessionDraft {
+interface SessionWorktreeDraft {
   readonly project: ProjectEntity;
   readonly projectName: string;
-  readonly sessionAgent: AgentEntity;
   readonly sessionName: string;
+}
+
+interface NewSessionDraft extends SessionWorktreeDraft {
+  readonly sessionAgent: AgentEntity;
 }
 
 interface SessionWorkingTree {
@@ -155,33 +162,33 @@ const addSession = Effect.fn("SessionService.addSession")(function* (
 
 // Each is named after the session: "jsTester #3" works in jstester-3, on aggregor/jstester-3.
 const createSessionWorktree = Effect.fn("SessionService.createSessionWorktree")(function* (
-  newSessionDraft: NewSessionDraft,
+  worktreeDraft: SessionWorktreeDraft,
   chosenBaseBranchName: string | undefined
 ) {
   const worktreeInfraService = yield* IWorktreeInfraService;
-  const worktreeName = yield* getWorktreeName(newSessionDraft.sessionName);
+  const worktreeName = yield* getWorktreeName(worktreeDraft.sessionName);
   // Without a chosen branch the worktree starts from the project's HEAD, so the branch checked out there is its base.
   const baseBranchNameResult =
     chosenBaseBranchName === undefined
-      ? yield* Effect.result(worktreeInfraService.readBranchName(newSessionDraft.project.path))
+      ? yield* Effect.result(worktreeInfraService.readBranchName(worktreeDraft.project.path))
       : Result.succeed(chosenBaseBranchName);
   const sessionWorktree = yield* worktreeInfraService.createWorktree({
     branchName: yield* getWorktreeBranchName(worktreeName),
-    projectPath: newSessionDraft.project.path,
+    projectPath: worktreeDraft.project.path,
     startPoint: chosenBaseBranchName === undefined ? GIT_COMMAND.HEAD_START_POINT : chosenBaseBranchName,
     worktreeName,
-    worktreesFolderName: yield* getWorktreesFolderName(newSessionDraft.projectName, newSessionDraft.project.id),
-    worktreesFolderPath: newSessionDraft.project.settings.worktreeFolder
+    worktreesFolderName: yield* getWorktreesFolderName(worktreeDraft.projectName, worktreeDraft.project.id),
+    worktreesFolderPath: worktreeDraft.project.settings.worktreeFolder
   });
   yield* worktreeInfraService.copyIncludedFiles({
-    filePatterns: newSessionDraft.project.settings.filesToCopy,
-    projectPath: newSessionDraft.project.path,
+    filePatterns: worktreeDraft.project.settings.filesToCopy,
+    projectPath: worktreeDraft.project.path,
     worktreePath: sessionWorktree.worktreePath
   });
 
   const sessionWorkingTree: SessionWorkingTree = {
     baseBranchName: Result.getOrUndefined(baseBranchNameResult),
-    setupScript: newSessionDraft.project.settings.setupScript,
+    setupScript: worktreeDraft.project.settings.setupScript,
     worktreePath: sessionWorktree.worktreePath
   };
 
@@ -202,19 +209,19 @@ const findExistingWorktree = Effect.fn("SessionService.findExistingWorktree")(
 );
 
 const prepareSessionWorkingTree = Effect.fn("SessionService.prepareSessionWorkingTree")(function* (
-  newSessionDraft: NewSessionDraft,
-  workingTree: NewSessionRequestDto["workingTree"]
+  worktreeDraft: SessionWorktreeDraft,
+  workingTreeChoice: WorkingTreeChoiceDto
 ) {
-  return yield* Match.valueTags(workingTree, {
-    [NEW_SESSION_WORKING_TREE_TAGS.EXISTING_WORKTREE]: (existingWorktree) =>
-      Effect.map(findExistingWorktree(newSessionDraft.project.path, existingWorktree.worktreePath), (worktreePath) => ({
+  return yield* Match.valueTags(workingTreeChoice, {
+    [WORKING_TREE_CHOICE_TAGS.EXISTING_WORKTREE]: (existingWorktree) =>
+      Effect.map(findExistingWorktree(worktreeDraft.project.path, existingWorktree.worktreePath), (worktreePath) => ({
         baseBranchName: undefined,
         setupScript: undefined,
         worktreePath
       })),
-    [NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE]: (newWorktree) =>
-      createSessionWorktree(newSessionDraft, newWorktree.baseBranchName),
-    [NEW_SESSION_WORKING_TREE_TAGS.PROJECT_ROOT]: () =>
+    [WORKING_TREE_CHOICE_TAGS.NEW_WORKTREE]: (newWorktree) =>
+      createSessionWorktree(worktreeDraft, newWorktree.baseBranchName),
+    [WORKING_TREE_CHOICE_TAGS.PROJECT_ROOT]: () =>
       Effect.succeed({baseBranchName: undefined, setupScript: undefined, worktreePath: undefined})
   });
 });
@@ -253,6 +260,7 @@ const openSessionTab = Effect.fn("SessionService.openSessionTab")(function* (
   const sessionTabRequest: SessionTabRequest = {
     icon: sessionAgent.icon,
     isPinned: sessionSettings.pinSessionTabs,
+    isShared: sessionSettings.openSessionIn === SESSION_OPEN_PLACES.SHARED_TAB,
     tabCommand,
     tabName: session.displayName
   };
@@ -278,10 +286,43 @@ const launchNewSession = Effect.fn("SessionService.launchNewSession")(
     )
 );
 
+// The extension can restart under open tabs, each showing the session tmux last attached it to.
+export const syncSessionTabsWithTmux = Effect.fn("SessionService.syncSessionTabsWithTmux")(function* () {
+  const shownSessionIdsByTabProcessId = yield* ITmuxInfraService.use(
+    (tmuxInfraService) => tmuxInfraService.readShownSessionIdsByTabProcessId
+  );
+
+  yield* ITerminalInfraService.use((terminalInfraService) =>
+    terminalInfraService.assignShownSessions(shownSessionIdsByTabProcessId)
+  );
+});
+
+// tmux attaches the open tab to the session, so no tab opens or closes; an agent that has stopped needs a new tab.
+const showSessionInSharedTab = Effect.fn("SessionService.showSessionInSharedTab")(
+  function* (session: SessionEntity) {
+    const terminalInfraService = yield* ITerminalInfraService;
+    const sharedTabProcessId = yield* terminalInfraService.findOpenSessionTerminalProcessId;
+    yield* ITmuxInfraService.use((tmuxInfraService) =>
+      tmuxInfraService.showSessionInTab(sharedTabProcessId, session.id)
+    );
+    yield* syncSessionTabsWithTmux();
+    yield* terminalInfraService.focusSessionTerminal(session.id);
+    yield* terminalInfraService.nameActiveSessionTab(session.id, session.displayName);
+    yield* terminalInfraService.closeOtherSessionTerminals(session.id);
+  },
+  (effect, session) =>
+    Effect.catchTag(effect, ["NoSessionTabOpenError", "SessionTabSwitchFailedError", "TerminalNotFoundError"], () =>
+      openSessionTab(session, undefined)
+    )
+);
+
 const reopenSession = Effect.fn("SessionService.reopenSession")(function* (sessionId: EntityIdValueObject) {
   const session = yield* findSession(sessionId);
+  const sessionSettings = yield* ISettingsConfig.use((settingsConfig) => settingsConfig.readSessionSettings);
 
-  yield* openSessionTab(session, undefined);
+  return yield* sessionSettings.openSessionIn === SESSION_OPEN_PLACES.SHARED_TAB
+    ? showSessionInSharedTab(session)
+    : openSessionTab(session, undefined);
 });
 
 // A tab that closed meanwhile has nothing left to close.
@@ -382,31 +423,6 @@ export const openSession = Effect.fn("SessionService.openSession")(
   (effect, request) => Effect.catchTag(effect, "TerminalNotFoundError", () => reopenSession(request.sessionId))
 );
 
-const nameFolderTerminal = Effect.fn("SessionService.nameFolderTerminal")(function* (
-  session: SessionEntity,
-  projectName: string
-) {
-  const path = yield* Path;
-
-  return session.worktreePath === undefined
-    ? projectName
-    : FOLDER_TERMINAL_NAME.WORKTREE(projectName, path.basename(session.worktreePath));
-});
-
-// A root session shares its project's terminal; sessions in one worktree share the worktree's.
-export const openSessionFolderTerminal = Effect.fn("SessionService.openSessionFolderTerminal")(
-  function* (request: OpenSessionFolderTerminalRequestDto) {
-    const session = yield* findSession(request.sessionId);
-    const sessionProject = yield* findProjectListItem(session.projectPath);
-    const terminalName = yield* nameFolderTerminal(session, sessionProject.name);
-
-    yield* ITerminalInfraService.use((terminalInfraService) =>
-      terminalInfraService.openFolderTerminal({folderPath: session.workingFolderPath, terminalName})
-    );
-  },
-  Effect.catchTag("ProjectNotListedError", () => Effect.void)
-);
-
 // The agent's transcript on disk and the worktree's branch are left alone.
 export const removeSession = Effect.fn("SessionService.removeSession")(
   function* (request: RemoveSessionRequestDto) {
@@ -450,6 +466,68 @@ export const renameSessionBranch = Effect.fn("SessionService.renameSessionBranch
   },
   Effect.catchTags({EntityNotFoundError: () => Effect.void, SessionNotFoundError: () => Effect.void})
 );
+
+const isCurrentWorkingTree = Effect.fn("SessionService.isCurrentWorkingTree")(function* (
+  session: SessionEntity,
+  workingTreeChoice: WorkingTreeChoiceDto
+) {
+  return Match.valueTags(workingTreeChoice, {
+    [WORKING_TREE_CHOICE_TAGS.EXISTING_WORKTREE]: (existingWorktree) =>
+      existingWorktree.worktreePath === session.worktreePath,
+    [WORKING_TREE_CHOICE_TAGS.NEW_WORKTREE]: () => false,
+    [WORKING_TREE_CHOICE_TAGS.PROJECT_ROOT]: () => session.worktreePath === undefined
+  });
+});
+
+const findSessionWorktreeDraft = Effect.fn("SessionService.findSessionWorktreeDraft")(function* (
+  session: SessionEntity
+) {
+  const sessionProject = yield* findProjectListItem(session.projectPath);
+  const worktreeDraft: SessionWorktreeDraft = {
+    project: yield* findEntityById(IProjectRepository, session.projectId),
+    projectName: sessionProject.name,
+    sessionName: session.name
+  };
+
+  return worktreeDraft;
+});
+
+// A running agent starts again in the new folder and resumes its conversation there; a new worktree's setup script runs.
+export const changeSessionWorkingTree = Effect.fn("SessionService.changeSessionWorkingTree")(
+  function* (request: ChangeSessionWorkingTreeRequestDto) {
+    const session = yield* findSession(request.sessionId);
+    if (yield* isCurrentWorkingTree(session, request.workingTree)) return;
+    const worktreeDraft = yield* findSessionWorktreeDraft(session);
+    const sessionWorkingTree = yield* prepareSessionWorkingTree(worktreeDraft, request.workingTree);
+    const runningSessionIds = yield* ITmuxInfraService.use(
+      (tmuxInfraService) => tmuxInfraService.refreshRunningSessionIds
+    );
+    const isAgentRunning = runningSessionIds.has(session.id);
+    yield* Effect.annotateCurrentSpan({isAgentRunning, worktreePath: sessionWorkingTree.worktreePath});
+    if (isAgentRunning) yield* stopAgentAndCloseTab(session.id);
+    yield* updateEntity(ISessionRepository, session.id, {
+      baseBranchName: sessionWorkingTree.baseBranchName,
+      worktreePath: sessionWorkingTree.worktreePath
+    });
+    // The worktree left behind may be a leftover now, and only a project's draw reads its leftovers.
+    yield* updateEntity(IProjectRepository, session.projectId, {});
+    if (!isAgentRunning && sessionWorkingTree.setupScript === undefined) return;
+
+    const movedSession = yield* findSession(session.id);
+    yield* openSessionTab(movedSession, sessionWorkingTree.setupScript);
+  },
+  Effect.catchTags({EntityNotFoundError: () => Effect.void, ProjectNotListedError: () => Effect.void})
+);
+
+// The session goes back to its project's root; the worktree stays, a leftover if Aggregor made it.
+export const unlinkSessionWorktree = Effect.fn("SessionService.unlinkSessionWorktree")(function* (
+  request: UnlinkSessionWorktreeRequestDto
+) {
+  yield* changeSessionWorkingTree({
+    sessionId: request.sessionId,
+    workingTree: WorkingTreeChoiceDtoSchema.cases[WORKING_TREE_CHOICE_TAGS.PROJECT_ROOT].make({})
+  });
+});
 
 export const renameSession = Effect.fn("SessionService.renameSession")(
   function* (request: RenameSessionRequestDto) {
@@ -537,14 +615,39 @@ const readSessionDiffStats = Effect.fn("SessionService.readSessionDiffStats")(fu
   );
 });
 
-// gh's answer from the last lookup; the first sight of a branch starts one, and its result redraws the row.
-const findBranchPullRequestFields = Effect.fn("SessionService.findBranchPullRequestFields")(function* (
-  worktreePath: ProjectPathValueObject,
-  branchName: string
+// A linked pull request, else the one whose head is the worktree's branch; the root's branch is every root session's.
+export const findSessionPullRequestLookup = Effect.fn("SessionService.findSessionPullRequestLookup")(function* (
+  session: SessionEntity
 ) {
+  if (session.pullRequestNumber !== undefined) {
+    const linkedPullRequestLookup: PullRequestLookup = {
+      folderPath: session.workingFolderPath,
+      pullRequestReference: `${session.pullRequestNumber}`
+    };
+
+    return linkedPullRequestLookup;
+  }
+  const worktreePath = session.worktreePath;
+  if (worktreePath === undefined) return yield* SessionNotInWorktreeError.make();
+  const branchPullRequestLookup: PullRequestLookup = {
+    folderPath: worktreePath,
+    pullRequestReference: yield* IWorktreeInfraService.use((worktreeInfraService) =>
+      worktreeInfraService.readBranchName(worktreePath)
+    )
+  };
+
+  return branchPullRequestLookup;
+});
+
+// gh's answer from the last lookup; the first sight of a pull request starts one, and its result redraws the row.
+const findSessionPullRequestFields = Effect.fn("SessionService.findSessionPullRequestFields")(function* (
+  session: SessionEntity
+) {
+  const pullRequestLookupResult = yield* Effect.result(findSessionPullRequestLookup(session));
+  if (Result.isFailure(pullRequestLookupResult)) return {};
   const pullRequestResult = yield* Effect.result(
     IGitHubCliInfraService.use((gitHubCliInfraService) =>
-      gitHubCliInfraService.findPullRequest({branchName, folderPath: worktreePath})
+      gitHubCliInfraService.findPullRequest(pullRequestLookupResult.success)
     )
   );
 
@@ -569,13 +672,10 @@ const findSessionWorktreeFields = Effect.fn("SessionService.findSessionWorktreeF
     IWorktreeInfraService.use((worktreeInfraService) => worktreeInfraService.readBranchName(worktreePath))
   );
   const diffStatsResult = yield* Effect.result(readSessionDiffStats(session, worktreePath));
-  if (Result.isFailure(branchNameResult))
-    return Result.match(diffStatsResult, {onFailure: () => ({}), onSuccess: (diffStats) => ({diffStats})});
 
   return {
-    ...(yield* findBranchPullRequestFields(worktreePath, branchNameResult.success)),
     ...Result.match(diffStatsResult, {onFailure: () => ({}), onSuccess: (diffStats) => ({diffStats})}),
-    branchName: branchNameResult.success
+    ...Result.match(branchNameResult, {onFailure: () => ({}), onSuccess: (branchName) => ({branchName})})
   };
 });
 
@@ -609,9 +709,11 @@ const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function
     ...sessionMoves,
     ...(yield* findSessionAgentFields(session)),
     ...(yield* findSessionWorktreeFields(session)),
+    ...(yield* findSessionPullRequestFields(session)),
     displayName: session.displayName,
     isAgentRunning: sessionStatus.isAgentRunning,
     isArchived: session.lifecycle === SESSION_LIFECYCLES.ARCHIVED,
+    isPullRequestLinked: session.pullRequestNumber !== undefined,
     name: session.name,
     projectName: path.basename(session.projectPath),
     projectPath: session.projectPath,
@@ -901,10 +1003,11 @@ const toAgentRunChange = Effect.fn("SessionService.toAgentRunChange")(function* 
 // The rows of the sessions working in the folder whose pull request changed; a failed read redraws none.
 const toPullRequestChanges = Effect.fn("SessionService.toPullRequestChanges")(
   function* (folderPath: ProjectPathValueObject) {
-    const worktreeSessions = yield* findEntities(ISessionRepository, {worktreePath: folderPath});
+    const sessions = yield* findEntities(ISessionRepository, {});
+    const folderSessions = Array.filter(sessions, (session) => session.workingFolderPath === folderPath);
 
-    return Array.map(worktreeSessions, (worktreeSession) =>
-      SessionListChangeDtoSchema.cases.SessionChanged.make({sessionId: worktreeSession.id})
+    return Array.map(folderSessions, (folderSession) =>
+      SessionListChangeDtoSchema.cases.SessionChanged.make({sessionId: folderSession.id})
     );
   },
   Effect.catch((databaseError) => Effect.as(Effect.logWarning("Could not find the rows to redraw", databaseError), []))

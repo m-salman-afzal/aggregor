@@ -1,5 +1,6 @@
 import type {AgentListItemDto} from "@dtos/agent.dto.ts";
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
+import type {SessionPullRequestsDto} from "@dtos/pullRequest.dto.ts";
 import type {SessionListItemDto, SessionPageDto, WorktreeListItemDto} from "@dtos/session.dto.ts";
 import type {ImportableSessionsDto} from "@dtos/sessionImport.dto.ts";
 import type {ProjectBranchesDto, ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
@@ -64,6 +65,10 @@ export type SessionsViewMessage =
   | {readonly _tag: typeof SESSIONS_VIEW_MESSAGE_TAGS.LEFTOVERS_DRAWN; readonly leftovers: ProjectLeftoversDto}
   | {readonly _tag: typeof SESSIONS_VIEW_MESSAGE_TAGS.PROJECT_DRAWN; readonly projectRow: ProjectRowData}
   | {readonly _tag: typeof SESSIONS_VIEW_MESSAGE_TAGS.PROJECTS_DRAWN; readonly projectRows: readonly ProjectRowData[]}
+  | {
+      readonly _tag: typeof SESSIONS_VIEW_MESSAGE_TAGS.PULL_REQUESTS_DRAWN;
+      readonly pullRequests: SessionPullRequestsDto;
+    }
   | {readonly _tag: typeof SESSIONS_VIEW_MESSAGE_TAGS.SESSION_DRAWN; readonly sessionRow: SessionRowData}
   | {readonly _tag: typeof SESSIONS_VIEW_MESSAGE_TAGS.VIEWED_SESSION_CHANGED; readonly sessionId: string}
   | {
@@ -76,6 +81,7 @@ export type SessionsWebviewMessage =
   | {readonly _tag: typeof SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_BRANCHES; readonly projectPath: string}
   | {readonly _tag: typeof SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_IMPORTABLE_SESSIONS; readonly projectPath: string}
   | {readonly _tag: typeof SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_LEFTOVERS; readonly projectPath: string}
+  | {readonly _tag: typeof SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_PULL_REQUESTS; readonly sessionId: string}
   | {readonly _tag: typeof SESSIONS_WEBVIEW_MESSAGE_TAGS.READY}
   | {
       readonly _tag: typeof SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND;

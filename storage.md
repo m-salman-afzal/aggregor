@@ -50,17 +50,20 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
   into or left the user's view), `lifecycle` (`ongoing`, listed in the Sessions list, or `archived`, listed in the
   Archive list), `worktreePath` (the git worktree its agent works in, or NULL for its project's root), `baseBranchName`
   (the branch, or detached commit, its project had checked out when Aggregor made that worktree, which its diff counts
-  from; NULL in the project's root, in a worktree it didn't make, and for sessions made before the column) and
-  `runState` (`running` while Aggregor last saw its agent run, `interrupted` once a window started with every agent
-  gone, as after a restart, else NULL) and `importedAgentSessionId` (the agent's own id for a conversation imported from
-  its history, which its arguments resume in place of the `id`; NULL for a session Aggregor started). Otherwise the `id`
-  is also the agent's session id.
+  from; NULL in the project's root, in a worktree it didn't make, and for sessions made before the column), `runState`
+  (`running` while Aggregor last saw its agent run, `interrupted` once a window started with every agent gone, as after
+  a restart, else NULL), `importedAgentSessionId` (the agent's own id for a conversation imported from its history,
+  which its arguments resume in place of the `id`; NULL for a session Aggregor started) and `pullRequestNumber` (the
+  pull request the user linked, shown in place of the worktree branch's own; NULL when none is linked). Otherwise the
+  `id` is also the agent's session id.
 - **Written by:** `SessionService` through the base service: a row per New Session (and `SessionImportService`'s, a row
-  per imported conversation), `name` when the agent's title in the row changes, `customName` on Rename, `viewedAt` as
-  the session comes into and leaves view, `sortId` on Move Up, Move Down and a drop on another of its project's sessions
-  in the same list, `lifecycle` and `sortId` on Archive and Unarchive, which place the session last in its new list,
-  `runState` as tmux's list of agents changes and as a window starts, and a soft delete on Remove Session. Removing a
-  project keeps its sessions, so adding the project again lists them again.
+  per imported conversation), `name` when the agent's title in the row changes, `customName` on Rename,
+  `PullRequestService`'s `pullRequestNumber` on Link Pull Request and Unlink Pull Request, `worktreePath` and
+  `baseBranchName` on Change Working Tree and Unlink Worktree, `viewedAt` as the session comes into and leaves view,
+  `sortId` on Move Up, Move Down and a drop on another of its project's sessions in the same list, `lifecycle` and
+  `sortId` on Archive and Unarchive, which place the session last in its new list, `runState` as tmux's list of agents
+  changes and as a window starts, and a soft delete on Remove Session. Removing a project keeps its sessions, so adding
+  the project again lists them again.
 - **Read by:** `SessionService`, with the project's path: the Sessions view reads each row of both lists as it draws it.
 - **Status columns:** `status` (`unknown` until a report, `exited` once the agent is gone), `statusKind`,
   `statusMessage`, `statusProgress`, `statusChangedAt` (when the state last changed), `hasWorked` (it has reported
@@ -81,12 +84,14 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 ## `tmux.sock`
 
 - **Holds:** the socket of Aggregor's own tmux server (`tmux -S`), which runs one tmux session per running agent, named
-  by the session's id. tmux creates it, readable only by its owner.
-- **Written by:** tmux, when a session tab starts the first agent; the server stops with its last session.
-- **Read by:** each session tab's `tmux new-session -A`, which starts or attaches to its tmux session, and
-  `TmuxInfraService`, to list and stop sessions.
-- **Why:** an agent outlives its tab, a reload and VS Code, and the server stays apart from the user's own tmux. In the
-  Aggregor folder, a test's `AGGREGOR_HOME` gets a server of its own.
+  by the session's id, and one per folder shell, named `shell-‹folder›-‹hash›`. tmux creates it, readable only by its
+  owner.
+- **Written by:** tmux, when a session tab starts the first agent or the Aggregor terminal the first shell; the server
+  stops with its last session.
+- **Read by:** each session tab's and the Aggregor terminal's `tmux new-session -A`, which starts or attaches to its
+  tmux session, and `TmuxInfraService`, to list, switch and end them.
+- **Why:** an agent, and a folder's shell, outlives its terminal, a reload and VS Code, and the server stays apart from
+  the user's own tmux. In the Aggregor folder, a test's `AGGREGOR_HOME` gets a server of its own.
 - **Cleaned up:** by tmux; a stale socket left by a reboot is replaced when the next server starts.
 
 ## `worktrees/`
