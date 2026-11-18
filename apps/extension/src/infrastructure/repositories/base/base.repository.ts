@@ -25,7 +25,7 @@ import type {SQL} from "drizzle-orm";
 import type {SQLiteColumn} from "drizzle-orm/sqlite-core";
 
 const findRows = Effect.fn("BaseRepository.findRows")(
-  function* <Entity>(repositoryTable: RepositoryTable<Entity>, filter: StoredColumns) {
+  function* <Entity extends BaseEntity>(repositoryTable: RepositoryTable<Entity>, filter: StoredColumns) {
     const filterClauses = yield* makeFilterClauses(repositoryTable.tableModel, filter);
     const storedRows = yield* selectRows(
       repositoryTable,
@@ -47,7 +47,7 @@ const decodeCursorSortId = Effect.fn("BaseRepository.decodeCursorSortId")(functi
   return afterCursor === undefined ? undefined : yield* Schema.decodeEffect(CursorSortIdSchema)(afterCursor);
 });
 
-const countPageRows = Effect.fn("BaseRepository.countPageRows")(function* <Entity>(
+const countPageRows = Effect.fn("BaseRepository.countPageRows")(function* <Entity extends BaseEntity>(
   repositoryTable: RepositoryTable<Entity>,
   listedCondition: SQL | undefined,
   afterSortId: number | undefined
@@ -91,7 +91,7 @@ const findRowPage = Effect.fn("BaseRepository.findRowPage")(
   Effect.mapError((cause) => DatabaseReadError.make({cause}))
 );
 
-const findRowById = Effect.fn("BaseRepository.findRowById")(function* <Entity>(
+const findRowById = Effect.fn("BaseRepository.findRowById")(function* <Entity extends BaseEntity>(
   repositoryTable: RepositoryTable<Entity>,
   entityId: EntityIdValueObject
 ) {
@@ -102,7 +102,7 @@ const findRowById = Effect.fn("BaseRepository.findRowById")(function* <Entity>(
 });
 
 // AUTOINCREMENT needs an integer primary key, so sortId is MAX + 1, inside the writing statement.
-const writeRowAtEnd = Effect.fn("BaseRepository.writeRowAtEnd")(function* <Entity>(
+const writeRowAtEnd = Effect.fn("BaseRepository.writeRowAtEnd")(function* <Entity extends BaseEntity>(
   repositoryTable: RepositoryTable<Entity>,
   addRequest: StoredColumns,
   conflictColumns: readonly SQLiteColumn[]
@@ -131,7 +131,7 @@ const writeRowAtEnd = Effect.fn("BaseRepository.writeRowAtEnd")(function* <Entit
 });
 
 const writeAndReadRow = Effect.fn("BaseRepository.writeAndReadRow")(
-  function* <Entity>(
+  function* <Entity extends BaseEntity>(
     repositoryTable: RepositoryTable<Entity>,
     addRequest: StoredColumns,
     conflictColumns: readonly SQLiteColumn[]
@@ -148,14 +148,14 @@ const writeAndReadRow = Effect.fn("BaseRepository.writeAndReadRow")(
 );
 
 // A conflict on the new id never happens, so this always inserts; a unique-column clash still fails.
-const addRow = Effect.fn("BaseRepository.addRow")(function* <Entity>(
+const addRow = Effect.fn("BaseRepository.addRow")(function* <Entity extends BaseEntity>(
   repositoryTable: RepositoryTable<Entity>,
   addRequest: StoredColumns
 ) {
   return yield* writeAndReadRow(repositoryTable, addRequest, [repositoryTable.tableModel.id]);
 });
 
-const upsertRow = Effect.fn("BaseRepository.upsertRow")(function* <Entity>(
+const upsertRow = Effect.fn("BaseRepository.upsertRow")(function* <Entity extends BaseEntity>(
   repositoryTable: RepositoryTable<Entity>,
   addRequest: StoredColumns
 ) {
@@ -164,7 +164,7 @@ const upsertRow = Effect.fn("BaseRepository.upsertRow")(function* <Entity>(
   return yield* writeAndReadRow(repositoryTable, addRequest, uniqueColumns);
 });
 
-const updateRow = Effect.fn("BaseRepository.updateRow")(function* <Entity>(
+const updateRow = Effect.fn("BaseRepository.updateRow")(function* <Entity extends BaseEntity>(
   repositoryTable: RepositoryTable<Entity>,
   entityId: EntityIdValueObject,
   changes: StoredColumns
@@ -189,7 +189,7 @@ const updateRow = Effect.fn("BaseRepository.updateRow")(function* <Entity>(
 });
 
 const softDeleteRow = Effect.fn("BaseRepository.softDeleteRow")(
-  function* <Entity>(repositoryTable: RepositoryTable<Entity>, entityId: EntityIdValueObject) {
+  function* <Entity extends BaseEntity>(repositoryTable: RepositoryTable<Entity>, entityId: EntityIdValueObject) {
     const deletedAt = yield* formatCurrentTimestamp();
     yield* repositoryTable.database
       .update(repositoryTable.tableModel)
@@ -201,7 +201,10 @@ const softDeleteRow = Effect.fn("BaseRepository.softDeleteRow")(
 
 // One statement reads the highest sortId once, so the rows take the sortIds after it in the order given.
 const placeRowsAtEnd = Effect.fn("BaseRepository.placeRowsAtEnd")(
-  function* <Entity>(repositoryTable: RepositoryTable<Entity>, entityIds: readonly EntityIdValueObject[]) {
+  function* <Entity extends BaseEntity>(
+    repositoryTable: RepositoryTable<Entity>,
+    entityIds: readonly EntityIdValueObject[]
+  ) {
     if (!Array.isReadonlyArrayNonEmpty(entityIds)) return;
     const highestSortId = sql`(SELECT MAX(${repositoryTable.tableModel.sortId}) FROM ${repositoryTable.tableModel})`;
     const placesAfterHighest = sql.join(
