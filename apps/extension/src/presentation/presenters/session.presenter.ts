@@ -14,7 +14,6 @@ import type {
   moveSessionUp,
   newSession,
   openSession,
-  openSessionFolderTerminal,
   removeSession,
   renameSession,
   renameSessionBranch,
@@ -34,7 +33,6 @@ type SessionCommandError = Effect.Error<
     | typeof moveSessionUp
     | typeof newSession
     | typeof openSession
-    | typeof openSessionFolderTerminal
     | typeof removeSession
     | typeof renameSession
     | typeof renameSessionBranch

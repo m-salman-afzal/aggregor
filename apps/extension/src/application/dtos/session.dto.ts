@@ -105,10 +105,6 @@ export const OpenSessionRequestDtoSchema = Schema.Struct({sessionId: EntityIdVal
 
 export type OpenSessionRequestDto = typeof OpenSessionRequestDtoSchema.Type;
 
-export const OpenSessionFolderTerminalRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
-
-export type OpenSessionFolderTerminalRequestDto = typeof OpenSessionFolderTerminalRequestDtoSchema.Type;
-
 export const RemoveSessionRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
 
 export type RemoveSessionRequestDto = typeof RemoveSessionRequestDtoSchema.Type;

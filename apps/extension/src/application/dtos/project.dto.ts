@@ -22,10 +22,6 @@ export const ProjectListItemDtoSchema = Schema.Struct({
 
 export type ProjectListItemDto = typeof ProjectListItemDtoSchema.Type;
 
-export const OpenProjectTerminalRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
-
-export type OpenProjectTerminalRequestDto = typeof OpenProjectTerminalRequestDtoSchema.Type;
-
 export const SaveProjectSettingsRequestDtoSchema = Schema.Struct({
   projectPath: ProjectPathValueObjectSchema,
   settings: ProjectSettingsDtoSchema

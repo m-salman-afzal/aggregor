@@ -37,7 +37,7 @@ import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interfa
 import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
 import {GIT_COMMAND} from "@pkg/constants/src/git.constant.ts";
 import {NEW_SESSION_WORKING_TREE_TAGS, SESSION_PAGES, SESSION_RUN_STATE} from "@pkg/constants/src/session.constant.ts";
-import {FOLDER_TERMINAL_NAME, SESSION_OPEN_PLACES} from "@pkg/constants/src/terminal.constant.ts";
+import {SESSION_OPEN_PLACES} from "@pkg/constants/src/terminal.constant.ts";
 import {findAgentToStart} from "@services/agent.service.ts";
 import {
   addEntity,
@@ -68,7 +68,6 @@ import type {
   MoveSessionDownRequestDto,
   MoveSessionUpRequestDto,
   NewSessionRequestDto,
-  OpenSessionFolderTerminalRequestDto,
   OpenSessionRequestDto,
   RemoveSessionRequestDto,
   RenameSessionBranchRequestDto,
@@ -414,31 +413,6 @@ export const openSession = Effect.fn("SessionService.openSession")(
     yield* closeOtherSessionTabs(request.sessionId);
   },
   (effect, request) => Effect.catchTag(effect, "TerminalNotFoundError", () => reopenSession(request.sessionId))
-);
-
-const nameFolderTerminal = Effect.fn("SessionService.nameFolderTerminal")(function* (
-  session: SessionEntity,
-  projectName: string
-) {
-  const path = yield* Path;
-
-  return session.worktreePath === undefined
-    ? projectName
-    : FOLDER_TERMINAL_NAME.WORKTREE(projectName, path.basename(session.worktreePath));
-});
-
-// A root session shares its project's terminal; sessions in one worktree share the worktree's.
-export const openSessionFolderTerminal = Effect.fn("SessionService.openSessionFolderTerminal")(
-  function* (request: OpenSessionFolderTerminalRequestDto) {
-    const session = yield* findSession(request.sessionId);
-    const sessionProject = yield* findProjectListItem(session.projectPath);
-    const terminalName = yield* nameFolderTerminal(session, sessionProject.name);
-
-    yield* ITerminalInfraService.use((terminalInfraService) =>
-      terminalInfraService.openFolderTerminal({folderPath: session.workingFolderPath, terminalName})
-    );
-  },
-  Effect.catchTag("ProjectNotListedError", () => Effect.void)
 );
 
 // The agent's transcript on disk and the worktree's branch are left alone.

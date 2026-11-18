@@ -9,7 +9,7 @@ const PROJECT_ID_SUFFIX_LENGTH = 6;
 const TITLED_NAME_MAX_LENGTH = 50;
 const LAST_WORD_PART_PATTERN = /-[^-]*$/u;
 
-const toNamePart = Effect.fn("WorktreeDomainService.toNamePart")(function* (text: string) {
+export const toNamePart = Effect.fn("WorktreeDomainService.toNamePart")(function* (text: string) {
   return String.replace(
     EDGE_SEPARATOR_PATTERN,
     ""

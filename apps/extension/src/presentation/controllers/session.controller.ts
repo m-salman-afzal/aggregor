@@ -7,7 +7,6 @@ import {
   MoveSessionDownRequestDtoSchema,
   MoveSessionUpRequestDtoSchema,
   NewSessionRequestDtoSchema,
-  OpenSessionFolderTerminalRequestDtoSchema,
   OpenSessionRequestDtoSchema,
   RemoveSessionRequestDtoSchema,
   RenameSessionBranchRequestDtoSchema,
@@ -32,7 +31,6 @@ import {
   moveSessionUp,
   newSession,
   openSession,
-  openSessionFolderTerminal,
   removeSession,
   renameSession,
   renameSessionBranch,
@@ -58,13 +56,6 @@ export const openChosenSession = Effect.fn("SessionController.openChosenSession"
   const request = yield* decodeVsCodeArgument(OpenSessionRequestDtoSchema, chosenSession);
   yield* openSession(request);
 });
-
-export const openChosenSessionFolderTerminal = Effect.fn("SessionController.openChosenSessionFolderTerminal")(
-  function* (chosenSession: unknown) {
-    const request = yield* decodeVsCodeArgument(OpenSessionFolderTerminalRequestDtoSchema, chosenSession);
-    yield* openSessionFolderTerminal(request);
-  }
-);
 
 export const removeChosenSession = Effect.fn("SessionController.removeChosenSession")(function* (
   chosenSession: unknown

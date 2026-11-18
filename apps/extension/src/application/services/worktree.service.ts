@@ -1,7 +1,6 @@
 import {ProjectBranchesDtoSchema, ProjectLeftoversDtoSchema} from "@dtos/worktree.dto.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
-import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
@@ -179,9 +178,7 @@ const removeLeftoverWorktree = Effect.fn("WorktreeService.removeLeftoverWorktree
     )
   );
   if (Result.isFailure(removeResult)) return [worktreeName];
-  yield* ITerminalInfraService.use((terminalInfraService) =>
-    terminalInfraService.closeFolderTerminal(leftoverWorktree.worktreePath)
-  );
+  yield* ITmuxInfraService.use((tmuxInfraService) => tmuxInfraService.endFolderShell(leftoverWorktree.worktreePath));
   yield* showProjectInPlaceOfWorktree(projectPath, leftoverWorktree.worktreePath);
   const worktreeSessions = yield* findEntities(ISessionRepository, {worktreePath: leftoverWorktree.worktreePath});
   yield* Effect.forEach(worktreeSessions, (worktreeSession) => removeEntity(ISessionRepository, worktreeSession.id));
@@ -253,7 +250,7 @@ export const removeSessionWorktree = Effect.fn("WorktreeService.removeSessionWor
     if (!(yield* worktreeInfraService.isMadeByAggregor(worktreePath, sessionProject.settings.worktreeFolder))) return;
 
     yield* worktreeInfraService.removeWorktree(sessionProject.path, worktreePath);
-    yield* ITerminalInfraService.use((terminalInfraService) => terminalInfraService.closeFolderTerminal(worktreePath));
+    yield* ITmuxInfraService.use((tmuxInfraService) => tmuxInfraService.endFolderShell(worktreePath));
     yield* showProjectInPlaceOfWorktree(sessionProject.path, worktreePath);
   },
   Effect.catchTag("EntityNotFoundError", () => Effect.void)

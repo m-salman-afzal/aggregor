@@ -23,16 +23,21 @@ What Aggregor is, and the order its big pieces come in.
 - **Decision:** SSH is a must-have, and closing a tab must never kill the agent; tmux (M2) detaches it, and clicking the
   session reattaches.
 
-## Webview first, then worktrees, then a tray
+## Webview first, then worktrees, then a tray, then SSH
 
 - **Problem:** worktree mode would add a branch and a worktree to every session row, and the tree had no room for them;
   the user also wants to manage sessions from a tray icon, with VS Code closed too, and asked whether the front end and
   the backend should be apps of their own.
 - **Decision:** the webview stack, then worktrees (on the Git extension API, as agreed for worktrees 1), then the tray
-  as milestone M6. How the backend runs without VS Code is decided when M6 starts, within `DDD.md`'s layers; until then
-  nothing is built for it. The front end doesn't change when the backend later moves, and `DDD.md`'s ports already keep
-  VS Code behind interfaces, so a later split moves layers whole instead of rewriting them.
+  as milestone M4, ahead of SSH (M5) and the bundled tmux (M6): session and pull request status with VS Code closed, and
+  a session opened in VS Code or in a plain terminal, come before remote hosts. Agents and folder shells all run in
+  tmux, so opening one in a plain terminal is a `tmux attach`. How the backend runs without VS Code is decided when M4
+  starts, within `DDD.md`'s layers; until then nothing is built for it. The front end doesn't change when the backend
+  later moves, and `DDD.md`'s ports already keep VS Code behind interfaces, so a later split moves layers whole instead
+  of rewriting them.
 - **Alternatives considered:**
+  - The tray last, after SSH and the bundled tmux (the earlier order): the user wants to start working without VS Code
+    open before working on remote hosts.
   - Splitting now: an `apps/server` daemon owning the sessions (as Orca, Paseo, T3 Code and VS Code's Agent Host do),
     `packages/domain` and `packages/api` with the DTOs and Effect RPC groups, and the extension relaying the webview's
     calls to it. Turned down: it pulled the domain and the DTOs out of their layers and put an RPC layer beside the

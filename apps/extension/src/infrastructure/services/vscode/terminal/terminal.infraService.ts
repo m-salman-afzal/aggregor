@@ -1,12 +1,18 @@
 import {
-  findFolderTerminal,
+  assignShownFolderShellPath,
+  findFolderShellTerminalProcessId,
+  openFolderShellTerminal,
+  readOpeningFolderShellPath,
+  watchFolderShellPathsClosedByUser
+} from "@infraServices/vscode/terminal/folderShellTerminal.utils.ts";
+import {
   findOpenSessionTerminals,
   findTrackedSessionId,
-  isSessionTerminal,
   nameActiveSessionTab,
   pinSessionTab,
-  readTerminalFolderPath
+  readTerminalProcessId
 } from "@infraServices/vscode/terminal/terminal.utils.ts";
+import {getAggregorFolderPath} from "@infraUtils/aggregorFolder.utils.ts";
 import {
   ITerminalInfraService,
   NoSessionTabOpenError,
@@ -16,17 +22,17 @@ import {
 } from "@interfaces/terminal.infraService.interface.ts";
 import {AGENT_ICON} from "@pkg/constants/src/agent.constant.ts";
 import {SETUP_TERMINAL} from "@pkg/constants/src/requiredTools.constant.ts";
-import {FOLDER_PATH_ENV, SESSION_ID_ENV, VIEWED_SESSION_SETTLE_INTERVAL} from "@pkg/constants/src/terminal.constant.ts";
+import {SESSION_ID_ENV, VIEWED_SESSION_SETTLE_INTERVAL} from "@pkg/constants/src/terminal.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
-import {Array, Effect, Layer, Ref, Result, Schema, Stream, SubscriptionRef} from "effect";
+import {Array, Effect, Layer, Result, Schema, Stream, SubscriptionRef} from "effect";
 
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {
   SessionTerminalsReference,
   TerminalDependencies
 } from "@infraServices/vscode/terminal/terminal.infraService.type.ts";
-import type {FolderTerminalRequest, SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
+import type {FolderShellTerminalRequest, SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Terminal} from "vscode";
@@ -102,92 +108,12 @@ const openSetupTerminal = Effect.fn("TerminalInfraService.openSetupTerminal")(fu
   });
 });
 
-const launchFolderTerminal = Effect.fn("TerminalInfraService.launchFolderTerminal")(function* (
-  window: TerminalDependencies["window"],
-  folderTerminalRequest: FolderTerminalRequest
-) {
-  return yield* Effect.try({
-    catch: (cause) => TerminalLaunchFailedError.make({cause}),
-    try: () =>
-      window.createTerminal({
-        cwd: folderTerminalRequest.folderPath,
-        env: {[FOLDER_PATH_ENV]: folderTerminalRequest.folderPath},
-        name: folderTerminalRequest.terminalName
-      })
-  });
-});
-
-const findOrLaunchFolderTerminal = Effect.fn("TerminalInfraService.findOrLaunchFolderTerminal")(
-  function* (window: TerminalDependencies["window"], folderTerminalRequest: FolderTerminalRequest) {
-    return yield* findFolderTerminal(window.terminals, folderTerminalRequest.folderPath);
-  },
-  (effect, window, folderTerminalRequest) =>
-    Effect.catchTag(effect, "FolderTerminalNotFoundError", () => launchFolderTerminal(window, folderTerminalRequest))
-);
-
-const openFolderTerminal = Effect.fn("TerminalInfraService.openFolderTerminal")(function* (
-  window: TerminalDependencies["window"],
-  folderTerminalRequest: FolderTerminalRequest
-) {
-  const folderTerminal = yield* findOrLaunchFolderTerminal(window, folderTerminalRequest);
-  yield* showTerminal(folderTerminal);
-});
-
-const closeFolderTerminal = Effect.fn("TerminalInfraService.closeFolderTerminal")(
-  function* (window: TerminalDependencies["window"], folderPath: ProjectPathValueObject) {
-    const folderTerminal = yield* findFolderTerminal(window.terminals, folderPath);
-
-    yield* Effect.sync(() => {
-      folderTerminal.dispose();
-    });
-  },
-  Effect.catchTag("FolderTerminalNotFoundError", () => Effect.void)
-);
-
-const findWorkingFolderTerminal = Effect.fn("TerminalInfraService.findWorkingFolderTerminal")(function* (
-  terminals: readonly Terminal[],
-  workingFolderPath: ProjectPathValueObject,
-  projectPath: ProjectPathValueObject
-) {
-  return yield* Effect.catchTag(findFolderTerminal(terminals, workingFolderPath), "FolderTerminalNotFoundError", () =>
-    findFolderTerminal(terminals, projectPath)
-  );
-});
-
-// Only in place of another folder's terminal, so a shell the user opened stays in front.
-const switchToFolderTerminal = Effect.fn("TerminalInfraService.switchToFolderTerminal")(
-  function* (
-    terminalDependencies: TerminalDependencies,
-    workingFolderPath: ProjectPathValueObject,
-    projectPath: ProjectPathValueObject
-  ) {
-    const shellTerminal = yield* Ref.get(terminalDependencies.shellTerminal);
-    if (shellTerminal === undefined || shellTerminal.exitStatus !== undefined) return;
-    if ((yield* readTerminalFolderPath(shellTerminal)) === undefined) return;
-    const folderTerminal = yield* findWorkingFolderTerminal(
-      terminalDependencies.window.terminals,
-      workingFolderPath,
-      projectPath
-    );
-    if (folderTerminal === shellTerminal) return;
-
-    yield* Effect.sync(() => {
-      folderTerminal.show(true);
-    });
-  },
-  Effect.catchTag("FolderTerminalNotFoundError", () => Effect.void)
-);
-
 const focusSessionTerminal = Effect.fn("TerminalInfraService.focusSessionTerminal")(function* (
   sessionTerminals: SessionTerminalsReference,
   sessionId: EntityIdValueObject
 ) {
   const sessionTerminal = yield* findSessionTerminal(sessionTerminals, sessionId);
   yield* showTerminal(sessionTerminal);
-});
-
-const readTerminalProcessId = Effect.fn("TerminalInfraService.readTerminalProcessId")(function* (terminal: Terminal) {
-  return yield* Effect.promise(() => terminal.processId);
 });
 
 // tmux can attach any open session tab to another session, so the first one is taken.
@@ -393,28 +319,6 @@ const trackViewedSessionId = Effect.fn("TerminalInfraService.trackViewedSessionI
   return viewedSessionId;
 });
 
-const rememberShellTerminal = Effect.fn("TerminalInfraService.rememberShellTerminal")(function* (
-  shellTerminal: Ref.Ref<Terminal | undefined>,
-  activeTerminal: Terminal | undefined
-) {
-  if (activeTerminal === undefined || (yield* isSessionTerminal(activeTerminal))) return;
-
-  yield* Ref.set(shellTerminal, activeTerminal);
-});
-
-const trackShellTerminal = Effect.fn("TerminalInfraService.trackShellTerminal")(function* (
-  window: TerminalDependencies["window"]
-) {
-  const shellTerminal = yield* Ref.make<Terminal | undefined>(undefined);
-  yield* rememberShellTerminal(shellTerminal, window.activeTerminal);
-  const activeTerminalChanges = yield* streamVsCodeEvent(window.onDidChangeActiveTerminal);
-  yield* Effect.forkScoped(
-    Stream.runForEach(activeTerminalChanges, (activeTerminal) => rememberShellTerminal(shellTerminal, activeTerminal))
-  );
-
-  return shellTerminal;
-});
-
 const watchClosedSetupTerminals = Effect.fn("TerminalInfraService.watchClosedSetupTerminals")(function* (
   window: TerminalDependencies["window"]
 ) {
@@ -429,10 +333,12 @@ const watchClosedSetupTerminals = Effect.fn("TerminalInfraService.watchClosedSet
 const makeTerminalDependencies = Effect.fn("TerminalInfraService.makeTerminalDependencies")(function* () {
   const vsCodeApi = yield* VsCodeApi;
   const openSessionTerminals = yield* findOpenSessionTerminals(vsCodeApi.window.terminals);
+  const openingFolderShellPath = yield* readOpeningFolderShellPath(vsCodeApi.window.terminals);
   const terminalDependencies: TerminalDependencies = {
     ...vsCodeApi,
+    aggregorFolderPath: yield* getAggregorFolderPath(),
     sessionTerminals: yield* SubscriptionRef.make(openSessionTerminals),
-    shellTerminal: yield* trackShellTerminal(vsCodeApi.window)
+    shownFolderShellPath: yield* SubscriptionRef.make(openingFolderShellPath)
   };
 
   return terminalDependencies;
@@ -445,27 +351,27 @@ const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function
 
   return {
     activatedSessionIds: yield* watchActivatedSessionIds(terminalDependencies),
+    assignShownFolderShellPath: (folderPath: ProjectPathValueObject) =>
+      assignShownFolderShellPath(terminalDependencies.shownFolderShellPath, folderPath),
     assignShownSessions: (shownSessionIdsByTabProcessId: ReadonlyMap<number, EntityIdValueObject>) =>
       assignShownSessions(terminalDependencies, viewedSessionId, shownSessionIdsByTabProcessId),
     closedSetupTerminals: yield* watchClosedSetupTerminals(terminalDependencies.window),
-    closeFolderTerminal: (folderPath: ProjectPathValueObject) =>
-      closeFolderTerminal(terminalDependencies.window, folderPath),
     closeOtherSessionTerminals: (shownSessionId: EntityIdValueObject) =>
       closeOtherSessionTerminals(terminalDependencies.sessionTerminals, shownSessionId),
     closeSessionTerminal: (sessionId: EntityIdValueObject) =>
       closeSessionTerminal(terminalDependencies.sessionTerminals, sessionId),
+    findFolderShellTerminalProcessId: findFolderShellTerminalProcessId(terminalDependencies.window),
     findOpenSessionTerminalProcessId: findOpenSessionTerminalProcessId(terminalDependencies.sessionTerminals),
     focusSessionTerminal: (sessionId: EntityIdValueObject) =>
       focusSessionTerminal(terminalDependencies.sessionTerminals, sessionId),
+    folderShellPathsClosedByUser: yield* watchFolderShellPathsClosedByUser(terminalDependencies),
     nameActiveSessionTab: (sessionId: EntityIdValueObject, tabName: string) =>
       nameActiveSessionTab(terminalDependencies, sessionId, tabName),
-    openFolderTerminal: (folderTerminalRequest: FolderTerminalRequest) =>
-      openFolderTerminal(terminalDependencies.window, folderTerminalRequest),
+    openFolderShellTerminal: (folderShellTerminalRequest: FolderShellTerminalRequest) =>
+      openFolderShellTerminal(terminalDependencies, folderShellTerminalRequest),
     openSessionTerminal: (session: SessionEntity, sessionTabRequest: SessionTabRequest) =>
       openSessionTerminal(terminalDependencies, session, sessionTabRequest),
     openSetupTerminal: (commandLine: string) => openSetupTerminal(terminalDependencies.window, commandLine),
-    switchToFolderTerminal: (workingFolderPath: ProjectPathValueObject, projectPath: ProjectPathValueObject) =>
-      switchToFolderTerminal(terminalDependencies, workingFolderPath, projectPath),
     viewedSessionId
   };
 });
