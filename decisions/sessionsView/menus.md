@@ -92,6 +92,21 @@ The Sessions view's buttons and menus, on its lists and its rows, and the questi
   inside the … menu, a click more for the commonest action; the menus' items sent by the host, which would move the
   view's drawing into the extension.
 
+## Copy Session ID copies the agent's own id for the conversation, in the webview
+
+- **Problem:** resuming a session outside Aggregor, or finding it in the agent's history, needs the id the agent knows
+  it by, which no row showed.
+- **Decision:** a session's … menu has Copy Session ID, and its row's tooltip ends with `Session ID: ‹id›`. The id is
+  the agent's resume argument that names the conversation, filled in: Aggregor's id for Claude Code and Copilot,
+  `ses_‹id›` for OpenCode, and Codex's own id once it has shown one. The webview copies it itself, since copying asks
+  nothing of the extension, and shows the id in a text field to copy by hand when the clipboard refuses.
+- **Solution:** `getAgentConversationId` in `session.domainService.ts` fills in the first resume argument holding
+  `${sessionId}` or `${agentSessionId}`; the session list item carries it as `agentConversationId`, absent while Codex
+  hasn't shown its id or for an agent that resumes without one (Antigravity's `-c`), which also hides the item.
+  `WEBVIEW_ACTIONS` names the actions the webview runs without the host, beside the host commands in `ROW_ACTIONS`.
+- **Alternatives considered:** Aggregor's own session id, which means nothing to Codex or OpenCode; a host command that
+  writes VS Code's clipboard, a round trip for what the page can do.
+
 ## No command is in the Command Palette
 
 - **Problem:** the Command Palette listed New Session..., Add Project, New Terminal in Project..., Open Settings and the

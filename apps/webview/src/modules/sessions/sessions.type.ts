@@ -1,4 +1,4 @@
-import type {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
+import type {USER_INPUT_TAGS, WEBVIEW_ACTIONS} from "@/modules/sessions/sessions.constant.ts";
 import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
 import type {SessionPullRequestsDto} from "@dtos/pullRequest.dto.ts";
 import type {SessionListItemDto} from "@dtos/session.dto.ts";
@@ -14,7 +14,8 @@ export interface ChosenLeftovers {
 }
 
 export interface RowAction {
-  readonly commandId: (typeof SESSIONS_WEBVIEW_COMMANDS)[number];
+  readonly commandId:
+    (typeof SESSIONS_WEBVIEW_COMMANDS)[number] | (typeof WEBVIEW_ACTIONS)[keyof typeof WEBVIEW_ACTIONS];
   readonly hasAttentionDot?: boolean;
   readonly icon: LucideIcon;
   readonly isDestructive?: boolean;
