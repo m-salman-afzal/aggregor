@@ -3,6 +3,7 @@ import {IWorkspaceInfraService, NoSessionToReopenError} from "@interfaces/worksp
 import {VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
 import {
   AGGREGOR_WORKSPACE,
+  AGGREGOR_WORKSPACE_SETTINGS,
   ANCHOR_FOLDER_SETTINGS,
   FOLDER_SELECT_COMMANDS,
   FOLDER_SETTINGS_FILE,
@@ -377,13 +378,16 @@ const rebaseWorkspaceEdits = Effect.fn("WorkspaceInfraService.rebaseWorkspaceEdi
   });
 });
 
+// Aggregor's own settings count as the project's, so the sync never takes them for an edit to write to the project.
 const prepareWorkspaceSettings = Effect.fn("WorkspaceInfraService.prepareWorkspaceSettings")(function* (
   workspaceDependencies: WorkspaceDependencies,
   projectPath: string
 ) {
   const projectSettings = yield* readProjectSettings(workspaceDependencies, projectPath);
+  const resolvedProjectSettings = yield* resolveProjectSettings(workspaceDependencies, projectPath, projectSettings);
+  const workspaceSettings: FolderSettings = {...resolvedProjectSettings, ...AGGREGOR_WORKSPACE_SETTINGS};
 
-  return yield* resolveProjectSettings(workspaceDependencies, projectPath, projectSettings);
+  return workspaceSettings;
 });
 
 const findWorkspaceEditedKeys = Effect.fn("WorkspaceInfraService.findWorkspaceEditedKeys")(function* (

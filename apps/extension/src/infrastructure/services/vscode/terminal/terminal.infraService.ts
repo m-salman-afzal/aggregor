@@ -2,7 +2,7 @@ import {
   assignShownFolderShellPath,
   findFolderShellTerminalProcessId,
   openFolderShellTerminal,
-  readOpeningFolderShellPath,
+  prepareFolderShellTerminalOptions,
   watchFolderShellPathsClosedByUser
 } from "@infraServices/vscode/terminal/folderShellTerminal.utils.ts";
 import {
@@ -32,7 +32,11 @@ import type {
   SessionTerminalsReference,
   TerminalDependencies
 } from "@infraServices/vscode/terminal/terminal.infraService.type.ts";
-import type {FolderShellTerminalRequest, SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
+import type {
+  FolderShellTerminalRequest,
+  SessionTabRequest,
+  TerminalCommand
+} from "@interfaces/terminal.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Terminal} from "vscode";
@@ -334,15 +338,29 @@ const watchClosedSetupTerminals = Effect.fn("TerminalInfraService.watchClosedSet
 const makeTerminalDependencies = Effect.fn("TerminalInfraService.makeTerminalDependencies")(function* () {
   const vsCodeApi = yield* VsCodeApi;
   const openSessionTerminals = yield* findOpenSessionTerminals(vsCodeApi.window.terminals);
-  const openingFolderShellPath = yield* readOpeningFolderShellPath(vsCodeApi.window.terminals);
   const terminalDependencies: TerminalDependencies = {
     ...vsCodeApi,
     aggregorFolderPath: yield* getAggregorFolderPath(),
     sessionTerminals: yield* SubscriptionRef.make(openSessionTerminals),
-    shownFolderShellPath: yield* SubscriptionRef.make(openingFolderShellPath)
+    shownFolderShellPath: yield* SubscriptionRef.make<ProjectPathValueObject | undefined>(undefined)
   };
 
   return terminalDependencies;
+});
+
+const makeFolderShellMembers = Effect.fn("TerminalInfraService.makeFolderShellMembers")(function* (
+  terminalDependencies: TerminalDependencies
+) {
+  return {
+    assignShownFolderShellPath: (folderPath: ProjectPathValueObject) =>
+      assignShownFolderShellPath(terminalDependencies.shownFolderShellPath, folderPath),
+    findFolderShellTerminalProcessId: findFolderShellTerminalProcessId(terminalDependencies.window),
+    folderShellPathsClosedByUser: yield* watchFolderShellPathsClosedByUser(terminalDependencies),
+    openFolderShellTerminal: (folderShellTerminalRequest: FolderShellTerminalRequest) =>
+      openFolderShellTerminal(terminalDependencies, folderShellTerminalRequest),
+    prepareFolderShellTerminalOptions: (terminalCommand: TerminalCommand) =>
+      prepareFolderShellTerminalOptions(terminalDependencies.aggregorFolderPath, terminalCommand)
+  };
 });
 
 const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function* () {
@@ -352,8 +370,6 @@ const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function
 
   return {
     activatedSessionIds: yield* watchActivatedSessionIds(terminalDependencies),
-    assignShownFolderShellPath: (folderPath: ProjectPathValueObject) =>
-      assignShownFolderShellPath(terminalDependencies.shownFolderShellPath, folderPath),
     assignShownSessions: (shownSessionIdsByTabProcessId: ReadonlyMap<number, EntityIdValueObject>) =>
       assignShownSessions(terminalDependencies, viewedSessionId, shownSessionIdsByTabProcessId),
     closedSetupTerminals: yield* watchClosedSetupTerminals(terminalDependencies.window),
@@ -361,19 +377,16 @@ const makeTerminalInfraService = Effect.fn("TerminalInfraService.make")(function
       closeOtherSessionTerminals(terminalDependencies.sessionTerminals, shownSessionId),
     closeSessionTerminal: (sessionId: EntityIdValueObject) =>
       closeSessionTerminal(terminalDependencies.sessionTerminals, sessionId),
-    findFolderShellTerminalProcessId: findFolderShellTerminalProcessId(terminalDependencies.window),
     findOpenSessionTerminalProcessId: findOpenSessionTerminalProcessId(terminalDependencies.sessionTerminals),
     focusSessionTerminal: (sessionId: EntityIdValueObject) =>
       focusSessionTerminal(terminalDependencies.sessionTerminals, sessionId),
-    folderShellPathsClosedByUser: yield* watchFolderShellPathsClosedByUser(terminalDependencies),
     nameActiveSessionTab: (sessionId: EntityIdValueObject, tabName: string) =>
       nameActiveSessionTab(terminalDependencies, sessionId, tabName),
-    openFolderShellTerminal: (folderShellTerminalRequest: FolderShellTerminalRequest) =>
-      openFolderShellTerminal(terminalDependencies, folderShellTerminalRequest),
     openSessionTerminal: (session: SessionEntity, sessionTabRequest: SessionTabRequest) =>
       openSessionTerminal(terminalDependencies, session, sessionTabRequest),
     openSetupTerminal: (commandLine: string) => openSetupTerminal(terminalDependencies.window, commandLine),
-    viewedSessionId
+    viewedSessionId,
+    ...(yield* makeFolderShellMembers(terminalDependencies))
   };
 });
 

@@ -18,6 +18,13 @@ export interface FolderShellTerminalRequest {
   readonly terminalCommand: TerminalCommand;
 }
 
+export interface FolderShellTerminalOptions {
+  readonly cwd: string;
+  readonly name: string;
+  readonly shellArgs: readonly string[];
+  readonly shellPath: string;
+}
+
 export interface SessionTabRequest {
   readonly icon: AgentIconValueObject;
   readonly isPinned: boolean;
@@ -81,6 +88,10 @@ export class ITerminalInfraService extends Context.Service<
     ) => Effect.Effect<void, TerminalLaunchFailedError>;
     // A command the user watches and answers, such as sudo's password; its output stays until they press Enter.
     readonly openSetupTerminal: (commandLine: string) => Effect.Effect<void>;
+    // What VS Code launches for the Aggregor terminal profile, the same as Aggregor launches itself.
+    readonly prepareFolderShellTerminalOptions: (
+      terminalCommand: TerminalCommand
+    ) => Effect.Effect<FolderShellTerminalOptions>;
     readonly viewedSessionId: SubscriptionRef.SubscriptionRef<Result.Result<EntityIdValueObject, NoViewedSessionError>>;
   }
 >()("aggregor-app/application/interfaces/terminal.infraService.interface/ITerminalInfraService") {}

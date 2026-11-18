@@ -1,3 +1,5 @@
+import {FOLDER_SHELL_TERMINAL} from "@pkg/constants/src/terminal.constant.ts";
+
 // It sits a level down from the Aggregor folder, so the window never watches the database.
 export const AGGREGOR_WORKSPACE = {
   ANCHOR_FOLDER_NAME: "Aggregor",
@@ -16,6 +18,12 @@ export const ANCHOR_FOLDER_SETTINGS = {
   EVERY_FILE_PATTERN: "**",
   EXCLUDED_FILES_KEY: "files.exclude",
   TERMINAL_CWD_KEY: "terminal.integrated.cwd"
+} as const;
+
+// Aggregor's own, added to the shown project's in the workspace file: the terminal VS Code opens itself is the Aggregor terminal.
+export const AGGREGOR_WORKSPACE_SETTINGS = {
+  "terminal.integrated.defaultProfile.linux": FOLDER_SHELL_TERMINAL.NAME,
+  "terminal.integrated.defaultProfile.osx": FOLDER_SHELL_TERMINAL.NAME
 } as const;
 
 // A multi-folder workspace reads a folder's settings file only for resource-scoped settings, so they sync with its file.

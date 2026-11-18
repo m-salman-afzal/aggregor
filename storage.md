@@ -120,7 +120,7 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
     and `terminal.integrated.cwd` set to the shown project.
   - `Aggregor.code-workspace`, Aggregor's workspace: the anchor folder, then the shown project, and as its `settings`
     the shown project's `.vscode/settings.json`, synced both ways, with relative paths and folder variables naming the
-    project.
+    project, plus `terminal.integrated.defaultProfile.linux` and `.osx` set to Aggregor's terminal profile.
   - `copiedProjectSettings.json`: the settings last copied into the workspace file and the project they came from, which
     each sync compares both sides with.
   - `sessionToReopen.json`: the session the window was switching to when it reloaded to open the workspace, with when.

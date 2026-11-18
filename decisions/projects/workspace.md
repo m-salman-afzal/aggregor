@@ -174,6 +174,9 @@ The project in view, and the workspace file Aggregor writes for it.
   - When the session in view changes, an open Aggregor terminal moves to the shell of that session's folder, started
     first when it isn't running, and the Terminal panel stays open or hidden as it was. With no Aggregor terminal open,
     nothing opens.
+  - The terminal VS Code opens by itself in Aggregor's workspace, when the panel shows with no terminal in it, is the
+    Aggregor terminal, on the shell of the session in view's folder, or of the folder shown in the window with no
+    session in view. A plain VS Code terminal there could never follow the session in view.
   - The terminal button on a project's row shows the terminal on the project's shell; the one on a session's row, on the
     shell of the session's folder: its project's for a root session, its worktree's for a worktree session, shared by
     every session in that worktree. Both are Open Terminal, open the panel, and start the shell when it isn't running.
@@ -193,8 +196,9 @@ The project in view, and the workspace file Aggregor writes for it.
   - A shell keeps 100,000 lines of history, twice an agent's.
   - The Aggregor terminal draws what tmux sends, as a session's tab does: tmux keeps the lines that scrolled off (the
     wheel scrolls them, with no scrollbar), VS Code's Find sees only the screen, and shell integration (the marks beside
-    each command, Run Recent Command, quick fixes) is off, since tmux starts the shell. A terminal from the panel's + is
-    a plain VS Code terminal with all of these, in the shown project.
+    each command, Run Recent Command, quick fixes) is off, since tmux starts the shell. While the Aggregor terminal is
+    open, a terminal from the panel's + is a plain VS Code terminal with all of these, in the shown project; with none
+    open, + opens the Aggregor terminal.
 - **Solution:**
   - `FolderShellService` holds the use cases: `openProjectTerminal` and `openSessionFolderTerminal` (the commands
     `aggregorApp.openProjectTerminal` and `aggregorApp.openSessionFolderTerminal`) switch the open terminal, or open
@@ -222,11 +226,21 @@ The project in view, and the workspace file Aggregor writes for it.
     hands it over (`assignShownFolderShellPath`). When the terminal closes with `TerminalExitReason.User`,
     `folderShellPathsClosedByUser` yields that folder; a reload or a quit reports another reason, and tmux can no longer
     say what a closed client showed.
-  - The terminal carries `AGGREGOR_FOLDER_SHELL_PATH`, the folder it opened with, in its env, so it is found again after
-    an extension restart. It is not transient: it stays through a window reload, and after a quit VS Code restores it by
-    running its command again, which attaches to the shell of the folder it opened with. It starts in the Aggregor
-    folder, since VS Code labels a terminal's tab with the folder it started in, which would name a folder the terminal
-    no longer shows.
+  - Aggregor contributes a terminal profile, Aggregor (`aggregorApp.folderShell`), and Aggregor's workspace file sets
+    `terminal.integrated.defaultProfile.linux` and `.osx` to it (`AGGREGOR_WORKSPACE_SETTINGS`), so every terminal VS
+    Code opens without a profile picked goes through `FolderShellProfileView`'s provider. Its use case,
+    `prepareProfileTerminal`, returns the Aggregor terminal's launch options, the same
+    `prepareFolderShellTerminalOptions` the row's button launches with, while no Aggregor terminal is open, and no
+    options otherwise, which VS Code launches as its own shell; a failure, such as tmux missing, is logged and opens VS
+    Code's shell too. The settings join the shown project's in `prepareWorkspaceSettings`, so the settings sync counts
+    them as the project's and never writes them into its file; they override a project's own default profile. VS Code
+    honours a default profile only in a trusted workspace.
+  - The terminal is found by its name, Aggregor, after an extension restart, a window reload and a quit alike: VS Code
+    restores a terminal with its name but without the env it was launched with. It is not transient: it stays through a
+    window reload, and after a quit VS Code restores it by running its command again, which attaches to the shell of the
+    folder it opened with; the startup sync then reads from tmux which shell it shows. A terminal the user renames is no
+    longer found, and one the user names Aggregor is taken for it. It starts in the Aggregor folder, since VS Code
+    labels a terminal's tab with the folder it started in, which would name a folder the terminal no longer shows.
   - tmux reads a `#` in a folder it is given as the start of a format, so a path's `#` is doubled, for a shell's folder
     and an agent's alike; left as it is, a folder named `C#Samples` starts in a folder that doesn't exist.
   - Verified in the headless VS Code: Open Terminal on a project opened one Aggregor terminal on its shell, with the
@@ -261,6 +275,18 @@ The project in view, and the workspace file Aggregor writes for it.
   - The terminal's own client starting the next shell (`detach-client -E ‹command›`), which needs no variables copied
     but runs the command through the user's shell, whose quoting rules Aggregor would have to follow.
   - A transient terminal, as session tabs are: a reload would close it, and the user would open it again each time.
+  - The panel's + always a plain VS Code terminal, with VS Code's own default terminal left as it was (the earlier
+    decision): the terminal VS Code opens by itself, when the panel shows with none, was a plain shell that never
+    followed the session in view, beside or instead of the Aggregor terminal.
+  - The default profile opening a second Aggregor terminal on + while one is open: typing in one shows in both, and only
+    the first follows the session in view.
+  - The default profile set in the user's settings, or VS Code's hidden-at-startup setting: the first changes every
+    window, and the second leaves the panel with no terminal to show.
+  - Finding the terminal by `AGGREGOR_FOLDER_SHELL_PATH` in its env (the earlier decision): a terminal VS Code restores
+    after a reload or a quit has no env, so the follow skipped every change of view until Open Terminal launched a
+    second terminal.
+  - Finding the terminal by asking tmux which open terminal's process is a client on a folder's shell: it survives a
+    rename too, but each lookup, the open and the close would all go through tmux.
   - Raising tmux's history limit for everything, which lets each agent's pane grow to twice the memory.
   - Earlier, with VS Code terminals: a new shell on each click; one terminal per session, even for sessions that share a
     folder; only the project's terminal, which left a worktree session's shell in the project's root; the terminal

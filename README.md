@@ -59,8 +59,9 @@ terminals, tree views, Source Control and diffs.
   session's folder's shell without opening a hidden panel. The panel's trash icon ends the shell on screen, and so does
   `exit`; removing a worktree or a project ends theirs. Its scrollback is tmux's, as in a session's tab: the wheel
   scrolls it, with no scrollbar and no shell integration. tmux stays out of sight there and in session tabs: no menus,
-  splits or floating panes, and the shell doesn't see it. The Terminal panel's + still opens a plain VS Code terminal in
-  the shown project, without asking.
+  splits or floating panes, and the shell doesn't see it. The terminal VS Code opens by itself, when the panel shows
+  with none, is the Aggregor terminal; while it is open, the panel's + opens a plain VS Code terminal in the shown
+  project.
 - **Persistent sessions.** Every agent runs in tmux (3.2 or newer), so it keeps working when you close its tab, reload
   the window or quit VS Code; those close the tab, and clicking the session attaches a new one. With
   `aggregorApp.openSessionIn` set to `sharedTab`, one tab shows the session opened last: a running session switches into
