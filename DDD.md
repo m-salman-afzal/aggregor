@@ -203,7 +203,7 @@ apps/extension/src/
         session.entity.ts                  SessionEntity (BaseEntity and projectId, projectPath, name, customName,
                                            agentId, viewedAt, lifecycle, and aggregor-pty's status, statusKind,
                                            statusMessage, statusProgress, statusChangedAt, hasWorked, reportedTitle,
-                                           terminalTitle and agentSessionId, worktreePath, baseBranchName, runState;
+                                           tasks, terminalTitle and agentSessionId, worktreePath, baseBranchName, runState;
                                            displayName, and workingFolderPath: its worktree, or else its project's
                                            root)
         session.repository.interface.ts    ISessionRepository: the base calls

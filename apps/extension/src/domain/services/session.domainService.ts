@@ -151,6 +151,11 @@ const isFinishedTurnUnseen = Effect.fn("SessionDomainService.isFinishedTurnUnsee
   return session.viewedAt === undefined || DateTime.isGreaterThan(session.statusChangedAt, session.viewedAt);
 });
 
+// A sub-agent can work on after the agent's own turn has ended, which keeps the row working.
+const hasWorkingTask = Effect.fn("SessionDomainService.hasWorkingTask")(function* (session: SessionEntity) {
+  return Array.some(session.tasks, (agentTask) => agentTask.state === AGENT_STATUSES.WORKING);
+});
+
 // No process means the agent is gone, even after a reboot; no report yet shows idle, so the row never looks stuck.
 export const getSessionStatus = Effect.fn("SessionDomainService.getSessionStatus")(function* (
   session: SessionEntity,
@@ -158,6 +163,7 @@ export const getSessionStatus = Effect.fn("SessionDomainService.getSessionStatus
 ) {
   if (!sessionViewingFacts.isAgentRunning)
     return session.runState === SESSION_RUN_STATES.INTERRUPTED ? SESSION_STATUSES.INTERRUPTED : SESSION_STATUSES.EXITED;
+  if (session.status !== AGENT_STATUSES.BLOCKED && (yield* hasWorkingTask(session))) return SESSION_STATUSES.WORKING;
   if (session.status === AGENT_STATUSES.UNKNOWN) return SESSION_STATUSES.IDLE;
   if (session.status === AGENT_STATUSES.DONE && !(yield* isFinishedTurnUnseen(session, sessionViewingFacts.isInView)))
     return SESSION_STATUSES.IDLE;

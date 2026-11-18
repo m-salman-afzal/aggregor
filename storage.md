@@ -67,12 +67,15 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 - **Read by:** `SessionService`, with the project's path: the Sessions view reads each row of both lists as it draws it.
 - **Status columns:** `status` (`unknown` until a report, `exited` once the agent is gone), `statusKind`,
   `statusMessage`, `statusProgress`, `statusChangedAt` (when the state last changed), `hasWorked` (it has reported
-  `working`), `reportedTitle` (the title in its latest OSC 7501 report), `terminalTitle` (its latest window title) and
-  `agentSessionId` (the latest window title that was a bare UUID: Codex's own id for its conversation). Written only by
-  `aggregor-pty` (`apps/pty`), which runs the agent and reads them from its output. The Sessions view shows the status,
-  kind, message and progress, and shows `done` as finished only while the turn ended after `viewedAt` and the session is
-  out of view; the titles become `name`. `SessionService` reads `hasWorked` and `agentSessionId` when it opens a tab, so
-  an agent started again resumes its conversation rather than starting a new one.
+  `working`), `reportedTitle` (the title in its latest OSC 7501 report), `tasks` (a JSON array of the OSC 7501 records
+  with an id, such as Claude Code's sub-agents and background shells, each with its id, state, kind, progress, message
+  and title; `[]` at start and exit), `terminalTitle` (its latest window title) and `agentSessionId` (the latest window
+  title that was a bare UUID: Codex's own id for its conversation). Written only by `aggregor-pty` (`apps/pty`), which
+  runs the agent and reads them from its output. The Sessions view shows the status, kind, message and progress, and
+  shows `done` as finished only while the turn ended after `viewedAt` and the session is out of view, and as working
+  while a task works and the agent is not waiting on the user; the titles become `name`. `SessionService` reads
+  `hasWorked` and `agentSessionId` when it opens a tab, so an agent started again resumes its conversation rather than
+  starting a new one.
 
 ## `data/aggregor-pty.log`
 

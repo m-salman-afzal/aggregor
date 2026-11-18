@@ -13,16 +13,31 @@ The binary that runs each agent and records its status.
   `statusChangedAt` (only when the state changes), `hasWorked`, `reportedTitle` and, from OSC 0/2, `terminalTitle`, and
   `agentSessionId` when that title is a bare UUID (see "Codex resumes its own conversation by id"). It starts at
   `unknown`, `clear` and a full reset go back to `unknown`, and the agent's exit writes `exited`; reports with an `id`
-  are not read yet (session tasks, not built). A writer thread keeps the latest pending change and writes title changes
-  at most every 500 ms. The agent runs whatever happens to the database; errors go to `aggregor-pty.log` beside it, at
-  most 10 lines a run. A session's tmux session runs `aggregor-pty --database ‹path› --session ‹id› -- ‹agent command›`:
-  the tmux infra service wraps the agent's launch plan, and `getDatabaseFilePath` gives it and the database layer the
-  same path. The reports carry what each agent knows, in one format. Two title columns leave step 4's title rule to the
-  domain. Codex's title spinner changes about ten times a second, and every write makes the window read the rows it
-  changed.
+  go to `tasks` (see "The agent's tasks are a JSON column on its session's row"). A writer thread keeps the latest
+  pending change and writes title changes at most every 500 ms. The agent runs whatever happens to the database; errors
+  go to `aggregor-pty.log` beside it, at most 10 lines a run. A session's tmux session runs
+  `aggregor-pty --database ‹path› --session ‹id› -- ‹agent command›`: the tmux infra service wraps the agent's launch
+  plan, and `getDatabaseFilePath` gives it and the database layer the same path. The reports carry what each agent
+  knows, in one format. Two title columns leave step 4's title rule to the domain. Codex's title spinner changes about
+  ten times a second, and every write makes the window read the rows it changed.
 - **Alternatives considered:** writing the pty layer ourselves on rustix: fewer and newer crates, but Unix only. One
   `agentTitle` column with the binary picking the title. Writing the database from the output thread, which a locked
   database would stall. Printing errors, which would land on the agent's screen.
+
+## The agent's tasks are a JSON column on its session's row
+
+- **Problem:** Claude Code reports each sub-agent and background shell as an OSC 7501 record with an `id`, beside its
+  own, and `aggregor-pty` dropped them, so a session whose turn had ended showed idle while a sub-agent still worked.
+- **Decision:** `aggregor-pty` keeps the session's records with an id and writes them all as one JSON array to the
+  `tasks` column whenever one changes: its id, state, and the kind, progress, message and title it has. `clear` with an
+  id removes that record; the root record's `clear`, a full reset, the start and the exit empty the list. The session's
+  status reads working while a task works, unless the agent is waiting on the user. Tasks only live while the agent
+  runs, nothing reads one alone, and the row's existing change feed carries them.
+- **Solution:** `Pending` in `apps/pty/src/store.rs` holds the records by id and `encode_tasks` writes their JSON, with
+  only quotes and backslashes escaped, since a report carries no control characters. The extension decodes the column
+  into `AgentTaskValueObject`s on `SessionEntity.tasks`, and `getSessionStatus` applies the working rule.
+- **Alternatives considered:** a `sessionTasks` table with its own entity, repository and change feed, more code for a
+  history nobody needs; the status left at the agent's own record, which hid the sub-agents' work.
 
 ## Rust for `aggregor-pty`, checked like the TypeScript
 
