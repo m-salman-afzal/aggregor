@@ -3,6 +3,7 @@ import {SESSION_LISTS, SESSIONS_VIEW_MESSAGE_TAGS} from "@pkg/constants/src/sess
 
 import type {SessionListId, UserInput} from "@/modules/sessions/sessions.type.ts";
 import type {HostMessagesByTag, SessionsData} from "@/modules/sessions/stores/sessions/sessions.type.ts";
+import type {SessionPullRequestsDto} from "@dtos/pullRequest.dto.ts";
 import type {ImportableSessionsDto} from "@dtos/sessionImport.dto.ts";
 import type {ProjectBranchesDto, ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
 import type {ProjectRowData, SessionRowData, SessionsViewMessage} from "@views/sessions/sessions.view.type.ts";
@@ -22,6 +23,12 @@ const fillLeftovers = (userInput: undefined | UserInput, leftovers: ProjectLefto
 const fillImportableSessions = (userInput: undefined | UserInput, importableSessions: ImportableSessionsDto) =>
   userInput?._tag === USER_INPUT_TAGS.IMPORT_SESSIONS && userInput.projectPath === importableSessions.projectPath
     ? {...userInput, importableSessions}
+    : userInput;
+
+// Pull requests listed for a dialog already closed, or for another session, are dropped.
+const fillPullRequests = (userInput: undefined | UserInput, pullRequests: SessionPullRequestsDto) =>
+  userInput?._tag === USER_INPUT_TAGS.PULL_REQUEST && userInput.linkedSession.sessionId === pullRequests.sessionId
+    ? {...userInput, pullRequests}
     : userInput;
 
 // The dialog keeps the last project's branches, and offers them only while that project is chosen.
@@ -87,6 +94,10 @@ const hostMessageReducers: {
     ...sessionsData,
     isDrawn: true,
     projectRows: projectsDrawn.projectRows
+  }),
+  [SESSIONS_VIEW_MESSAGE_TAGS.PULL_REQUESTS_DRAWN]: (sessionsData, pullRequestsDrawn) => ({
+    ...sessionsData,
+    userInput: fillPullRequests(sessionsData.userInput, pullRequestsDrawn.pullRequests)
   }),
   [SESSIONS_VIEW_MESSAGE_TAGS.SESSION_DRAWN]: (sessionsData, sessionDrawn) => ({
     ...sessionsData,

@@ -1,5 +1,6 @@
 import type {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
+import type {SessionPullRequestsDto} from "@dtos/pullRequest.dto.ts";
 import type {SessionListItemDto} from "@dtos/session.dto.ts";
 import type {ImportableSessionsDto, ImportedSessionDto} from "@dtos/sessionImport.dto.ts";
 import type {ProjectBranchesDto, ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
@@ -50,6 +51,13 @@ export type UserInput =
       readonly _tag: typeof USER_INPUT_TAGS.PROJECT_SETTINGS;
       readonly onSave: (settings: ProjectSettingsDto) => void;
       readonly settings: ProjectSettingsDto;
+      readonly title: string;
+    }
+  | {
+      readonly _tag: typeof USER_INPUT_TAGS.PULL_REQUEST;
+      readonly linkedSession: SessionListItemDto;
+      readonly onLink: (pullRequestNumber: number) => void;
+      readonly pullRequests: SessionPullRequestsDto | undefined;
       readonly title: string;
     }
   | {

@@ -18,6 +18,7 @@ export const SessionTableModel = sqliteTable("sessions", {
   projectId: text()
     .notNull()
     .references(() => ProjectTableModel.id),
+  pullRequestNumber: integer(),
   reportedTitle: text(),
   runState: text(),
   status: text().notNull().default(AGENT_STATUSES.UNKNOWN),

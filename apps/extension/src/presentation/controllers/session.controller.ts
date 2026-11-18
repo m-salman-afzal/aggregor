@@ -15,7 +15,8 @@ import {
   StopArchivedProjectSessionAgentsRequestDtoSchema,
   StopProjectSessionAgentsRequestDtoSchema,
   StopSessionAgentRequestDtoSchema,
-  UnarchiveSessionRequestDtoSchema
+  UnarchiveSessionRequestDtoSchema,
+  UnlinkSessionWorktreeRequestDtoSchema
 } from "@dtos/session.dto.ts";
 import {decodeVsCodeArgument} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
 import {
@@ -42,6 +43,7 @@ import {
   stopProjectSessionAgents,
   stopSessionAgent,
   unarchiveSession,
+  unlinkSessionWorktree,
   watchSessionListChanges,
   watchViewedSessionIds
 } from "@services/session.service.ts";
@@ -139,6 +141,13 @@ export const changeChosenSessionWorkingTree = Effect.fn("SessionController.chang
 ) {
   const request = yield* decodeVsCodeArgument(ChangeSessionWorkingTreeRequestDtoSchema, chosenSession);
   yield* changeSessionWorkingTree(request);
+});
+
+export const unlinkChosenSessionWorktree = Effect.fn("SessionController.unlinkChosenSessionWorktree")(function* (
+  chosenSession: unknown
+) {
+  const request = yield* decodeVsCodeArgument(UnlinkSessionWorktreeRequestDtoSchema, chosenSession);
+  yield* unlinkSessionWorktree(request);
 });
 
 export const moveChosenSessionUp = Effect.fn("SessionController.moveChosenSessionUp")(function* (

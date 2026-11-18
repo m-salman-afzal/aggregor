@@ -110,7 +110,7 @@ const findCurrentWorkingTree = (movedSession: SessionListItemDto | undefined) =>
 
 const markCurrentWorkingTree = (workingTreeOption: UserInputOption, currentWorkingTree: string | undefined) =>
   workingTreeOption.optionId === currentWorkingTree
-    ? {...workingTreeOption, badge: SESSION_LABELS.CURRENT_WORKING_TREE}
+    ? {...workingTreeOption, badge: SESSION_LABELS.CURRENT}
     : workingTreeOption;
 
 // A worktree another session works in, in either list, isn't offered again; a moved session's own is.

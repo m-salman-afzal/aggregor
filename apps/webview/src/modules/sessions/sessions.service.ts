@@ -35,6 +35,10 @@ export const askHostForMoreSessions = (listId: SessionListId, projectPath: strin
   postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.SHOW_MORE_SESSIONS, listId, projectPath});
 };
 
+export const askHostForPullRequests = (sessionId: string) => {
+  postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_PULL_REQUESTS, sessionId});
+};
+
 export const askHostToDraw = () => {
   postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.READY});
 };

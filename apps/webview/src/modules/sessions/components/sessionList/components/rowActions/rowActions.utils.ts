@@ -11,10 +11,12 @@ import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 import {
   askHostForImportableSessions,
   askHostForLeftovers,
+  askHostForPullRequests,
   runCommandOnHost
 } from "@/modules/sessions/sessions.service.ts";
 import {SESSION_IMPORT_LABELS} from "@pkg/constants/src/agentHistory.constant.ts";
 import {LEFTOVER_LABELS, WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
+import {GITHUB_CLI_COMMANDS, GITHUB_CLI_LABELS} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {PROJECT_COMMANDS, PROJECT_SETTINGS_LABELS} from "@pkg/constants/src/project.constant.ts";
 import {SESSION_COMMANDS, SESSION_LABELS, SESSION_NOTICES} from "@pkg/constants/src/session.constant.ts";
 
@@ -183,10 +185,10 @@ const renameBranchAsking = (askingContext: AskingContext, commandArgument: RowCo
 const moveSessionAsking = (
   askingContext: AskingContext,
   movedSession: SessionListItemDto,
-  changeWorkingTreeRequest: CommandRequest
+  moveCommand: {readonly commandArgument: CommandRequest; readonly commandId: RowAction["commandId"]}
 ) => {
   const moveSession = () => {
-    runCommandOnHost(SESSION_COMMANDS.CHANGE_WORKING_TREE, changeWorkingTreeRequest);
+    runCommandOnHost(moveCommand.commandId, moveCommand.commandArgument);
   };
   if (!movedSession.isAgentRunning || !TURN_RUNNING_STATUSES.includes(movedSession.status)) {
     moveSession();
@@ -213,10 +215,40 @@ const changeWorkingTreeAsking = (askingContext: AskingContext, commandArgument: 
     branches: undefined,
     movedSession,
     onMove: (changeWorkingTreeRequest) => {
-      moveSessionAsking(askingContext, movedSession, changeWorkingTreeRequest);
+      moveSessionAsking(askingContext, movedSession, {
+        commandArgument: changeWorkingTreeRequest,
+        commandId: SESSION_COMMANDS.CHANGE_WORKING_TREE
+      });
     },
     title: SESSION_LABELS.CHANGE_WORKING_TREE(movedSession.displayName)
   });
+};
+
+const unlinkWorktreeAsking = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
+  const movedSession = findSessionListItem(askingContext, commandArgument.sessionId);
+  if (movedSession === undefined) return;
+
+  moveSessionAsking(askingContext, movedSession, {commandArgument, commandId: SESSION_COMMANDS.UNLINK_WORKTREE});
+};
+
+// The dialog opens at once and fills in when gh has listed the repository's pull requests.
+const linkPullRequestAsking = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
+  const linkedSession = findSessionListItem(askingContext, commandArgument.sessionId);
+  if (linkedSession === undefined) return;
+
+  askingContext.showUserInput({
+    _tag: USER_INPUT_TAGS.PULL_REQUEST,
+    linkedSession,
+    onLink: (pullRequestNumber) => {
+      runCommandOnHost(GITHUB_CLI_COMMANDS.LINK_SESSION_PULL_REQUEST, {
+        pullRequestNumber,
+        sessionId: linkedSession.sessionId
+      });
+    },
+    pullRequests: undefined,
+    title: GITHUB_CLI_LABELS.LINK_PULL_REQUEST(linkedSession.displayName)
+  });
+  askHostForPullRequests(linkedSession.sessionId);
 };
 
 const findListedProject = (askingContext: AskingContext, commandArgument: RowCommandArgument) =>
@@ -325,6 +357,9 @@ const startSessionAsking = (askingContext: AskingContext, commandArgument: RowCo
 };
 
 const askingActions: Partial<Record<RowAction["commandId"], AskingAction>> = {
+  [GITHUB_CLI_COMMANDS.LINK_SESSION_PULL_REQUEST]: (askingContext, _rowAction, commandArgument) => {
+    linkPullRequestAsking(askingContext, commandArgument);
+  },
   [PROJECT_COMMANDS.SAVE_SETTINGS]: (askingContext, _rowAction, commandArgument) => {
     editProjectSettings(askingContext, commandArgument);
   },
@@ -351,6 +386,9 @@ const askingActions: Partial<Record<RowAction["commandId"], AskingAction>> = {
   [SESSION_COMMANDS.STOP_ARCHIVED_PROJECT_AGENTS]: stopAgentsAsking,
   [SESSION_COMMANDS.STOP_ONGOING_AGENTS]: stopAgentsAsking,
   [SESSION_COMMANDS.STOP_PROJECT_AGENTS]: stopAgentsAsking,
+  [SESSION_COMMANDS.UNLINK_WORKTREE]: (askingContext, _rowAction, commandArgument) => {
+    unlinkWorktreeAsking(askingContext, commandArgument);
+  },
   [WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS]: (askingContext, _rowAction, commandArgument) => {
     cleanUpLeftoversAsking(askingContext, commandArgument);
   }

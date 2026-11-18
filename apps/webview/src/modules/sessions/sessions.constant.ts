@@ -19,12 +19,14 @@ import {
   GitBranchIcon,
   GitPullRequestIcon,
   ImportIcon,
+  LinkIcon,
   PencilIcon,
   PlusIcon,
   SettingsIcon,
   SlidersHorizontalIcon,
   SquareTerminalIcon,
-  Trash2Icon
+  Trash2Icon,
+  UnlinkIcon
 } from "lucide-react";
 
 import type {RowAction} from "@/modules/sessions/sessions.type.ts";
@@ -63,6 +65,7 @@ export const USER_INPUT_TAGS = {
   IMPORT_SESSIONS: "ImportSessionsInput",
   NEW_SESSION: "NewSessionInput",
   PROJECT_SETTINGS: "ProjectSettingsInput",
+  PULL_REQUEST: "PullRequestInput",
   QUESTION: "QuestionInput",
   TEXT: "TextInput",
   WORKING_TREE: "WorkingTreeInput"
@@ -79,6 +82,11 @@ export const ROW_ACTIONS = {
     icon: ArchiveIcon,
     label: "Archive Sessions"
   },
+  CHANGE_PULL_REQUEST: {
+    commandId: GITHUB_CLI_COMMANDS.LINK_SESSION_PULL_REQUEST,
+    icon: LinkIcon,
+    label: "Change Pull Request…"
+  },
   CHANGE_WORKING_TREE: {
     commandId: SESSION_COMMANDS.CHANGE_WORKING_TREE,
     icon: FolderGit2Icon,
@@ -91,6 +99,11 @@ export const ROW_ACTIONS = {
     label: LEFTOVER_LABELS.CLEAN_UP
   },
   IMPORT_SESSIONS: {commandId: SESSION_COMMANDS.IMPORT, icon: ImportIcon, label: SESSION_IMPORT_LABELS.MENU},
+  LINK_PULL_REQUEST: {
+    commandId: GITHUB_CLI_COMMANDS.LINK_SESSION_PULL_REQUEST,
+    icon: LinkIcon,
+    label: "Link Pull Request…"
+  },
   MOVE_PROJECT_DOWN: {
     commandId: PROJECT_COMMANDS.MOVE_DOWN,
     icon: ArrowDownIcon,
@@ -168,7 +181,13 @@ export const ROW_ACTIONS = {
     label: "Stop All Agents"
   },
   STOP_PROJECT_AGENTS: {commandId: SESSION_COMMANDS.STOP_PROJECT_AGENTS, icon: CircleStopIcon, label: "Stop Agents"},
-  UNARCHIVE: {commandId: SESSION_COMMANDS.UNARCHIVE, icon: ArchiveRestoreIcon, label: "Unarchive"}
+  UNARCHIVE: {commandId: SESSION_COMMANDS.UNARCHIVE, icon: ArchiveRestoreIcon, label: "Unarchive"},
+  UNLINK_PULL_REQUEST: {
+    commandId: GITHUB_CLI_COMMANDS.UNLINK_SESSION_PULL_REQUEST,
+    icon: UnlinkIcon,
+    label: "Unlink Pull Request"
+  },
+  UNLINK_WORKTREE: {commandId: SESSION_COMMANDS.UNLINK_WORKTREE, icon: UnlinkIcon, label: "Unlink Worktree"}
 } as const satisfies Record<string, RowAction>;
 
 export const LIST_INLINE_ACTIONS = {

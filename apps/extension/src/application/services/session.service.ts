@@ -24,6 +24,7 @@ import {
   SessionListItemDtoSchema,
   SessionPageDtoSchema,
   SessionPullRequestDtoSchema,
+  WorkingTreeChoiceDtoSchema,
   WorktreeListItemDtoSchema
 } from "@dtos/session.dto.ts";
 import {IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
@@ -78,12 +79,14 @@ import type {
   StopProjectSessionAgentsRequestDto,
   StopSessionAgentRequestDto,
   UnarchiveSessionRequestDto,
+  UnlinkSessionWorktreeRequestDto,
   WorkingTreeChoiceDto
 } from "@dtos/session.dto.ts";
 import type {AgentEntity} from "@entities/agent/agent.entity.ts";
 import type {EntityPage} from "@entities/base/base.repository.interface.ts";
 import type {ProjectEntity} from "@entities/project/project.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
+import type {PullRequestLookup} from "@interfaces/gitHubCli.infraService.interface.ts";
 import type {SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
@@ -516,6 +519,16 @@ export const changeSessionWorkingTree = Effect.fn("SessionService.changeSessionW
   Effect.catchTags({EntityNotFoundError: () => Effect.void, ProjectNotListedError: () => Effect.void})
 );
 
+// The session goes back to its project's root; the worktree stays, a leftover if Aggregor made it.
+export const unlinkSessionWorktree = Effect.fn("SessionService.unlinkSessionWorktree")(function* (
+  request: UnlinkSessionWorktreeRequestDto
+) {
+  yield* changeSessionWorkingTree({
+    sessionId: request.sessionId,
+    workingTree: WorkingTreeChoiceDtoSchema.cases[WORKING_TREE_CHOICE_TAGS.PROJECT_ROOT].make({})
+  });
+});
+
 export const renameSession = Effect.fn("SessionService.renameSession")(
   function* (request: RenameSessionRequestDto) {
     const trimmedName = String.trim(request.customName);
@@ -602,14 +615,39 @@ const readSessionDiffStats = Effect.fn("SessionService.readSessionDiffStats")(fu
   );
 });
 
-// gh's answer from the last lookup; the first sight of a branch starts one, and its result redraws the row.
-const findBranchPullRequestFields = Effect.fn("SessionService.findBranchPullRequestFields")(function* (
-  worktreePath: ProjectPathValueObject,
-  branchName: string
+// A linked pull request, else the one whose head is the worktree's branch; the root's branch is every root session's.
+export const findSessionPullRequestLookup = Effect.fn("SessionService.findSessionPullRequestLookup")(function* (
+  session: SessionEntity
 ) {
+  if (session.pullRequestNumber !== undefined) {
+    const linkedPullRequestLookup: PullRequestLookup = {
+      folderPath: session.workingFolderPath,
+      pullRequestReference: `${session.pullRequestNumber}`
+    };
+
+    return linkedPullRequestLookup;
+  }
+  const worktreePath = session.worktreePath;
+  if (worktreePath === undefined) return yield* SessionNotInWorktreeError.make();
+  const branchPullRequestLookup: PullRequestLookup = {
+    folderPath: worktreePath,
+    pullRequestReference: yield* IWorktreeInfraService.use((worktreeInfraService) =>
+      worktreeInfraService.readBranchName(worktreePath)
+    )
+  };
+
+  return branchPullRequestLookup;
+});
+
+// gh's answer from the last lookup; the first sight of a pull request starts one, and its result redraws the row.
+const findSessionPullRequestFields = Effect.fn("SessionService.findSessionPullRequestFields")(function* (
+  session: SessionEntity
+) {
+  const pullRequestLookupResult = yield* Effect.result(findSessionPullRequestLookup(session));
+  if (Result.isFailure(pullRequestLookupResult)) return {};
   const pullRequestResult = yield* Effect.result(
     IGitHubCliInfraService.use((gitHubCliInfraService) =>
-      gitHubCliInfraService.findPullRequest({branchName, folderPath: worktreePath})
+      gitHubCliInfraService.findPullRequest(pullRequestLookupResult.success)
     )
   );
 
@@ -634,13 +672,10 @@ const findSessionWorktreeFields = Effect.fn("SessionService.findSessionWorktreeF
     IWorktreeInfraService.use((worktreeInfraService) => worktreeInfraService.readBranchName(worktreePath))
   );
   const diffStatsResult = yield* Effect.result(readSessionDiffStats(session, worktreePath));
-  if (Result.isFailure(branchNameResult))
-    return Result.match(diffStatsResult, {onFailure: () => ({}), onSuccess: (diffStats) => ({diffStats})});
 
   return {
-    ...(yield* findBranchPullRequestFields(worktreePath, branchNameResult.success)),
     ...Result.match(diffStatsResult, {onFailure: () => ({}), onSuccess: (diffStats) => ({diffStats})}),
-    branchName: branchNameResult.success
+    ...Result.match(branchNameResult, {onFailure: () => ({}), onSuccess: (branchName) => ({branchName})})
   };
 });
 
@@ -674,9 +709,11 @@ const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function
     ...sessionMoves,
     ...(yield* findSessionAgentFields(session)),
     ...(yield* findSessionWorktreeFields(session)),
+    ...(yield* findSessionPullRequestFields(session)),
     displayName: session.displayName,
     isAgentRunning: sessionStatus.isAgentRunning,
     isArchived: session.lifecycle === SESSION_LIFECYCLES.ARCHIVED,
+    isPullRequestLinked: session.pullRequestNumber !== undefined,
     name: session.name,
     projectName: path.basename(session.projectPath),
     projectPath: session.projectPath,
@@ -966,10 +1003,11 @@ const toAgentRunChange = Effect.fn("SessionService.toAgentRunChange")(function* 
 // The rows of the sessions working in the folder whose pull request changed; a failed read redraws none.
 const toPullRequestChanges = Effect.fn("SessionService.toPullRequestChanges")(
   function* (folderPath: ProjectPathValueObject) {
-    const worktreeSessions = yield* findEntities(ISessionRepository, {worktreePath: folderPath});
+    const sessions = yield* findEntities(ISessionRepository, {});
+    const folderSessions = Array.filter(sessions, (session) => session.workingFolderPath === folderPath);
 
-    return Array.map(worktreeSessions, (worktreeSession) =>
-      SessionListChangeDtoSchema.cases.SessionChanged.make({sessionId: worktreeSession.id})
+    return Array.map(folderSessions, (folderSession) =>
+      SessionListChangeDtoSchema.cases.SessionChanged.make({sessionId: folderSession.id})
     );
   },
   Effect.catch((databaseError) => Effect.as(Effect.logWarning("Could not find the rows to redraw", databaseError), []))

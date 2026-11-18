@@ -125,6 +125,11 @@ const startNewSession = (newSessionRequest: CommandRequest) => {
   if (userInput?._tag === USER_INPUT_TAGS.NEW_SESSION) userInput.onStart(newSessionRequest);
 };
 
+const linkChosenPullRequest = (pullRequestNumber: number) => {
+  const userInput = takeUserInput();
+  if (userInput?._tag === USER_INPUT_TAGS.PULL_REQUEST) userInput.onLink(pullRequestNumber);
+};
+
 const moveSessionToWorkingTree = (changeWorkingTreeRequest: CommandRequest) => {
   const userInput = takeUserInput();
   if (userInput?._tag === USER_INPUT_TAGS.WORKING_TREE) userInput.onMove(changeWorkingTreeRequest);
@@ -163,6 +168,7 @@ export const useSessionsStore = <Selected>(props: UseSessionsStoreProps<Selected
       deleteChosenLeftovers,
       hideWorktreeTrustHint,
       importChosenSessions,
+      linkChosenPullRequest,
       markViewedSession,
       moveSessionToWorkingTree,
       revealSessionsProject,

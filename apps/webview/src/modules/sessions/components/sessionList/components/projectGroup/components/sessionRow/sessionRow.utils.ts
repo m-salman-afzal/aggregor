@@ -19,11 +19,17 @@ export const listSessionActionGroups = (sessionListItem: SessionListItemDto, isI
       sessionListItem.canMoveDown && ROW_ACTIONS.MOVE_SESSION_DOWN
     ],
     [sessionListItem.isAgentRunning && ROW_ACTIONS.STOP_AGENT],
-    [sessionListItem.pullRequest !== undefined && ROW_ACTIONS.OPEN_PULL_REQUEST],
+    [
+      sessionListItem.pullRequest !== undefined && ROW_ACTIONS.OPEN_PULL_REQUEST,
+      isInGitProject &&
+        (sessionListItem.isPullRequestLinked ? ROW_ACTIONS.CHANGE_PULL_REQUEST : ROW_ACTIONS.LINK_PULL_REQUEST),
+      sessionListItem.isPullRequestLinked && ROW_ACTIONS.UNLINK_PULL_REQUEST
+    ],
     [
       ROW_ACTIONS.RENAME_SESSION,
       sessionListItem.worktreePath !== undefined && ROW_ACTIONS.RENAME_BRANCH,
       isInGitProject && ROW_ACTIONS.CHANGE_WORKING_TREE,
+      isInGitProject && sessionListItem.worktreePath !== undefined && ROW_ACTIONS.UNLINK_WORKTREE,
       ROW_ACTIONS.REMOVE_SESSION
     ]
   ]);

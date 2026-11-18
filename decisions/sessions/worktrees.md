@@ -25,7 +25,7 @@ Where a session works: its project's root, or a git worktree of its own.
   shadcn's Select for the agents beside the Combobox for branches, two components for one job; the menu dropdown already
   in `@pkg/ui`, which has no search.
 
-## Change Working Tree moves a session to another working tree, and restarts its agent there
+## Change Working Tree and Unlink Worktree move a session to another working tree, and restart its agent there
 
 - **Problem:** a session's working tree was fixed when it started, so a session started in the project root couldn't be
   linked to the worktree it or its agent went on to work in, and one in a worktree couldn't move to another or back.
@@ -37,7 +37,8 @@ Where a session works: its project's root, or a git worktree of its own.
   `resume -C .` stays in the new one, see [terminals.md](terminals.md)); the dialog asks first only when that cuts a
   turn short, as Stop does. A stopped agent only has its row changed, unless a new worktree's setup script has to run,
   which starts the agent after it, as New Session does. The worktree left behind is kept: one Aggregor made becomes a
-  leftover for the project's cleanup.
+  leftover for the project's cleanup. Unlink Worktree, in a worktree session's menu, is the same move to the project
+  root in one click, asking first only mid-turn.
 - **Solution:** `SessionService.changeSessionWorkingTree` reuses `prepareSessionWorkingTree`, so a new worktree is named
   after the session, from `SessionWorktreeDraft` (the project, its name and the session's name), which New Session's
   draft extends. It writes `worktreePath` and `baseBranchName` (none for an existing worktree or the root), and choosing
@@ -45,7 +46,8 @@ Where a session works: its project's root, or a git worktree of its own.
   project and its leftovers dot. The terminal service drops a closed session tab from its map when it disposes it, not
   when VS Code reports it closed, since the restart opens the session's next tab at once. The working tree choice is
   `WorkingTreeChoiceDto`, tagged with `WORKING_TREE_CHOICE_TAGS`. The webview's `WorkingTreeInput` draws New Session's
-  `makeOptionGroups` with no project or agent group, given the `movedSession`.
+  `makeOptionGroups` with no project or agent group, given the `movedSession`; `unlinkSessionWorktree` is
+  `changeSessionWorkingTree` to the project root.
 - **Alternatives considered:** changing the row and leaving a running agent where it is, which would show the window,
   Source Control and the row's counts on a folder the agent isn't working in; linking from the agent's own working
   folder (`/proc/‹pid›/cwd`), turned down for the pull request row too; removing the worktree left behind, which can

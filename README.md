@@ -37,14 +37,15 @@ terminals, tree views, Source Control and diffs.
 - **Worktrees.** In a git project, New Session can start a session in its project's root, in a new git worktree of its
   own (from the current commit, on an `aggregor/<session>` branch, with the project's `.env*` or `.worktreeinclude`
   files copied in and its setup script run first), or in a worktree that already exists. While that session is in front,
-  the window shows its worktree, so Source Control shows its changes. The branch takes the session's first title
-  (`aggregor/login-fix`) unless it was pushed, shows on the session's row, and Rename Branch in its menu renames it.
-  Remove deletes the session's worktree and keeps its branch; a worktree with changes is kept until you commit or
-  discard them. When a project has worktrees or `aggregor/*` branches left over, a red dot shows on its row and its
-  broom button lists them, with merged branches ticked, to delete the ones you pick. A worktree session's row counts the
-  files and lines its branch changed since the base branch, its uncommitted edits and new files included. VS Code asks
-  to trust each new worktree until you trust the folder they go in; New Session's hint copies its path and opens Manage
-  Workspace Trust.
+  the window shows its worktree, so Source Control shows its changes. Change Working Tree in a session's menu moves it
+  to another of those, and Unlink Worktree back to the root, resuming its running agent there. The branch takes the
+  session's first title (`aggregor/login-fix`) unless it was pushed, shows on the session's row, and Rename Branch in
+  its menu renames it. Remove deletes the session's worktree and keeps its branch; a worktree with changes is kept until
+  you commit or discard them. When a project has worktrees or `aggregor/*` branches left over, a red dot shows on its
+  row and its broom button lists them, with merged branches ticked, to delete the ones you pick. A worktree session's
+  row counts the files and lines its branch changed since the base branch, its uncommitted edits and new files included.
+  VS Code asks to trust each new worktree until you trust the folder they go in; New Session's hint copies its path and
+  opens Manage Workspace Trust.
 - **Agents.** New Session asks which agent to start, among those whose command is on `PATH`, with your default first;
   each one's **Set as Default** button changes the default, and `aggregorApp.skipAgentPicker` starts the default without
   asking. Claude Code, Codex, Antigravity, OpenCode and GitHub Copilot are built in. `aggregorApp.agents` in your user
@@ -87,9 +88,10 @@ terminals, tree views, Source Control and diffs.
   Archive titles show how many of them each list holds.
 - **Pull requests.** A worktree session's row shows its branch's pull request, `#123` coloured by whether it is open, a
   draft, merged or closed, as the GitHub CLI (`gh`) finds it, looked up again when the window regains focus and when the
-  session's turn ends. Clicking it, or Open Pull Request in the row's … menu, opens it in the browser, or in the GitHub
-  Pull Requests extension with `aggregorApp.openPullRequestIn` set to `vscode`. Signed out of `gh`, a notification
-  offers to run `gh auth login` in a terminal.
+  session's turn ends. Link Pull Request in a session's menu picks another from the repository's, root sessions
+  included, and Unlink Pull Request goes back to the branch's. Clicking it, or Open Pull Request in the row's … menu,
+  opens it in the browser, or in the GitHub Pull Requests extension with `aggregorApp.openPullRequestIn` set to
+  `vscode`. Signed out of `gh`, a notification offers to run `gh auth login` in a terminal.
 - **Setup.** When the window starts without tmux or `gh`, one notification names what is missing, and its Install runs
   one command for the system's package manager, such as `sudo apt-get install -y tmux gh`, in a terminal.
 - **AI commit messages.** A Source Control button writes the commit message for the staged diff.
@@ -129,8 +131,9 @@ solution and what was turned down.
 - [ ] Bookmarks
 - [x] A session's pull request on its row, from the GitHub CLI
 - [ ] Create a pull request from a session
-- [x] Change a session's working tree: the project root, a new worktree or an existing one, restarting its agent there
-- [ ] Link a pull request to a session, or change it
+- [x] Change a session's working tree: the project root, a new worktree or an existing one, restarting its agent there;
+      Unlink Worktree moves it back to the root
+- [x] Link a pull request to a session, change it or unlink it
 - [x] One Install for whatever of tmux and gh is missing, through the system's package manager
 - [x] Import a project's earlier Claude Code, Codex, OpenCode and Copilot conversations as sessions
 - [x] Folder shells in tmux: one Aggregor terminal a window, on the shell of the project's or the session's folder,

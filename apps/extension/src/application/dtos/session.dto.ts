@@ -37,6 +37,7 @@ export const SessionListItemDtoSchema = Schema.Struct({
   icon: Schema.optional(AgentIconValueObjectSchema),
   isAgentRunning: Schema.Boolean,
   isArchived: Schema.Boolean,
+  isPullRequestLinked: Schema.Boolean,
   name: Schema.String,
   projectName: Schema.String,
   projectPath: ProjectPathValueObjectSchema,
@@ -160,6 +161,10 @@ export const ChangeSessionWorkingTreeRequestDtoSchema = Schema.Struct({
 });
 
 export type ChangeSessionWorkingTreeRequestDto = typeof ChangeSessionWorkingTreeRequestDtoSchema.Type;
+
+export const UnlinkSessionWorktreeRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
+
+export type UnlinkSessionWorktreeRequestDto = typeof UnlinkSessionWorktreeRequestDtoSchema.Type;
 
 export const MoveSessionUpRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
 

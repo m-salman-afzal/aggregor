@@ -22,7 +22,8 @@ import type {
   stopArchivedSessionAgents,
   stopProjectSessionAgents,
   stopSessionAgent,
-  unarchiveSession
+  unarchiveSession,
+  unlinkSessionWorktree
 } from "@services/session.service.ts";
 
 type SessionCommandError = Effect.Error<
@@ -43,6 +44,7 @@ type SessionCommandError = Effect.Error<
     | typeof stopProjectSessionAgents
     | typeof stopSessionAgent
     | typeof unarchiveSession
+    | typeof unlinkSessionWorktree
   >
 >;
 

@@ -16,7 +16,8 @@ export const SESSION_COMMANDS = {
   STOP_ARCHIVED_PROJECT_AGENTS: "aggregorApp.stopArchivedProjectSessionAgents",
   STOP_ONGOING_AGENTS: "aggregorApp.stopOngoingSessionAgents",
   STOP_PROJECT_AGENTS: "aggregorApp.stopProjectSessionAgents",
-  UNARCHIVE: "aggregorApp.unarchiveSession"
+  UNARCHIVE: "aggregorApp.unarchiveSession",
+  UNLINK_WORKTREE: "aggregorApp.unlinkSessionWorktree"
 } as const;
 
 // Each project's list shows its newest sessions a page at a time.
@@ -42,8 +43,8 @@ export const SESSION_LABELS = {
   BASE_BRANCH_SECTION: "From",
   CHANGE_WORKING_TREE: (displayName: string) => `Move "${displayName}"`,
   CONFIRM_REMOVE: "Remove",
+  CURRENT: "Current",
   CURRENT_COMMIT: "Current commit",
-  CURRENT_WORKING_TREE: "Current",
   MOVE: "Move",
   NEW_SESSION: "New session",
   NEW_WORKTREE: "New worktree",
