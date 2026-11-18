@@ -11,7 +11,7 @@
   `github-cli`, `zypper`); its **Install** runs that command in a terminal, where sudo asks for the password. A start
   that fails for want of tmux offers the same **Install**. With no known package manager, the notice has a button per
   missing tool for its install page. Aggregor never ships or downloads either tool: both come from `PATH`, installed the
-  way the user installs everything else, and updated with it. M5 still bundles tmux in the release VSIXs; until then,
+  way the user installs everything else, and updated with it. M6 still bundles tmux in the release VSIXs; until then,
   and for a local build after, this is how tmux arrives.
 - **Solution:** `RequiredToolsService` checks tmux with `ITmuxInfraService.checkTmuxVersion` and gh with
   `IShellCommandInfraService.listInstalledCommands`, and picks the package manager the same way; `TOOL_INSTALL_COMMANDS`

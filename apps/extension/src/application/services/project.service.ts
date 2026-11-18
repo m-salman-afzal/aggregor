@@ -6,7 +6,7 @@ import {
 import {ProjectListItemDtoSchema} from "@dtos/project.dto.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
-import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
+import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {addEntity, findEntities, placeEntitiesAtEnd, updateEntity, upsertEntity} from "@services/base.service.ts";
@@ -18,7 +18,6 @@ import {Path} from "effect/Path";
 import type {
   MoveProjectDownRequestDto,
   MoveProjectUpRequestDto,
-  OpenProjectTerminalRequestDto,
   RemoveProjectRequestDto,
   SaveProjectSettingsRequestDto
 } from "@dtos/project.dto.ts";
@@ -210,6 +209,25 @@ export const saveProjectSettings = Effect.fn("ProjectService.saveProjectSettings
   Effect.catchTags({EntityNotFoundError: () => Effect.void, ProjectNotListedError: () => Effect.void})
 );
 
+// No row shows the project's shell, or its sessions' worktrees' shells, once it is removed, so they would run on unseen.
+const endProjectFolderShells = Effect.fn("ProjectService.endProjectFolderShells")(function* (
+  projectPath: ProjectPathValueObject,
+  storedProjects: readonly ProjectEntity[]
+) {
+  const tmuxInfraService = yield* ITmuxInfraService;
+  const projectSessions = yield* Effect.forEach(storedProjects, (storedProject) =>
+    findEntities(ISessionRepository, {projectId: storedProject.id})
+  );
+  const worktreePaths = Array.filter(
+    Array.map(Array.flatten(projectSessions), (projectSession) => projectSession.worktreePath),
+    Predicate.isNotUndefined
+  );
+
+  yield* Effect.forEach(new Set([projectPath, ...worktreePaths]), (folderPath) =>
+    tmuxInfraService.endFolderShell(folderPath)
+  );
+});
+
 // Its folder leaves the workspace first: a workspace folder that isn't added is listed as one of the window's own.
 export const removeProject = Effect.fn("ProjectService.removeProject")(
   function* (request: RemoveProjectRequestDto) {
@@ -220,18 +238,7 @@ export const removeProject = Effect.fn("ProjectService.removeProject")(
     yield* Effect.forEach(storedProjects, (storedProject) =>
       updateEntity(IProjectRepository, storedProject.id, {isAdded: false})
     );
+    yield* endProjectFolderShells(request.projectPath, storedProjects);
   },
   Effect.catchTag("EntityNotFoundError", () => Effect.void)
-);
-
-// A project no longer listed opens nothing.
-export const openProjectTerminal = Effect.fn("ProjectService.openProjectTerminal")(
-  function* (request: OpenProjectTerminalRequestDto) {
-    const chosenProject = yield* findProjectListItem(request.projectPath);
-
-    yield* ITerminalInfraService.use((terminalInfraService) =>
-      terminalInfraService.openFolderTerminal({folderPath: chosenProject.path, terminalName: chosenProject.name})
-    );
-  },
-  Effect.catchTag("ProjectNotListedError", () => Effect.void)
 );

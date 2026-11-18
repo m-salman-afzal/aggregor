@@ -1,12 +1,10 @@
 import {DATABASE_ERRORS} from "@pkg/constants/src/database.constant.ts";
-import {TERMINAL_ERRORS} from "@pkg/constants/src/terminal.constant.ts";
 import {Effect, Match} from "effect";
 
 import type {
   addProject,
   moveProjectDown,
   moveProjectUp,
-  openProjectTerminal,
   removeProject,
   saveProjectSettings
 } from "@services/project.service.ts";
@@ -16,7 +14,6 @@ type ProjectCommandError = Effect.Error<
     | typeof addProject
     | typeof moveProjectDown
     | typeof moveProjectUp
-    | typeof openProjectTerminal
     | typeof removeProject
     | typeof saveProjectSettings
   >
@@ -27,7 +24,6 @@ export const presentProjectCommandError = Effect.fn("ProjectPresenter.presentPro
 ) {
   return Match.valueTags(projectCommandError, {
     DatabaseReadError: () => ({message: DATABASE_ERRORS.READ_FAILED}),
-    DatabaseWriteError: () => ({message: DATABASE_ERRORS.WRITE_FAILED}),
-    TerminalLaunchFailedError: () => ({message: TERMINAL_ERRORS.LAUNCH_FAILED})
+    DatabaseWriteError: () => ({message: DATABASE_ERRORS.WRITE_FAILED})
   });
 });

@@ -93,10 +93,11 @@ Where a session's agent runs, its tab, and resuming it.
 - **Decision:**
   - Each session's agent runs under `aggregor-pty` in a tmux session named by the session's id, on Aggregor's own tmux
     server, whose socket is `tmux.sock` in the Aggregor folder (`-S`), apart from the user's tmux; a test's
-    `AGGREGOR_HOME` gets a server of its own. `assets/tmux.conf` replaces `~/.tmux.conf`: no prefix or status bar, mouse
-    on, `escape-time 0`, `focus-events`, `extended-keys`, a 50,000-line history, `window-size latest`,
-    `aggressive-resize`, 24-bit colour and OSC 52, and `update-environment` for VS Code's terminal variables and the
-    session's `AGGREGOR_SESSION_ID`. A window sources it again when tmux already runs. tmux 3.2 or newer is required.
+    `AGGREGOR_HOME` gets a server of its own. `assets/tmux.conf` replaces `~/.tmux.conf`: no prefix, no status bar but
+    the one line a folder's shell turns on for itself (see [workspace.md](../projects/workspace.md)), mouse on,
+    `escape-time 0`, `focus-events`, `extended-keys`, a 50,000-line history, `window-size latest`, `aggressive-resize`,
+    24-bit colour and OSC 52, and `update-environment` for VS Code's terminal variables and the session's
+    `AGGREGOR_SESSION_ID`. A window sources it again when tmux already runs. tmux 3.2 or newer is required.
   - A session's tab runs tmux itself, with no shell:
     `tmux -S ‹socket› -f ‹conf› -u new-session -A -s ‹id› -c ‹project› -- aggregor-pty --database ‹db› --session ‹id› -- ‹command› ‹args›`.
     `-A` attaches when the session's tmux session runs and starts it otherwise, so the tab is attached from the agent's
@@ -146,8 +147,37 @@ Where a session's agent runs, its tab, and resuming it.
   - One tmux client for every tab, through tmux control mode (`-CC`), with the extension drawing each tab as a
     Pseudoterminal: one process instead of a small tmux client (about 1.4 MB) per open tab, but all agent output would
     pass through the extension host, and tabs would no longer survive a reload by themselves.
-  - Bundling tmux in the VSIX: it means shipping and patching tmux, and macOS has no fully static build. The README's M5
+  - Bundling tmux in the VSIX: it means shipping and patching tmux, and macOS has no fully static build. The README's M6
     plans to bundle it after all, with libevent and ncurses linked in.
+
+## The tmux code is tmux itself, with a file on top for each kind of thing that runs in it
+
+- **Problem:** `TmuxInfraService` was one file of 411 lines that knew tmux and agents at once: the command lines, the
+  version check, the systemd scope, the lists of sessions and clients and the client switch, all in terms of session
+  ids. A folder's shell is a second kind of tmux session on the same server, and needs the same clients, switches and
+  scopes: the shared session tab's client lookup and `switch-client` are what the Aggregor terminal does too.
+- **Decision:** inside `infrastructure/services/tmux/`, `tmuxServer.utils.ts` holds tmux in tmux's own terms and knows
+  nothing of Aggregor: sessions by name, and clients by the process id of the terminal that runs them.
+  `sessionAgent.utils.ts` and `folderShell.utils.ts` each say what one kind of tmux session is, on top of it: what it is
+  named, the command that starts it, when it ends. `tmux.infraService.ts` builds what they share and wires the port. The
+  port stays one, `ITmuxInfraService`, and its members stay named for what a use case asks (stop a session's agent, show
+  a folder's shell in a terminal), never for a tmux command. Each tmux command is written once, and a new kind of thing
+  in tmux is a file beside the two, not a longer one.
+- **Solution:**
+  - `tmuxServer.utils.ts`: `runTmuxCommand` (a command's lines), `runCheckedTmuxCommand` (fails on tmux's exit code,
+    since reading lines succeeds whatever tmux answers), `checkTmuxVersion`, `listTmuxSessionNames`, `listTmuxClients`
+    and `findTmuxClient`, `switchTmuxClient` (`switch-client -E`), `killTmuxSession`, `prepareTerminalCommand` (the
+    command a terminal runs: tmux on Aggregor's socket with its config, in a scope of its own),
+    `prepareOwnScopeArguments` (the scope for what runs inside tmux), `probeOwnScope` and `escapeTmuxFormat`.
+  - `TmuxServer` (`tmux.infraService.type.ts`) is what every call needs: the socket, the config, the process spawner and
+    whether a scope can be made. `TmuxDependencies` adds what only agents need: the database's path, `aggregor-pty`'s
+    and the running sessions.
+  - Every span in the folder is `TmuxInfraService.‹const›`, since a helper file belongs to its folder's one owner.
+  - A window reads `tmux.conf` into a running server when the server has any session, a shell's or an agent's.
+- **Alternatives considered:** a second port, `IFolderShellInfraService`, with a layer of its own: the two layers would
+  each probe the scope and hold the socket, or share them through a service only infrastructure uses, which `DDD.md` has
+  no place for. Port members in tmux's terms (`switchClient(processId, sessionName)`), which puts tmux session names and
+  tmux's vocabulary into the use cases. One file, as before.
 
 ## Each agent runs in a systemd scope of its own, and goes first when memory runs out
 

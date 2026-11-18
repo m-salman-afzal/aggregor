@@ -16,6 +16,7 @@ import {WorkspaceInfraService} from "@infraServices/vscode/workspace.infraServic
 import {AgentRepository} from "@repositories/agent.repository.ts";
 import {ProjectRepository} from "@repositories/project.repository.ts";
 import {SessionRepository} from "@repositories/session.repository.ts";
+import {startFolderShellEndOnTerminalClose, syncFolderShellTerminalWithTmux} from "@services/folderShell.service.ts";
 import {startPullRequestRefreshOnTurnEnd} from "@services/pullRequest.service.ts";
 import {
   startRunStateSync,
@@ -44,6 +45,8 @@ const BackgroundLayer = Layer.mergeAll(
   Layer.effectDiscard(startRunStateSync()),
   Layer.effectDiscard(startPullRequestRefreshOnTurnEnd()),
   Layer.effectDiscard(startShownProjectSync()),
+  Layer.effectDiscard(syncFolderShellTerminalWithTmux()),
+  Layer.effectDiscard(startFolderShellEndOnTerminalClose()),
   Layer.effectDiscard(startSessionReopenAfterReload())
 );
 

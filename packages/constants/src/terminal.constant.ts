@@ -9,10 +9,13 @@ export const PTY_BINARY = "bin/aggregor-pty";
 // Every session terminal carries its session id, so a restarted extension host can tell which tab is whose.
 export const SESSION_ID_ENV = "AGGREGOR_SESSION_ID";
 
-// A folder's terminal carries the folder's path, so the one terminal a folder has is found again after a restart.
-export const FOLDER_PATH_ENV = "AGGREGOR_FOLDER_PATH";
+// The window's one terminal for folder shells carries the folder it opened with, so a restarted extension host finds it.
+export const FOLDER_SHELL_TERMINAL = {
+  FOLDER_PATH_ENV: "AGGREGOR_FOLDER_SHELL_PATH",
+  NAME: "Aggregor"
+} as const;
 
-export const FOLDER_TERMINAL_NAME = {
+export const FOLDER_SHELL_STATUS_LABEL = {
   WORKTREE: (projectName: string, worktreeFolderName: string) => `${projectName} · ${worktreeFolderName}`
 } as const;
 

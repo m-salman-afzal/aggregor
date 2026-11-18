@@ -37,9 +37,6 @@ const showSessionProject = Effect.fn("WorkspaceService.showSessionProject")(
     yield* IWorkspaceInfraService.use((workspaceInfraService) =>
       workspaceInfraService.showOnlyProjectFolder(session.workingFolderPath, session.id)
     );
-    yield* ITerminalInfraService.use((terminalInfraService) =>
-      terminalInfraService.switchToFolderTerminal(session.workingFolderPath, session.projectPath)
-    );
   },
   // A tab left running by a removed session has no project to show.
   Effect.catchTag("SessionNotFoundError", () => Effect.void),

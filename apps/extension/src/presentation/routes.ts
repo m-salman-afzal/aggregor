@@ -1,10 +1,10 @@
 import {setChosenAgentAsDefault} from "@controllers/agent.controller.ts";
 import {generateCommitMessageForSourceControl} from "@controllers/commitMessage.controller.ts";
+import {openChosenProjectTerminal, openChosenSessionFolderTerminal} from "@controllers/folderShell.controller.ts";
 import {
   addProjectsAskingForFolders,
   moveChosenProjectDown,
   moveChosenProjectUp,
-  openChosenProjectTerminal,
   removeChosenProject,
   saveChosenProjectSettings
 } from "@controllers/project.controller.ts";
@@ -18,7 +18,6 @@ import {
   moveChosenSessionUp,
   newSessionInChosenProject,
   openChosenSession,
-  openChosenSessionFolderTerminal,
   removeChosenSession,
   renameChosenSession,
   renameChosenSessionBranch,
@@ -44,6 +43,7 @@ import {TERMINAL_COMMANDS} from "@pkg/constants/src/terminal.constant.ts";
 import {openAggregorSettingsInSettingsEditor} from "@pkg/vscode/src/vscode.utils.ts";
 import {presentAppCommandError} from "@presenters/app.presenter.ts";
 import {presentCommitMessageCommandError} from "@presenters/commitMessage.presenter.ts";
+import {presentFolderShellCommandError} from "@presenters/folderShell.presenter.ts";
 import {presentProjectCommandError} from "@presenters/project.presenter.ts";
 import {presentPullRequestCommandError} from "@presenters/pullRequest.presenter.ts";
 import {presentRequiredToolsCommandError} from "@presenters/requiredTools.presenter.ts";
@@ -92,11 +92,11 @@ export const RoutesLayer = Layer.effectDiscard(
     registerCommand(SESSION_COMMANDS.STOP_ONGOING_AGENTS, stopAllOngoingSessionAgents, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.STOP_PROJECT_AGENTS, stopChosenProjectSessionAgents, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.UNARCHIVE, unarchiveChosenSession, presentSessionCommandError),
-    registerCommand(TERMINAL_COMMANDS.OPEN_PROJECT_TERMINAL, openChosenProjectTerminal, presentProjectCommandError),
+    registerCommand(TERMINAL_COMMANDS.OPEN_PROJECT_TERMINAL, openChosenProjectTerminal, presentFolderShellCommandError),
     registerCommand(
       TERMINAL_COMMANDS.OPEN_SESSION_FOLDER_TERMINAL,
       openChosenSessionFolderTerminal,
-      presentSessionCommandError
+      presentFolderShellCommandError
     ),
     registerCommand(
       GITHUB_CLI_COMMANDS.OPEN_SESSION_PULL_REQUEST,

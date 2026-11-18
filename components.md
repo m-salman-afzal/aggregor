@@ -28,7 +28,8 @@ heading there. Update this file in the same commit as a change that adds, remove
 - **What it is:** a terminal multiplexer whose sessions keep running with no client attached.
 - **What we use:** tmux 3.2 or newer from `PATH`; without it a notice at start, and a failed start, offer Install, which
   runs the system package manager in a terminal (see "Missing tmux and gh install with one command"). The calls live in
-  `infrastructure/services/tmux/tmux.infraService.ts`, with names in `packages/constants/src/tmux.constant.ts`:
+  `infrastructure/services/tmux/` (`tmuxServer.utils.ts` runs them, `sessionAgent.utils.ts` and `folderShell.utils.ts`
+  say what each is for), with names in `packages/constants/src/tmux.constant.ts`:
   - `tmux -V` before each start.
   - A session's tab runs tmux itself, with no shell:
     `tmux -S ‹socket› -f ‹extension›/assets/tmux.conf -u new-session -A -s ‹sessionId› [-e NAME=value]… -c ‹project› -- aggregor-pty …`.
@@ -38,21 +39,30 @@ heading there. Update this file in the same commit as a change that adds, remove
   - `list-clients -F '#{client_pid} #{client_name} #{session_name}'` reads which session each tab shows, a tab being the
     tmux client with its process id; `switch-client -E -c ‹client› -t =‹sessionId›` attaches the shared tab to another
     running session, and `-E` leaves that session's environment as it is.
-  - `assets/tmux.conf` replaces `~/.tmux.conf`: no prefix, no status bar, mouse on, 50,000 lines of history,
-    `escape-time 0`, `focus-events`, `extended-keys`, `window-size latest`, 24-bit colour, OSC 52, and
-    `update-environment` for VS Code's terminal variables and `AGGREGOR_SESSION_ID`.
+  - The window's Aggregor terminal runs tmux the same way for a folder's shell, as one command list:
+    `new-session -A -s shell-‹folder›-‹hash› -c ‹folder› [-- sh -c 'exec "$@" "$SHELL" -l' sh systemd-run … --]`, then
+    `set-option -t =‹name›:` for `status on`, `history-limit 100000` and `@aggregor_folder_label`. The same
+    `list-clients` line, with `#{session_path}`, reads which folder's shell that terminal shows, and the same
+    `switch-client` attaches it to another's; one not running yet is started first with `new-session -d` and an `-e` for
+    each line of the shown shell's `show-environment`. `kill-session` ends a shell.
+  - `assets/tmux.conf` replaces `~/.tmux.conf`: no prefix, no status bar but a shell's own line, which shows its
+    session's `@aggregor_folder_label`, mouse on, 50,000 lines of history, `escape-time 0`, `focus-events`,
+    `extended-keys`, `window-size latest`, 24-bit colour, OSC 52, and `update-environment` for VS Code's terminal
+    variables and `AGGREGOR_SESSION_ID`.
 - **`tmux.sock`:** the Unix socket Aggregor's own tmux server listens on. `getTmuxSocketPath`
   (`apps/extension/src/infrastructure/utils/tmuxSocket.utils.ts`) puts it in the Aggregor folder: `~/.aggregor`,
   `~/.aggregorDev` for the F5 build (`.vscode/launch.json` sets `AGGREGOR_HOME`), or `$AGGREGOR_HOME`. Every call passes
-  `-S ‹socket›`, so it reaches only that server. tmux creates the socket, readable only by its owner, when the first tab
-  starts, and the server exits with its last session. A server of its own keeps Aggregor's sessions and `tmux.conf`
-  apart from the user's tmux and `~/.tmux.conf`, and gives each Aggregor folder its own server, so the installed build,
-  the F5 build and a test never share one (harness-foundation 5, Decided 4; `storage.md`).
-- **Why:** an agent outlives its tab, a reload and VS Code. The tab is attached from the agent's first byte, so tmux
-  answers its colour queries, and the agent gets the tab's terminal environment.
+  `-S ‹socket›`, so it reaches only that server. tmux creates the socket, readable only by its owner, when the first
+  terminal starts, and the server exits with its last session. A server of its own keeps Aggregor's sessions and
+  `tmux.conf` apart from the user's tmux and `~/.tmux.conf`, and gives each Aggregor folder its own server, so the
+  installed build, the F5 build and a test never share one (harness-foundation 5, Decided 4; `storage.md`).
+- **Why:** an agent outlives its tab, a reload and VS Code, and so do a folder's shell and what runs in it. The tab is
+  attached from the agent's first byte, so tmux answers its colour queries, and the agent gets the tab's terminal
+  environment. tmux can attach a terminal's client to another session without VS Code seeing a change, which is how one
+  tab shows any session and one panel terminal any folder's shell.
 - **Alternatives:** "Every session's agent runs in tmux": a hidden VS Code terminal running `tmux new-session -d` with
   the tab only attaching; tmux as the extension's child process; one control-mode (`-CC`) client for every tab.
-  harness-foundation 5, Decided 3: a pkexec install prompt and a bundled tmux (README's M5 plans a bundled tmux).
+  harness-foundation 5, Decided 3: a pkexec install prompt and a bundled tmux (README's M6 plans a bundled tmux).
   Decided 4: a named server, `-L aggregor`. The harness-foundation plan names psmux for native Windows later.
   - Other options for the multiplexer itself, not weighed in `decisions/`: GNU screen, Zellij, dtach or abduco.
 
@@ -60,13 +70,14 @@ heading there. Update this file in the same commit as a change that adds, remove
 
 - **What it is:** systemd's command that runs a process under the user's service manager, here as a transient scope.
 - **What we use:** `systemd-run --user --scope --quiet --collect` (`SYSTEMD_SCOPE` in
-  `packages/constants/src/tmux.constant.ts`, called from `tmux.infraService.ts`), probed once with `-- true` when the
+  `packages/constants/src/tmux.constant.ts`, called from `tmuxServer.utils.ts`), probed once with `-- true` when the
   extension starts:
-  - A session's tab runs `systemd-run … -- tmux …`, so the tmux server the first tab starts lives in a cgroup of its
-    own, not VS Code's.
+  - A session's tab and the Aggregor terminal run `systemd-run … -- tmux …`, so the tmux server the first of them starts
+    lives in a cgroup of its own, not VS Code's.
   - Inside tmux, each agent runs as `systemd-run … [-p MemoryMax=‹aggregorApp.sessionMemoryLimit›] -- aggregor-pty …`,
-    one cgroup per agent with everything it starts.
-  - Without a systemd user manager (macOS, WSL without systemd, a container) the probe fails and both run as before.
+    one cgroup per agent with everything it starts, and each folder's shell as `systemd-run … -- "$SHELL" -l`, one
+    cgroup per shell.
+  - Without a systemd user manager (macOS, WSL without systemd, a container) the probe fails and all run as before.
 - **Why:** systemd-oomd and the kernel kill a whole cgroup, and the tmux server stayed in the cgroup of whichever
   process started it, VS Code's, so one agent's memory took VS Code and every agent down.
 - **Alternatives:** "Each agent runs in a systemd scope of its own" in `decisions/sessions/terminals.md`.
