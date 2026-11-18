@@ -23,6 +23,7 @@ import {
   drawImportableSessions,
   drawLeftovers,
   drawMoreSessions,
+  drawPullRequests,
   drawViewedSession,
   drawWaitingCounts
 } from "@views/sessions/sessionsDrawing.utils.ts";
@@ -50,6 +51,7 @@ const SessionsWebviewMessageSchema = Schema.TaggedUnion({
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_BRANCHES]: {projectPath: Schema.String},
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_IMPORTABLE_SESSIONS]: {projectPath: Schema.String},
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_LEFTOVERS]: {projectPath: Schema.String},
+  [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_PULL_REQUESTS]: {sessionId: Schema.String},
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.READY]: {},
   [SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND]: {
     commandArgument: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
@@ -147,6 +149,8 @@ const handleWebviewMessage = Effect.fn("SessionsView.handleWebviewMessage", {roo
         drawImportableSessions(webviewView, listImportableSessions.projectPath),
       [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_LEFTOVERS]: (listLeftovers) =>
         drawLeftovers(webviewView, listLeftovers.projectPath),
+      [SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_PULL_REQUESTS]: (listPullRequests) =>
+        drawPullRequests(webviewView, listPullRequests.sessionId),
       [SESSIONS_WEBVIEW_MESSAGE_TAGS.READY]: () => drawEverything(webviewView, shownSessionPages),
       [SESSIONS_WEBVIEW_MESSAGE_TAGS.RUN_COMMAND]: (runCommand) =>
         runRowCommand(runCommand.commandId, runCommand.commandArgument),

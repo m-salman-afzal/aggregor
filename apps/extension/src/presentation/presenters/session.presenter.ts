@@ -10,6 +10,7 @@ import type {
   archiveOngoingSessions,
   archiveProjectSessions,
   archiveSession,
+  changeSessionWorkingTree,
   moveSessionDown,
   moveSessionUp,
   newSession,
@@ -21,7 +22,8 @@ import type {
   stopArchivedSessionAgents,
   stopProjectSessionAgents,
   stopSessionAgent,
-  unarchiveSession
+  unarchiveSession,
+  unlinkSessionWorktree
 } from "@services/session.service.ts";
 
 type SessionCommandError = Effect.Error<
@@ -29,6 +31,7 @@ type SessionCommandError = Effect.Error<
     | typeof archiveOngoingSessions
     | typeof archiveProjectSessions
     | typeof archiveSession
+    | typeof changeSessionWorkingTree
     | typeof moveSessionDown
     | typeof moveSessionUp
     | typeof newSession
@@ -41,6 +44,7 @@ type SessionCommandError = Effect.Error<
     | typeof stopProjectSessionAgents
     | typeof stopSessionAgent
     | typeof unarchiveSession
+    | typeof unlinkSessionWorktree
   >
 >;
 

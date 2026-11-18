@@ -4,9 +4,10 @@ import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject
 import type {PullRequestStateValueObject} from "@valueObjects/pullRequestState.valueObject.ts";
 import type {Effect, Stream} from "effect";
 
-export interface PullRequestBranch {
-  readonly branchName: string;
+// gh pr view takes a branch's name or a pull request's number alike.
+export interface PullRequestLookup {
   readonly folderPath: ProjectPathValueObject;
+  readonly pullRequestReference: string;
 }
 
 export interface BranchPullRequest {
@@ -14,6 +15,13 @@ export interface BranchPullRequest {
   readonly state: PullRequestStateValueObject;
   readonly title: string;
   readonly url: string;
+}
+
+export interface ListedPullRequest {
+  readonly branchName: string;
+  readonly number: number;
+  readonly state: PullRequestStateValueObject;
+  readonly title: string;
 }
 
 export class GitHubCliSignedOutError extends Schema.TaggedError<
@@ -26,20 +34,30 @@ export class PullRequestNotFoundError extends Schema.TaggedError<
   {readonly brand: unique symbol}
 >()("PullRequestNotFoundError", {}) {}
 
+// gh is missing, the folder has no GitHub repository, or gh gave up; the listing's span says which.
+export class PullRequestListFailedError extends Schema.TaggedError<
+  PullRequestListFailedError,
+  {readonly brand: unique symbol}
+>()("PullRequestListFailedError", {}) {}
+
 // gh from PATH, never one of Aggregor's own; lookups are cached and run in the background.
 export class IGitHubCliInfraService extends Context.Service<
   IGitHubCliInfraService,
   {
-    // The last lookup's answer; a branch not looked up yet is looked up, and pullRequestChangedFolderPaths tells when.
+    // The last lookup's answer; one not looked up yet is looked up, and pullRequestChangedFolderPaths tells when.
     readonly findPullRequest: (
-      pullRequestBranch: PullRequestBranch
+      pullRequestLookup: PullRequestLookup
     ) => Effect.Effect<BranchPullRequest, PullRequestNotFoundError>;
     // Once per window, the first time a lookup meets it, and again after the setup terminal closes.
     readonly gitHubCliSignedOutProblems: Stream.Stream<GitHubCliSignedOutError>;
+    // The repository's newest pull requests, any state, read from GitHub each time.
+    readonly listPullRequests: (
+      folderPath: ProjectPathValueObject
+    ) => Effect.Effect<readonly ListedPullRequest[], GitHubCliSignedOutError | PullRequestListFailedError>;
     readonly openPullRequestInBrowser: (pullRequest: BranchPullRequest) => Effect.Effect<void>;
     // Falls back to the browser without the GitHub Pull Requests extension.
     readonly openPullRequestInVsCode: (pullRequest: BranchPullRequest) => Effect.Effect<void>;
     readonly pullRequestChangedFolderPaths: Stream.Stream<ProjectPathValueObject>;
-    readonly refreshPullRequest: (pullRequestBranch: PullRequestBranch) => Effect.Effect<void>;
+    readonly refreshPullRequest: (pullRequestLookup: PullRequestLookup) => Effect.Effect<void>;
   }
 >()("aggregor-app/application/interfaces/gitHubCli.infraService.interface/IGitHubCliInfraService") {}

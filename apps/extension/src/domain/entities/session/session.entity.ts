@@ -24,6 +24,8 @@ export class SessionEntity extends BaseEntity.extend<SessionEntity>("Session")({
   name: Schema.String,
   projectId: EntityIdValueObjectSchema,
   projectPath: ProjectPathValueObjectSchema,
+  // The pull request the user linked, shown in place of the worktree branch's own.
+  pullRequestNumber: Schema.optional(Schema.Int),
   reportedTitle: Schema.optional(Schema.String),
   runState: Schema.optional(SessionRunStateValueObjectSchema),
   status: AgentStatusValueObjectSchema,

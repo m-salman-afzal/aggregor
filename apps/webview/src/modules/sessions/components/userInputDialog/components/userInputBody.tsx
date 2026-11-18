@@ -2,8 +2,10 @@ import {CleanUpInput} from "@/modules/sessions/components/userInputDialog/compon
 import {ImportSessionsInput} from "@/modules/sessions/components/userInputDialog/components/importSessionsInput/importSessionsInput.tsx";
 import {NewSessionInput} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.tsx";
 import {ProjectSettingsInput} from "@/modules/sessions/components/userInputDialog/components/projectSettingsInput/projectSettingsInput.tsx";
+import {PullRequestInput} from "@/modules/sessions/components/userInputDialog/components/pullRequestInput/pullRequestInput.tsx";
 import {QuestionInput} from "@/modules/sessions/components/userInputDialog/components/questionInput.tsx";
 import {TextInput} from "@/modules/sessions/components/userInputDialog/components/textInput.tsx";
+import {WorkingTreeInput} from "@/modules/sessions/components/userInputDialog/components/workingTreeInput/workingTreeInput.tsx";
 import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 
 import type {ChosenLeftovers, UserInput} from "@/modules/sessions/sessions.type.ts";
@@ -34,6 +36,10 @@ export const UserInputBody = (props: UserInputBodyProps) => {
     return <CleanUpInput leftovers={props.userInput.leftovers} onCancel={props.onCancel} onDelete={props.onCleanUp} />;
   if (props.userInput._tag === USER_INPUT_TAGS.IMPORT_SESSIONS)
     return <ImportSessionsInput onCancel={props.onCancel} userInput={props.userInput} />;
+  if (props.userInput._tag === USER_INPUT_TAGS.PULL_REQUEST)
+    return <PullRequestInput onCancel={props.onCancel} userInput={props.userInput} />;
+  if (props.userInput._tag === USER_INPUT_TAGS.WORKING_TREE)
+    return <WorkingTreeInput onCancel={props.onCancel} userInput={props.userInput} />;
   if (props.userInput._tag === USER_INPUT_TAGS.QUESTION)
     return <QuestionInput answers={props.userInput.answers} onCancel={props.onCancel} onChoose={props.onChoose} />;
   if (props.userInput._tag === USER_INPUT_TAGS.PROJECT_SETTINGS)

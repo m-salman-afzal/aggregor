@@ -1,6 +1,7 @@
 import {
   ArchiveProjectSessionsRequestDtoSchema,
   ArchiveSessionRequestDtoSchema,
+  ChangeSessionWorkingTreeRequestDtoSchema,
   GetProjectSessionsRequestDtoSchema,
   GetSessionListItemRequestDtoSchema,
   ListProjectSessionsRequestDtoSchema,
@@ -14,13 +15,15 @@ import {
   StopArchivedProjectSessionAgentsRequestDtoSchema,
   StopProjectSessionAgentsRequestDtoSchema,
   StopSessionAgentRequestDtoSchema,
-  UnarchiveSessionRequestDtoSchema
+  UnarchiveSessionRequestDtoSchema,
+  UnlinkSessionWorktreeRequestDtoSchema
 } from "@dtos/session.dto.ts";
 import {decodeVsCodeArgument} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
 import {
   archiveOngoingSessions,
   archiveProjectSessions,
   archiveSession,
+  changeSessionWorkingTree,
   findViewedSessionId,
   getProjectSessions,
   getSessionListItem,
@@ -40,6 +43,7 @@ import {
   stopProjectSessionAgents,
   stopSessionAgent,
   unarchiveSession,
+  unlinkSessionWorktree,
   watchSessionListChanges,
   watchViewedSessionIds
 } from "@services/session.service.ts";
@@ -130,6 +134,20 @@ export const renameChosenSessionBranch = Effect.fn("SessionController.renameChos
 ) {
   const request = yield* decodeVsCodeArgument(RenameSessionBranchRequestDtoSchema, chosenSession);
   yield* renameSessionBranch(request);
+});
+
+export const changeChosenSessionWorkingTree = Effect.fn("SessionController.changeChosenSessionWorkingTree")(function* (
+  chosenSession: unknown
+) {
+  const request = yield* decodeVsCodeArgument(ChangeSessionWorkingTreeRequestDtoSchema, chosenSession);
+  yield* changeSessionWorkingTree(request);
+});
+
+export const unlinkChosenSessionWorktree = Effect.fn("SessionController.unlinkChosenSessionWorktree")(function* (
+  chosenSession: unknown
+) {
+  const request = yield* decodeVsCodeArgument(UnlinkSessionWorktreeRequestDtoSchema, chosenSession);
+  yield* unlinkSessionWorktree(request);
 });
 
 export const moveChosenSessionUp = Effect.fn("SessionController.moveChosenSessionUp")(function* (

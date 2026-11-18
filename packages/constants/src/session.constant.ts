@@ -2,6 +2,7 @@ export const SESSION_COMMANDS = {
   ARCHIVE: "aggregorApp.archiveSession",
   ARCHIVE_ONGOING: "aggregorApp.archiveOngoingSessions",
   ARCHIVE_PROJECT_SESSIONS: "aggregorApp.archiveProjectSessions",
+  CHANGE_WORKING_TREE: "aggregorApp.changeSessionWorkingTree",
   IMPORT: "aggregorApp.importSessions",
   MOVE_DOWN: "aggregorApp.moveSessionDown",
   MOVE_UP: "aggregorApp.moveSessionUp",
@@ -15,7 +16,8 @@ export const SESSION_COMMANDS = {
   STOP_ARCHIVED_PROJECT_AGENTS: "aggregorApp.stopArchivedProjectSessionAgents",
   STOP_ONGOING_AGENTS: "aggregorApp.stopOngoingSessionAgents",
   STOP_PROJECT_AGENTS: "aggregorApp.stopProjectSessionAgents",
-  UNARCHIVE: "aggregorApp.unarchiveSession"
+  UNARCHIVE: "aggregorApp.unarchiveSession",
+  UNLINK_WORKTREE: "aggregorApp.unlinkSessionWorktree"
 } as const;
 
 // Each project's list shows its newest sessions a page at a time.
@@ -29,8 +31,8 @@ export const SESSION_RUN_STATE = {
   STOP_SETTLE_INTERVAL: "10 seconds"
 } as const;
 
-// What a new session's request says about the working tree it runs in.
-export const NEW_SESSION_WORKING_TREE_TAGS = {
+// What a request to start or move a session says about the working tree it runs in.
+export const WORKING_TREE_CHOICE_TAGS = {
   EXISTING_WORKTREE: "ExistingWorktree",
   NEW_WORKTREE: "NewWorktree",
   PROJECT_ROOT: "ProjectRoot"
@@ -39,8 +41,11 @@ export const NEW_SESSION_WORKING_TREE_TAGS = {
 export const SESSION_LABELS = {
   AGENT_SECTION: "Agent",
   BASE_BRANCH_SECTION: "From",
+  CHANGE_WORKING_TREE: (displayName: string) => `Move "${displayName}"`,
   CONFIRM_REMOVE: "Remove",
+  CURRENT: "Current",
   CURRENT_COMMIT: "Current commit",
+  MOVE: "Move",
   NEW_SESSION: "New session",
   NEW_WORKTREE: "New worktree",
   NEW_WORKTREE_DESCRIPTION: "A branch of its own",
@@ -49,6 +54,7 @@ export const SESSION_LABELS = {
   PROJECT_SECTION: "Project",
   RENAME: "Session name. Leave it empty to show the agent's own title again.",
   RENAME_BRANCH: "Branch name",
+  RESTART_AGENT: "Restart Agent",
   SEARCH: "Search…",
   START: "Start",
   STOP_AGENT: "Stop Agent",
@@ -59,9 +65,11 @@ export const SESSION_LABELS = {
 // Which one a question shows is picked in the webview's sessions.utils.ts.
 export const SESSION_NOTICES = {
   CONFIRM_REMOVE_RUNNING: (displayName: string) => `Remove "${displayName}"?`,
+  CONFIRM_RESTART_AGENT: (displayName: string) => `Restart the agent of "${displayName}" in another folder?`,
   CONFIRM_STOP_AGENT: (displayName: string) => `Stop the agent of "${displayName}"?`,
   CONFIRM_STOP_AGENTS: (runningAgentCount: number) => `Stop ${runningAgentCount} running agents?`,
   REMOVE_STOPPING_AGENT: "Its agent is still running and will be stopped.",
+  RESTART_AGENT_MID_TURN_CONSEQUENCE: "Its turn is cut short, and its conversation resumes in the new folder.",
   STOP_AGENT_MID_TURN_CONSEQUENCE: "Its turn is cut short. Opening the session starts its agent again.",
   STOP_AGENTS_MID_TURN_CONSEQUENCE: (turnRunningCount: number) =>
     `${turnRunningCount} of them are in the middle of a turn, which is cut short. Opening a session starts its agent again.`

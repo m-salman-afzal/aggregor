@@ -235,10 +235,12 @@ Where a session's agent runs, its tab, and resuming it.
 - **Decision:** Codex runs with `-c tui.terminal_title=["thread-title"]`, which makes its window title the thread's id
   until the thread has a name, then the name. `aggregor-pty` writes a window title that is a bare UUID to
   `agentSessionId`, the latest one, so a new thread started with `/new` replaces it. `${agentSessionId}` fills it in,
-  and Codex's `resumeArgs` are `resume --no-daemon -c tui.terminal_title=… ${agentSessionId}`; a resume that needs it
-  while it is unknown fails with `AgentSessionIdNotFoundError`. Codex runs with `--no-daemon` both ways, so its turns
-  stop with its tmux session. Agents that take our id keep it (Claude, OpenCode, Copilot), and Antigravity keeps `-c`.
-  An exact resume, from a title Codex shows by itself, with no prompt and no reading of Codex's files.
+  and Codex's `resumeArgs` are `resume -C . --no-daemon -c tui.terminal_title=… ${agentSessionId}`; a resume that needs
+  it while it is unknown fails with `AgentSessionIdNotFoundError`. `-C .` resumes in the folder the session works in
+  now, which Change Working Tree may have moved, where without it Codex asks whether to go back to the folder the
+  conversation last ran in. Codex runs with `--no-daemon` both ways, so its turns stop with its tmux session. Agents
+  that take our id keep it (Claude, OpenCode, Copilot), and Antigravity keeps `-c`. An exact resume, from a title Codex
+  shows by itself, with no prompt and no reading of Codex's files.
 - **Solution:** Codex showing the id as its title isn't documented, and the option replaces any `tui.terminal_title` of
   the user's. Codex sessions don't show in `codex agents`. Codex reports `working` for a moment at startup, so a session
   that never got a message counts as worked, and once its agent has stopped, `codex resume ‹id›` finds no saved thread
