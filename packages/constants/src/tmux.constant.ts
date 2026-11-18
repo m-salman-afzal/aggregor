@@ -28,6 +28,8 @@ export const AGENT_START_WAIT = {
 export const FOLDER_SHELL = {
   // tmux before 3.7 sizes a pane's history as the pane is made, so there a shell keeps tmux.conf's limit.
   HISTORY_LINES: "100000",
+  // Runs the user's login shell, after the command line's own arguments: a systemd scope's, or none.
+  START_SCRIPT: 'unset TMUX TMUX_PANE; exec "$@" "$SHELL" -l',
   // tmux.conf's status line shows this option of the shell's tmux session.
   STATUS_LABEL_OPTION: "@aggregor_folder_label"
 } as const;

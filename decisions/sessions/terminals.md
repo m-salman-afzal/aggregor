@@ -94,10 +94,11 @@ Where a session's agent runs, its tab, and resuming it.
   - Each session's agent runs under `aggregor-pty` in a tmux session named by the session's id, on Aggregor's own tmux
     server, whose socket is `tmux.sock` in the Aggregor folder (`-S`), apart from the user's tmux; a test's
     `AGGREGOR_HOME` gets a server of its own. `assets/tmux.conf` replaces `~/.tmux.conf`: no prefix, no status bar but
-    the one line a folder's shell turns on for itself (see [workspace.md](../projects/workspace.md)), mouse on,
-    `escape-time 0`, `focus-events`, `extended-keys`, a 50,000-line history, `window-size latest`, `aggressive-resize`,
-    24-bit colour and OSC 52, and `update-environment` for VS Code's terminal variables and the session's
-    `AGGREGOR_SESSION_ID`. A window sources it again when tmux already runs. tmux 3.2 or newer is required.
+    the one line a folder's shell turns on for itself (see [workspace.md](../projects/workspace.md)), mouse on with only
+    a plain terminal's mouse bindings (see "tmux keeps a terminal running and shows it, nothing more"), `escape-time 0`,
+    `focus-events`, `extended-keys`, a 50,000-line history, `window-size latest`, `aggressive-resize`, 24-bit colour and
+    OSC 52, and `update-environment` for VS Code's terminal variables and the session's `AGGREGOR_SESSION_ID`. A window
+    sources it again when tmux already runs. tmux 3.2 or newer is required.
   - A session's tab runs tmux itself, with no shell:
     `tmux -S ‹socket› -f ‹conf› -u new-session -A -s ‹id› -c ‹project› -- aggregor-pty --database ‹db› --session ‹id› -- ‹command› ‹args›`.
     `-A` attaches when the session's tmux session runs and starts it otherwise, so the tab is attached from the agent's
@@ -149,6 +150,26 @@ Where a session's agent runs, its tab, and resuming it.
     pass through the extension host, and tabs would no longer survive a reload by themselves.
   - Bundling tmux in the VSIX: it means shipping and patching tmux, and macOS has no fully static build. The README's M6
     plans to bundle it after all, with libevent and ncurses linked in.
+
+## tmux keeps a terminal running and shows it, nothing more
+
+- **Problem:** Aggregor uses tmux so an agent or a folder's shell outlives its terminal, and so one terminal can show
+  another of them. With no prefix key, tmux's own features were still a mouse gesture away in a session's tab and in the
+  Aggregor terminal: tmux 3.8's right-click menus split, float, kill, respawn and swap panes and open windows, Ctrl+drag
+  makes a floating pane and Alt+drag moves one, and a click or the wheel on the status line switches windows. The user
+  treats these terminals as plain ones.
+- **Decision:** `assets/tmux.conf` removes every binding of tmux's root table and binds back only what a plain terminal
+  does with the mouse: the wheel scrolls back through tmux's history, a drag, a double click or a triple click selects
+  and copies (OSC 52 hands it to VS Code's clipboard), a middle click pastes, and an app that asks for the mouse gets
+  every click, the right one included. With no prefix, no key reaches tmux; the copy-mode keys work only while scrolled
+  back. A folder's shell also sees no tmux variables (see [workspace.md](../projects/workspace.md)); an agent's pane
+  keeps them, since agents read them to learn what terminal they run in.
+- **Solution:** a window reads `tmux.conf` into a server already running, so a server started with tmux's defaults loses
+  them at the next window start. The bindings are written out rather than taken from tmux's defaults, and use only what
+  tmux 3.2 has; tmux 3.8 is the only version checked.
+- **Alternatives considered:** the mouse off, which leaves no way to scroll back, since VS Code sees only tmux's screen;
+  unbinding the unwanted keys one by one, which misses those a new tmux adds, as 3.8 added the floating panes; keeping
+  the right-click menu for its Copy and Paste entries, which sit beside Split, Float and Kill.
 
 ## The tmux code is tmux itself, with a file on top for each kind of thing that runs in it
 

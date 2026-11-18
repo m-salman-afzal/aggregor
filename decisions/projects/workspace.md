@@ -158,7 +158,7 @@ The project in view, and the workspace file Aggregor writes for it.
   indents otherwise; the smallest indentation in the file, which a block comment can set and which keeps a bloated file
   as it is.
 
-## Each folder has one shell in tmux, shown in the window's one Aggregor terminal
+## Each folder has one shell in tmux, shown in the window's one Aggregor terminal, which follows the session in view
 
 - **Problem:** each folder a session works in had a VS Code terminal of its own, and the Terminal panel followed the
   shown session by bringing that folder's terminal to the front. VS Code brings a terminal to the front only by showing
@@ -171,12 +171,17 @@ The project in view, and the workspace file Aggregor writes for it.
     agents run on (see [terminals.md](../sessions/terminals.md)). A window has one terminal for them, named Aggregor, in
     the Terminal panel: a tmux client. Changing folder is tmux attaching that client to another tmux session, which VS
     Code never sees, so the panel stays as it is.
+  - When the session in view changes, an open Aggregor terminal moves to the shell of that session's folder, started
+    first when it isn't running, and the Terminal panel stays open or hidden as it was. With no Aggregor terminal open,
+    nothing opens.
   - The terminal button on a project's row shows the terminal on the project's shell; the one on a session's row, on the
     shell of the session's folder: its project's for a root session, its worktree's for a worktree session, shared by
     every session in that worktree. Both are Open Terminal, open the panel, and start the shell when it isn't running.
     Archived rows have none, and the … menus don't repeat it.
   - The shell is the user's own, started as tmux starts one: `$SHELL`, as a login shell. It doesn't depend on VS Code's
     terminal profile, which nothing outside VS Code can read.
+  - The shell sees no tmux: `TMUX` and `TMUX_PANE` are unset, so the user's own tmux runs there as in a plain terminal,
+    and a tmux command typed there never reaches Aggregor's server.
   - On Linux with a systemd user manager, each shell runs in a scope of its own, as each agent does, so a runaway dev
     server is killed alone and what a shell started can be told apart from the rest.
   - One terminal shows every folder, so tmux draws a status line at its bottom that names the folder: the project's
@@ -193,13 +198,13 @@ The project in view, and the workspace file Aggregor writes for it.
 - **Solution:**
   - `FolderShellService` holds the use cases: `openProjectTerminal` and `openSessionFolderTerminal` (the commands
     `aggregorApp.openProjectTerminal` and `aggregorApp.openSessionFolderTerminal`) switch the open terminal, or open
-    one, and `startFolderShellEndOnTerminalClose` ends the shell the user closed. The application names a shell by its
-    folder's path; its tmux session's name, `shell-‹folder›-‹6 hex digits from its path›`, comes from the domain's
-    `getFolderShellName` and never leaves `TmuxInfraService`. The running-agents list skips these names, which are no
-    session ids.
+    one, `startFolderShellFollow` moves it with the session in view, and `startFolderShellEndOnTerminalClose` ends the
+    shell the user closed. The application names a shell by its folder's path; its tmux session's name,
+    `shell-‹folder›-‹6 hex digits from its path›`, comes from the domain's `getFolderShellName` and never leaves
+    `TmuxInfraService`. The running-agents list skips these names, which are no session ids.
   - With no terminal open, `ITmuxInfraService.prepareFolderShellTerminalCommand` builds the command the new terminal
     runs, one tmux command list:
-    `tmux -S ‹socket› -f ‹conf› -u new-session -A -s ‹name› -c ‹folder› [-- sh -c 'exec "$@" "$SHELL" -l' sh systemd-run --user --scope --quiet --collect --] ; set-option -t =‹name›: status on ; set-option -t =‹name›: history-limit 100000 ; set-option -t =‹name›: @aggregor_folder_label ‹label›`.
+    `tmux -S ‹socket› -f ‹conf› -u new-session -A -s ‹name› -c ‹folder› -- sh -c 'unset TMUX TMUX_PANE; exec "$@" "$SHELL" -l' sh [systemd-run --user --scope --quiet --collect --] ; set-option -t =‹name›: status on ; set-option -t =‹name›: history-limit 100000 ; set-option -t =‹name›: @aggregor_folder_label ‹label›`.
     The terminal's own tmux client starts the shell, so the shell gets what VS Code gives a terminal, git's credential
     helper among it, and `-A` attaches when the shell already runs. `assets/tmux.conf` draws the status line from the
     session's `@aggregor_folder_label`, which tmux doesn't read as a format, so any folder name shows as it is.
@@ -208,6 +213,10 @@ The project in view, and the workspace file Aggregor writes for it.
     by the extension, whose own process lacks VS Code's terminal variables: it passes each variable of the shell on
     screen (`show-environment`) with `-e`. A terminal just opened has no client for a moment, so the lookup is tried
     every 50 ms for up to a second, which also covers a double-click.
+  - The follow reads the changes of `viewedSessionId` through a one-slot sliding buffer, as the project switch does, so
+    quick clicks end on the last session, and runs the same switch with the session's folder. A session removed
+    meanwhile, or whose project is no longer listed, moves nothing; any other failure is logged, since no command
+    started it.
   - `TerminalInfraService` keeps which folder's shell the terminal shows, as tmux last said: the use case reads the
     client's `session_path` (`readFolderShellPathShownInTerminal`) after every switch and when the extension starts, and
     hands it over (`assignShownFolderShellPath`). When the terminal closes with `TerminalExitReason.User`,
@@ -225,7 +234,10 @@ The project in view, and the workspace file Aggregor writes for it.
     ended first it started the shell with the shown shell's 12 variables, `GIT_ASKPASS` among them; a double-click ran
     twice and opened one terminal; the trash icon ended only the shell on screen, also after an extension restart on a
     terminal that had switched folder; `exit` ended the shell and closed the terminal; Remove on a worktree session
-    ended its shell; and the reload into Aggregor's workspace closed the terminal with the shell left running.
+    ended its shell; and the reload into Aggregor's workspace closed the terminal with the shell left running. With the
+    terminal on the project's shell, viewing a worktree session moved it to the worktree's shell, started then, in about
+    100 ms, and viewing the root session moved it back, with the panel open and again with it hidden, where it stayed
+    hidden; before any terminal was open, a change of view opened none.
   - Limits: tmux before 3.7 sizes a pane's history as the pane is made, so there a shell keeps an agent's 50,000 lines.
     Without a systemd user manager (macOS, WSL without systemd, a container) a shell runs in the tmux server's cgroup.
     The first switch into Aggregor's workspace reloads the window, which closes the terminal; the shell runs on.
@@ -234,9 +246,14 @@ The project in view, and the workspace file Aggregor writes for it.
     panel showed another folder's terminal (the earlier decision): it opened a hidden panel on every folder change.
   - Still with VS Code terminals: bringing the folder's terminal to the front only once the user moves into the panel,
     which leaves an open panel on the old shell until then; dropping the follow for the row's button alone; Aggregor
-    taking over
-    Ctrl+`to open the panel on the right shell, which a focused session tab sends to its agent unless the command is on`terminal.integrated.commandsToSkipShell`;
-    switching and then closing the panel again, which would close a panel the user had open.
+    taking over Ctrl+Backquote to open the panel on the right shell, which a focused session tab sends to its agent
+    unless the command is on `terminal.integrated.commandsToSkipShell`; switching and then closing the panel again,
+    which would close a panel the user had open.
+  - Moving the Aggregor terminal only on Open Terminal: after each switch of session it shows another folder's shell.
+  - Skipping the switch when the terminal already shows the folder: switching to the shell on screen changes nothing,
+    and costs one tmux round trip a change of view.
+  - Leaving `TMUX` set in the shell: the user's own `tmux` refuses to start there ("sessions should be nested with
+    care"), and `tmux split-window` typed there splits Aggregor's session.
   - A second tmux server for shells: two servers to find, configure and keep apart for no gain.
   - VS Code's default terminal profile as the shell, which a tray icon, with VS Code closed, could not read.
   - No status line, relying on the prompt: with a dev server printing there is no prompt on screen.

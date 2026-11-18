@@ -54,10 +54,12 @@ terminals, tree views, Source Control and diffs.
 - **Terminals.** Each project, and each worktree a session works in, has one shell of its own, running in tmux like the
   agents, so a dev server started there keeps running when you reload the window or quit VS Code. The window has one
   terminal for them, named Aggregor, in the Terminal panel: the terminal button on a project's or a session's row shows
-  it on that folder's shell, and a line at its bottom names the folder. The panel's trash icon ends the shell on screen,
-  and so does `exit`; removing a worktree or a project ends theirs. Its scrollback is tmux's, as in a session's tab: the
-  wheel scrolls it, with no scrollbar and no shell integration. The Terminal panel's + still opens a plain VS Code
-  terminal in the shown project, without asking.
+  it on that folder's shell, and a line at its bottom names the folder. When you switch session, it moves to that
+  session's folder's shell without opening a hidden panel. The panel's trash icon ends the shell on screen, and so does
+  `exit`; removing a worktree or a project ends theirs. Its scrollback is tmux's, as in a session's tab: the wheel
+  scrolls it, with no scrollbar and no shell integration. tmux stays out of sight there and in session tabs: no menus,
+  splits or floating panes, and the shell doesn't see it. The Terminal panel's + still opens a plain VS Code terminal in
+  the shown project, without asking.
 - **Persistent sessions.** Every agent runs in tmux (3.2 or newer), so it keeps working when you close its tab, reload
   the window or quit VS Code; those close the tab, and clicking the session attaches a new one. With
   `aggregorApp.openSessionIn` set to `sharedTab`, one tab shows the session opened last: a running session switches into
@@ -131,7 +133,7 @@ solution and what was turned down.
 - [x] Import a project's earlier Claude Code, Codex, OpenCode and Copilot conversations as sessions
 - [x] Folder shells in tmux: one Aggregor terminal a window, on the shell of the project's or the session's folder,
       which outlives the window
-- [ ] The Aggregor terminal follows the session in view, without opening the Terminal panel
+- [x] The Aggregor terminal follows the session in view, without opening the Terminal panel
 - [ ] Processes on each session's row: what its agent and its folder's shell started, with their memory and CPU
 
 ### M4: tray

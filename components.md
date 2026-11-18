@@ -40,15 +40,16 @@ heading there. Update this file in the same commit as a change that adds, remove
     tmux client with its process id; `switch-client -E -c ‹client› -t =‹sessionId›` attaches the shared tab to another
     running session, and `-E` leaves that session's environment as it is.
   - The window's Aggregor terminal runs tmux the same way for a folder's shell, as one command list:
-    `new-session -A -s shell-‹folder›-‹hash› -c ‹folder› [-- sh -c 'exec "$@" "$SHELL" -l' sh systemd-run … --]`, then
-    `set-option -t =‹name›:` for `status on`, `history-limit 100000` and `@aggregor_folder_label`. The same
+    `new-session -A -s shell-‹folder›-‹hash› -c ‹folder› -- sh -c 'unset TMUX TMUX_PANE; exec "$@" "$SHELL" -l' sh [systemd-run … --]`,
+    then `set-option -t =‹name›:` for `status on`, `history-limit 100000` and `@aggregor_folder_label`. The same
     `list-clients` line, with `#{session_path}`, reads which folder's shell that terminal shows, and the same
     `switch-client` attaches it to another's; one not running yet is started first with `new-session -d` and an `-e` for
     each line of the shown shell's `show-environment`. `kill-session` ends a shell.
   - `assets/tmux.conf` replaces `~/.tmux.conf`: no prefix, no status bar but a shell's own line, which shows its
-    session's `@aggregor_folder_label`, mouse on, 50,000 lines of history, `escape-time 0`, `focus-events`,
-    `extended-keys`, `window-size latest`, 24-bit colour, OSC 52, and `update-environment` for VS Code's terminal
-    variables and `AGGREGOR_SESSION_ID`.
+    session's `@aggregor_folder_label`, mouse on with only a plain terminal's bindings (`unbind-key -a -T root`, then
+    the wheel, drag, double, triple and middle clicks, and clicks passed to apps that ask), 50,000 lines of history,
+    `escape-time 0`, `focus-events`, `extended-keys`, `window-size latest`, 24-bit colour, OSC 52, and
+    `update-environment` for VS Code's terminal variables and `AGGREGOR_SESSION_ID`.
 - **`tmux.sock`:** the Unix socket Aggregor's own tmux server listens on. `getTmuxSocketPath`
   (`apps/extension/src/infrastructure/utils/tmuxSocket.utils.ts`) puts it in the Aggregor folder: `~/.aggregor`,
   `~/.aggregorDev` for the F5 build (`.vscode/launch.json` sets `AGGREGOR_HOME`), or `$AGGREGOR_HOME`. Every call passes

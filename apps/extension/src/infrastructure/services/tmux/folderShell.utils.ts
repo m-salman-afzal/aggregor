@@ -27,12 +27,11 @@ const nameFolderShell = Effect.fn("TmuxInfraService.nameFolderShell")(function* 
   return yield* getFolderShellName(tmuxServer.path.basename(folderPath), folderPath);
 });
 
-// Given no command, tmux starts the user's shell as a login shell; in a scope of its own it is started the same way.
+// The shell sees no tmux, as in a plain terminal: the user's own tmux starts there, and none of its commands reach Aggregor's.
 const prepareShellArguments = Effect.fn("TmuxInfraService.prepareShellArguments")(function* (tmuxServer: TmuxServer) {
   const ownScopeArguments = yield* prepareOwnScopeArguments(tmuxServer, undefined);
-  if (ownScopeArguments.length === 0) return [];
 
-  return ["--", TMUX.SETUP_SHELL, "-c", 'exec "$@" "$SHELL" -l', TMUX.SETUP_SHELL, ...ownScopeArguments];
+  return ["--", TMUX.SETUP_SHELL, "-c", FOLDER_SHELL.START_SCRIPT, TMUX.SETUP_SHELL, ...ownScopeArguments];
 });
 
 // One tmux command list: the shell's session, then the session's own options, which tmux applies to the pane it has.
