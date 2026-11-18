@@ -57,28 +57,41 @@ Where a session works: its project's root, or a git worktree of its own.
 
 - **Problem:** a worktree needs a folder, a branch and a commit to start from, and the project its own place for them.
 - **Decision:** the worktree is created when the session is, from the project's `HEAD` unless New Session's **From**
-  names a branch: Current commit (the project's checked-out branch shown under it), each local branch, then origin's, as
-  of the last fetch, since the dialog never waits on the network. The worktree gets its own branch either way, starting
-  at the chosen one, and From always opens on Current commit. It is named after the session's default name: "jsTester
-  #3" works in `jstester-3`, on `aggregor/jstester-3`; a name taken as a branch or a folder gets `-2`, `-3` and so on.
-  It goes in `~/.aggregor/worktrees/<project>-<6 characters of its id>/`, or the project's worktree folder setting. The
-  project's files to copy (its `.worktreeinclude`, else its settings' patterns, `.env*` by default) are copied in,
-  matched as .gitignore matches them, and its setup script runs in the session's tab before the agent, on the first
-  start only; the agent starts whether or not the script succeeds. The session stores `worktreePath`; its tab, tmux
-  session and agent work there (`SessionEntity.workingFolderPath`), and the window shows the worktree while the session
-  is in front, so Explorer, search and Source Control show the session's own changes. A worktree shown is not listed as
-  a project.
-- **Solution:** `IWorktreeInfraService` (`infrastructure/services/git/`) runs `git worktree` on the command line;
-  `createWorktree` takes the start point, and `listBranchNames` reads `refs/heads` and `refs/remotes/origin` with
-  `git for-each-ref`, leaving out `origin/HEAD`. The webview asks for the branches with `LIST_BRANCHES` when New
-  worktree is picked, and again when the project changes under it, and fills From in when `BRANCHES_DRAWN` comes back;
-  until then only Current commit is offered.
+  names a branch. From's dropdown has a **Local** tab (Current commit, with the project's checked-out branch shown under
+  it, then each local branch) and a **Remote** tab (origin's branches, labelled `origin/<name>`), so which side a branch
+  is on shows at a glance, and the chosen one keeps its `origin/` in the closed dropdown; search filters the open tab,
+  and the dropdown opens on the tab holding the chosen branch. The branches show at once as of the last fetch, so the
+  dialog never waits on the network; `git fetch --prune origin` runs behind them, a spinner on the Remote tab says so,
+  and the list is drawn again when it ends. A fetch that fails or passes 30 s (offline, signed out, a slow origin) only
+  leaves the list as it was; git is never left waiting on a credential prompt. Local branches are not fast-forwarded:
+  the Remote tab is where the latest is. The worktree gets its own branch either way, starting at the chosen one, and
+  From always opens on Current commit. It is named after the session's default name: "jsTester #3" works in
+  `jstester-3`, on `aggregor/jstester-3`; a name taken as a branch or a folder gets `-2`, `-3` and so on. It goes in
+  `~/.aggregor/worktrees/<project>-<6 characters of its id>/`, or the project's worktree folder setting. The project's
+  files to copy (its `.worktreeinclude`, else its settings' patterns, `.env*` by default) are copied in, matched as
+  .gitignore matches them, and its setup script runs in the session's tab before the agent, on the first start only; the
+  agent starts whether or not the script succeeds. The session stores `worktreePath`; its tab, tmux session and agent
+  work there (`SessionEntity.workingFolderPath`), and the window shows the worktree while the session is in front, so
+  Explorer, search and Source Control show the session's own changes. A worktree shown is not listed as a project.
+- **Solution:** `IWorktreeInfraService` (`infrastructure/services/git/`) runs `git worktree` on the command line, with
+  `GIT_TERMINAL_PROMPT=0`; `createWorktree` takes the start point, `listBranchNames` reads `refs/heads` and
+  `refs/remotes/origin` with `git for-each-ref` into `localBranchNames` and `remoteBranchNames`, leaving out
+  `origin/HEAD`, and `fetchRemote` runs the fetch. The webview asks for the branches with `LIST_BRANCHES` when New
+  worktree is picked, and again when the project changes under it; `WorktreeService.listProjectBranches` returns a
+  stream of two `ProjectBranchesDto`s, the refs as they are with `isFetchingRemote` and the refs after the fetch without
+  it, and the view posts each as `BRANCHES_DRAWN`. Until the first comes back only Current commit is offered. The tabs
+  are shadcn's on Base UI (`@pkg/ui`'s `tabs.tsx`), above the combobox's list in `OptionPickerPopup`.
 
 - **Alternatives considered:** the Git extension's `createWorktree` and `state.worktrees`, agreed first: its API reaches
   only repositories open in Source Control, so every project would have to be opened there to list or create its
   worktrees. Worktrees beside the repository or inside it (`.worktrees/`, which needs a `.gitignore` entry). The
-  repository's default branch as the base. Fetching before listing the branches, which waits on the network. Reading the
-  branches on every project draw, a git process each time. A project setting for the default start point.
+  repository's default branch as the base. Fetching before listing the branches, which waits on the network; fetching
+  only when a remote branch is chosen, which still starts from stale lists. One list with local and remote branches
+  mixed, agreed first: `dev` and `origin/dev` read alike at a glance. Remote names without `origin/`, which hides the
+  side once the dropdown closes. Two plain buttons instead of a tab component. Fast-forwarding local branches after the
+  fetch, which writes refs the user may have checked out. No fetching indicator, the list just changing under the user.
+  The prune's 10 s timeout, which a big fetch outlasts and is then killed every time. Reading the branches on every
+  project draw, a git process each time. A project setting for the default start point.
 
 ## A worktree's branch takes the session's first title, and its menu renames it
 

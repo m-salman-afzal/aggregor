@@ -23,6 +23,7 @@ import type {
   CopyIncludedFilesRequest,
   CreateWorktreeRequest,
   GitWorktree,
+  ProjectBranchNames,
   WorktreeBranch,
   WorktreeDiffStats
 } from "@interfaces/worktree.infraService.interface.ts";
@@ -43,7 +44,10 @@ class GitCommandFailedError extends Schema.TaggedError<GitCommandFailedError, {r
 const runGitCommand = Effect.fn("WorktreeInfraService.runGitCommand")(
   function* (worktreeDependencies: WorktreeDependencies, repositoryPath: string, gitArguments: readonly string[]) {
     const gitProcess = yield* worktreeDependencies.childProcessSpawner.spawn(
-      ChildProcess.make(GIT_COMMAND.COMMAND, ["-C", repositoryPath, ...gitArguments])
+      ChildProcess.make(GIT_COMMAND.COMMAND, ["-C", repositoryPath, ...gitArguments], {
+        env: GIT_COMMAND.ENVIRONMENT,
+        extendEnv: true
+      })
     );
     const [standardOutput, errorOutput, exitCode] = yield* Effect.all(
       [
@@ -435,18 +439,34 @@ const listAggregorBranches = Effect.fn("WorktreeInfraService.listAggregorBranche
 );
 
 // origin/HEAD is a symbolic ref to origin's default branch, which is listed on its own.
+const listReferenceNames = Effect.fn("WorktreeInfraService.listReferenceNames")(function* (
+  worktreeDependencies: WorktreeDependencies,
+  projectPath: ProjectPathValueObject,
+  referencePrefix: string
+) {
+  const referenceOutput = yield* runGitCommand(worktreeDependencies, projectPath, [
+    "for-each-ref",
+    "--format=%(refname:short)%09%(symref)",
+    referencePrefix
+  ]);
+  const referenceLines = Array.filter(String.split("\n")(referenceOutput), String.isNonEmpty);
+  const branchReferenceLines = Array.filter(referenceLines, (referenceLine) => String.endsWith("\t")(referenceLine));
+
+  return Array.map(branchReferenceLines, (branchReferenceLine) => String.trim(branchReferenceLine));
+});
+
 const listBranchNames = Effect.fn("WorktreeInfraService.listBranchNames")(
   function* (worktreeDependencies: WorktreeDependencies, projectPath: ProjectPathValueObject) {
-    const referenceOutput = yield* runGitCommand(worktreeDependencies, projectPath, [
-      "for-each-ref",
-      "--format=%(refname:short)%09%(symref)",
-      GIT_COMMAND.BRANCH_REF_PREFIX,
-      GIT_COMMAND.REMOTE_BRANCH_REF_PREFIX
-    ]);
-    const referenceLines = Array.filter(String.split("\n")(referenceOutput), String.isNonEmpty);
-    const branchReferenceLines = Array.filter(referenceLines, (referenceLine) => String.endsWith("\t")(referenceLine));
+    const projectBranchNames: ProjectBranchNames = {
+      localBranchNames: yield* listReferenceNames(worktreeDependencies, projectPath, GIT_COMMAND.BRANCH_REF_PREFIX),
+      remoteBranchNames: yield* listReferenceNames(
+        worktreeDependencies,
+        projectPath,
+        GIT_COMMAND.REMOTE_BRANCH_REF_PREFIX
+      )
+    };
 
-    return Array.map(branchReferenceLines, (branchReferenceLine) => String.trim(branchReferenceLine));
+    return projectBranchNames;
   },
   Effect.mapError(() => NotGitRepositoryError.make())
 );
@@ -491,6 +511,15 @@ const pruneRemote = Effect.fn("WorktreeInfraService.pruneRemote")(
   },
   Effect.timeout(GIT_COMMAND.PRUNE_TIMEOUT),
   Effect.ignore({log: "Debug", message: "Could not prune origin's branches"})
+);
+
+// --prune, so a branch deleted on origin leaves the Remote tab too.
+const fetchRemote = Effect.fn("WorktreeInfraService.fetchRemote")(
+  function* (worktreeDependencies: WorktreeDependencies, projectPath: ProjectPathValueObject) {
+    yield* runGitCommand(worktreeDependencies, projectPath, ["fetch", "--prune", "origin"]);
+  },
+  Effect.timeout(GIT_COMMAND.FETCH_TIMEOUT),
+  Effect.ignore({log: "Debug", message: "Could not fetch origin's branches"})
 );
 
 // -D, since a squash-merged branch never looks merged to git; the user picked it.
@@ -588,6 +617,7 @@ const wireBranchMembers = Effect.fn("WorktreeInfraService.wireBranchMembers")(fu
   return {
     deleteBranch: (projectPath: ProjectPathValueObject, branchName: string) =>
       deleteBranch(worktreeDependencies, projectPath, branchName),
+    fetchRemote: (projectPath: ProjectPathValueObject) => fetchRemote(worktreeDependencies, projectPath),
     findBaseBranch: (projectPath: ProjectPathValueObject) => findBaseBranch(worktreeDependencies, projectPath),
     findFreeBranchName: (worktreePath: ProjectPathValueObject, branchName: string) =>
       findFreeBranchName(worktreeDependencies, worktreePath, branchName),
