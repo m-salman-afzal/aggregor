@@ -1,15 +1,24 @@
+import {ProfileTerminalDtoSchema} from "@dtos/folderShell.dto.ts";
+import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
+import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {FOLDER_SHELL_STATUS_LABEL} from "@pkg/constants/src/terminal.constant.ts";
+import {findEntities} from "@services/base.service.ts";
 import {findProjectListItem} from "@services/project.service.ts";
 import {findSession} from "@services/session.service.ts";
-import {Effect, Result, Stream, SubscriptionRef} from "effect";
+import {Effect, Result, Schema, Stream, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
 import type {OpenProjectTerminalRequestDto, OpenSessionFolderTerminalRequestDto} from "@dtos/folderShell.dto.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {FolderShellRequest} from "@interfaces/tmux.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+
+export class NoShownFolderError extends Schema.TaggedError<NoShownFolderError, {readonly brand: unique symbol}>()(
+  "NoShownFolderError",
+  {}
+) {}
 
 // The extension can restart under the open terminal, which shows the shell tmux last attached it to.
 export const syncFolderShellTerminalWithTmux = Effect.fn("FolderShellService.syncFolderShellTerminalWithTmux")(
@@ -135,3 +144,44 @@ export const startFolderShellEndOnTerminalClose = Effect.fn("FolderShellService.
     );
   }
 );
+
+// A worktree shown in the window is no project, so its shell takes the label of a session working there.
+const prepareShownFolderShellRequest = Effect.fn("FolderShellService.prepareShownFolderShellRequest")(function* () {
+  const workspaceFolderProjects = yield* IWorkspaceInfraService.use(
+    (workspaceInfraService) => workspaceInfraService.listWorkspaceFolderProjects
+  );
+  const [shownFolder] = workspaceFolderProjects;
+  if (shownFolder === undefined) return yield* NoShownFolderError.make();
+  const [worktreeSession] = yield* findEntities(ISessionRepository, {worktreePath: shownFolder.path});
+  if (worktreeSession !== undefined) return yield* prepareSessionFolderShellRequest(worktreeSession);
+  const shownProject = yield* findProjectListItem(shownFolder.path);
+  const folderShellRequest: FolderShellRequest = {folderPath: shownProject.path, statusLabel: shownProject.name};
+
+  return folderShellRequest;
+});
+
+// The session in view picks the shell, as the follow would; with none in view, the folder shown in the window does.
+const prepareProfileFolderShellRequest = Effect.fn("FolderShellService.prepareProfileFolderShellRequest")(function* () {
+  const viewedSessionId = yield* ITerminalInfraService.use((terminalInfraService) =>
+    SubscriptionRef.get(terminalInfraService.viewedSessionId)
+  );
+  if (Result.isFailure(viewedSessionId)) return yield* prepareShownFolderShellRequest();
+  const viewedSession = yield* findSession(viewedSessionId.success);
+
+  return yield* prepareSessionFolderShellRequest(viewedSession);
+});
+
+// VS Code opens its default terminal when the panel shows none and on every +: the first is the Aggregor terminal.
+export const prepareProfileTerminal = Effect.fn("FolderShellService.prepareProfileTerminal")(function* () {
+  const terminalInfraService = yield* ITerminalInfraService;
+  const openFolderShellTerminal = yield* Effect.result(terminalInfraService.findFolderShellTerminalProcessId);
+  if (Result.isSuccess(openFolderShellTerminal)) return ProfileTerminalDtoSchema.make({});
+  const folderShellRequest = yield* prepareProfileFolderShellRequest();
+  const terminalCommand = yield* ITmuxInfraService.use((tmuxInfraService) =>
+    tmuxInfraService.prepareFolderShellTerminalCommand(folderShellRequest)
+  );
+  const folderShellTerminal = yield* terminalInfraService.prepareFolderShellTerminalOptions(terminalCommand);
+  yield* terminalInfraService.assignShownFolderShellPath(folderShellRequest.folderPath);
+
+  return ProfileTerminalDtoSchema.make({folderShellTerminal});
+});

@@ -1,15 +1,18 @@
-import {readTerminalEnvironmentVariable, readTerminalProcessId} from "@infraServices/vscode/terminal/terminal.utils.ts";
+import {readTerminalProcessId} from "@infraServices/vscode/terminal/terminal.utils.ts";
 import {
   NoFolderShellTerminalOpenError,
   TerminalLaunchFailedError
 } from "@interfaces/terminal.infraService.interface.ts";
 import {FOLDER_SHELL_TERMINAL} from "@pkg/constants/src/terminal.constant.ts";
 import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
-import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
-import {Array, Effect, Predicate, Result, Schema, Stream, SubscriptionRef} from "effect";
+import {Array, Effect, Result, Schema, Stream, SubscriptionRef} from "effect";
 
 import type {TerminalDependencies} from "@infraServices/vscode/terminal/terminal.infraService.type.ts";
-import type {FolderShellTerminalRequest} from "@interfaces/terminal.infraService.interface.ts";
+import type {
+  FolderShellTerminalOptions,
+  FolderShellTerminalRequest,
+  TerminalCommand
+} from "@interfaces/terminal.infraService.interface.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {Terminal} from "vscode";
 
@@ -18,33 +21,17 @@ class FolderShellNotClosedByUserError extends Schema.TaggedError<
   {readonly brand: unique symbol}
 >()("FolderShellNotClosedByUserError", {}) {}
 
-const readOpeningFolderPath = Effect.fn("TerminalInfraService.readOpeningFolderPath")(function* (terminal: Terminal) {
-  return yield* readTerminalEnvironmentVariable(terminal, FOLDER_SHELL_TERMINAL.FOLDER_PATH_ENV);
-});
-
+// A terminal VS Code restores after a reload keeps its name but not the env it was launched with.
 const findFolderShellTerminal = Effect.fn("TerminalInfraService.findFolderShellTerminal")(function* (
   terminals: readonly Terminal[]
 ) {
-  const openingFolderPaths = yield* Effect.forEach(terminals, (terminal) => readOpeningFolderPath(terminal));
   const folderShellTerminal = Array.findFirst(
     terminals,
-    (terminal, terminalIndex) =>
-      terminal.exitStatus === undefined && Predicate.isString(openingFolderPaths[terminalIndex])
+    (terminal) => terminal.exitStatus === undefined && terminal.name === FOLDER_SHELL_TERMINAL.NAME
   );
 
   return yield* Effect.fromResult(Result.fromOption(folderShellTerminal, () => NoFolderShellTerminalOpenError.make()));
 });
-
-// The folder the open terminal was launched with stands in until tmux says which folder's shell it shows.
-export const readOpeningFolderShellPath = Effect.fn("TerminalInfraService.readOpeningFolderShellPath")(
-  function* (terminals: readonly Terminal[]) {
-    const folderShellTerminal = yield* findFolderShellTerminal(terminals);
-    const openingFolderPath = yield* readOpeningFolderPath(folderShellTerminal);
-
-    return Predicate.isString(openingFolderPath) ? ProjectPathValueObjectSchema.make(openingFolderPath) : undefined;
-  },
-  Effect.catchTag("NoFolderShellTerminalOpenError", () => Effect.undefined)
-);
 
 export const findFolderShellTerminalProcessId = Effect.fn("TerminalInfraService.findFolderShellTerminalProcessId")(
   function* (window: TerminalDependencies["window"]) {
@@ -58,19 +45,34 @@ export const findFolderShellTerminalProcessId = Effect.fn("TerminalInfraService.
 );
 
 // VS Code labels a terminal with the folder it starts in, so this one starts in Aggregor's, not in one of those it shows.
+export const prepareFolderShellTerminalOptions = Effect.fn("TerminalInfraService.prepareFolderShellTerminalOptions")(
+  function* (aggregorFolderPath: string, terminalCommand: TerminalCommand) {
+    const folderShellTerminalOptions: FolderShellTerminalOptions = {
+      cwd: aggregorFolderPath,
+      name: FOLDER_SHELL_TERMINAL.NAME,
+      shellArgs: terminalCommand.commandArguments,
+      shellPath: terminalCommand.command
+    };
+
+    return folderShellTerminalOptions;
+  }
+);
+
 const launchFolderShellTerminal = Effect.fn("TerminalInfraService.launchFolderShellTerminal")(function* (
   terminalDependencies: TerminalDependencies,
   folderShellTerminalRequest: FolderShellTerminalRequest
 ) {
+  const folderShellTerminalOptions = yield* prepareFolderShellTerminalOptions(
+    terminalDependencies.aggregorFolderPath,
+    folderShellTerminalRequest.terminalCommand
+  );
+
   return yield* Effect.try({
     catch: (cause) => TerminalLaunchFailedError.make({cause}),
     try: () =>
       terminalDependencies.window.createTerminal({
-        cwd: terminalDependencies.aggregorFolderPath,
-        env: {[FOLDER_SHELL_TERMINAL.FOLDER_PATH_ENV]: folderShellTerminalRequest.folderPath},
-        name: FOLDER_SHELL_TERMINAL.NAME,
-        shellArgs: [...folderShellTerminalRequest.terminalCommand.commandArguments],
-        shellPath: folderShellTerminalRequest.terminalCommand.command
+        ...folderShellTerminalOptions,
+        shellArgs: [...folderShellTerminalOptions.shellArgs]
       })
   });
 });
@@ -118,12 +120,11 @@ const findFolderShellPathClosedByUser = Effect.fn("TerminalInfraService.findFold
   terminalDependencies: TerminalDependencies,
   closedTerminal: Terminal
 ) {
-  const openingFolderPath = yield* readOpeningFolderPath(closedTerminal);
   const shownFolderShellPath = yield* SubscriptionRef.get(terminalDependencies.shownFolderShellPath);
   const isClosedByUser =
     closedTerminal.exitStatus !== undefined &&
     closedTerminal.exitStatus.reason === terminalDependencies.TerminalExitReason.User;
-  if (!Predicate.isString(openingFolderPath) || !isClosedByUser || shownFolderShellPath === undefined)
+  if (closedTerminal.name !== FOLDER_SHELL_TERMINAL.NAME || !isClosedByUser || shownFolderShellPath === undefined)
     return yield* FolderShellNotClosedByUserError.make();
 
   return shownFolderShellPath;

@@ -12,6 +12,7 @@ import {
   Range,
   TabInputTerminal,
   TerminalExitReason,
+  TerminalProfile,
   ThemeColor,
   ThemeIcon,
   TreeItem,
@@ -44,6 +45,7 @@ export class VsCodeApi extends Context.Service<
     readonly Range: typeof Range;
     readonly TabInputTerminal: typeof TabInputTerminal;
     readonly TerminalExitReason: typeof TerminalExitReason;
+    readonly TerminalProfile: typeof TerminalProfile;
     readonly ThemeColor: typeof ThemeColor;
     readonly ThemeIcon: typeof ThemeIcon;
     readonly TreeItem: typeof TreeItem;
@@ -72,6 +74,7 @@ export class VsCodeApi extends Context.Service<
       Range,
       TabInputTerminal,
       TerminalExitReason,
+      TerminalProfile,
       ThemeColor,
       ThemeIcon,
       TreeItem,
