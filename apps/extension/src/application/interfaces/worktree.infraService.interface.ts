@@ -25,6 +25,12 @@ export interface WorktreeBranch {
   readonly worktreePath: string;
 }
 
+export interface ProjectBranchNames {
+  readonly localBranchNames: readonly string[];
+  // origin's, as of the last fetch.
+  readonly remoteBranchNames: readonly string[];
+}
+
 export interface BranchMergeCheck {
   readonly baseBranchName: string;
   readonly branchName: string;
@@ -85,6 +91,8 @@ export class IWorktreeInfraService extends Context.Service<
       projectPath: ProjectPathValueObject,
       branchName: string
     ) => Effect.Effect<void, BranchDeleteFailedError>;
+    // Network: brings origin's branches up to date; offline, nothing changes.
+    readonly fetchRemote: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;
     // origin's default branch, or the project's own checked-out branch when there is no origin.
     readonly findBaseBranch: (projectPath: ProjectPathValueObject) => Effect.Effect<string, NotGitRepositoryError>;
     readonly findFreeBranchName: (
@@ -103,10 +111,9 @@ export class IWorktreeInfraService extends Context.Service<
     readonly listAggregorBranches: (
       projectPath: ProjectPathValueObject
     ) => Effect.Effect<readonly WorktreeBranch[], NotGitRepositoryError>;
-    // The local branches, then origin's as of the last fetch.
     readonly listBranchNames: (
       projectPath: ProjectPathValueObject
-    ) => Effect.Effect<readonly string[], NotGitRepositoryError>;
+    ) => Effect.Effect<ProjectBranchNames, NotGitRepositoryError>;
     readonly listWorktrees: (
       projectPath: ProjectPathValueObject
     ) => Effect.Effect<readonly GitWorktree[], NotGitRepositoryError>;

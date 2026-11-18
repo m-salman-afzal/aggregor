@@ -12,6 +12,7 @@ import type {
   NewSessionChoices,
   NewSessionOptionGroup,
   NewSessionOptionSources,
+  NewSessionOptionTab,
   NewSessionRequestChoices
 } from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.type.ts";
 import type {UserInputOption} from "@/modules/sessions/sessions.type.ts";
@@ -239,33 +240,50 @@ const toWorkingTreeGroup = (
   options: toWorkingTreeOptions(projectRow, optionSources.allProjectRows, optionSources.movedSession)
 });
 
+const toBranchOptions = (branchNames: readonly string[] | undefined): readonly UserInputOption[] =>
+  (branchNames ?? []).map((branchName) => ({label: branchName, optionId: branchName}));
+
 // Branches read for another project aren't offered; until this project's arrive, only the current commit is.
-const toBaseBranchOptions = (
+const toBaseBranchTabs = (
   branches: ProjectBranchesDto | undefined,
   projectPath: string
-): readonly UserInputOption[] => {
+): readonly NewSessionOptionTab[] => {
   const projectBranches = branches?.projectPath === projectPath ? branches : undefined;
+  const currentCommitOption: UserInputOption = {
+    ...(projectBranches?.currentBranchName === undefined ? {} : {description: projectBranches.currentBranchName}),
+    label: SESSION_LABELS.CURRENT_COMMIT,
+    optionId: CURRENT_COMMIT_OPTION_ID
+  };
 
   return [
     {
-      ...(projectBranches?.currentBranchName === undefined ? {} : {description: projectBranches.currentBranchName}),
-      label: SESSION_LABELS.CURRENT_COMMIT,
-      optionId: CURRENT_COMMIT_OPTION_ID
+      isLoading: false,
+      label: SESSION_LABELS.LOCAL_BRANCHES_TAB,
+      options: [currentCommitOption, ...toBranchOptions(projectBranches?.localBranchNames)]
     },
-    ...(projectBranches?.branchNames ?? []).map((branchName) => ({label: branchName, optionId: branchName}))
+    {
+      isLoading: projectBranches === undefined || projectBranches.isFetchingRemote,
+      label: SESSION_LABELS.REMOTE_BRANCHES_TAB,
+      options: toBranchOptions(projectBranches?.remoteBranchNames)
+    }
   ];
 };
 
-const toBaseBranchGroup = (optionSources: NewSessionOptionSources): NewSessionOptionGroup => ({
-  chosenOptionId: optionSources.choices.baseBranchName,
-  isDropdown: true,
-  legend: SESSION_LABELS.BASE_BRANCH_SECTION,
-  name: NEW_SESSION_FIELDS.BASE_BRANCH,
-  onChoose: (baseBranchName) => {
-    optionSources.choose({baseBranchName});
-  },
-  options: toBaseBranchOptions(optionSources.branches, optionSources.choices.projectPath)
-});
+const toBaseBranchGroup = (optionSources: NewSessionOptionSources): NewSessionOptionGroup => {
+  const baseBranchTabs = toBaseBranchTabs(optionSources.branches, optionSources.choices.projectPath);
+
+  return {
+    chosenOptionId: optionSources.choices.baseBranchName,
+    isDropdown: true,
+    legend: SESSION_LABELS.BASE_BRANCH_SECTION,
+    name: NEW_SESSION_FIELDS.BASE_BRANCH,
+    onChoose: (baseBranchName) => {
+      optionSources.choose({baseBranchName});
+    },
+    options: baseBranchTabs.flatMap((baseBranchTab) => baseBranchTab.options),
+    optionTabs: baseBranchTabs
+  };
+};
 
 export const makeOptionGroups = (optionSources: NewSessionOptionSources): readonly NewSessionOptionGroup[] => {
   const projectRow = findProjectRow(optionSources.projectRows, optionSources.choices.projectPath);

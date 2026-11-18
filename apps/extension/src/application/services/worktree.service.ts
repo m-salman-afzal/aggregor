@@ -7,7 +7,7 @@ import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface
 import {findEntities, findEntityById, removeEntity, updateEntity} from "@services/base.service.ts";
 import {findProjectListItem} from "@services/project.service.ts";
 import {SESSION_LIFECYCLES} from "@valueObjects/sessionLifecycle.valueObject.ts";
-import {Array, Effect, Result, Schema, SubscriptionRef} from "effect";
+import {Array, Effect, Result, Schema, Stream, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
 import type {ProjectListItemDto} from "@dtos/project.dto.ts";
@@ -256,17 +256,39 @@ export const removeSessionWorktree = Effect.fn("WorktreeService.removeSessionWor
   Effect.catchTag("EntityNotFoundError", () => Effect.void)
 );
 
-// What a new worktree can start from; reads local refs only, so the dialog never waits on the network.
+const readProjectBranches = Effect.fn("WorktreeService.readProjectBranches")(function* (
+  projectPath: ProjectPathValueObject,
+  isFetchingRemote: boolean
+) {
+  const worktreeInfraService = yield* IWorktreeInfraService;
+  const currentBranchNameResult = yield* Effect.result(worktreeInfraService.readBranchName(projectPath));
+  const projectBranchNames = yield* worktreeInfraService.listBranchNames(projectPath);
+
+  return ProjectBranchesDtoSchema.make({
+    currentBranchName: Result.getOrUndefined(currentBranchNameResult),
+    isFetchingRemote,
+    localBranchNames: projectBranchNames.localBranchNames,
+    projectPath,
+    remoteBranchNames: projectBranchNames.remoteBranchNames
+  });
+});
+
+const fetchProjectBranches = Effect.fn("WorktreeService.fetchProjectBranches")(function* (
+  projectPath: ProjectPathValueObject
+) {
+  yield* IWorktreeInfraService.use((worktreeInfraService) => worktreeInfraService.fetchRemote(projectPath));
+
+  return yield* readProjectBranches(projectPath, false);
+});
+
+// What a new worktree can start from: the refs as they are at once, so the dialog never waits, then again once fetched.
 export const listProjectBranches = Effect.fn("WorktreeService.listProjectBranches")(function* (
   request: ListProjectBranchesRequestDto
 ) {
-  const worktreeInfraService = yield* IWorktreeInfraService;
   const projectListItem = yield* findProjectListItem(request.projectPath);
-  const currentBranchNameResult = yield* Effect.result(worktreeInfraService.readBranchName(projectListItem.path));
 
-  return ProjectBranchesDtoSchema.make({
-    branchNames: yield* worktreeInfraService.listBranchNames(projectListItem.path),
-    currentBranchName: Result.getOrUndefined(currentBranchNameResult),
-    projectPath: projectListItem.path
-  });
+  return Stream.concat(
+    Stream.fromEffect(readProjectBranches(projectListItem.path, true)),
+    Stream.fromEffect(fetchProjectBranches(projectListItem.path))
+  );
 });
