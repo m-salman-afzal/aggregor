@@ -125,6 +125,11 @@ const startNewSession = (newSessionRequest: CommandRequest) => {
   if (userInput?._tag === USER_INPUT_TAGS.NEW_SESSION) userInput.onStart(newSessionRequest);
 };
 
+const moveSessionToWorkingTree = (changeWorkingTreeRequest: CommandRequest) => {
+  const userInput = takeUserInput();
+  if (userInput?._tag === USER_INPUT_TAGS.WORKING_TREE) userInput.onMove(changeWorkingTreeRequest);
+};
+
 const hideWorktreeTrustHint = () => {
   setSessionsData({...sessionsData, isWorktreeTrustHintHidden: true});
 };
@@ -159,6 +164,7 @@ export const useSessionsStore = <Selected>(props: UseSessionsStoreProps<Selected
       hideWorktreeTrustHint,
       importChosenSessions,
       markViewedSession,
+      moveSessionToWorkingTree,
       revealSessionsProject,
       saveProjectSettings,
       setListOpen,

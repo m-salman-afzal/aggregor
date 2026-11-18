@@ -17,6 +17,7 @@ export const pickUserInputIcon = (userInput: UserInput) => {
   if (userInput._tag === USER_INPUT_TAGS.TEXT) return USER_INPUT_ICONS.TEXT;
   if (userInput._tag === USER_INPUT_TAGS.PROJECT_SETTINGS) return USER_INPUT_ICONS.PROJECT_SETTINGS;
   if (userInput._tag === USER_INPUT_TAGS.CLEAN_UP) return USER_INPUT_ICONS.CLEAN_UP;
+  if (userInput._tag === USER_INPUT_TAGS.WORKING_TREE) return USER_INPUT_ICONS.WORKING_TREE;
 
   return isDestructiveUserInput(userInput) ? USER_INPUT_ICONS.DESTRUCTIVE_QUESTION : USER_INPUT_ICONS.QUESTION;
 };

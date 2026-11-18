@@ -94,6 +94,8 @@
               ],
               "resumeArgs": [
                 "resume",
+                "-C",
+                ".",
                 "--no-daemon",
                 "-c",
                 "tui.terminal_title=[\"thread-title\"]",

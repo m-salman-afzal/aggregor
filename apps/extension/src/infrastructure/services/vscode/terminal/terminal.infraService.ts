@@ -178,12 +178,27 @@ const closeOtherSessionTerminals = Effect.fn("TerminalInfraService.closeOtherSes
   });
 });
 
-// Disposing fires onDidCloseTerminal, which drops the map entry.
+const forgetClosedTerminal = Effect.fn("TerminalInfraService.forgetClosedTerminal")(
+  function* (sessionTerminals: SessionTerminalsReference, closedTerminal: Terminal) {
+    const sessionId = yield* findTrackedSessionId(sessionTerminals, closedTerminal);
+
+    yield* SubscriptionRef.update(sessionTerminals, (currentTerminals) => {
+      const remainingTerminals = new Map(currentTerminals);
+      remainingTerminals.delete(sessionId);
+
+      return remainingTerminals;
+    });
+  },
+  Effect.catchTag("UntrackedTerminalError", () => Effect.void)
+);
+
+// onDidCloseTerminal fires later, so the entry goes now, or a tab opened at once for the session would reuse the disposed one.
 const closeSessionTerminal = Effect.fn("TerminalInfraService.closeSessionTerminal")(function* (
   sessionTerminals: SessionTerminalsReference,
   sessionId: EntityIdValueObject
 ) {
   const sessionTerminal = yield* findSessionTerminal(sessionTerminals, sessionId);
+  yield* forgetClosedTerminal(sessionTerminals, sessionTerminal);
 
   yield* Effect.sync(() => {
     sessionTerminal.dispose();
@@ -208,20 +223,6 @@ const watchActivatedSessionIds = Effect.fn("TerminalInfraService.watchActivatedS
     Effect.result(findActiveTerminalSessionId(terminalDependencies.sessionTerminals, activeTerminal))
   );
 });
-
-const forgetClosedTerminal = Effect.fn("TerminalInfraService.forgetClosedTerminal")(
-  function* (sessionTerminals: SessionTerminalsReference, closedTerminal: Terminal) {
-    const sessionId = yield* findTrackedSessionId(sessionTerminals, closedTerminal);
-
-    yield* SubscriptionRef.update(sessionTerminals, (currentTerminals) => {
-      const remainingTerminals = new Map(currentTerminals);
-      remainingTerminals.delete(sessionId);
-
-      return remainingTerminals;
-    });
-  },
-  Effect.catchTag("UntrackedTerminalError", () => Effect.void)
-);
 
 const forgetClosedTerminals = Effect.fn("TerminalInfraService.forgetClosedTerminals")(function* (
   terminalDependencies: TerminalDependencies

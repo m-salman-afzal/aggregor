@@ -1,4 +1,5 @@
 import type {UserInputOption} from "@/modules/sessions/sessions.type.ts";
+import type {SessionListItemDto} from "@dtos/session.dto.ts";
 import type {ProjectBranchesDto} from "@dtos/worktree.dto.ts";
 import type {AgentRowData, ProjectRowData} from "@views/sessions/sessions.view.type.ts";
 
@@ -27,6 +28,7 @@ export interface NewSessionOptionSources {
   readonly choose: (chosenParts: Partial<NewSessionChoices>) => void;
   readonly isAgentShown: boolean;
   readonly isProjectShown: boolean;
+  readonly movedSession?: SessionListItemDto | undefined;
   readonly projectRows: readonly ProjectRowData[];
 }
 

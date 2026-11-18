@@ -14,6 +14,7 @@ import {
   archiveAllOngoingSessions,
   archiveChosenProjectSessions,
   archiveChosenSession,
+  changeChosenSessionWorkingTree,
   moveChosenSessionDown,
   moveChosenSessionUp,
   newSessionInChosenProject,
@@ -74,6 +75,7 @@ export const RoutesLayer = Layer.effectDiscard(
       archiveChosenProjectSessions,
       presentSessionCommandError
     ),
+    registerCommand(SESSION_COMMANDS.CHANGE_WORKING_TREE, changeChosenSessionWorkingTree, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.IMPORT, importChosenSessions, presentSessionImportCommandError),
     registerCommand(SESSION_COMMANDS.MOVE_DOWN, moveChosenSessionDown, presentSessionCommandError),
     registerCommand(SESSION_COMMANDS.MOVE_UP, moveChosenSessionUp, presentSessionCommandError),

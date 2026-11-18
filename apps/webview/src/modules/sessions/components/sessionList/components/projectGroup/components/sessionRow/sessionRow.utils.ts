@@ -2,9 +2,17 @@ import {keepApplyingActions} from "@/modules/sessions/components/sessionList/com
 import {ROW_ACTIONS, SESSIONS_LABELS} from "@/modules/sessions/sessions.constant.ts";
 import {SESSION_ROW_LABELS, STATUS_KIND_LABELS, STATUS_LABELS} from "@pkg/constants/src/sessionsView.constant.ts";
 
+import type {SessionsState} from "@/modules/sessions/stores/sessions/sessions.type.ts";
 import type {SessionListItemDto} from "@dtos/session.dto.ts";
 
-export const listSessionActionGroups = (sessionListItem: SessionListItemDto) =>
+// Only the Sessions list reads a project's worktrees, so an archived session never counts as in git.
+export const selectIsSessionInGitProject = (sessionListItem: SessionListItemDto) => (sessionsState: SessionsState) =>
+  sessionsState.projectRows.some(
+    (projectRow) =>
+      projectRow.projectListItem.path === sessionListItem.projectPath && projectRow.worktrees !== undefined
+  );
+
+export const listSessionActionGroups = (sessionListItem: SessionListItemDto, isInGitProject: boolean) =>
   keepApplyingActions([
     [
       sessionListItem.canMoveUp && ROW_ACTIONS.MOVE_SESSION_UP,
@@ -15,6 +23,7 @@ export const listSessionActionGroups = (sessionListItem: SessionListItemDto) =>
     [
       ROW_ACTIONS.RENAME_SESSION,
       sessionListItem.worktreePath !== undefined && ROW_ACTIONS.RENAME_BRANCH,
+      isInGitProject && ROW_ACTIONS.CHANGE_WORKING_TREE,
       ROW_ACTIONS.REMOVE_SESSION
     ]
   ]);

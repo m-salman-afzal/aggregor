@@ -36,6 +36,7 @@ export interface SessionsState extends SessionsData {
   readonly hideWorktreeTrustHint: () => void;
   readonly importChosenSessions: (importedSessions: readonly ImportedSessionDto[]) => void;
   readonly markViewedSession: (sessionId: string) => void;
+  readonly moveSessionToWorkingTree: (changeWorkingTreeRequest: CommandRequest) => void;
   readonly revealSessionsProject: (projectPath: string) => void;
   readonly saveProjectSettings: (projectSettings: ProjectSettingsDto) => void;
   readonly setListOpen: (listId: SessionListId, isOpen: boolean) => void;

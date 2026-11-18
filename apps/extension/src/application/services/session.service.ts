@@ -36,7 +36,7 @@ import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
 import {GIT_COMMAND} from "@pkg/constants/src/git.constant.ts";
-import {NEW_SESSION_WORKING_TREE_TAGS, SESSION_PAGES, SESSION_RUN_STATE} from "@pkg/constants/src/session.constant.ts";
+import {SESSION_PAGES, SESSION_RUN_STATE, WORKING_TREE_CHOICE_TAGS} from "@pkg/constants/src/session.constant.ts";
 import {SESSION_OPEN_PLACES} from "@pkg/constants/src/terminal.constant.ts";
 import {findAgentToStart} from "@services/agent.service.ts";
 import {
@@ -62,6 +62,7 @@ import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {
   ArchiveProjectSessionsRequestDto,
   ArchiveSessionRequestDto,
+  ChangeSessionWorkingTreeRequestDto,
   GetProjectSessionsRequestDto,
   GetSessionListItemRequestDto,
   ListProjectSessionsRequestDto,
@@ -76,7 +77,8 @@ import type {
   StopArchivedProjectSessionAgentsRequestDto,
   StopProjectSessionAgentsRequestDto,
   StopSessionAgentRequestDto,
-  UnarchiveSessionRequestDto
+  UnarchiveSessionRequestDto,
+  WorkingTreeChoiceDto
 } from "@dtos/session.dto.ts";
 import type {AgentEntity} from "@entities/agent/agent.entity.ts";
 import type {EntityPage} from "@entities/base/base.repository.interface.ts";
@@ -87,11 +89,14 @@ import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {SessionLifecycleValueObject} from "@valueObjects/sessionLifecycle.valueObject.ts";
 
-interface NewSessionDraft {
+interface SessionWorktreeDraft {
   readonly project: ProjectEntity;
   readonly projectName: string;
-  readonly sessionAgent: AgentEntity;
   readonly sessionName: string;
+}
+
+interface NewSessionDraft extends SessionWorktreeDraft {
+  readonly sessionAgent: AgentEntity;
 }
 
 interface SessionWorkingTree {
@@ -154,33 +159,33 @@ const addSession = Effect.fn("SessionService.addSession")(function* (
 
 // Each is named after the session: "jsTester #3" works in jstester-3, on aggregor/jstester-3.
 const createSessionWorktree = Effect.fn("SessionService.createSessionWorktree")(function* (
-  newSessionDraft: NewSessionDraft,
+  worktreeDraft: SessionWorktreeDraft,
   chosenBaseBranchName: string | undefined
 ) {
   const worktreeInfraService = yield* IWorktreeInfraService;
-  const worktreeName = yield* getWorktreeName(newSessionDraft.sessionName);
+  const worktreeName = yield* getWorktreeName(worktreeDraft.sessionName);
   // Without a chosen branch the worktree starts from the project's HEAD, so the branch checked out there is its base.
   const baseBranchNameResult =
     chosenBaseBranchName === undefined
-      ? yield* Effect.result(worktreeInfraService.readBranchName(newSessionDraft.project.path))
+      ? yield* Effect.result(worktreeInfraService.readBranchName(worktreeDraft.project.path))
       : Result.succeed(chosenBaseBranchName);
   const sessionWorktree = yield* worktreeInfraService.createWorktree({
     branchName: yield* getWorktreeBranchName(worktreeName),
-    projectPath: newSessionDraft.project.path,
+    projectPath: worktreeDraft.project.path,
     startPoint: chosenBaseBranchName === undefined ? GIT_COMMAND.HEAD_START_POINT : chosenBaseBranchName,
     worktreeName,
-    worktreesFolderName: yield* getWorktreesFolderName(newSessionDraft.projectName, newSessionDraft.project.id),
-    worktreesFolderPath: newSessionDraft.project.settings.worktreeFolder
+    worktreesFolderName: yield* getWorktreesFolderName(worktreeDraft.projectName, worktreeDraft.project.id),
+    worktreesFolderPath: worktreeDraft.project.settings.worktreeFolder
   });
   yield* worktreeInfraService.copyIncludedFiles({
-    filePatterns: newSessionDraft.project.settings.filesToCopy,
-    projectPath: newSessionDraft.project.path,
+    filePatterns: worktreeDraft.project.settings.filesToCopy,
+    projectPath: worktreeDraft.project.path,
     worktreePath: sessionWorktree.worktreePath
   });
 
   const sessionWorkingTree: SessionWorkingTree = {
     baseBranchName: Result.getOrUndefined(baseBranchNameResult),
-    setupScript: newSessionDraft.project.settings.setupScript,
+    setupScript: worktreeDraft.project.settings.setupScript,
     worktreePath: sessionWorktree.worktreePath
   };
 
@@ -201,19 +206,19 @@ const findExistingWorktree = Effect.fn("SessionService.findExistingWorktree")(
 );
 
 const prepareSessionWorkingTree = Effect.fn("SessionService.prepareSessionWorkingTree")(function* (
-  newSessionDraft: NewSessionDraft,
-  workingTree: NewSessionRequestDto["workingTree"]
+  worktreeDraft: SessionWorktreeDraft,
+  workingTreeChoice: WorkingTreeChoiceDto
 ) {
-  return yield* Match.valueTags(workingTree, {
-    [NEW_SESSION_WORKING_TREE_TAGS.EXISTING_WORKTREE]: (existingWorktree) =>
-      Effect.map(findExistingWorktree(newSessionDraft.project.path, existingWorktree.worktreePath), (worktreePath) => ({
+  return yield* Match.valueTags(workingTreeChoice, {
+    [WORKING_TREE_CHOICE_TAGS.EXISTING_WORKTREE]: (existingWorktree) =>
+      Effect.map(findExistingWorktree(worktreeDraft.project.path, existingWorktree.worktreePath), (worktreePath) => ({
         baseBranchName: undefined,
         setupScript: undefined,
         worktreePath
       })),
-    [NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE]: (newWorktree) =>
-      createSessionWorktree(newSessionDraft, newWorktree.baseBranchName),
-    [NEW_SESSION_WORKING_TREE_TAGS.PROJECT_ROOT]: () =>
+    [WORKING_TREE_CHOICE_TAGS.NEW_WORKTREE]: (newWorktree) =>
+      createSessionWorktree(worktreeDraft, newWorktree.baseBranchName),
+    [WORKING_TREE_CHOICE_TAGS.PROJECT_ROOT]: () =>
       Effect.succeed({baseBranchName: undefined, setupScript: undefined, worktreePath: undefined})
   });
 });
@@ -457,6 +462,58 @@ export const renameSessionBranch = Effect.fn("SessionService.renameSessionBranch
     return yield* updateEntity(ISessionRepository, session.id, {});
   },
   Effect.catchTags({EntityNotFoundError: () => Effect.void, SessionNotFoundError: () => Effect.void})
+);
+
+const isCurrentWorkingTree = Effect.fn("SessionService.isCurrentWorkingTree")(function* (
+  session: SessionEntity,
+  workingTreeChoice: WorkingTreeChoiceDto
+) {
+  return Match.valueTags(workingTreeChoice, {
+    [WORKING_TREE_CHOICE_TAGS.EXISTING_WORKTREE]: (existingWorktree) =>
+      existingWorktree.worktreePath === session.worktreePath,
+    [WORKING_TREE_CHOICE_TAGS.NEW_WORKTREE]: () => false,
+    [WORKING_TREE_CHOICE_TAGS.PROJECT_ROOT]: () => session.worktreePath === undefined
+  });
+});
+
+const findSessionWorktreeDraft = Effect.fn("SessionService.findSessionWorktreeDraft")(function* (
+  session: SessionEntity
+) {
+  const sessionProject = yield* findProjectListItem(session.projectPath);
+  const worktreeDraft: SessionWorktreeDraft = {
+    project: yield* findEntityById(IProjectRepository, session.projectId),
+    projectName: sessionProject.name,
+    sessionName: session.name
+  };
+
+  return worktreeDraft;
+});
+
+// A running agent starts again in the new folder and resumes its conversation there; a new worktree's setup script runs.
+export const changeSessionWorkingTree = Effect.fn("SessionService.changeSessionWorkingTree")(
+  function* (request: ChangeSessionWorkingTreeRequestDto) {
+    const session = yield* findSession(request.sessionId);
+    if (yield* isCurrentWorkingTree(session, request.workingTree)) return;
+    const worktreeDraft = yield* findSessionWorktreeDraft(session);
+    const sessionWorkingTree = yield* prepareSessionWorkingTree(worktreeDraft, request.workingTree);
+    const runningSessionIds = yield* ITmuxInfraService.use(
+      (tmuxInfraService) => tmuxInfraService.refreshRunningSessionIds
+    );
+    const isAgentRunning = runningSessionIds.has(session.id);
+    yield* Effect.annotateCurrentSpan({isAgentRunning, worktreePath: sessionWorkingTree.worktreePath});
+    if (isAgentRunning) yield* stopAgentAndCloseTab(session.id);
+    yield* updateEntity(ISessionRepository, session.id, {
+      baseBranchName: sessionWorkingTree.baseBranchName,
+      worktreePath: sessionWorkingTree.worktreePath
+    });
+    // The worktree left behind may be a leftover now, and only a project's draw reads its leftovers.
+    yield* updateEntity(IProjectRepository, session.projectId, {});
+    if (!isAgentRunning && sessionWorkingTree.setupScript === undefined) return;
+
+    const movedSession = yield* findSession(session.id);
+    yield* openSessionTab(movedSession, sessionWorkingTree.setupScript);
+  },
+  Effect.catchTags({EntityNotFoundError: () => Effect.void, ProjectNotListedError: () => Effect.void})
 );
 
 export const renameSession = Effect.fn("SessionService.renameSession")(

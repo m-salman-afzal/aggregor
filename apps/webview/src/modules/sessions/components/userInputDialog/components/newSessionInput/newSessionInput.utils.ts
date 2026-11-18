@@ -5,7 +5,7 @@ import {
 import {SESSION_WORKING_TREES} from "@/modules/sessions/components/userInputDialog/userInputDialog.constant.ts";
 import {askHostForBranches, runCommandOnHost} from "@/modules/sessions/sessions.service.ts";
 import {AGENT_COMMANDS, AGENT_LABELS} from "@pkg/constants/src/agent.constant.ts";
-import {NEW_SESSION_WORKING_TREE_TAGS, SESSION_LABELS} from "@pkg/constants/src/session.constant.ts";
+import {SESSION_LABELS, WORKING_TREE_CHOICE_TAGS} from "@pkg/constants/src/session.constant.ts";
 import {StarIcon} from "lucide-react";
 
 import type {
@@ -15,6 +15,7 @@ import type {
   NewSessionRequestChoices
 } from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.type.ts";
 import type {UserInputOption} from "@/modules/sessions/sessions.type.ts";
+import type {SessionListItemDto} from "@dtos/session.dto.ts";
 import type {ProjectBranchesDto} from "@dtos/worktree.dto.ts";
 import type {AgentRowData, CommandRequest, ProjectRowData} from "@views/sessions/sessions.view.type.ts";
 
@@ -34,21 +35,21 @@ const findDefaultAgentId = (agentRows: readonly AgentRowData[]) => {
 export const findDefaultWorkingTree = (projectRow: ProjectRowData | undefined) =>
   projectRow?.worktrees !== undefined &&
   projectRow.projectListItem.settings.newSessionWorkingTree === SESSION_WORKING_TREES.WORKTREE
-    ? NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE
-    : NEW_SESSION_WORKING_TREE_TAGS.PROJECT_ROOT;
+    ? WORKING_TREE_CHOICE_TAGS.NEW_WORKTREE
+    : WORKING_TREE_CHOICE_TAGS.PROJECT_ROOT;
 
 // Only a new worktree goes in the worktrees folder; an existing one stays where it was made.
 export const findNewWorktreesRootPath = (projectRows: readonly ProjectRowData[], choices: NewSessionChoices) =>
-  choices.workingTree === NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE
+  choices.workingTree === WORKING_TREE_CHOICE_TAGS.NEW_WORKTREE
     ? findProjectRow(projectRows, choices.projectPath)?.worktreesRootPath
     : undefined;
 
 const makeWorkingTreeRequest = (workingTree: string, baseBranchName: string) => {
-  if (workingTree === NEW_SESSION_WORKING_TREE_TAGS.PROJECT_ROOT) return {_tag: workingTree};
-  if (workingTree === NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE)
+  if (workingTree === WORKING_TREE_CHOICE_TAGS.PROJECT_ROOT) return {_tag: workingTree};
+  if (workingTree === WORKING_TREE_CHOICE_TAGS.NEW_WORKTREE)
     return baseBranchName === CURRENT_COMMIT_OPTION_ID ? {_tag: workingTree} : {_tag: workingTree, baseBranchName};
 
-  return {_tag: NEW_SESSION_WORKING_TREE_TAGS.EXISTING_WORKTREE, worktreePath: workingTree};
+  return {_tag: WORKING_TREE_CHOICE_TAGS.EXISTING_WORKTREE, worktreePath: workingTree};
 };
 
 export const makeNewSessionRequest = (newSessionChoices: NewSessionRequestChoices, agentId: string | undefined) => {
@@ -66,7 +67,7 @@ export const askForBranchesWhenNeeded = (
   previousChoices: NewSessionChoices | undefined,
   nextChoices: NewSessionChoices
 ) => {
-  if (nextChoices.workingTree !== NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE) return;
+  if (nextChoices.workingTree !== WORKING_TREE_CHOICE_TAGS.NEW_WORKTREE) return;
   if (
     previousChoices !== undefined &&
     previousChoices.workingTree === nextChoices.workingTree &&
@@ -104,30 +105,48 @@ const toAgentOptions = (agentRows: readonly AgentRowData[]): readonly UserInputO
       : {SecondaryActionIcon: StarIcon, secondaryActionLabel: AGENT_LABELS.SET_AS_DEFAULT})
   }));
 
-// A worktree another session works in, in either list, isn't offered again.
-const toWorkingTreeOptions = (
+const findCurrentWorkingTree = (movedSession: SessionListItemDto | undefined) =>
+  movedSession === undefined ? undefined : (movedSession.worktreePath ?? WORKING_TREE_CHOICE_TAGS.PROJECT_ROOT);
+
+const markCurrentWorkingTree = (workingTreeOption: UserInputOption, currentWorkingTree: string | undefined) =>
+  workingTreeOption.optionId === currentWorkingTree
+    ? {...workingTreeOption, badge: SESSION_LABELS.CURRENT_WORKING_TREE}
+    : workingTreeOption;
+
+// A worktree another session works in, in either list, isn't offered again; a moved session's own is.
+const findFreeWorktrees = (
   projectRow: ProjectRowData | undefined,
-  allProjectRows: readonly ProjectRowData[]
-): readonly UserInputOption[] => {
+  allProjectRows: readonly ProjectRowData[],
+  currentWorkingTree: string | undefined
+) => {
   const usedWorktreePaths = new Set(
     allProjectRows.flatMap((listedProjectRow) =>
-      listedProjectRow.sessionRows.map((sessionRow) => sessionRow.sessionListItem.worktreePath)
+      listedProjectRow.sessionRows
+        .map((sessionRow) => sessionRow.sessionListItem.worktreePath)
+        .filter((worktreePath) => worktreePath !== currentWorkingTree)
     )
   );
-  const freeWorktrees = (projectRow?.worktrees ?? []).filter(
-    (worktree) => !usedWorktreePaths.has(worktree.worktreePath)
-  );
 
-  return [
+  return (projectRow?.worktrees ?? []).filter((worktree) => !usedWorktreePaths.has(worktree.worktreePath));
+};
+
+const toWorkingTreeOptions = (
+  projectRow: ProjectRowData | undefined,
+  allProjectRows: readonly ProjectRowData[],
+  movedSession: SessionListItemDto | undefined
+): readonly UserInputOption[] => {
+  const currentWorkingTree = findCurrentWorkingTree(movedSession);
+  const freeWorktrees = findFreeWorktrees(projectRow, allProjectRows, currentWorkingTree);
+  const workingTreeOptions: readonly UserInputOption[] = [
     {
       ...(projectRow === undefined ? {} : {description: projectRow.projectListItem.path}),
       label: SESSION_LABELS.PROJECT_ROOT,
-      optionId: NEW_SESSION_WORKING_TREE_TAGS.PROJECT_ROOT
+      optionId: WORKING_TREE_CHOICE_TAGS.PROJECT_ROOT
     },
     {
       description: SESSION_LABELS.NEW_WORKTREE_DESCRIPTION,
       label: SESSION_LABELS.NEW_WORKTREE,
-      optionId: NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE
+      optionId: WORKING_TREE_CHOICE_TAGS.NEW_WORKTREE
     },
     ...freeWorktrees.map((worktree) => ({
       description: worktree.worktreePath,
@@ -135,6 +154,25 @@ const toWorkingTreeOptions = (
       optionId: worktree.worktreePath
     }))
   ];
+
+  return workingTreeOptions.map((workingTreeOption) => markCurrentWorkingTree(workingTreeOption, currentWorkingTree));
+};
+
+// A moved session's dialog opens on the working tree it has now.
+export const findMovedSessionChoices = (movedSession: SessionListItemDto): NewSessionChoices => ({
+  agentId: "",
+  baseBranchName: CURRENT_COMMIT_OPTION_ID,
+  projectPath: movedSession.projectPath,
+  workingTree: findCurrentWorkingTree(movedSession) ?? WORKING_TREE_CHOICE_TAGS.PROJECT_ROOT
+});
+
+export const makeChangeWorkingTreeRequest = (movedSession: SessionListItemDto, choices: NewSessionChoices) => {
+  const changeWorkingTreeRequest: CommandRequest = {
+    sessionId: movedSession.sessionId,
+    workingTree: makeWorkingTreeRequest(choices.workingTree, choices.baseBranchName)
+  };
+
+  return changeWorkingTreeRequest;
 };
 
 export const findDefaultChoices = (
@@ -198,7 +236,7 @@ const toWorkingTreeGroup = (
   onChoose: (workingTree) => {
     optionSources.choose({workingTree});
   },
-  options: toWorkingTreeOptions(projectRow, optionSources.allProjectRows)
+  options: toWorkingTreeOptions(projectRow, optionSources.allProjectRows, optionSources.movedSession)
 });
 
 // Branches read for another project aren't offered; until this project's arrive, only the current commit is.
@@ -237,7 +275,7 @@ export const makeOptionGroups = (optionSources: NewSessionOptionSources): readon
     optionSources.isAgentShown && toAgentGroup(optionSources),
     isGitProject && toWorkingTreeGroup(optionSources, projectRow),
     isGitProject &&
-      optionSources.choices.workingTree === NEW_SESSION_WORKING_TREE_TAGS.NEW_WORKTREE &&
+      optionSources.choices.workingTree === WORKING_TREE_CHOICE_TAGS.NEW_WORKTREE &&
       toBaseBranchGroup(optionSources)
   ];
 

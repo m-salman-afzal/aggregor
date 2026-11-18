@@ -24,6 +24,7 @@ import type {
   MenuGroup
 } from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.type.ts";
 import type {RowAction} from "@/modules/sessions/sessions.type.ts";
+import type {SessionListItemDto} from "@dtos/session.dto.ts";
 import type {CommandRequest, ProjectRowData, RowCommandArgument} from "@views/sessions/sessions.view.type.ts";
 
 const findSharedRowLabel = (actionGroup: readonly RowAction[]) => {
@@ -178,6 +179,46 @@ const renameBranchAsking = (askingContext: AskingContext, commandArgument: RowCo
   });
 };
 
+// Moving restarts a running agent in the new folder, so it asks only when that would cut a turn short.
+const moveSessionAsking = (
+  askingContext: AskingContext,
+  movedSession: SessionListItemDto,
+  changeWorkingTreeRequest: CommandRequest
+) => {
+  const moveSession = () => {
+    runCommandOnHost(SESSION_COMMANDS.CHANGE_WORKING_TREE, changeWorkingTreeRequest);
+  };
+  if (!movedSession.isAgentRunning || !TURN_RUNNING_STATUSES.includes(movedSession.status)) {
+    moveSession();
+
+    return;
+  }
+
+  askDestructiveQuestion(
+    askingContext,
+    {
+      answer: {consequence: SESSION_NOTICES.RESTART_AGENT_MID_TURN_CONSEQUENCE, label: SESSION_LABELS.RESTART_AGENT},
+      title: SESSION_NOTICES.CONFIRM_RESTART_AGENT(movedSession.displayName)
+    },
+    moveSession
+  );
+};
+
+const changeWorkingTreeAsking = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
+  const movedSession = findSessionListItem(askingContext, commandArgument.sessionId);
+  if (movedSession === undefined) return;
+
+  askingContext.showUserInput({
+    _tag: USER_INPUT_TAGS.WORKING_TREE,
+    branches: undefined,
+    movedSession,
+    onMove: (changeWorkingTreeRequest) => {
+      moveSessionAsking(askingContext, movedSession, changeWorkingTreeRequest);
+    },
+    title: SESSION_LABELS.CHANGE_WORKING_TREE(movedSession.displayName)
+  });
+};
+
 const findListedProject = (askingContext: AskingContext, commandArgument: RowCommandArgument) =>
   askingContext.projectRows
     .map((projectRow) => projectRow.projectListItem)
@@ -286,6 +327,9 @@ const startSessionAsking = (askingContext: AskingContext, commandArgument: RowCo
 const askingActions: Partial<Record<RowAction["commandId"], AskingAction>> = {
   [PROJECT_COMMANDS.SAVE_SETTINGS]: (askingContext, _rowAction, commandArgument) => {
     editProjectSettings(askingContext, commandArgument);
+  },
+  [SESSION_COMMANDS.CHANGE_WORKING_TREE]: (askingContext, _rowAction, commandArgument) => {
+    changeWorkingTreeAsking(askingContext, commandArgument);
   },
   [SESSION_COMMANDS.IMPORT]: (askingContext, _rowAction, commandArgument) => {
     importSessionsAsking(askingContext, commandArgument);

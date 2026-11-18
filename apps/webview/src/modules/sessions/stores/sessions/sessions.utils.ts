@@ -26,7 +26,9 @@ const fillImportableSessions = (userInput: undefined | UserInput, importableSess
 
 // The dialog keeps the last project's branches, and offers them only while that project is chosen.
 const fillBranches = (userInput: undefined | UserInput, branches: ProjectBranchesDto) =>
-  userInput?._tag === USER_INPUT_TAGS.NEW_SESSION ? {...userInput, branches} : userInput;
+  userInput?._tag === USER_INPUT_TAGS.NEW_SESSION || userInput?._tag === USER_INPUT_TAGS.WORKING_TREE
+    ? {...userInput, branches}
+    : userInput;
 
 // Only the session's project gets a new object, so the other projects don't draw again.
 const replaceSessionRow = (projectRows: readonly ProjectRowData[], changedSessionRow: SessionRowData) =>

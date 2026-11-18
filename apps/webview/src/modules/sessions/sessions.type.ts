@@ -1,5 +1,6 @@
 import type {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
+import type {SessionListItemDto} from "@dtos/session.dto.ts";
 import type {ImportableSessionsDto, ImportedSessionDto} from "@dtos/sessionImport.dto.ts";
 import type {ProjectBranchesDto, ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
 import type {SESSION_LISTS, SESSIONS_WEBVIEW_COMMANDS} from "@pkg/constants/src/sessionsView.constant.ts";
@@ -62,6 +63,13 @@ export type UserInput =
       readonly onEnterText: (enteredText: string) => void;
       readonly title: string;
       readonly value: string;
+    }
+  | {
+      readonly _tag: typeof USER_INPUT_TAGS.WORKING_TREE;
+      readonly branches: ProjectBranchesDto | undefined;
+      readonly movedSession: SessionListItemDto;
+      readonly onMove: (changeWorkingTreeRequest: CommandRequest) => void;
+      readonly title: string;
     };
 
 export interface UserInputAnswer {

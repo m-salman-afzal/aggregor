@@ -6,7 +6,8 @@ import {
   listSessionActionGroups,
   listSessionInlineActions,
   makeAgentActivity,
-  makeSessionTooltip
+  makeSessionTooltip,
+  selectIsSessionInGitProject
 } from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/sessionRow.utils.ts";
 import {SESSIONS_LABELS} from "@/modules/sessions/sessions.constant.ts";
 import {runCommandOnHost} from "@/modules/sessions/sessions.service.ts";
@@ -26,6 +27,7 @@ export const useSessionRow = (props: UseSessionRowProps) => {
   const isViewed = useSessionsStore({
     selectFromState: (sessionsState) => sessionsState.viewedSessionId === sessionListItem.sessionId
   });
+  const isInGitProject = useSessionsStore({selectFromState: selectIsSessionInGitProject(sessionListItem)});
   const markViewedSession = useSessionsStore({
     selectFromState: (sessionsState) => sessionsState.markViewedSession
   });
@@ -40,7 +42,7 @@ export const useSessionRow = (props: UseSessionRowProps) => {
   };
 
   return {
-    actionGroups: listSessionActionGroups(sessionListItem),
+    actionGroups: listSessionActionGroups(sessionListItem, isInGitProject),
     agentActivity: makeAgentActivity(sessionListItem),
     agentLabel: sessionListItem.agentName ?? SESSIONS_LABELS.MISSING_AGENT,
     commandArgument: {sessionId: sessionListItem.sessionId},

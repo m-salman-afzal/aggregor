@@ -10,6 +10,7 @@ import type {
   archiveOngoingSessions,
   archiveProjectSessions,
   archiveSession,
+  changeSessionWorkingTree,
   moveSessionDown,
   moveSessionUp,
   newSession,
@@ -29,6 +30,7 @@ type SessionCommandError = Effect.Error<
     | typeof archiveOngoingSessions
     | typeof archiveProjectSessions
     | typeof archiveSession
+    | typeof changeSessionWorkingTree
     | typeof moveSessionDown
     | typeof moveSessionUp
     | typeof newSession

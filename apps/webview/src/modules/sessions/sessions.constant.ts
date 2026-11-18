@@ -13,6 +13,7 @@ import {
   ArrowUpIcon,
   BroomIcon,
   CircleStopIcon,
+  FolderGit2Icon,
   FolderMinusIcon,
   FolderPlusIcon,
   GitBranchIcon,
@@ -63,7 +64,8 @@ export const USER_INPUT_TAGS = {
   NEW_SESSION: "NewSessionInput",
   PROJECT_SETTINGS: "ProjectSettingsInput",
   QUESTION: "QuestionInput",
-  TEXT: "TextInput"
+  TEXT: "TextInput",
+  WORKING_TREE: "WorkingTreeInput"
 } as const;
 
 const MOVE_ROW_LABEL = "Move";
@@ -76,6 +78,11 @@ export const ROW_ACTIONS = {
     commandId: SESSION_COMMANDS.ARCHIVE_PROJECT_SESSIONS,
     icon: ArchiveIcon,
     label: "Archive Sessions"
+  },
+  CHANGE_WORKING_TREE: {
+    commandId: SESSION_COMMANDS.CHANGE_WORKING_TREE,
+    icon: FolderGit2Icon,
+    label: "Change Working Tree…"
   },
   CLEAN_UP_LEFTOVERS: {
     commandId: WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS,

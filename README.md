@@ -129,6 +129,8 @@ solution and what was turned down.
 - [ ] Bookmarks
 - [x] A session's pull request on its row, from the GitHub CLI
 - [ ] Create a pull request from a session
+- [x] Change a session's working tree: the project root, a new worktree or an existing one, restarting its agent there
+- [ ] Link a pull request to a session, or change it
 - [x] One Install for whatever of tmux and gh is missing, through the system's package manager
 - [x] Import a project's earlier Claude Code, Codex, OpenCode and Copilot conversations as sessions
 - [x] Folder shells in tmux: one Aggregor terminal a window, on the shell of the project's or the session's folder,
