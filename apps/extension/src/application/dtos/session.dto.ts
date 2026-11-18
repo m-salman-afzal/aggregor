@@ -28,6 +28,7 @@ export type SessionPullRequestDto = typeof SessionPullRequestDtoSchema.Type;
 
 // The wait kind and progress exist only at the agent's turn; no agent name or icon means it left the settings.
 export const SessionListItemDtoSchema = Schema.Struct({
+  agentConversationId: Schema.optional(Schema.String),
   agentName: Schema.optional(Schema.String),
   branchName: Schema.optional(Schema.String),
   canMoveDown: Schema.Boolean,

@@ -7,7 +7,7 @@ import {
   isAgentChoiceShown,
   makeNewSessionRequest
 } from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.utils.ts";
-import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
+import {SESSIONS_LABELS, USER_INPUT_TAGS, WEBVIEW_ACTIONS} from "@/modules/sessions/sessions.constant.ts";
 import {
   askHostForImportableSessions,
   askHostForLeftovers,
@@ -356,6 +356,21 @@ const startSessionAsking = (askingContext: AskingContext, commandArgument: RowCo
   showNewSessionInput(askingContext, projectPath);
 };
 
+// When the clipboard refuses, the id shows in a text field to copy by hand.
+const copySessionId = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
+  const sessionListItem = findSessionListItem(askingContext, commandArgument.sessionId);
+  if (sessionListItem === undefined || sessionListItem.agentConversationId === undefined) return;
+  const agentConversationId = sessionListItem.agentConversationId;
+  navigator.clipboard.writeText(agentConversationId).catch(() => {
+    askingContext.showUserInput({
+      _tag: USER_INPUT_TAGS.TEXT,
+      onEnterText: () => undefined,
+      title: SESSIONS_LABELS.COPY_SESSION_ID_FAILED,
+      value: agentConversationId
+    });
+  });
+};
+
 const askingActions: Partial<Record<RowAction["commandId"], AskingAction>> = {
   [GITHUB_CLI_COMMANDS.LINK_SESSION_PULL_REQUEST]: (askingContext, _rowAction, commandArgument) => {
     linkPullRequestAsking(askingContext, commandArgument);
@@ -388,6 +403,9 @@ const askingActions: Partial<Record<RowAction["commandId"], AskingAction>> = {
   [SESSION_COMMANDS.STOP_PROJECT_AGENTS]: stopAgentsAsking,
   [SESSION_COMMANDS.UNLINK_WORKTREE]: (askingContext, _rowAction, commandArgument) => {
     unlinkWorktreeAsking(askingContext, commandArgument);
+  },
+  [WEBVIEW_ACTIONS.COPY_SESSION_ID]: (askingContext, _rowAction, commandArgument) => {
+    copySessionId(askingContext, commandArgument);
   },
   [WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS]: (askingContext, _rowAction, commandArgument) => {
     cleanUpLeftoversAsking(askingContext, commandArgument);

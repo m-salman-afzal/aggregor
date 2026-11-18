@@ -27,6 +27,7 @@ export const listSessionActionGroups = (sessionListItem: SessionListItemDto, isI
     ],
     [
       ROW_ACTIONS.RENAME_SESSION,
+      sessionListItem.agentConversationId !== undefined && ROW_ACTIONS.COPY_SESSION_ID,
       sessionListItem.worktreePath !== undefined && ROW_ACTIONS.RENAME_BRANCH,
       isInGitProject && ROW_ACTIONS.CHANGE_WORKING_TREE,
       isInGitProject && sessionListItem.worktreePath !== undefined && ROW_ACTIONS.UNLINK_WORKTREE,
@@ -54,5 +55,8 @@ export const makeSessionTooltip = (sessionListItem: SessionListItemDto) =>
   [
     SESSION_ROW_LABELS.TOOLTIP_HEADING(sessionListItem.name, getStatusLabel(sessionListItem)),
     ...(sessionListItem.statusMessage === undefined ? [] : [sessionListItem.statusMessage]),
-    sessionListItem.projectPath
+    sessionListItem.projectPath,
+    ...(sessionListItem.agentConversationId === undefined
+      ? []
+      : [SESSION_ROW_LABELS.TOOLTIP_SESSION_ID(sessionListItem.agentConversationId)])
   ].join("\n");
