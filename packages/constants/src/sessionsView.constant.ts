@@ -34,6 +34,7 @@ export const SESSIONS_VIEW_MESSAGE_TAGS = {
   PROJECTS_DRAWN: "ProjectsDrawn",
   PULL_REQUESTS_DRAWN: "PullRequestsDrawn",
   SESSION_DRAWN: "SessionDrawn",
+  SESSION_PROCESSES_DRAWN: "SessionProcessesDrawn",
   VIEWED_SESSION_CHANGED: "ViewedSessionChanged",
   WAITING_COUNTS_DRAWN: "WaitingCountsDrawn"
 } as const;
@@ -45,7 +46,8 @@ export const SESSIONS_WEBVIEW_MESSAGE_TAGS = {
   LIST_PULL_REQUESTS: "ListPullRequests",
   READY: "Ready",
   RUN_COMMAND: "RunCommand",
-  SHOW_MORE_SESSIONS: "ShowMoreSessions"
+  SHOW_MORE_SESSIONS: "ShowMoreSessions",
+  WATCH_SESSION_PROCESSES: "WatchSessionProcesses"
 } as const;
 
 export const SESSION_LISTS = {
@@ -172,5 +174,6 @@ export const SESSION_ROW_LABELS = {
   PULL_REQUEST: (pullRequestNumber: number) => `#${pullRequestNumber}`,
   PULL_REQUEST_TOOLTIP: (pullRequestTitle: string, stateLabel: string) =>
     `${pullRequestTitle} · ${stateLabel} · click to open`,
-  TOOLTIP_HEADING: (sessionName: string, statusLabel: string) => `${sessionName} · ${statusLabel}`
+  TOOLTIP_HEADING: (sessionName: string, statusLabel: string) => `${sessionName} · ${statusLabel}`,
+  TOOLTIP_SESSION_ID: (agentConversationId: string) => `Session ID: ${agentConversationId}`
 } as const;

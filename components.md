@@ -36,6 +36,8 @@ heading there. Update this file in the same commit as a change that adds, remove
     `-A` attaches when the tmux session runs and starts it otherwise; `-e` passes the agent's `env` setting.
   - `list-sessions -F '#{session_name}'` reads which agents run; `kill-session -t =‹sessionId›` stops one;
     `source-file ‹conf›` reloads the config into a server that already runs, since `-f` is read only at server start.
+  - `list-panes -s -t =‹name› -F '#{pane_pid} #{pid}'` reads what each pane of an agent's or a folder shell's session
+    runs, and the server's own process id, for the processes an open dropdown shows (see "ps, /proc and cgroups").
   - `list-clients -F '#{client_pid} #{client_name} #{session_name}'` reads which session each tab shows, a tab being the
     tmux client with its process id; `switch-client -E -c ‹client› -t =‹sessionId›` attaches the shared tab to another
     running session, and `-E` leaves that session's environment as it is.
@@ -82,6 +84,17 @@ heading there. Update this file in the same commit as a change that adds, remove
 - **Why:** systemd-oomd and the kernel kill a whole cgroup, and the tmux server stayed in the cgroup of whichever
   process started it, VS Code's, so one agent's memory took VS Code and every agent down.
 - **Alternatives:** "Each agent runs in a systemd scope of its own" in `decisions/sessions/terminals.md`.
+
+### ps, /proc and cgroups
+
+- **What it is:** the operating system's own record of its processes: the `ps` command, and on Linux `/proc` and cgroup
+  v2.
+- **What we use:** `infrastructure/services/process/`, with names in `packages/constants/src/process.constant.ts`
+  (`PROCESS_LISTING`, `LINUX_PROCESS_FILES`), while a session's dropdown is open: `ps -A -o pid=,ppid=,command=` for
+  every process, its parent and command line; on Linux `/proc/‹pid›/cgroup` for each pane and the tmux server, and a
+  pane in a scope of its own brings in its cgroup's `cgroup.procs`.
+- **Why:** no dependency, and the cgroup shows what an agent started even after it left the tree.
+- **Alternatives:** "A session's terminal processes show in its dropdown" in `decisions/sessionsView/webview.md`.
 
 ### aggregor-pty
 
@@ -333,7 +346,7 @@ the theme and the base components.
 ### Base UI
 
 - **What it is:** unstyled, accessible React primitives from the makers of Radix and Material UI.
-- **What we use:** `@base-ui/react` 1.9.0, under shadcn's button, collapsible, menus, dialog, input and combobox.
+- **What we use:** `@base-ui/react` 1.9.0, under shadcn's button, collapsible, menus, dialog, input, combobox and tabs.
 - **Why:** "The webview is React with shadcn on Base UI": maintained, where Radix isn't anymore.
 - **Alternatives:** that decision: Radix primitives under shadcn.
 
@@ -342,11 +355,11 @@ the theme and the base components.
 - **What it is:** components copied into the app by a CLI, styled with Tailwind, over a headless library.
 - **What we use:** the CLI (`npx shadcn@4.23.0 add`, run on `packages/ui`) with `packages/ui/components.json`: the
   `base-nova` style on Base UI, its components in `packages/ui/src/components/base` (button, collapsible, dropdown menu,
-  context menu, dialog, input, and the combobox with the input group and textarea it brings), which lint checks only for
-  arrow components, so the CLI can update them and its `function`s are rewritten as arrows; the CLI writes its imports
-  without the `.tsx` the webview's typecheck needs, so they are added by hand; `class-variance-authority` 0.7.1 for the
-  button's variants, with Renovate's abandoned-package warning off for it, and `cn` 0.5.2, shadcn's class-name merge,
-  which the webview's own components use too. The theme's tokens read VS Code's theme variables
+  context menu, dialog, input, tabs, and the combobox with the input group and textarea it brings), which lint checks
+  only for arrow components, so the CLI can update them and its `function`s are rewritten as arrows; the CLI writes its
+  imports without the `.tsx` the webview's typecheck needs, so they are added by hand; `class-variance-authority` 0.7.1
+  for the button's variants, with Renovate's abandoned-package warning off for it, and `cn` 0.5.2, shadcn's class-name
+  merge, which the webview's own components use too. The theme's tokens read VS Code's theme variables
   (`packages/ui/src/theme.css`).
 - **Why:** "The webview is React with shadcn on Base UI".
 - **Alternatives:** that decision.

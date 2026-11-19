@@ -17,7 +17,9 @@ export interface NewSessionOptionGroup {
   readonly name: string;
   readonly onChoose: (optionId: string) => void;
   readonly onSecondaryAction?: (optionId: string) => void;
+  // Every tab's options together, so the chosen one is found whichever tab shows.
   readonly options: readonly UserInputOption[];
+  readonly optionTabs?: readonly NewSessionOptionTab[];
 }
 
 export interface NewSessionOptionSources {
@@ -30,6 +32,12 @@ export interface NewSessionOptionSources {
   readonly isProjectShown: boolean;
   readonly movedSession?: SessionListItemDto | undefined;
   readonly projectRows: readonly ProjectRowData[];
+}
+
+export interface NewSessionOptionTab {
+  readonly isLoading: boolean;
+  readonly label: string;
+  readonly options: readonly UserInputOption[];
 }
 
 export type NewSessionRequestChoices = Pick<NewSessionChoices, "baseBranchName" | "projectPath" | "workingTree">;

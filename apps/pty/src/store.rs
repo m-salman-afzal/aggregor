@@ -1,4 +1,5 @@
 use rusqlite::{Connection, OpenFlags, params};
+use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -41,6 +42,8 @@ impl Status {
 
 pub enum Update {
     Status(Status),
+    /// A record with an id, such as a sub-agent; `None` clears it.
+    Task(String, Option<Status>),
     TerminalTitle(String),
     Exited,
 }
@@ -78,6 +81,8 @@ impl Store {
 struct Pending {
     status: Option<Status>,
     has_worked: bool,
+    tasks: BTreeMap<String, Status>,
+    have_tasks_changed: bool,
     terminal_title: Option<String>,
     has_exited: bool,
 }
@@ -87,12 +92,55 @@ impl Pending {
         match update {
             Update::Status(status) => {
                 self.has_worked |= status.state == "working";
+                // Clearing the root record, as a full reset or the agent's exit does, clears its tasks too.
+                if status.state == "unknown" {
+                    self.have_tasks_changed |= !self.tasks.is_empty();
+                    self.tasks.clear();
+                }
                 self.status = Some(status);
             }
+            Update::Task(task_id, Some(task)) => {
+                self.tasks.insert(task_id, task);
+                self.have_tasks_changed = true;
+            }
+            Update::Task(task_id, None) => self.have_tasks_changed |= self.tasks.remove(&task_id).is_some(),
             Update::TerminalTitle(title) => self.terminal_title = Some(title),
             Update::Exited => self.has_exited = true,
         }
     }
+}
+
+/// The `tasks` column: a JSON array of the extension's AgentTask, without the keys a task has no value for.
+fn encode_tasks(tasks: &BTreeMap<String, Status>) -> String {
+    let encoded_tasks: Vec<String> = tasks
+        .iter()
+        .map(|(task_id, task)| {
+            let mut fields = vec![
+                format!("\"taskId\":{}", encode_json_string(task_id)),
+                format!("\"state\":{}", encode_json_string(task.state)),
+            ];
+            if let Some(kind) = task.kind {
+                fields.push(format!("\"kind\":{}", encode_json_string(kind)));
+            }
+            if let Some(progress) = task.progress {
+                fields.push(format!("\"progress\":{progress}"));
+            }
+            if let Some(message) = &task.message {
+                fields.push(format!("\"message\":{}", encode_json_string(message)));
+            }
+            if let Some(title) = &task.reported_title {
+                fields.push(format!("\"title\":{}", encode_json_string(title)));
+            }
+            format!("{{{}}}", fields.join(","))
+        })
+        .collect();
+
+    format!("[{}]", encoded_tasks.join(","))
+}
+
+/// Reports carry no control characters, so only quotes and backslashes need escaping.
+fn encode_json_string(text: &str) -> String {
+    format!("\"{}\"", text.replace('\\', "\\\\").replace('"', "\\\""))
 }
 
 /// Codex shows its thread's id as the title until the thread has a name, and resuming it takes that id.
@@ -143,6 +191,9 @@ impl Writer {
             if let Some(status) = pending.status.take() {
                 self.write_status(&status, std::mem::take(&mut pending.has_worked));
             }
+            if std::mem::take(&mut pending.have_tasks_changed) {
+                self.write_tasks(&pending.tasks);
+            }
             if pending.has_exited || self.time_until_title_write(&pending).is_zero() {
                 self.write_title(pending.terminal_title.take());
             }
@@ -169,7 +220,8 @@ impl Writer {
             "record the start",
             &format!(
                 "UPDATE sessions SET status = ?2, statusKind = NULL, statusMessage = NULL, statusProgress = NULL,
-                reportedTitle = NULL, statusChangedAt = {NOW}, updatedAt = {NOW} WHERE id = ?1 AND deletedAt IS NULL"
+                reportedTitle = NULL, tasks = '[]', statusChangedAt = {NOW}, updatedAt = {NOW}
+                WHERE id = ?1 AND deletedAt IS NULL"
             ),
             params![self.session_id, unknown.state],
         );
@@ -198,6 +250,16 @@ impl Writer {
         );
     }
 
+    fn write_tasks(&mut self, tasks: &BTreeMap<String, Status>) {
+        execute(
+            self.connection.as_ref(),
+            &mut self.log,
+            "record the tasks",
+            &format!("UPDATE sessions SET tasks = ?2, updatedAt = {NOW} WHERE id = ?1 AND deletedAt IS NULL"),
+            params![self.session_id, encode_tasks(tasks)],
+        );
+    }
+
     fn write_title(&mut self, title: Option<String>) {
         let Some(title) = title.filter(|title| self.written_title.as_ref() != Some(title)) else {
             return;
@@ -223,7 +285,7 @@ impl Writer {
             "record the exit",
             &format!(
                 "UPDATE sessions SET status = 'exited', statusKind = NULL, statusMessage = NULL, statusProgress = NULL,
-                statusChangedAt = CASE WHEN status IS 'exited' THEN statusChangedAt ELSE {NOW} END, updatedAt = {NOW}
+                tasks = '[]', statusChangedAt = CASE WHEN status IS 'exited' THEN statusChangedAt ELSE {NOW} END, updatedAt = {NOW}
                 WHERE id = ?1 AND deletedAt IS NULL"
             ),
             params![self.session_id],

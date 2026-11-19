@@ -1,6 +1,9 @@
+import {getAgentTaskKind} from "@domainServices/agentTask.domainService.ts";
 import {
+  getAgentConversationId,
   getDefaultSessionName,
   getSessionStatus,
+  getSessionTasks,
   getSessionTitleToSave,
   isSessionTurnRunning,
   isSessionWaitingOnUser,
@@ -24,6 +27,7 @@ import {
   SessionListItemDtoSchema,
   SessionPageDtoSchema,
   SessionPullRequestDtoSchema,
+  SessionTaskDtoSchema,
   WorkingTreeChoiceDtoSchema,
   WorktreeListItemDtoSchema
 } from "@dtos/session.dto.ts";
@@ -88,6 +92,7 @@ import type {ProjectEntity} from "@entities/project/project.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {PullRequestLookup} from "@interfaces/gitHubCli.infraService.interface.ts";
 import type {SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
+import type {AgentTaskValueObject} from "@valueObjects/agentTask.valueObject.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {SessionLifecycleValueObject} from "@valueObjects/sessionLifecycle.valueObject.ts";
@@ -679,13 +684,28 @@ const findSessionWorktreeFields = Effect.fn("SessionService.findSessionWorktreeF
   };
 });
 
+const findAgentConversationIdField = Effect.fn("SessionService.findAgentConversationIdField")(function* (
+  sessionAgent: AgentEntity,
+  session: SessionEntity
+) {
+  const agentConversationIdResult = yield* Effect.result(getAgentConversationId(sessionAgent, session));
+
+  return Result.match(agentConversationIdResult, {
+    onFailure: () => ({}),
+    onSuccess: (agentConversationId) => ({agentConversationId})
+  });
+});
+
 const findSessionAgentFields = Effect.fn("SessionService.findSessionAgentFields")(function* (session: SessionEntity) {
   const agentResult = yield* Effect.result(findSessionAgent(session));
+  if (Result.isFailure(agentResult)) return {};
+  const sessionAgent = agentResult.success;
 
-  return Result.match(agentResult, {
-    onFailure: () => ({}),
-    onSuccess: (sessionAgent) => ({agentName: sessionAgent.name, icon: sessionAgent.icon})
-  });
+  return {
+    ...(yield* findAgentConversationIdField(sessionAgent, session)),
+    agentName: sessionAgent.name,
+    icon: sessionAgent.icon
+  };
 });
 
 const isStoredSessionWaitingOnUser = Effect.fn("SessionService.isStoredSessionWaitingOnUser")(function* (
@@ -696,6 +716,17 @@ const isStoredSessionWaitingOnUser = Effect.fn("SessionService.isStoredSessionWa
   return yield* isSessionWaitingOnUser(sessionStatus.status);
 });
 
+const toSessionTask = Effect.fn("SessionService.toSessionTask")(function* (agentTask: AgentTaskValueObject) {
+  return SessionTaskDtoSchema.make({
+    displayName: agentTask.title === undefined ? agentTask.taskId : agentTask.title,
+    kind: yield* getAgentTaskKind(agentTask.taskId),
+    state: agentTask.state,
+    statusMessage: agentTask.message,
+    statusProgress: agentTask.progress,
+    taskId: agentTask.taskId
+  });
+});
+
 const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function* (
   session: SessionEntity,
   sessionMoves: SessionMoves
@@ -704,6 +735,7 @@ const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function
   const sessionStatus = yield* findSessionStatus(session);
   const status = sessionStatus.status;
   const isTurnRunning = yield* isSessionTurnRunning(status);
+  const sessionTasks = yield* getSessionTasks(session);
 
   return SessionListItemDtoSchema.make({
     ...sessionMoves,
@@ -722,6 +754,7 @@ const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function
     statusKind: status === SESSION_STATUSES.BLOCKED ? session.statusKind : undefined,
     statusMessage: sessionStatus.isAgentRunning ? session.statusMessage : undefined,
     statusProgress: isTurnRunning ? session.statusProgress : undefined,
+    tasks: sessionStatus.isAgentRunning ? yield* Effect.forEach(sessionTasks, toSessionTask) : [],
     worktreePath: session.worktreePath
   });
 });

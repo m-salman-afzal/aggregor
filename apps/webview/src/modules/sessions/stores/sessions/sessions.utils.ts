@@ -104,6 +104,13 @@ const hostMessageReducers: {
     archiveProjectRows: replaceSessionRow(sessionsData.archiveProjectRows, sessionDrawn.sessionRow),
     projectRows: replaceSessionRow(sessionsData.projectRows, sessionDrawn.sessionRow)
   }),
+  [SESSIONS_VIEW_MESSAGE_TAGS.SESSION_PROCESSES_DRAWN]: (sessionsData, sessionProcessesDrawn) => ({
+    ...sessionsData,
+    sessionProcessesBySessionId: new Map([
+      ...sessionsData.sessionProcessesBySessionId,
+      [sessionProcessesDrawn.sessionProcesses.sessionId, sessionProcessesDrawn.sessionProcesses]
+    ])
+  }),
   [SESSIONS_VIEW_MESSAGE_TAGS.VIEWED_SESSION_CHANGED]: (sessionsData, viewedSessionChanged) => ({
     ...sessionsData,
     viewedSessionId: viewedSessionChanged.sessionId
@@ -131,6 +138,18 @@ export const foldKey = <Key extends string>(foldedKeys: ReadonlySet<Key>, key: K
 
   return new Set(isOpen ? otherFoldedKeys : [...otherFoldedKeys, key]);
 };
+
+// A dropdown shows only while its session's agent runs, so only those dropdowns are read.
+export const listWatchedSessionIds = (sessionsData: SessionsData) =>
+  [...sessionsData.projectRows, ...sessionsData.archiveProjectRows]
+    .flatMap((projectRow) => projectRow.sessionRows)
+    .filter(
+      (sessionRow) =>
+        sessionRow.sessionListItem.isAgentRunning &&
+        sessionsData.openDropdownSessionIds.has(sessionRow.sessionListItem.sessionId)
+    )
+    .map((sessionRow) => sessionRow.sessionListItem.sessionId)
+    .toSorted();
 
 // A project shows in both lists, and folds in each on its own.
 export const makeProjectKey = (listId: SessionListId, projectPath: string) => `${listId}:${projectPath}`;

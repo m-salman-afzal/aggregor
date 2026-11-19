@@ -1,12 +1,18 @@
 import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 import {
   askHostToDraw,
+  askHostToWatchSessionProcesses,
   listenToHost,
   readStyleNonce,
   readWebviewState,
   saveWebviewState
 } from "@/modules/sessions/sessions.service.ts";
-import {applyHostMessage, foldKey, makeProjectKey} from "@/modules/sessions/stores/sessions/sessions.utils.ts";
+import {
+  applyHostMessage,
+  foldKey,
+  listWatchedSessionIds,
+  makeProjectKey
+} from "@/modules/sessions/stores/sessions/sessions.utils.ts";
 import {SESSION_LISTS} from "@pkg/constants/src/sessionsView.constant.ts";
 import {useSyncExternalStore} from "react";
 
@@ -31,7 +37,9 @@ let sessionsData: SessionsData = {
   isDrawn: false,
   isWorkspaceTrustEnabled: false,
   isWorktreeTrustHintHidden: savedWebviewState.isWorktreeTrustHintHidden,
+  openDropdownSessionIds: new Set(savedWebviewState.openDropdownSessionIds),
   projectRows: [],
+  sessionProcessesBySessionId: new Map(),
   skipAgentPicker: false,
   styleNonce: readStyleNonce(),
   userInput: undefined,
@@ -39,11 +47,22 @@ let sessionsData: SessionsData = {
   waitingCounts: {[SESSION_LISTS.ARCHIVE]: 0, [SESSION_LISTS.SESSIONS]: 0}
 };
 
+let watchedSessionIds: readonly string[] = [];
+
+// The host reads the processes of the dropdowns asked for last, so it hears again only when they change.
+const watchOpenDropdowns = (nextSessionsData: SessionsData) => {
+  const nextWatchedSessionIds = listWatchedSessionIds(nextSessionsData);
+  if (nextWatchedSessionIds.join() === watchedSessionIds.join()) return;
+  watchedSessionIds = nextWatchedSessionIds;
+  askHostToWatchSessionProcesses(nextWatchedSessionIds);
+};
+
 const setSessionsData = (nextSessionsData: SessionsData) => {
   const isKeptStateChanged =
     nextSessionsData.collapsedListIds !== sessionsData.collapsedListIds ||
     nextSessionsData.collapsedProjectKeys !== sessionsData.collapsedProjectKeys ||
     nextSessionsData.isWorktreeTrustHintHidden !== sessionsData.isWorktreeTrustHintHidden ||
+    nextSessionsData.openDropdownSessionIds !== sessionsData.openDropdownSessionIds ||
     nextSessionsData.viewedSessionId !== sessionsData.viewedSessionId;
   sessionsData = nextSessionsData;
   if (isKeptStateChanged)
@@ -51,8 +70,10 @@ const setSessionsData = (nextSessionsData: SessionsData) => {
       collapsedListIds: [...nextSessionsData.collapsedListIds],
       collapsedProjectKeys: [...nextSessionsData.collapsedProjectKeys],
       isWorktreeTrustHintHidden: nextSessionsData.isWorktreeTrustHintHidden,
+      openDropdownSessionIds: [...nextSessionsData.openDropdownSessionIds],
       viewedSessionId: nextSessionsData.viewedSessionId
     });
+  watchOpenDropdowns(nextSessionsData);
   for (const stateListener of stateListeners) stateListener();
 };
 
@@ -64,6 +85,17 @@ const setProjectOpen = (projectKey: string, isOpen: boolean) => {
   setSessionsData({
     ...sessionsData,
     collapsedProjectKeys: foldKey(sessionsData.collapsedProjectKeys, projectKey, isOpen)
+  });
+};
+
+// A closed dropdown drops its reading, so it opens again on a fresh one rather than an old one.
+const setSessionDropdownOpen = (sessionId: string, isOpen: boolean) => {
+  setSessionsData({
+    ...sessionsData,
+    openDropdownSessionIds: foldKey(sessionsData.openDropdownSessionIds, sessionId, !isOpen),
+    sessionProcessesBySessionId: new Map(
+      [...sessionsData.sessionProcessesBySessionId].filter(([readSessionId]) => isOpen || readSessionId !== sessionId)
+    )
   });
 };
 
@@ -175,6 +207,7 @@ export const useSessionsStore = <Selected>(props: UseSessionsStoreProps<Selected
       saveProjectSettings,
       setListOpen,
       setProjectOpen,
+      setSessionDropdownOpen,
       showUserInput,
       startNewSession
     })

@@ -1,6 +1,7 @@
 import type {ChosenLeftovers, SessionListId, UserInput} from "@/modules/sessions/sessions.type.ts";
 import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
 import type {ImportedSessionDto} from "@dtos/sessionImport.dto.ts";
+import type {SessionProcessesDto} from "@dtos/sessionProcess.dto.ts";
 import type {
   AgentRowData,
   CommandRequest,
@@ -20,7 +21,10 @@ export interface SessionsData {
   readonly isDrawn: boolean;
   readonly isWorkspaceTrustEnabled: boolean;
   readonly isWorktreeTrustHintHidden: boolean;
+  readonly openDropdownSessionIds: ReadonlySet<string>;
   readonly projectRows: readonly ProjectRowData[];
+  // The latest reading of each open dropdown's processes, kept until its dropdown closes.
+  readonly sessionProcessesBySessionId: ReadonlyMap<string, SessionProcessesDto>;
   readonly skipAgentPicker: boolean;
   readonly styleNonce: string | undefined;
   readonly userInput: undefined | UserInput;
@@ -42,6 +46,7 @@ export interface SessionsState extends SessionsData {
   readonly saveProjectSettings: (projectSettings: ProjectSettingsDto) => void;
   readonly setListOpen: (listId: SessionListId, isOpen: boolean) => void;
   readonly setProjectOpen: (projectKey: string, isOpen: boolean) => void;
+  readonly setSessionDropdownOpen: (sessionId: string, isOpen: boolean) => void;
   readonly showUserInput: (userInput: UserInput) => void;
   readonly startNewSession: (newSessionRequest: CommandRequest) => void;
 }

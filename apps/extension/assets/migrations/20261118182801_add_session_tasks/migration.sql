@@ -1,0 +1,1 @@
+ALTER TABLE `sessions` ADD `tasks` text DEFAULT '[]' NOT NULL;

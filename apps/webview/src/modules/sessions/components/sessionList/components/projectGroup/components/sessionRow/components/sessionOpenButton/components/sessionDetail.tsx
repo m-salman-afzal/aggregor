@@ -1,6 +1,6 @@
-import {SessionDiffStats} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDiffStats.tsx";
-import {SessionPullRequest} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionPullRequest.tsx";
-import {AGENT_ICON} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/sessionRow.constant.ts";
+import {SessionDiffStats} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/components/sessionDiffStats.tsx";
+import {SessionPullRequest} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/components/sessionPullRequest.tsx";
+import {AGENT_ICON} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/sessionOpenButton.constant.ts";
 import {GitBranchIcon, TriangleAlertIcon} from "lucide-react";
 
 import type {SessionListItemDto} from "@dtos/session.dto.ts";

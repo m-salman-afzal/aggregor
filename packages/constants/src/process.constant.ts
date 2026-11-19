@@ -20,3 +20,22 @@ export const COMMAND_SEARCH = {
   POSIX_PATH_SEPARATOR: ":",
   WINDOWS_PATH_SEPARATOR: ";"
 } as const;
+
+// A terminal's processes are read this often, only while a session's dropdown is open in the Sessions view.
+export const PROCESS_SAMPLING = {
+  INTERVAL: "2 seconds"
+} as const;
+
+export const LINUX_PROCESS_FILES = {
+  CGROUP_FILE: (processId: number) => `/proc/${processId}/cgroup`,
+  CGROUP_PROCESSES_FILE: "cgroup.procs",
+  CGROUP_ROOT: "/sys/fs/cgroup"
+} as const;
+
+export const PROCESS_LISTING = {
+  // The command line comes last, since it alone can hold spaces.
+  ARGUMENTS: ["-A", "-o", "pid=,ppid=,command="],
+  COMMAND: "ps",
+  // "  123     1 /usr/bin/node server.js": ps right-aligns its numbers.
+  LINE: /^\s*(?<processId>\d+)\s+(?<parentProcessId>\d+)\s+(?<commandLine>.*)$/u
+} as const;

@@ -84,17 +84,17 @@ const labelSessionFolderShell = Effect.fn("FolderShellService.labelSessionFolder
 });
 
 // A root session shares its project's shell; sessions in one worktree share the worktree's.
-const prepareSessionFolderShellRequest = Effect.fn("FolderShellService.prepareSessionFolderShellRequest")(function* (
-  session: SessionEntity
-) {
-  const sessionProject = yield* findProjectListItem(session.projectPath);
-  const folderShellRequest: FolderShellRequest = {
-    folderPath: session.workingFolderPath,
-    statusLabel: yield* labelSessionFolderShell(session, sessionProject.name)
-  };
+export const prepareSessionFolderShellRequest = Effect.fn("FolderShellService.prepareSessionFolderShellRequest")(
+  function* (session: SessionEntity) {
+    const sessionProject = yield* findProjectListItem(session.projectPath);
+    const folderShellRequest: FolderShellRequest = {
+      folderPath: session.workingFolderPath,
+      statusLabel: yield* labelSessionFolderShell(session, sessionProject.name)
+    };
 
-  return folderShellRequest;
-});
+    return folderShellRequest;
+  }
+);
 
 export const openSessionFolderTerminal = Effect.fn("FolderShellService.openSessionFolderTerminal")(
   function* (request: OpenSessionFolderTerminalRequestDto) {

@@ -1,10 +1,11 @@
-import {TmuxUnavailableError} from "@interfaces/tmux.infraService.interface.ts";
+import {TmuxSessionNotRunningError, TmuxUnavailableError} from "@interfaces/tmux.infraService.interface.ts";
 import {SYSTEMD_SCOPE, TMUX} from "@pkg/constants/src/tmux.constant.ts";
 import {Array, Effect, Result, Schema, String} from "effect";
 import {ChildProcess} from "effect/process";
 
 import type {TmuxClient, TmuxServer} from "@infraServices/tmux/tmux.infraService.type.ts";
 import type {TerminalCommand} from "@interfaces/terminal.infraService.interface.ts";
+import type {TmuxSessionPanes} from "@interfaces/tmux.infraService.interface.ts";
 import type {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 
 export class TmuxClientNotFoundError extends Schema.TaggedError<
@@ -98,6 +99,30 @@ export const listTmuxClients = Effect.fn("TmuxInfraService.listTmuxClients")(fun
       terminalProcessId: Number(clientProcessId)
     };
   });
+});
+
+// Every pane of every window, so a pane the user split off counts too; #{pid} is the server's own.
+export const readTmuxSessionPanes = Effect.fn("TmuxInfraService.readTmuxSessionPanes")(function* (
+  tmuxServer: TmuxServer,
+  sessionName: string
+) {
+  const paneLines = yield* Effect.orElseSucceed(
+    runTmuxCommand(tmuxServer, ["list-panes", "-s", "-t", `=${sessionName}`, "-F", "#{pane_pid} #{pid}"]),
+    (): readonly string[] => []
+  );
+  const tmuxPanes = Array.map(paneLines, (paneLine) => {
+    const [paneProcessId, tmuxServerProcessId = ""] = String.split(" ")(paneLine);
+
+    return {paneProcessId: Number(paneProcessId), tmuxServerProcessId: Number(tmuxServerProcessId)};
+  });
+  const [firstTmuxPane] = tmuxPanes;
+  if (firstTmuxPane === undefined) return yield* TmuxSessionNotRunningError.make();
+  const tmuxSessionPanes: TmuxSessionPanes = {
+    paneProcessIds: Array.map(tmuxPanes, (tmuxPane) => tmuxPane.paneProcessId),
+    tmuxServerProcessId: firstTmuxPane.tmuxServerProcessId
+  };
+
+  return tmuxSessionPanes;
 });
 
 export const findTmuxClient = Effect.fn("TmuxInfraService.findTmuxClient")(function* (
