@@ -1,4 +1,5 @@
 import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
+import {AGENT_TASK_STATES} from "@valueObjects/agentTaskState.valueObject.ts";
 import {LaunchPlanValueObjectSchema} from "@valueObjects/launchPlan.valueObject.ts";
 import {SESSION_RUN_STATES} from "@valueObjects/sessionRunState.valueObject.ts";
 import {SESSION_STATUSES} from "@valueObjects/sessionStatus.valueObject.ts";
@@ -153,7 +154,7 @@ const isFinishedTurnUnseen = Effect.fn("SessionDomainService.isFinishedTurnUnsee
 
 // A sub-agent can work on after the agent's own turn has ended, which keeps the row working.
 const hasWorkingTask = Effect.fn("SessionDomainService.hasWorkingTask")(function* (session: SessionEntity) {
-  return Array.some(session.tasks, (agentTask) => agentTask.state === AGENT_STATUSES.WORKING);
+  return Array.some(session.tasks, (agentTask) => agentTask.state === AGENT_TASK_STATES.WORKING);
 });
 
 // No process means the agent is gone, even after a reboot; no report yet shows idle, so the row never looks stuck.

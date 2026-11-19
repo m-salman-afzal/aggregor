@@ -3,7 +3,7 @@ import {LeftoverDot} from "@/modules/sessions/components/sessionList/components/
 import {ProjectSessionRows} from "@/modules/sessions/components/sessionList/components/projectGroup/components/projectSessionRows.tsx";
 import {useProjectGroup} from "@/modules/sessions/components/sessionList/components/projectGroup/projectGroup.hook.ts";
 import {RowActions} from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.tsx";
-import {PROJECT_PANEL} from "@/modules/sessions/components/sessionList/sessionList.constant.ts";
+import {COLLAPSIBLE_PANEL} from "@/modules/sessions/components/sessionList/sessionList.constant.ts";
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@pkg/ui/src/components/base/collapsible.tsx";
 import {ChevronRightIcon} from "lucide-react";
 
@@ -36,7 +36,7 @@ export const ProjectGroup = (props: ProjectGroupProps) => {
           {projectGroupView.hasLeftovers && <LeftoverDot />}
         </CollapsibleTrigger>
       </RowActions>
-      <CollapsibleContent className={PROJECT_PANEL}>
+      <CollapsibleContent className={COLLAPSIBLE_PANEL}>
         <ProjectSessionRows listId={props.listId} projectRow={props.projectRow} />
       </CollapsibleContent>
     </Collapsible>

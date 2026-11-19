@@ -9,6 +9,7 @@ interface WebviewState {
   readonly collapsedListIds: readonly SessionListId[];
   readonly collapsedProjectKeys: readonly string[];
   readonly isWorktreeTrustHintHidden: boolean;
+  readonly openDropdownSessionIds: readonly string[];
   readonly viewedSessionId?: string | undefined;
 }
 
@@ -69,6 +70,7 @@ export const readWebviewState = (): WebviewState => {
     collapsedListIds: savedState?.collapsedListIds ?? [SESSION_LISTS.ARCHIVE],
     collapsedProjectKeys: savedState?.collapsedProjectKeys ?? [],
     isWorktreeTrustHintHidden: savedState?.isWorktreeTrustHintHidden ?? false,
+    openDropdownSessionIds: savedState?.openDropdownSessionIds ?? [],
     viewedSessionId: savedState?.viewedSessionId
   };
 };

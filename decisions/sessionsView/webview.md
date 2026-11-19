@@ -262,3 +262,26 @@ The Sessions view drawn in a webview of our own.
 - **Decision:** the view is named Aggregor, the container's name, so VS Code's header reads `AGGREGOR` alone; the
   waiting count sits on the Sessions list's title and on the activity bar's badge.
 - **Alternatives considered:** the view's name with the count, as before.
+
+## A session's tasks open in a dropdown under its row
+
+- **Problem:** a session's agent can run sub-agents and background shells that the row's one status hides, and the
+  processes it starts (the next steps) need a place too.
+- **Decision:** a chevron under the row's status icon, on its second line, opens a panel under the row, inside its list
+  item, with a Tasks section: each task's status icon, an icon for what it is (a sub-agent, a background shell, a remote
+  agent, a teammate, a workflow, a monitor, an MCP task, or other), its title (or its id when it has none), and its
+  progress and message. The chevron shows only while the session has tasks, which it has only while its agent runs.
+  Which sessions have it open is kept with the folds, in the webview's state, so a reload keeps them open.
+- **Solution:** the session list item carries `tasks` as `SessionTaskDto`s, built by `SessionService` from the row's
+  `tasks` column. `getAgentTaskKind` reads a task's kind from its id's first letter, Claude Code's own table (`a`
+  sub-agent, `b` shell, `r` remote agent, `t` teammate, `w` workflow, `m` and `s` monitors, `k` MCP task), since OSC
+  7501 carries no kind for a task; an id it doesn't list, or a change in Claude's ids, shows the other icon. The row is
+  a `Collapsible` rendered as its `<li>`; `sessionDropdownToggle.tsx` is its trigger, beside the row's own button since
+  a button can't hold one, and `sessionDropdown/` its panel, which folds with the projects' `COLLAPSIBLE_PANEL`. The
+  row's open button moved into `sessionOpenButton/` with its hook, the title and detail lines it draws and their
+  constants, keeping the row and its hook short. The store keeps `openDropdownSessionIds`.
+- **Alternatives considered:** the kind read only for the Claude agent, which its settings key can't tell apart; storing
+  the report's `app` with each task, a pty and column change while Claude is the only agent that reports tasks; a
+  popover beside the row, which covers the rows under it and closes on the first click elsewhere; the chevron in the
+  row's left gutter, which crowds the brand bar of the row in front; the chevron inside the row's text, which nests a
+  button in a button; a dropdown on every running session before it has anything to show.

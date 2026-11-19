@@ -228,6 +228,10 @@ apps/extension/src/
                                            default), SessionWorkingTreeValueObject (literals: projectRoot, worktree),
                                            SessionRunStateValueObject (literals: running, interrupted),
                                            PullRequestStateValueObject (literals: open, draft, merged, closed),
+                                           AgentTaskValueObject (an OSC 7501 record with an id),
+                                           AgentTaskStateValueObject (literals: a task's states),
+                                           AgentTaskKindValueObject (literals: subAgent, shell, remoteAgent,
+                                           teammate, workflow, monitor, mcpTask, other),
                                            PaginationValueObject (one page of a list: its size and the cursor it
                                            follows, its number, the total pages and rows, the rows before and after
                                            it, the next cursor)
@@ -244,6 +248,7 @@ apps/extension/src/
                                            session's worktree, its branch and its project's worktrees folder are
                                            called
       folderShell.domainService.ts         getFolderShellName: what a folder's shell is called in tmux
+      agentTask.domainService.ts           getAgentTaskKind: what an agent's task is, from its id
   application/
     services/
       base.service.ts                      addEntity, findEntityById, findEntities, findEntityPage, updateEntity,

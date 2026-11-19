@@ -20,6 +20,7 @@ export interface SessionsData {
   readonly isDrawn: boolean;
   readonly isWorkspaceTrustEnabled: boolean;
   readonly isWorktreeTrustHintHidden: boolean;
+  readonly openDropdownSessionIds: ReadonlySet<string>;
   readonly projectRows: readonly ProjectRowData[];
   readonly skipAgentPicker: boolean;
   readonly styleNonce: string | undefined;
@@ -42,6 +43,7 @@ export interface SessionsState extends SessionsData {
   readonly saveProjectSettings: (projectSettings: ProjectSettingsDto) => void;
   readonly setListOpen: (listId: SessionListId, isOpen: boolean) => void;
   readonly setProjectOpen: (projectKey: string, isOpen: boolean) => void;
+  readonly setSessionDropdownOpen: (sessionId: string, isOpen: boolean) => void;
   readonly showUserInput: (userInput: UserInput) => void;
   readonly startNewSession: (newSessionRequest: CommandRequest) => void;
 }

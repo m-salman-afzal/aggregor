@@ -31,6 +31,7 @@ let sessionsData: SessionsData = {
   isDrawn: false,
   isWorkspaceTrustEnabled: false,
   isWorktreeTrustHintHidden: savedWebviewState.isWorktreeTrustHintHidden,
+  openDropdownSessionIds: new Set(savedWebviewState.openDropdownSessionIds),
   projectRows: [],
   skipAgentPicker: false,
   styleNonce: readStyleNonce(),
@@ -44,6 +45,7 @@ const setSessionsData = (nextSessionsData: SessionsData) => {
     nextSessionsData.collapsedListIds !== sessionsData.collapsedListIds ||
     nextSessionsData.collapsedProjectKeys !== sessionsData.collapsedProjectKeys ||
     nextSessionsData.isWorktreeTrustHintHidden !== sessionsData.isWorktreeTrustHintHidden ||
+    nextSessionsData.openDropdownSessionIds !== sessionsData.openDropdownSessionIds ||
     nextSessionsData.viewedSessionId !== sessionsData.viewedSessionId;
   sessionsData = nextSessionsData;
   if (isKeptStateChanged)
@@ -51,6 +53,7 @@ const setSessionsData = (nextSessionsData: SessionsData) => {
       collapsedListIds: [...nextSessionsData.collapsedListIds],
       collapsedProjectKeys: [...nextSessionsData.collapsedProjectKeys],
       isWorktreeTrustHintHidden: nextSessionsData.isWorktreeTrustHintHidden,
+      openDropdownSessionIds: [...nextSessionsData.openDropdownSessionIds],
       viewedSessionId: nextSessionsData.viewedSessionId
     });
   for (const stateListener of stateListeners) stateListener();
@@ -64,6 +67,13 @@ const setProjectOpen = (projectKey: string, isOpen: boolean) => {
   setSessionsData({
     ...sessionsData,
     collapsedProjectKeys: foldKey(sessionsData.collapsedProjectKeys, projectKey, isOpen)
+  });
+};
+
+const setSessionDropdownOpen = (sessionId: string, isOpen: boolean) => {
+  setSessionsData({
+    ...sessionsData,
+    openDropdownSessionIds: foldKey(sessionsData.openDropdownSessionIds, sessionId, !isOpen)
   });
 };
 
@@ -175,6 +185,7 @@ export const useSessionsStore = <Selected>(props: UseSessionsStoreProps<Selected
       saveProjectSettings,
       setListOpen,
       setProjectOpen,
+      setSessionDropdownOpen,
       showUserInput,
       startNewSession
     })

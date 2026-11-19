@@ -144,7 +144,7 @@ solution and what was turned down.
       folder's shell started, with their memory and CPU
   - [x] `aggregor-pty` records the agent's tasks (Claude Code's sub-agents and background shells), and a working task
         keeps the row working
-  - [ ] The dropdown, with the tasks
+  - [x] The dropdown, with the tasks
   - [ ] The agent terminal's processes, with CPU and memory, sampled only while a dropdown is open
   - [ ] The folder shell's processes, under every session that shares the shell
 

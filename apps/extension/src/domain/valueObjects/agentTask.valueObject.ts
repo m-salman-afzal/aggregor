@@ -1,4 +1,4 @@
-import {AgentStatusValueObjectSchema} from "@valueObjects/agentStatus.valueObject.ts";
+import {AgentTaskStateValueObjectSchema} from "@valueObjects/agentTaskState.valueObject.ts";
 import {StatusKindValueObjectSchema} from "@valueObjects/statusKind.valueObject.ts";
 import {Schema} from "effect";
 
@@ -7,7 +7,7 @@ export const AgentTaskValueObjectSchema = Schema.Struct({
   kind: Schema.optional(StatusKindValueObjectSchema),
   message: Schema.optional(Schema.String),
   progress: Schema.optional(Schema.Int),
-  state: AgentStatusValueObjectSchema,
+  state: AgentTaskStateValueObjectSchema,
   taskId: Schema.String,
   title: Schema.optional(Schema.String)
 });
