@@ -159,9 +159,10 @@ fn copy_output(mut reader: Box<dyn Read + Send>, writer: SharedWriter, updates: 
                 break;
             }
             let chunk = &buffer[..read_length];
+            // Replies go first: Claude takes our OSC 7501 reply as support only if it beats tmux's reply to the chunk's DA1.
+            scanner.feed(chunk, &mut |event| handle_event(event, &writer, &updates));
             // Once our terminal is gone the agent's output has nowhere to go, but it is still read so the agent never blocks.
             let _ = output.write_all(chunk).and_then(|()| output.flush());
-            scanner.feed(chunk, &mut |event| handle_event(event, &writer, &updates));
         }
         let _ = done.send(());
     });

@@ -16,6 +16,7 @@ export const NewSessionField = (props: NewSessionFieldProps) => {
         onChoose={props.optionGroup.onChoose}
         onSecondaryAction={props.optionGroup.onSecondaryAction}
         options={props.optionGroup.options}
+        optionTabs={props.optionGroup.optionTabs}
       />
     );
 

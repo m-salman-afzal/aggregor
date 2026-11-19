@@ -42,9 +42,12 @@ export type ListProjectBranchesRequestDto = typeof ListProjectBranchesRequestDto
 
 // The current branch is a short hash while the project is detached, and missing when it can't be read.
 export const ProjectBranchesDtoSchema = Schema.Struct({
-  branchNames: Schema.Array(Schema.String),
   currentBranchName: Schema.optional(Schema.String),
-  projectPath: ProjectPathValueObjectSchema
+  // The remote branches are as of the last fetch until this turns false.
+  isFetchingRemote: Schema.Boolean,
+  localBranchNames: Schema.Array(Schema.String),
+  projectPath: ProjectPathValueObjectSchema,
+  remoteBranchNames: Schema.Array(Schema.String)
 });
 
 export type ProjectBranchesDto = typeof ProjectBranchesDtoSchema.Type;

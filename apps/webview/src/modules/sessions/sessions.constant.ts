@@ -13,6 +13,7 @@ import {
   ArrowUpIcon,
   BroomIcon,
   CircleStopIcon,
+  CopyIcon,
   FolderGit2Icon,
   FolderMinusIcon,
   FolderPlusIcon,
@@ -36,6 +37,7 @@ export const SESSIONS_LABELS = {
     "Sessions you are done with move here when you archive them from a … menu in the Sessions list: a session's, a " +
     "project's or the list's.",
   ARCHIVE_TITLE: "Archive",
+  COPY_SESSION_ID_FAILED: "The clipboard refused the session ID; copy it from here",
   DETAIL_SEPARATOR: " · ",
   HIDDEN_SESSIONS: (hiddenSessionCount: number, totalSessionCount: number) =>
     `${hiddenSessionCount} of ${totalSessionCount} sessions not shown yet`,
@@ -71,6 +73,11 @@ export const USER_INPUT_TAGS = {
   WORKING_TREE: "WorkingTreeInput"
 } as const;
 
+// What the webview does on its own, without the host.
+export const WEBVIEW_ACTIONS = {
+  COPY_SESSION_ID: "copySessionId"
+} as const;
+
 const MOVE_ROW_LABEL = "Move";
 
 export const ROW_ACTIONS = {
@@ -98,6 +105,7 @@ export const ROW_ACTIONS = {
     icon: BroomIcon,
     label: LEFTOVER_LABELS.CLEAN_UP
   },
+  COPY_SESSION_ID: {commandId: WEBVIEW_ACTIONS.COPY_SESSION_ID, icon: CopyIcon, label: "Copy Session ID"},
   IMPORT_SESSIONS: {commandId: SESSION_COMMANDS.IMPORT, icon: ImportIcon, label: SESSION_IMPORT_LABELS.MENU},
   LINK_PULL_REQUEST: {
     commandId: GITHUB_CLI_COMMANDS.LINK_SESSION_PULL_REQUEST,
