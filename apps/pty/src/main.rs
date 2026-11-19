@@ -177,18 +177,23 @@ fn handle_event(event: Event, writer: &SharedWriter, updates: &Sender<Update>) {
                 }
                 return;
             }
-            // Records with an id are the session's tasks, which nothing stores yet.
-            Some(ProgramStatus::Report(report)) if report.id.is_none() => Update::Status(match report.state {
-                State::Clear => Status::unknown(),
-                state => Status {
-                    state: state.as_str(),
-                    kind: report.kind,
-                    progress: report.progress,
-                    message: report.message,
-                    reported_title: report.title,
-                },
-            }),
-            _ => return,
+            Some(ProgramStatus::Report(report)) => {
+                let status = match report.state {
+                    State::Clear => None,
+                    state => Some(Status {
+                        state: state.as_str(),
+                        kind: report.kind,
+                        progress: report.progress,
+                        message: report.message,
+                        reported_title: report.title,
+                    }),
+                };
+                match report.id {
+                    Some(task_id) => Update::Task(task_id, status),
+                    None => Update::Status(status.unwrap_or_else(Status::unknown)),
+                }
+            }
+            None => return,
         },
         Event::Title(title) => match String::from_utf8(title) {
             Ok(title) if !title.chars().any(is_control_character) => Update::TerminalTitle(title),

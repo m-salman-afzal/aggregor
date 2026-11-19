@@ -9,6 +9,7 @@ interface WebviewState {
   readonly collapsedListIds: readonly SessionListId[];
   readonly collapsedProjectKeys: readonly string[];
   readonly isWorktreeTrustHintHidden: boolean;
+  readonly openDropdownSessionIds: readonly string[];
   readonly viewedSessionId?: string | undefined;
 }
 
@@ -37,6 +38,10 @@ export const askHostForMoreSessions = (listId: SessionListId, projectPath: strin
 
 export const askHostForPullRequests = (sessionId: string) => {
   postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_PULL_REQUESTS, sessionId});
+};
+
+export const askHostToWatchSessionProcesses = (sessionIds: readonly string[]) => {
+  postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.WATCH_SESSION_PROCESSES, sessionIds});
 };
 
 export const askHostToDraw = () => {
@@ -69,6 +74,7 @@ export const readWebviewState = (): WebviewState => {
     collapsedListIds: savedState?.collapsedListIds ?? [SESSION_LISTS.ARCHIVE],
     collapsedProjectKeys: savedState?.collapsedProjectKeys ?? [],
     isWorktreeTrustHintHidden: savedState?.isWorktreeTrustHintHidden ?? false,
+    openDropdownSessionIds: savedState?.openDropdownSessionIds ?? [],
     viewedSessionId: savedState?.viewedSessionId
   };
 };

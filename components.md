@@ -36,6 +36,8 @@ heading there. Update this file in the same commit as a change that adds, remove
     `-A` attaches when the tmux session runs and starts it otherwise; `-e` passes the agent's `env` setting.
   - `list-sessions -F '#{session_name}'` reads which agents run; `kill-session -t =‹sessionId›` stops one;
     `source-file ‹conf›` reloads the config into a server that already runs, since `-f` is read only at server start.
+  - `list-panes -s -t =‹name› -F '#{pane_pid} #{pid}'` reads what each pane of an agent's or a folder shell's session
+    runs, and the server's own process id, for the processes an open dropdown shows (see "ps, /proc and cgroups").
   - `list-clients -F '#{client_pid} #{client_name} #{session_name}'` reads which session each tab shows, a tab being the
     tmux client with its process id; `switch-client -E -c ‹client› -t =‹sessionId›` attaches the shared tab to another
     running session, and `-E` leaves that session's environment as it is.
@@ -82,6 +84,17 @@ heading there. Update this file in the same commit as a change that adds, remove
 - **Why:** systemd-oomd and the kernel kill a whole cgroup, and the tmux server stayed in the cgroup of whichever
   process started it, VS Code's, so one agent's memory took VS Code and every agent down.
 - **Alternatives:** "Each agent runs in a systemd scope of its own" in `decisions/sessions/terminals.md`.
+
+### ps, /proc and cgroups
+
+- **What it is:** the operating system's own record of its processes: the `ps` command, and on Linux `/proc` and cgroup
+  v2.
+- **What we use:** `infrastructure/services/process/`, with names in `packages/constants/src/process.constant.ts`
+  (`PROCESS_LISTING`, `LINUX_PROCESS_FILES`), while a session's dropdown is open: `ps -A -o pid=,ppid=,command=` for
+  every process, its parent and command line; on Linux `/proc/‹pid›/cgroup` for each pane and the tmux server, and a
+  pane in a scope of its own brings in its cgroup's `cgroup.procs`.
+- **Why:** no dependency, and the cgroup shows what an agent started even after it left the tree.
+- **Alternatives:** "A session's terminal processes show in its dropdown" in `decisions/sessionsView/webview.md`.
 
 ### aggregor-pty
 

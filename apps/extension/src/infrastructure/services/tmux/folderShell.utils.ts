@@ -7,6 +7,7 @@ import {
   listTmuxSessionNames,
   prepareOwnScopeArguments,
   prepareTerminalCommand,
+  readTmuxSessionPanes,
   runCheckedTmuxCommand,
   runTmuxCommand,
   switchTmuxClient
@@ -128,6 +129,15 @@ export const showFolderShellInTerminal = Effect.fn("TmuxInfraService.showFolderS
   yield* Effect.mapError(switchTerminalToFolderShell(tmuxServer, terminalProcessId, folderShellRequest), () =>
     FolderShellSwitchFailedError.make({folderPath: folderShellRequest.folderPath})
   );
+});
+
+export const readFolderShellPanes = Effect.fn("TmuxInfraService.readFolderShellPanes")(function* (
+  tmuxServer: TmuxServer,
+  folderPath: ProjectPathValueObject
+) {
+  const folderShellName = yield* nameFolderShell(tmuxServer, folderPath);
+
+  return yield* readTmuxSessionPanes(tmuxServer, folderShellName);
 });
 
 // A shell's tmux session keeps the folder it was started in as its path.

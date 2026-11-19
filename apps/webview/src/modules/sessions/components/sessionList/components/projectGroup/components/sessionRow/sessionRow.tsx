@@ -1,7 +1,9 @@
-import {SessionDetail} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDetail.tsx";
-import {SessionTitle} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionTitle.tsx";
+import {SessionDropdown} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdown/sessionDropdown.tsx";
+import {SessionDropdownToggle} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdownToggle.tsx";
+import {SessionOpenButton} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/sessionOpenButton.tsx";
 import {useSessionRow} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/sessionRow.hook.ts";
 import {RowActions} from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.tsx";
+import {Collapsible} from "@pkg/ui/src/components/base/collapsible.tsx";
 
 import type {SessionRowData} from "@views/sessions/sessions.view.type.ts";
 
@@ -9,33 +11,27 @@ interface SessionRowProps {
   readonly sessionRow: SessionRowData;
 }
 
+// The dropdown opens under the row, inside its list item, so the row keeps its place in the list.
 export const SessionRow = (props: SessionRowProps) => {
   const sessionRowView = useSessionRow(props);
 
   return (
-    <li>
+    <Collapsible onOpenChange={sessionRowView.setDropdownOpen} open={sessionRowView.isDropdownOpen} render={<li />}>
       <RowActions
         actionGroups={sessionRowView.actionGroups}
         className={sessionRowView.rowClassName}
         commandArgument={sessionRowView.commandArgument}
         inlineActions={sessionRowView.inlineActions}>
-        <button
-          aria-current={sessionRowView.isViewed}
-          className="flex min-w-0 flex-1 flex-col gap-1 rounded-lg py-1.5 pr-2 pl-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-          onClick={sessionRowView.openSession}
-          title={sessionRowView.tooltip}
-          type="button">
-          <SessionTitle
-            agentActivity={sessionRowView.agentActivity}
-            sessionListItem={props.sessionRow.sessionListItem}
-          />
-          <SessionDetail
-            agentIconUri={props.sessionRow.agentIconUri}
-            agentLabel={sessionRowView.agentLabel}
-            sessionListItem={props.sessionRow.sessionListItem}
-          />
-        </button>
+        {sessionRowView.hasDropdown && <SessionDropdownToggle />}
+        <SessionOpenButton sessionRow={props.sessionRow} />
       </RowActions>
-    </li>
+      {sessionRowView.hasDropdown && (
+        <SessionDropdown
+          agentIconUri={props.sessionRow.agentIconUri}
+          sessionId={props.sessionRow.sessionListItem.sessionId}
+          sessionTasks={props.sessionRow.sessionListItem.tasks}
+        />
+      )}
+    </Collapsible>
   );
 };

@@ -2,6 +2,7 @@ import {ProjectListItemDtoSchema} from "@dtos/project.dto.ts";
 import {WORKING_TREE_CHOICE_TAGS} from "@pkg/constants/src/session.constant.ts";
 import {AgentIconValueObjectSchema} from "@valueObjects/agentIcon.valueObject.ts";
 import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
+import {AgentTaskKindValueObjectSchema} from "@valueObjects/agentTaskKind.valueObject.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {PullRequestStateValueObjectSchema} from "@valueObjects/pullRequestState.valueObject.ts";
@@ -26,6 +27,18 @@ export const SessionPullRequestDtoSchema = Schema.Struct({
 
 export type SessionPullRequestDto = typeof SessionPullRequestDtoSchema.Type;
 
+// One of the agent's tasks, such as a Claude Code sub-agent, named by its title or else its id.
+export const SessionTaskDtoSchema = Schema.Struct({
+  displayName: Schema.String,
+  kind: AgentTaskKindValueObjectSchema,
+  state: SessionStatusValueObjectSchema,
+  statusMessage: Schema.optional(Schema.String),
+  statusProgress: Schema.optional(Schema.Int),
+  taskId: Schema.String
+});
+
+export type SessionTaskDto = typeof SessionTaskDtoSchema.Type;
+
 // The wait kind and progress exist only at the agent's turn; no agent name or icon means it left the settings.
 export const SessionListItemDtoSchema = Schema.Struct({
   agentConversationId: Schema.optional(Schema.String),
@@ -48,6 +61,7 @@ export const SessionListItemDtoSchema = Schema.Struct({
   statusKind: Schema.optional(StatusKindValueObjectSchema),
   statusMessage: Schema.optional(Schema.String),
   statusProgress: Schema.optional(Schema.Int),
+  tasks: Schema.Array(SessionTaskDtoSchema),
   worktreePath: Schema.optional(ProjectPathValueObjectSchema)
 });
 

@@ -34,6 +34,7 @@ export const SESSIONS_VIEW_MESSAGE_TAGS = {
   PROJECTS_DRAWN: "ProjectsDrawn",
   PULL_REQUESTS_DRAWN: "PullRequestsDrawn",
   SESSION_DRAWN: "SessionDrawn",
+  SESSION_PROCESSES_DRAWN: "SessionProcessesDrawn",
   VIEWED_SESSION_CHANGED: "ViewedSessionChanged",
   WAITING_COUNTS_DRAWN: "WaitingCountsDrawn"
 } as const;
@@ -45,7 +46,8 @@ export const SESSIONS_WEBVIEW_MESSAGE_TAGS = {
   LIST_PULL_REQUESTS: "ListPullRequests",
   READY: "Ready",
   RUN_COMMAND: "RunCommand",
-  SHOW_MORE_SESSIONS: "ShowMoreSessions"
+  SHOW_MORE_SESSIONS: "ShowMoreSessions",
+  WATCH_SESSION_PROCESSES: "WatchSessionProcesses"
 } as const;
 
 export const SESSION_LISTS = {

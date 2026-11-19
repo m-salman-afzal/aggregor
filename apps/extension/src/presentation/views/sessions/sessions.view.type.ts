@@ -3,13 +3,14 @@ import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 import type {SessionPullRequestsDto} from "@dtos/pullRequest.dto.ts";
 import type {SessionListItemDto, SessionPageDto, WorktreeListItemDto} from "@dtos/session.dto.ts";
 import type {ImportableSessionsDto} from "@dtos/sessionImport.dto.ts";
+import type {SessionProcessesDto} from "@dtos/sessionProcess.dto.ts";
 import type {ProjectBranchesDto, ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
 import type {
   SESSION_LISTS,
   SESSIONS_VIEW_MESSAGE_TAGS,
   SESSIONS_WEBVIEW_MESSAGE_TAGS
 } from "@pkg/constants/src/sessionsView.constant.ts";
-import type {Ref} from "effect";
+import type {Ref, SubscriptionRef} from "effect";
 
 // apps/webview imports these for types only.
 
@@ -33,6 +34,9 @@ export interface AgentRowData {
 }
 
 export type SessionListId = (typeof SESSION_LISTS)[keyof typeof SESSION_LISTS];
+
+// The sessions whose dropdowns the webview shows open, whose processes it reads.
+export type OpenDropdownSessionIds = SubscriptionRef.SubscriptionRef<readonly string[]>;
 
 // How many pages of sessions each project shows in each list, by project path; a project not in it shows one.
 export type ShownSessionPages = Ref.Ref<Readonly<Record<SessionListId, Readonly<Record<string, number>>>>>;
@@ -70,6 +74,10 @@ export type SessionsViewMessage =
       readonly pullRequests: SessionPullRequestsDto;
     }
   | {readonly _tag: typeof SESSIONS_VIEW_MESSAGE_TAGS.SESSION_DRAWN; readonly sessionRow: SessionRowData}
+  | {
+      readonly _tag: typeof SESSIONS_VIEW_MESSAGE_TAGS.SESSION_PROCESSES_DRAWN;
+      readonly sessionProcesses: SessionProcessesDto;
+    }
   | {readonly _tag: typeof SESSIONS_VIEW_MESSAGE_TAGS.VIEWED_SESSION_CHANGED; readonly sessionId: string}
   | {
       readonly _tag: typeof SESSIONS_VIEW_MESSAGE_TAGS.WAITING_COUNTS_DRAWN;
@@ -92,4 +100,8 @@ export type SessionsWebviewMessage =
       readonly _tag: typeof SESSIONS_WEBVIEW_MESSAGE_TAGS.SHOW_MORE_SESSIONS;
       readonly listId: SessionListId;
       readonly projectPath: string;
+    }
+  | {
+      readonly _tag: typeof SESSIONS_WEBVIEW_MESSAGE_TAGS.WATCH_SESSION_PROCESSES;
+      readonly sessionIds: readonly string[];
     };

@@ -1,6 +1,7 @@
 import {
   endFolderShell,
   prepareFolderShellTerminalCommand,
+  readFolderShellPanes,
   readFolderShellPathShownInTerminal,
   showFolderShellInTerminal
 } from "@infraServices/tmux/folderShell.utils.ts";
@@ -19,6 +20,7 @@ import {
   checkTmuxVersion,
   listTmuxSessionNames,
   probeOwnScope,
+  readTmuxSessionPanes,
   runTmuxCommand
 } from "@infraServices/tmux/tmuxServer.utils.ts";
 import {getDatabaseFilePath} from "@infraUtils/database.utils.ts";
@@ -88,6 +90,7 @@ const makeFolderShellMembers = Effect.fn("TmuxInfraService.makeFolderShellMember
     endFolderShell: (folderPath: ProjectPathValueObject) => endFolderShell(tmuxServer, folderPath),
     prepareFolderShellTerminalCommand: (folderShellRequest: FolderShellRequest) =>
       prepareFolderShellTerminalCommand(tmuxServer, folderShellRequest),
+    readFolderShellPanes: (folderPath: ProjectPathValueObject) => readFolderShellPanes(tmuxServer, folderPath),
     readFolderShellPathShownInTerminal: (terminalProcessId: number) =>
       readFolderShellPathShownInTerminal(tmuxServer, terminalProcessId),
     showFolderShellInTerminal: (terminalProcessId: number, folderShellRequest: FolderShellRequest) =>
@@ -101,6 +104,7 @@ const makeSessionAgentMembers = Effect.fn("TmuxInfraService.makeSessionAgentMemb
   return {
     prepareSessionTabCommand: (sessionTabCommandRequest: SessionTabCommandRequest) =>
       prepareSessionTabCommand(tmuxDependencies, sessionTabCommandRequest),
+    readSessionAgentPanes: (sessionId: EntityIdValueObject) => readTmuxSessionPanes(tmuxDependencies, sessionId),
     readShownSessionIdsByTabProcessId: readShownSessionIdsByTabProcessId(tmuxDependencies),
     refreshRunningSessionIds: refreshRunningSessionIds(tmuxDependencies),
     runningSessionIds: tmuxDependencies.runningSessionIds,
