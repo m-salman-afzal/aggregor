@@ -22,6 +22,12 @@ export interface SessionTabCommandRequest {
   readonly workingFolderPath: ProjectPathValueObject;
 }
 
+// What a tmux session's panes run, and the tmux server, in whose cgroup a pane without a scope of its own runs.
+export interface TmuxSessionPanes {
+  readonly paneProcessIds: readonly number[];
+  readonly tmuxServerProcessId: number;
+}
+
 // The terminal's process is no tmux client, as while it starts.
 export class FolderShellNotShownError extends Schema.TaggedError<
   FolderShellNotShownError,
@@ -42,6 +48,11 @@ export class SessionTabSwitchFailedError extends Schema.TaggedError<
   SessionTabSwitchFailedError,
   {readonly brand: unique symbol}
 >()("SessionTabSwitchFailedError", {sessionId: EntityIdValueObjectSchema}) {}
+// tmux runs no such session: its agent, or its folder's shell, has ended.
+export class TmuxSessionNotRunningError extends Schema.TaggedError<
+  TmuxSessionNotRunningError,
+  {readonly brand: unique symbol}
+>()("TmuxSessionNotRunningError", {}) {}
 // tmux is missing from PATH, or older than the version Aggregor's tmux.conf needs.
 export class TmuxUnavailableError extends Schema.TaggedError<TmuxUnavailableError, {readonly brand: unique symbol}>()(
   "TmuxUnavailableError",
@@ -62,9 +73,15 @@ export class ITmuxInfraService extends Context.Service<
     readonly prepareSessionTabCommand: (
       sessionTabCommandRequest: SessionTabCommandRequest
     ) => Effect.Effect<TerminalCommand, PtyBinaryNotFoundError | TmuxUnavailableError>;
+    readonly readFolderShellPanes: (
+      folderPath: ProjectPathValueObject
+    ) => Effect.Effect<TmuxSessionPanes, TmuxSessionNotRunningError>;
     readonly readFolderShellPathShownInTerminal: (
       terminalProcessId: number
     ) => Effect.Effect<ProjectPathValueObject, FolderShellNotShownError>;
+    readonly readSessionAgentPanes: (
+      sessionId: EntityIdValueObject
+    ) => Effect.Effect<TmuxSessionPanes, TmuxSessionNotRunningError>;
     // A tab's process is a tmux client, and tmux knows which session each client is attached to.
     readonly readShownSessionIdsByTabProcessId: Effect.Effect<ReadonlyMap<number, EntityIdValueObject>>;
     readonly refreshRunningSessionIds: Effect.Effect<ReadonlySet<EntityIdValueObject>>;

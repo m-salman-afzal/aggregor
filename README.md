@@ -141,12 +141,12 @@ solution and what was turned down.
       which outlives the window
 - [x] The Aggregor terminal follows the session in view, without opening the Terminal panel
 - [ ] Processes in a dropdown under each session's row: its agent's tasks, and what its agent's terminal and its
-      folder's shell started, with their memory and CPU
+      folder's shell started; each process's CPU and memory later (#204)
   - [x] `aggregor-pty` records the agent's tasks (Claude Code's sub-agents and background shells), and a working task
         keeps the row working
   - [x] The dropdown, with the tasks
-  - [ ] The agent terminal's processes, with CPU and memory, sampled only while a dropdown is open
-  - [ ] The folder shell's processes, under every session that shares the shell
+  - [x] The agent terminal's processes, read only while a dropdown is open
+  - [x] The folder shell's processes, under every session that shares the shell
 
 ### M4: tray
 

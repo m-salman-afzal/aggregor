@@ -7,6 +7,7 @@ import {WorktreeInfraService} from "@infraServices/git/worktree.infraService.ts"
 import {GitHubCliInfraService} from "@infraServices/gitHubCli/gitHubCli.infraService.ts";
 import {DesktopNotificationInfraService} from "@infraServices/os/desktopNotification.infraService.ts";
 import {ShellCommandInfraService} from "@infraServices/os/shellCommand.infraService.ts";
+import {ProcessInfraService} from "@infraServices/process/process.infraService.ts";
 import {TmuxInfraService} from "@infraServices/tmux/tmux.infraService.ts";
 import {GitInfraService} from "@infraServices/vscode/git.infraService.ts";
 import {ProgressInfraService} from "@infraServices/vscode/progress.infraService.ts";
@@ -70,6 +71,7 @@ export const AppLayer = BackgroundLayer.pipe(
   Layer.provideMerge(CommitCliInfraService),
   Layer.provideMerge(DesktopNotificationInfraService),
   Layer.provideMerge(ShellCommandInfraService),
+  Layer.provideMerge(ProcessInfraService),
   Layer.provideMerge(WorkspaceInfraService),
   Layer.provideMerge(WorktreeInfraService),
   Layer.provideMerge(IndependentLayers)

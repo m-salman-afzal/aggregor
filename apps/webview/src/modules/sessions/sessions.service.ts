@@ -40,6 +40,10 @@ export const askHostForPullRequests = (sessionId: string) => {
   postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.LIST_PULL_REQUESTS, sessionId});
 };
 
+export const askHostToWatchSessionProcesses = (sessionIds: readonly string[]) => {
+  postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.WATCH_SESSION_PROCESSES, sessionIds});
+};
+
 export const askHostToDraw = () => {
   postToHost({_tag: SESSIONS_WEBVIEW_MESSAGE_TAGS.READY});
 };

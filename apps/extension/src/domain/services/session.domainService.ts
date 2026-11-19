@@ -152,9 +152,19 @@ const isFinishedTurnUnseen = Effect.fn("SessionDomainService.isFinishedTurnUnsee
   return session.viewedAt === undefined || DateTime.isGreaterThan(session.statusChangedAt, session.viewedAt);
 });
 
+// OpenCode reports its own conversation again as a task, with the title it reports for itself.
+export const getSessionTasks = Effect.fn("SessionDomainService.getSessionTasks")(function* (session: SessionEntity) {
+  return Array.filter(
+    session.tasks,
+    (agentTask) => agentTask.title === undefined || agentTask.title !== session.reportedTitle
+  );
+});
+
 // A sub-agent can work on after the agent's own turn has ended, which keeps the row working.
 const hasWorkingTask = Effect.fn("SessionDomainService.hasWorkingTask")(function* (session: SessionEntity) {
-  return Array.some(session.tasks, (agentTask) => agentTask.state === AGENT_TASK_STATES.WORKING);
+  const sessionTasks = yield* getSessionTasks(session);
+
+  return Array.some(sessionTasks, (agentTask) => agentTask.state === AGENT_TASK_STATES.WORKING);
 });
 
 // No process means the agent is gone, even after a reboot; no report yet shows idle, so the row never looks stuck.

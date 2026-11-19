@@ -1,4 +1,4 @@
-import {TASK_KIND_ICONS} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdown/sessionDropdown.constant.ts";
+import {TASK_KIND_ICONS} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdown/components/sessionTaskList/sessionTaskList.constant.ts";
 
 import type {SessionTaskDto} from "@dtos/session.dto.ts";
 

@@ -30,6 +30,7 @@ import {Array, Effect, Match, Ref, Schema} from "effect";
 
 import type {AgentListItemDto} from "@dtos/agent.dto.ts";
 import type {ProjectSessionsDto, SessionListChangeDto, SessionListItemDto} from "@dtos/session.dto.ts";
+import type {SessionProcessesDto} from "@dtos/sessionProcess.dto.ts";
 import type {
   AgentRowData,
   ProjectRowData,
@@ -222,6 +223,13 @@ export const drawChange = Effect.fn("SessionsView.drawChange")(function* (
       ),
     SessionChanged: (sessionChanged) => drawSession(webviewView, sessionChanged.sessionId)
   });
+});
+
+export const drawSessionProcesses = Effect.fn("SessionsView.drawSessionProcesses")(function* (
+  webviewView: WebviewView,
+  sessionProcesses: SessionProcessesDto
+) {
+  yield* postToWebview(webviewView, {_tag: SESSIONS_VIEW_MESSAGE_TAGS.SESSION_PROCESSES_DRAWN, sessionProcesses});
 });
 
 // With no session in front, the last one keeps its mark.

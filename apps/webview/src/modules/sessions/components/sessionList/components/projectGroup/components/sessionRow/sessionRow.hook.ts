@@ -27,7 +27,8 @@ export const useSessionRow = (props: UseSessionRowProps) => {
   const setDropdownOpen = (isNowOpen: boolean) => {
     setSessionDropdownOpen(sessionListItem.sessionId, isNowOpen);
   };
-  const hasDropdown = sessionListItem.tasks.length > 0;
+  // A running agent's terminal always has its processes to show.
+  const hasDropdown = sessionListItem.isAgentRunning;
 
   return {
     actionGroups: listSessionActionGroups(sessionListItem, isInGitProject),

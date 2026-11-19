@@ -1,9 +1,5 @@
-import {SESSIONS_LABELS} from "@/modules/sessions/sessions.constant.ts";
+import {SESSION_DROPDOWN_LABELS} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdown/sessionDropdown.constant.ts";
 
-import type {SessionTaskDto} from "@dtos/session.dto.ts";
-
-export const makeTaskActivity = (sessionTask: SessionTaskDto) =>
-  [
-    ...(sessionTask.statusProgress === undefined ? [] : [SESSIONS_LABELS.PROGRESS(sessionTask.statusProgress)]),
-    ...(sessionTask.statusMessage === undefined ? [] : [sessionTask.statusMessage])
-  ].join(SESSIONS_LABELS.DETAIL_SEPARATOR);
+// Only a shell shared with other sessions says so.
+export const makeSharedShellNote = (sharingSessionCount: number) =>
+  sharingSessionCount > 1 ? SESSION_DROPDOWN_LABELS.SHARED_SHELL(sharingSessionCount) : undefined;

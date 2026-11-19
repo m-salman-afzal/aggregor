@@ -237,8 +237,8 @@ apps/extension/src/
                                            it, the next cursor)
     services/
       session.domainService.ts             prepareLaunchPlan, getDefaultSessionName, getSessionTitle,
-                                           getSessionTitleToSave, getSessionStatus, isSessionTurnRunning,
-                                           getAlertedStatus, isSessionWaitingOnUser
+                                           getSessionTitleToSave, getSessionTasks, getSessionStatus,
+                                           isSessionTurnRunning, getAlertedStatus, isSessionWaitingOnUser
       entityId.domainService.ts            makeEntityId, getEntityIdCreatedAt: the entity id's factory
       sortOrder.domainService.ts           findEntityIdsToPlaceAtEnd, canMoveUpInOrder, canMoveDownInOrder: how
                                            rows move within an order
@@ -278,7 +278,8 @@ apps/extension/src/
                                            ProjectNotListedError
       folderShell.service.ts               openProjectTerminal, openSessionFolderTerminal (a row's Open Terminal:
                                            the window's Aggregor terminal on the shell of the project's folder, or
-                                           of the session's), syncFolderShellTerminalWithTmux,
+                                           of the session's), prepareSessionFolderShellRequest (the session's
+                                           shell and its label), syncFolderShellTerminalWithTmux,
                                            startFolderShellEndOnTerminalClose
       pullRequest.service.ts               openSessionPullRequest, signInToGitHubCli, watchGitHubCliSignedOut,
                                            startPullRequestRefreshOnTurnEnd
@@ -290,6 +291,8 @@ apps/extension/src/
                                            aggregor/* branches left over), hasProjectLeftovers (its row's dot),
                                            removeSessionWorktree (Remove's first step); LeftoversKeptError
       commitMessage.service.ts             generateCommitMessage: writes the message with Source Control's progress
+      sessionProcess.service.ts            watchSessionProcesses: what each open dropdown's agent terminal and folder
+                                           shell run, read every 2 seconds while it is open
       workspace.service.ts                 startShownProjectSync: the viewed session's project as the only
                                            project folder; startSessionReopenAfterReload
     dtos/
@@ -308,6 +311,9 @@ apps/extension/src/
       worktree.dto.ts                      ProjectLeftoversDto (LeftoverWorktreeDto, LeftoverBranchDto), and a
                                            request DTO per worktree use case
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
+      sessionProcess.dto.ts                SessionProcessesDto (TerminalProcessesDto, FolderShellProcessesDto,
+                                           SessionProcessDto),
+                                           WatchSessionProcessesRequestDto
     interfaces/                            each with the errors and types its signatures name
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
                                            closeOtherSessionTerminals, findOpenSessionTerminalProcessId,
@@ -324,8 +330,10 @@ apps/extension/src/
                                            refreshRunningSessionIds, startedOrStoppedSessionIds, showSessionInTab,
                                            readShownSessionIdsByTabProcessId; for a folder's shell:
                                            prepareFolderShellTerminalCommand, showFolderShellInTerminal,
-                                           readFolderShellPathShownInTerminal, endFolderShell;
-                                           SessionTabCommandRequest, FolderShellRequest, PtyBinaryNotFoundError,
+                                           readFolderShellPathShownInTerminal, endFolderShell; readSessionAgentPanes,
+                                           readFolderShellPanes;
+                                           SessionTabCommandRequest, FolderShellRequest, TmuxSessionPanes,
+                                           TmuxSessionNotRunningError, PtyBinaryNotFoundError,
                                            TmuxUnavailableError, SessionTabSwitchFailedError,
                                            FolderShellSwitchFailedError, FolderShellNotShownError
       userInputPrompt.infraService.interface.ts
@@ -333,6 +341,8 @@ apps/extension/src/
                                            FolderPickCancelledError
       shellCommand.infraService.interface.ts
                                            listInstalledCommands: which commands are on PATH
+      process.infraService.interface.ts    listGroupProcesses: the processes under some roots;
+                                           ProcessGroupRequest, RunningProcess
       desktopNotification.infraService.interface.ts
                                            notifyOnDesktop: the system's own notification, whose Open opens a link;
                                            DesktopNotificationRequest
@@ -379,15 +389,18 @@ apps/extension/src/
                                            line: add, list, remove, rename, merge checks and deletion, and the
                                            untracked files a new worktree gets
       os/shellCommand.infraService.ts      ShellCommandInfraService: looks commands up on PATH
+      process/                             ProcessInfraService (process.infraService.ts): psProcess.utils.ts lists
+                                           every process with one ps call, linuxProcess.utils.ts picks a pane's
+                                           cgroup, processTree.utils.ts a root's descendants
       os/desktopNotification.infraService.ts
                                            DesktopNotificationInfraService: notify-send, filed under VS Code, on Linux,
                                            osascript on macOS, a PowerShell toast from WSL
       tmux/                                TmuxInfraService (tmux.infraService.ts): the layer, and what its helper
                                            files share in tmux.infraService.type.ts. tmuxServer.utils.ts is tmux
                                            itself, in tmux's own terms: runs a command on Aggregor's server, lists
-                                           its sessions and clients, attaches a terminal's client to another
-                                           session, kills a session, and builds the command a terminal runs, in a
-                                           scope of its own. On top of it, sessionAgent.utils.ts: the command a
+                                           its sessions, clients and a session's panes, attaches a terminal's
+                                           client to another session, kills a session, and builds the command a
+                                           terminal runs, in a scope of its own. On top of it, sessionAgent.utils.ts: the command a
                                            session's tab runs, which starts its agent under aggregor-pty in a tmux
                                            session or attaches to it; stops it; attaches a tab to another session;
                                            reads which sessions tmux runs and which one each tab shows. And
@@ -433,7 +446,7 @@ apps/extension/src/
     middlewares/registerCommand.middleware.ts
                                            registerCommand: root span per command; shows the presenter's message
                                            for a failure, and logs a crash
-    controllers/                           session, sessionImport, agent, sessionAlert, project, folderShell, worktree, pullRequest, requiredTools, commitMessage: decode the input into a
+    controllers/                           session, sessionImport, sessionProcess, agent, sessionAlert, project, folderShell, worktree, pullRequest, requiredTools, commitMessage: decode the input into a
                                            request DTO and call one service; the views' reads
     presenters/                            session, sessionImport, project, folderShell, worktree, pullRequest, requiredTools, commitMessage: a failed command's message, and the
                                            setting that fixes it; app: none, for commands that cannot fail

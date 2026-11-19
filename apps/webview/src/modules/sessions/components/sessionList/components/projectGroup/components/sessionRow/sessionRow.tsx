@@ -25,7 +25,13 @@ export const SessionRow = (props: SessionRowProps) => {
         {sessionRowView.hasDropdown && <SessionDropdownToggle />}
         <SessionOpenButton sessionRow={props.sessionRow} />
       </RowActions>
-      {sessionRowView.hasDropdown && <SessionDropdown sessionTasks={props.sessionRow.sessionListItem.tasks} />}
+      {sessionRowView.hasDropdown && (
+        <SessionDropdown
+          agentIconUri={props.sessionRow.agentIconUri}
+          sessionId={props.sessionRow.sessionListItem.sessionId}
+          sessionTasks={props.sessionRow.sessionListItem.tasks}
+        />
+      )}
     </Collapsible>
   );
 };

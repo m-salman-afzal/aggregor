@@ -2,6 +2,7 @@ import {getAgentTaskKind} from "@domainServices/agentTask.domainService.ts";
 import {
   getDefaultSessionName,
   getSessionStatus,
+  getSessionTasks,
   getSessionTitleToSave,
   isSessionTurnRunning,
   isSessionWaitingOnUser,
@@ -718,6 +719,7 @@ const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function
   const sessionStatus = yield* findSessionStatus(session);
   const status = sessionStatus.status;
   const isTurnRunning = yield* isSessionTurnRunning(status);
+  const sessionTasks = yield* getSessionTasks(session);
 
   return SessionListItemDtoSchema.make({
     ...sessionMoves,
@@ -736,7 +738,7 @@ const toSessionListItem = Effect.fn("SessionService.toSessionListItem")(function
     statusKind: status === SESSION_STATUSES.BLOCKED ? session.statusKind : undefined,
     statusMessage: sessionStatus.isAgentRunning ? session.statusMessage : undefined,
     statusProgress: isTurnRunning ? session.statusProgress : undefined,
-    tasks: sessionStatus.isAgentRunning ? yield* Effect.forEach(session.tasks, toSessionTask) : [],
+    tasks: sessionStatus.isAgentRunning ? yield* Effect.forEach(sessionTasks, toSessionTask) : [],
     worktreePath: session.worktreePath
   });
 });
