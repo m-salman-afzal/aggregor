@@ -24,6 +24,16 @@ The binary that runs each agent and records its status.
   `agentTitle` column with the binary picking the title. Writing the database from the output thread, which a locked
   database would stall. Printing errors, which would land on the agent's screen.
 
+## `aggregor-pty` answers `OSC 7501 ; ?` before passing the output on
+
+- **Problem:** Claude asks `OSC 7501 ; ?` together with a DA1 query that tmux answers, and takes OSC 7501 as unsupported
+  when tmux's DA1 reply arrives first. It never asks again, so that session shows only legacy title marks (`✳`) and
+  stays at `unknown` until the agent restarts. Passing a chunk to tmux before scanning it let tmux answer first whenever
+  our write waited on tmux.
+- **Decision:** scan each chunk of the agent's output, answering queries, before writing it to our terminal, so our
+  reply always reaches the agent ahead of anything tmux says about the same chunk.
+- **Alternatives considered:** answering DA1 ourselves as well, which takes the terminal's identity away from tmux.
+
 ## The agent's tasks are a JSON column on its session's row
 
 - **Problem:** Claude Code reports each sub-agent and background shell as an OSC 7501 record with an `id`, beside its

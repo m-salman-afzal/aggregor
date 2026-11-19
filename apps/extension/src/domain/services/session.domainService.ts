@@ -21,6 +21,12 @@ export class AgentSessionIdNotFoundError extends Schema.TaggedError<
   {readonly brand: unique symbol}
 >()("AgentSessionIdNotFoundError", {agentName: Schema.String}) {}
 
+// The agent resumes without naming a conversation, as Antigravity's -c.
+export class AgentConversationIdNotFoundError extends Schema.TaggedError<
+  AgentConversationIdNotFoundError,
+  {readonly brand: unique symbol}
+>()("AgentConversationIdNotFoundError", {agentName: Schema.String}) {}
+
 export class SessionNamedByUserError extends Schema.TaggedError<
   SessionNamedByUserError,
   {readonly brand: unique symbol}
@@ -62,6 +68,23 @@ const fillInVariables = Effect.fn("SessionDomainService.fillInVariables")(functi
   if (latestAgentSessionId === undefined) return yield* AgentSessionIdNotFoundError.make({agentName: agent.name});
 
   return String.replaceAll(AGENT_SESSION_ID_VARIABLE, latestAgentSessionId)(filledInArgument);
+});
+
+// The agent's own id for the conversation, filled into the resume argument that names it, as OpenCode's ses_‹id›.
+export const getAgentConversationId = Effect.fn("SessionDomainService.getAgentConversationId")(function* (
+  agent: AgentEntity,
+  session: SessionEntity
+) {
+  const conversationIdArgument = Array.findFirst(
+    agent.resumeArgs,
+    (resumeArgument) =>
+      String.includes(SESSION_ID_VARIABLE)(resumeArgument) || String.includes(AGENT_SESSION_ID_VARIABLE)(resumeArgument)
+  );
+  const resumeArgument = yield* Effect.fromResult(
+    Result.fromOption(conversationIdArgument, () => AgentConversationIdNotFoundError.make({agentName: agent.name}))
+  );
+
+  return yield* fillInVariables(resumeArgument, agent, session);
 });
 
 export const prepareLaunchPlan = Effect.fn("SessionDomainService.prepareLaunchPlan")(function* (

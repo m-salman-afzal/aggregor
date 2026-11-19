@@ -174,5 +174,6 @@ export const SESSION_ROW_LABELS = {
   PULL_REQUEST: (pullRequestNumber: number) => `#${pullRequestNumber}`,
   PULL_REQUEST_TOOLTIP: (pullRequestTitle: string, stateLabel: string) =>
     `${pullRequestTitle} · ${stateLabel} · click to open`,
-  TOOLTIP_HEADING: (sessionName: string, statusLabel: string) => `${sessionName} · ${statusLabel}`
+  TOOLTIP_HEADING: (sessionName: string, statusLabel: string) => `${sessionName} · ${statusLabel}`,
+  TOOLTIP_SESSION_ID: (agentConversationId: string) => `Session ID: ${agentConversationId}`
 } as const;

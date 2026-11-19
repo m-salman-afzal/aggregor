@@ -1,5 +1,6 @@
 import {getAgentTaskKind} from "@domainServices/agentTask.domainService.ts";
 import {
+  getAgentConversationId,
   getDefaultSessionName,
   getSessionStatus,
   getSessionTasks,
@@ -683,13 +684,28 @@ const findSessionWorktreeFields = Effect.fn("SessionService.findSessionWorktreeF
   };
 });
 
+const findAgentConversationIdField = Effect.fn("SessionService.findAgentConversationIdField")(function* (
+  sessionAgent: AgentEntity,
+  session: SessionEntity
+) {
+  const agentConversationIdResult = yield* Effect.result(getAgentConversationId(sessionAgent, session));
+
+  return Result.match(agentConversationIdResult, {
+    onFailure: () => ({}),
+    onSuccess: (agentConversationId) => ({agentConversationId})
+  });
+});
+
 const findSessionAgentFields = Effect.fn("SessionService.findSessionAgentFields")(function* (session: SessionEntity) {
   const agentResult = yield* Effect.result(findSessionAgent(session));
+  if (Result.isFailure(agentResult)) return {};
+  const sessionAgent = agentResult.success;
 
-  return Result.match(agentResult, {
-    onFailure: () => ({}),
-    onSuccess: (sessionAgent) => ({agentName: sessionAgent.name, icon: sessionAgent.icon})
-  });
+  return {
+    ...(yield* findAgentConversationIdField(sessionAgent, session)),
+    agentName: sessionAgent.name,
+    icon: sessionAgent.icon
+  };
 });
 
 const isStoredSessionWaitingOnUser = Effect.fn("SessionService.isStoredSessionWaitingOnUser")(function* (

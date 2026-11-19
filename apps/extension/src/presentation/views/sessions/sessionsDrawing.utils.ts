@@ -26,7 +26,7 @@ import {
 import {WORKSPACE_TRUST_SETTINGS} from "@pkg/constants/src/vscode.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {getAgentIconUri, makeIconWebviewUri} from "@views/sessions/sessionsPage.utils.ts";
-import {Array, Effect, Match, Ref, Schema} from "effect";
+import {Array, Effect, Match, Ref, Schema, Stream} from "effect";
 
 import type {AgentListItemDto} from "@dtos/agent.dto.ts";
 import type {ProjectSessionsDto, SessionListChangeDto, SessionListItemDto} from "@dtos/session.dto.ts";
@@ -178,9 +178,11 @@ export const drawLeftovers = Effect.fn("SessionsView.drawLeftovers")(
 // A project no longer listed, or no git repository, draws no branches; the dialog keeps offering the current commit.
 export const drawBranches = Effect.fn("SessionsView.drawBranches")(
   function* (webviewView: WebviewView, projectPath: string) {
-    const branches = yield* listProjectBranchesForSessionsView(projectPath);
+    const projectBranches = yield* listProjectBranchesForSessionsView(projectPath);
 
-    yield* postToWebview(webviewView, {_tag: SESSIONS_VIEW_MESSAGE_TAGS.BRANCHES_DRAWN, branches});
+    yield* Stream.runForEach(projectBranches, (branches) =>
+      postToWebview(webviewView, {_tag: SESSIONS_VIEW_MESSAGE_TAGS.BRANCHES_DRAWN, branches})
+    );
   },
   Effect.catch((branchesError) => Effect.logWarning("Could not list the project's branches", branchesError))
 );
