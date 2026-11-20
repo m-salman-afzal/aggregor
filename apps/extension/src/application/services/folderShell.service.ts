@@ -5,7 +5,6 @@ import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {FOLDER_SHELL_STATUS_LABEL} from "@pkg/constants/src/terminal.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {BaseService} from "@services/base.service.ts";
 import {ProjectService} from "@services/project.service.ts";
 import {SessionService} from "@services/session.service.ts";
@@ -24,7 +23,7 @@ export class FolderShellServiceErrors extends TaggedErrors({
 export class FolderShellService extends Context.Service<FolderShellService>()(
   "aggregor-app/application/services/folderShell.service/FolderShellService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("FolderShellService.make")(function* () {
       const sessionRepository = yield* ISessionRepository;
       const terminalInfraService = yield* ITerminalInfraService;
       const tmuxInfraService = yield* ITmuxInfraService;
@@ -36,7 +35,7 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
       const sessionBaseService = yield* baseService.makeFor(sessionRepository);
 
       // The extension can restart under the open terminal, which shows the shell tmux last attached it to.
-      const syncFolderShellTerminalWithTmux = Effect.fn("syncFolderShellTerminalWithTmux")(
+      const syncFolderShellTerminalWithTmux = Effect.fn("FolderShellService.syncFolderShellTerminalWithTmux")(
         function* () {
           const terminalProcessId = yield* terminalInfraService.findFolderShellTerminalProcessId;
           const shownFolderPath = yield* tmuxInfraService.readFolderShellPathShownInTerminal(terminalProcessId);
@@ -47,7 +46,7 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
       );
 
       // tmux attaches the open terminal to the folder's shell, so VS Code sees no change and its panel stays as it is.
-      const showFolderShellInOpenTerminal = Effect.fn("showFolderShellInOpenTerminal")(
+      const showFolderShellInOpenTerminal = Effect.fn("FolderShellService.showFolderShellInOpenTerminal")(
         function* (folderShellRequest: FolderShellRequest) {
           const terminalProcessId = yield* terminalInfraService.findFolderShellTerminalProcessId;
           yield* tmuxInfraService.showFolderShellInTerminal(terminalProcessId, folderShellRequest);
@@ -56,7 +55,9 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
         Effect.catchTag("NoFolderShellTerminalOpenError", () => Effect.void)
       );
 
-      const openFolderShell = Effect.fn("openFolderShell")(function* (folderShellRequest: FolderShellRequest) {
+      const openFolderShell = Effect.fn("FolderShellService.openFolderShell")(function* (
+        folderShellRequest: FolderShellRequest
+      ) {
         yield* showFolderShellInOpenTerminal(folderShellRequest);
         const terminalCommand = yield* tmuxInfraService.prepareFolderShellTerminalCommand(folderShellRequest);
 
@@ -66,7 +67,7 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
         });
       });
 
-      const openProjectTerminal = Effect.fn("openProjectTerminal")(
+      const openProjectTerminal = Effect.fn("FolderShellService.openProjectTerminal")(
         function* (request: OpenProjectTerminalRequestDto) {
           const chosenProject = yield* projectService.findProjectListItem(request.projectPath);
 
@@ -75,7 +76,7 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
         Effect.catchTag("ProjectNotListedError", () => Effect.void)
       );
 
-      const labelSessionFolderShell = Effect.fn("labelSessionFolderShell")(function* (
+      const labelSessionFolderShell = Effect.fn("FolderShellService.labelSessionFolderShell")(function* (
         session: SessionEntity,
         projectName: string
       ) {
@@ -84,19 +85,19 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
           : FOLDER_SHELL_STATUS_LABEL.WORKTREE(projectName, path.basename(session.worktreePath));
       });
 
-      const prepareSessionFolderShellRequest = Effect.fn("prepareSessionFolderShellRequest")(function* (
-        session: SessionEntity
-      ) {
-        const sessionProject = yield* projectService.findProjectListItem(session.projectPath);
-        const folderShellRequest: FolderShellRequest = {
-          folderPath: session.workingFolderPath,
-          statusLabel: yield* labelSessionFolderShell(session, sessionProject.name)
-        };
+      const prepareSessionFolderShellRequest = Effect.fn("FolderShellService.prepareSessionFolderShellRequest")(
+        function* (session: SessionEntity) {
+          const sessionProject = yield* projectService.findProjectListItem(session.projectPath);
+          const folderShellRequest: FolderShellRequest = {
+            folderPath: session.workingFolderPath,
+            statusLabel: yield* labelSessionFolderShell(session, sessionProject.name)
+          };
 
-        return folderShellRequest;
-      });
+          return folderShellRequest;
+        }
+      );
 
-      const openSessionFolderTerminal = Effect.fn("openSessionFolderTerminal")(
+      const openSessionFolderTerminal = Effect.fn("FolderShellService.openSessionFolderTerminal")(
         function* (request: OpenSessionFolderTerminalRequestDto) {
           const session = yield* sessionService.findSession(request.sessionId);
           const folderShellRequest = yield* prepareSessionFolderShellRequest(session);
@@ -106,7 +107,7 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
         Effect.catchTag("ProjectNotListedError", () => Effect.void)
       );
 
-      const showViewedSessionFolderShell = Effect.fn("showViewedSessionFolderShell")(
+      const showViewedSessionFolderShell = Effect.fn("FolderShellService.showViewedSessionFolderShell")(
         function* (viewedSessionId: EntityIdValueObject) {
           const viewedSession = yield* sessionService.findSession(viewedSessionId);
           const folderShellRequest = yield* prepareSessionFolderShellRequest(viewedSession);
@@ -119,7 +120,7 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
         )
       );
 
-      const startFolderShellFollow = Effect.fn("startFolderShellFollow")(function* () {
+      const startFolderShellFollow = Effect.fn("FolderShellService.startFolderShellFollow")(function* () {
         yield* Effect.forkScoped(
           SubscriptionRef.changes(terminalInfraService.viewedSessionId).pipe(
             Stream.buffer({capacity: 1, strategy: "sliding"}),
@@ -133,36 +134,45 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
         );
       });
 
-      const startFolderShellEndOnTerminalClose = Effect.fn("startFolderShellEndOnTerminalClose")(function* () {
-        yield* Effect.forkScoped(
-          Stream.runForEach(terminalInfraService.folderShellPathsClosedByUser, (closedFolderShellPath) =>
-            tmuxInfraService.endFolderShell(closedFolderShellPath)
-          )
-        );
-      });
+      const startFolderShellEndOnTerminalClose = Effect.fn("FolderShellService.startFolderShellEndOnTerminalClose")(
+        function* () {
+          yield* Effect.forkScoped(
+            Stream.runForEach(terminalInfraService.folderShellPathsClosedByUser, (closedFolderShellPath) =>
+              tmuxInfraService.endFolderShell(closedFolderShellPath)
+            )
+          );
+        }
+      );
 
-      const prepareShownFolderShellRequest = Effect.fn("prepareShownFolderShellRequest")(function* () {
-        const workspaceFolderProjects = yield* workspaceInfraService.listWorkspaceFolderProjects;
-        const [shownFolder] = workspaceFolderProjects;
-        if (shownFolder === undefined) return yield* FolderShellServiceErrors.NoShownFolderError.make();
-        const [worktreeSession] = yield* sessionBaseService.findEntities({worktreePath: shownFolder.path});
-        if (worktreeSession !== undefined) return yield* prepareSessionFolderShellRequest(worktreeSession);
-        const shownProject = yield* projectService.findProjectListItem(shownFolder.path);
-        const folderShellRequest: FolderShellRequest = {folderPath: shownProject.path, statusLabel: shownProject.name};
+      const prepareShownFolderShellRequest = Effect.fn("FolderShellService.prepareShownFolderShellRequest")(
+        function* () {
+          const workspaceFolderProjects = yield* workspaceInfraService.listWorkspaceFolderProjects;
+          const [shownFolder] = workspaceFolderProjects;
+          if (shownFolder === undefined) return yield* FolderShellServiceErrors.NoShownFolderError.make();
+          const [worktreeSession] = yield* sessionBaseService.findEntities({worktreePath: shownFolder.path});
+          if (worktreeSession !== undefined) return yield* prepareSessionFolderShellRequest(worktreeSession);
+          const shownProject = yield* projectService.findProjectListItem(shownFolder.path);
+          const folderShellRequest: FolderShellRequest = {
+            folderPath: shownProject.path,
+            statusLabel: shownProject.name
+          };
 
-        return folderShellRequest;
-      });
+          return folderShellRequest;
+        }
+      );
 
-      const prepareProfileFolderShellRequest = Effect.fn("prepareProfileFolderShellRequest")(function* () {
-        const viewedSessionId = yield* SubscriptionRef.get(terminalInfraService.viewedSessionId);
-        if (Result.isFailure(viewedSessionId)) return yield* prepareShownFolderShellRequest();
-        const viewedSession = yield* sessionService.findSession(viewedSessionId.success);
+      const prepareProfileFolderShellRequest = Effect.fn("FolderShellService.prepareProfileFolderShellRequest")(
+        function* () {
+          const viewedSessionId = yield* SubscriptionRef.get(terminalInfraService.viewedSessionId);
+          if (Result.isFailure(viewedSessionId)) return yield* prepareShownFolderShellRequest();
+          const viewedSession = yield* sessionService.findSession(viewedSessionId.success);
 
-        return yield* prepareSessionFolderShellRequest(viewedSession);
-      });
+          return yield* prepareSessionFolderShellRequest(viewedSession);
+        }
+      );
 
       // VS Code opens its default terminal when the panel shows none and on every +: the first is the Aggregor terminal.
-      const prepareProfileTerminal = Effect.fn("prepareProfileTerminal")(function* () {
+      const prepareProfileTerminal = Effect.fn("FolderShellService.prepareProfileTerminal")(function* () {
         const openFolderShellTerminal = yield* Effect.result(terminalInfraService.findFolderShellTerminalProcessId);
         if (Result.isSuccess(openFolderShellTerminal)) return ProfileTerminalDtoSchema.make({});
         const folderShellRequest = yield* prepareProfileFolderShellRequest();
@@ -185,7 +195,7 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("FolderShellService", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([BaseService.layer, ProjectService.layer, SessionService.layer])
   );
 }

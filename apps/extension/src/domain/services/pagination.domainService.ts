@@ -1,4 +1,3 @@
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {PaginationValueObjectSchema} from "@valueObjects/pagination.valueObject.ts";
 import {Context, Effect, Layer} from "effect";
 
@@ -7,8 +6,8 @@ import type {PaginationValueObject} from "@valueObjects/pagination.valueObject.t
 export class PaginationDomainService extends Context.Service<PaginationDomainService>()(
   "aggregor-app/domain/services/pagination.domainService/PaginationDomainService",
   {
-    make: Effect.fn("make")(function* () {
-      const makePagination = Effect.fn("makePagination")(function* (
+    make: Effect.fn("PaginationDomainService.make")(function* () {
+      const makePagination = Effect.fn("PaginationDomainService.makePagination")(function* (
         pageRequest: Pick<PaginationValueObject, "afterCursor" | "pageSize">,
         rowCounts: Pick<PaginationValueObject, "precedingCount" | "totalCount">,
         lastCursor: string | undefined
@@ -37,5 +36,5 @@ export class PaginationDomainService extends Context.Service<PaginationDomainSer
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("PaginationDomainService", this.make()));
+  public static readonly layer = Layer.effect(this, this.make());
 }

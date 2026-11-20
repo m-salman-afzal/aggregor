@@ -7,7 +7,6 @@ import {
 import {PullRequestErrorMessage} from "@errorMessages/pullRequest.errorMessage.ts";
 import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
 import {GITHUB_CLI_COMMANDS} from "@pkg/constants/src/gitHubCli.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 import {PullRequestService} from "@services/pullRequest.service.ts";
 import {Context, Effect, Layer} from "effect";
@@ -15,20 +14,20 @@ import {Context, Effect, Layer} from "effect";
 export class PullRequestController extends Context.Service<PullRequestController>()(
   "aggregor-app/presentation/controllers/pullRequest.controller/PullRequestController",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("PullRequestController.make")(function* () {
       const registerCommandMiddleware = yield* RegisterCommandMiddleware;
       const pullRequestService = yield* PullRequestService;
       const pullRequestErrorMessage = yield* PullRequestErrorMessage;
       const vscodeUtils = yield* VscodeUtils;
 
-      const openChosenSessionPullRequest = Effect.fn("openChosenSessionPullRequest")(function* (
+      const openChosenSessionPullRequest = Effect.fn("PullRequestController.openChosenSessionPullRequest")(function* (
         chosenSession: unknown
       ) {
         const request = yield* vscodeUtils.decodeVsCodeArgument(OpenSessionPullRequestRequestDtoSchema, chosenSession);
         yield* pullRequestService.openSessionPullRequest(request);
       });
 
-      const linkChosenSessionPullRequest = Effect.fn("linkChosenSessionPullRequest")(function* (
+      const linkChosenSessionPullRequest = Effect.fn("PullRequestController.linkChosenSessionPullRequest")(function* (
         chosenPullRequest: unknown
       ) {
         const request = yield* vscodeUtils.decodeVsCodeArgument(
@@ -38,30 +37,30 @@ export class PullRequestController extends Context.Service<PullRequestController
         yield* pullRequestService.linkSessionPullRequest(request);
       });
 
-      const unlinkChosenSessionPullRequest = Effect.fn("unlinkChosenSessionPullRequest")(function* (
-        chosenSession: unknown
-      ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(
-          UnlinkSessionPullRequestRequestDtoSchema,
-          chosenSession
-        );
-        yield* pullRequestService.unlinkSessionPullRequest(request);
-      });
+      const unlinkChosenSessionPullRequest = Effect.fn("PullRequestController.unlinkChosenSessionPullRequest")(
+        function* (chosenSession: unknown) {
+          const request = yield* vscodeUtils.decodeVsCodeArgument(
+            UnlinkSessionPullRequestRequestDtoSchema,
+            chosenSession
+          );
+          yield* pullRequestService.unlinkSessionPullRequest(request);
+        }
+      );
 
-      const listSessionPullRequestsForSessionsView = Effect.fn("listSessionPullRequestsForSessionsView")(function* (
-        sessionId: string
-      ) {
+      const listSessionPullRequestsForSessionsView = Effect.fn(
+        "PullRequestController.listSessionPullRequestsForSessionsView"
+      )(function* (sessionId: string) {
         const request = yield* vscodeUtils.decodeVsCodeArgument(ListSessionPullRequestsRequestDtoSchema, {sessionId});
 
         return yield* pullRequestService.listSessionPullRequests(request);
       });
 
-      const signInToGitHubCliFromNotice = Effect.fn("signInToGitHubCliFromNotice")(function* () {
+      const signInToGitHubCliFromNotice = Effect.fn("PullRequestController.signInToGitHubCliFromNotice")(function* () {
         yield* pullRequestService.signInToGitHubCli;
       });
 
       const watchGitHubCliSignedOutForGitHubCliNoticesView = Effect.fn(
-        "watchGitHubCliSignedOutForGitHubCliNoticesView"
+        "PullRequestController.watchGitHubCliSignedOutForGitHubCliNoticesView"
       )(function* () {
         return yield* pullRequestService.watchGitHubCliSignedOut;
       });
@@ -98,7 +97,7 @@ export class PullRequestController extends Context.Service<PullRequestController
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("PullRequestController", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([PullRequestErrorMessage.layer, RegisterCommandMiddleware.layer])
   );
 }

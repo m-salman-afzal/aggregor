@@ -4,7 +4,6 @@ import {IGitHubCliInfraService, IGitHubCliInfraServiceErrors} from "@interfaces/
 import {GITHUB_CLI, GITHUB_PULL_REQUESTS_EXTENSION} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {EXIT_CODES} from "@pkg/constants/src/process.constant.ts";
 import {SETUP_TERMINAL} from "@pkg/constants/src/requiredTools.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 import {Array, Clock, Context, Effect, Layer, Match, PubSub, Queue, Ref, Result, Stream} from "effect";
@@ -25,7 +24,7 @@ interface CachedPullRequest {
 export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService>()(
   "aggregor-app/infrastructure/services/gitHubCli/gitHubCli.infraService/GitHubCliInfraService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("GitHubCliInfraService.make")(function* () {
       const childProcessSpawner = yield* ChildProcessSpawner;
       const vsCodeApi = yield* VsCodeApi;
       const vscodeUtils = yield* VscodeUtils;
@@ -39,13 +38,13 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
       const pullRequestChanges = yield* PubSub.unbounded<ProjectPathValueObject>();
       const pullRequestLookups = yield* Queue.unbounded<PullRequestLookup>();
 
-      const makePullRequestLookupKey = Effect.fn("makePullRequestLookupKey")(function* (
+      const makePullRequestLookupKey = Effect.fn("GitHubCliInfraService.makePullRequestLookupKey")(function* (
         pullRequestLookup: PullRequestLookup
       ) {
         return `${pullRequestLookup.folderPath}\n${pullRequestLookup.pullRequestReference}`;
       });
 
-      const runGitHubCli = Effect.fn("runGitHubCli")(function* (
+      const runGitHubCli = Effect.fn("GitHubCliInfraService.runGitHubCli")(function* (
         gitHubCliArguments: readonly string[],
         folderPath: ProjectPathValueObject
       ) {
@@ -65,7 +64,7 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
       }, Effect.scoped);
 
       // Exit code 1 covers no pull request, no GitHub remote and no repository; stderr says which.
-      const lookUpPullRequest = Effect.fn("lookUpPullRequest")(
+      const lookUpPullRequest = Effect.fn("GitHubCliInfraService.lookUpPullRequest")(
         function* (pullRequestLookup: PullRequestLookup) {
           yield* Effect.annotateCurrentSpan({
             folderPath: pullRequestLookup.folderPath,
@@ -91,7 +90,7 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         })
       );
 
-      const listPullRequests = Effect.fn("listPullRequests")(
+      const listPullRequests = Effect.fn("GitHubCliInfraService.listPullRequests")(
         function* (folderPath: ProjectPathValueObject) {
           yield* Effect.annotateCurrentSpan({folderPath});
           const gitHubCliOutput = yield* runGitHubCli(
@@ -123,7 +122,7 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         })
       );
 
-      const reportSignedOut = Effect.fn("reportSignedOut")(function* (
+      const reportSignedOut = Effect.fn("GitHubCliInfraService.reportSignedOut")(function* (
         gitHubCliSignedOutError: IGitHubCliInfraServiceErrors["GitHubCliSignedOutError"]
       ) {
         const wasReported = yield* Ref.getAndSet(isSignedOutReported, true);
@@ -131,7 +130,7 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         yield* PubSub.publish(gitHubCliSignedOutProblems, gitHubCliSignedOutError);
       });
 
-      const makeComparablePullRequestText = Effect.fn("makeComparablePullRequestText")(function* (
+      const makeComparablePullRequestText = Effect.fn("GitHubCliInfraService.makeComparablePullRequestText")(function* (
         cachedPullRequest: CachedPullRequest | undefined
       ) {
         if (cachedPullRequest === undefined) return "";
@@ -143,7 +142,9 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         });
       });
 
-      const storePullRequest = Effect.fn("storePullRequest")(function* (cachedPullRequest: CachedPullRequest) {
+      const storePullRequest = Effect.fn("GitHubCliInfraService.storePullRequest")(function* (
+        cachedPullRequest: CachedPullRequest
+      ) {
         const lookupKey = yield* makePullRequestLookupKey(cachedPullRequest.pullRequestLookup);
         const cachedPullRequestsByLookupKey = yield* Ref.get(cachedPullRequests);
         const previousComparable = yield* makeComparablePullRequestText(cachedPullRequestsByLookupKey.get(lookupKey));
@@ -159,7 +160,9 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         yield* PubSub.publish(pullRequestChanges, cachedPullRequest.pullRequestLookup.folderPath);
       });
 
-      const fetchPullRequest = Effect.fn("fetchPullRequest")(function* (pullRequestLookup: PullRequestLookup) {
+      const fetchPullRequest = Effect.fn("GitHubCliInfraService.fetchPullRequest")(function* (
+        pullRequestLookup: PullRequestLookup
+      ) {
         const lookupResult = yield* Effect.result(lookUpPullRequest(pullRequestLookup));
         if (Result.isFailure(lookupResult))
           yield* Match.valueTags(lookupResult.failure, {
@@ -175,7 +178,9 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         });
       });
 
-      const refreshPullRequest = Effect.fn("refreshPullRequest")(function* (pullRequestLookup: PullRequestLookup) {
+      const refreshPullRequest = Effect.fn("GitHubCliInfraService.refreshPullRequest")(function* (
+        pullRequestLookup: PullRequestLookup
+      ) {
         const lookupKey = yield* makePullRequestLookupKey(pullRequestLookup);
         const isPending = yield* Ref.modify(pendingLookupKeys, (currentPendingLookupKeys) => [
           currentPendingLookupKeys.has(lookupKey),
@@ -186,7 +191,9 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         yield* Queue.offer(pullRequestLookups, pullRequestLookup);
       });
 
-      const findPullRequest = Effect.fn("findPullRequest")(function* (pullRequestLookup: PullRequestLookup) {
+      const findPullRequest = Effect.fn("GitHubCliInfraService.findPullRequest")(function* (
+        pullRequestLookup: PullRequestLookup
+      ) {
         const cachedPullRequestsByLookupKey = yield* Ref.get(cachedPullRequests);
         const lookupKey = yield* makePullRequestLookupKey(pullRequestLookup);
         const cachedPullRequest = cachedPullRequestsByLookupKey.get(lookupKey);
@@ -196,7 +203,9 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         return yield* IGitHubCliInfraServiceErrors.PullRequestNotFoundError.make();
       });
 
-      const refreshAllPullRequests = Effect.fn("refreshAllPullRequests")(function* (isForced: boolean) {
+      const refreshAllPullRequests = Effect.fn("GitHubCliInfraService.refreshAllPullRequests")(function* (
+        isForced: boolean
+      ) {
         const refreshStartedAt = yield* Clock.currentTimeMillis;
         const previousRefreshedAt = yield* Ref.get(lastRefreshedAt);
         if (!isForced && refreshStartedAt - previousRefreshedAt < GITHUB_CLI.REFRESH_INTERVAL_MS) return;
@@ -209,13 +218,15 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         );
       });
 
-      const openPullRequestInBrowser = Effect.fn("openPullRequestInBrowser")(function* (
+      const openPullRequestInBrowser = Effect.fn("GitHubCliInfraService.openPullRequestInBrowser")(function* (
         pullRequest: BranchPullRequest
       ) {
         yield* Effect.promise(() => vsCodeApi.env.openExternal(vsCodeApi.Uri.parse(pullRequest.url)));
       });
 
-      const openPullRequestInVsCode = Effect.fn("openPullRequestInVsCode")(function* (pullRequest: BranchPullRequest) {
+      const openPullRequestInVsCode = Effect.fn("GitHubCliInfraService.openPullRequestInVsCode")(function* (
+        pullRequest: BranchPullRequest
+      ) {
         const pullRequestsExtension = vsCodeApi.extensions.getExtension(GITHUB_PULL_REQUESTS_EXTENSION.ID);
         yield* Effect.annotateCurrentSpan({hasPullRequestsExtension: pullRequestsExtension !== undefined});
         if (pullRequestsExtension === undefined) return yield* openPullRequestInBrowser(pullRequest);
@@ -231,7 +242,7 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         return yield* Effect.promise(() => vsCodeApi.env.openExternal(pullRequestLink));
       });
 
-      const watchRefreshHints = Effect.fn("watchRefreshHints")(function* () {
+      const watchRefreshHints = Effect.fn("GitHubCliInfraService.watchRefreshHints")(function* () {
         const windowStateChanges = yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.window.onDidChangeWindowState);
         const closedTerminals = yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.window.onDidCloseTerminal);
         const refreshHints = Stream.merge(
@@ -248,7 +259,7 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         yield* Stream.runForEach(refreshHints, (isForced) => refreshAllPullRequests(isForced));
       });
 
-      const runPullRequestLookups = Effect.fn("runPullRequestLookups")(function* () {
+      const runPullRequestLookups = Effect.fn("GitHubCliInfraService.runPullRequestLookups")(function* () {
         yield* Stream.runDrain(
           Stream.mapEffect(
             Stream.fromQueue(pullRequestLookups),
@@ -273,8 +284,7 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
     })
   }
 ) {
-  public static readonly layer = Layer.effect(
-    IGitHubCliInfraService,
-    ownSpans("GitHubCliInfraService", this.make())
-  ).pipe(Layer.provide([GitHubCliTransformer.layer, NodeServices.layer]));
+  public static readonly layer = Layer.effect(IGitHubCliInfraService, this.make()).pipe(
+    Layer.provide([GitHubCliTransformer.layer, NodeServices.layer])
+  );
 }

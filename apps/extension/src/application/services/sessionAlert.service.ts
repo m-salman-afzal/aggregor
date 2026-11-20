@@ -7,7 +7,6 @@ import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
 import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
 import {SESSION_ALERT_HOLD_MS} from "@pkg/constants/src/sessionAlert.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
 import {ENTITY_CHANGE_KINDS} from "@valueObjects/entityChangeKind.valueObject.ts";
 import {Context, DateTime, Duration, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
@@ -33,7 +32,7 @@ class SessionAlertServiceErrors extends TaggedErrors({
 export class SessionAlertService extends Context.Service<SessionAlertService>()(
   "aggregor-app/application/services/sessionAlert.service/SessionAlertService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("SessionAlertService.make")(function* () {
       const agentRepository = yield* IAgentRepository;
       const sessionRepository = yield* ISessionRepository;
       const desktopNotificationInfraService = yield* IDesktopNotificationInfraService;
@@ -41,14 +40,16 @@ export class SessionAlertService extends Context.Service<SessionAlertService>()(
       const terminalInfraService = yield* ITerminalInfraService;
       const sessionDomainService = yield* SessionDomainService;
 
-      const isSessionInView = Effect.fn("isSessionInView")(function* (sessionId: EntityIdValueObject) {
+      const isSessionInView = Effect.fn("SessionAlertService.isSessionInView")(function* (
+        sessionId: EntityIdValueObject
+      ) {
         const viewedSessionIdResult = yield* SubscriptionRef.get(terminalInfraService.viewedSessionId);
 
         return Result.getOrUndefined(viewedSessionIdResult) === sessionId;
       });
 
       // aggregor-pty moves statusChangedAt only when the state changes, so only a change since the window started counts.
-      const watchChangedSessions = Effect.fn("watchChangedSessions")(function* () {
+      const watchChangedSessions = Effect.fn("SessionAlertService.watchChangedSessions")(function* () {
         const alertsStartedAt = yield* DateTime.now;
 
         return Stream.filterMap(sessionRepository.entityChanges, (entityChange) =>
@@ -61,7 +62,7 @@ export class SessionAlertService extends Context.Service<SessionAlertService>()(
       });
 
       // Title and viewedAt writes repeat the status, so only a write with another state or kind of wait is a change.
-      const observeStatusChanges = Effect.fn("observeStatusChanges")(function* (
+      const observeStatusChanges = Effect.fn("SessionAlertService.observeStatusChanges")(function* (
         sessionWrites: Stream.Stream<SessionEntity>
       ) {
         const statusChanges = Stream.changesWith(
@@ -75,7 +76,9 @@ export class SessionAlertService extends Context.Service<SessionAlertService>()(
         );
       });
 
-      const holdStatusChanges = Effect.fn("holdStatusChanges")(function* (sessionWrites: Stream.Stream<SessionEntity>) {
+      const holdStatusChanges = Effect.fn("SessionAlertService.holdStatusChanges")(function* (
+        sessionWrites: Stream.Stream<SessionEntity>
+      ) {
         const statusChanges = yield* observeStatusChanges(sessionWrites);
         const heldChanges = Stream.debounce(statusChanges, Duration.millis(SESSION_ALERT_HOLD_MS));
 
@@ -97,7 +100,7 @@ export class SessionAlertService extends Context.Service<SessionAlertService>()(
         );
       });
 
-      const readNotifyOnStatuses = Effect.fn("readNotifyOnStatuses")(
+      const readNotifyOnStatuses = Effect.fn("SessionAlertService.readNotifyOnStatuses")(
         function* () {
           const alertSettings = yield* settingsConfig.readAlertSettings;
 
@@ -111,7 +114,9 @@ export class SessionAlertService extends Context.Service<SessionAlertService>()(
         )
       );
 
-      const makeSessionAlertIfDue = Effect.fn("makeSessionAlertIfDue")(function* (heldStatusChange: HeldStatusChange) {
+      const makeSessionAlertIfDue = Effect.fn("SessionAlertService.makeSessionAlertIfDue")(function* (
+        heldStatusChange: HeldStatusChange
+      ) {
         if (heldStatusChange.wasInView || (yield* isSessionInView(heldStatusChange.session.id)))
           return yield* SessionAlertServiceErrors.SessionAlertSkippedError.make();
         const alertedStatus = yield* sessionDomainService.getAlertedStatus(
@@ -133,7 +138,7 @@ export class SessionAlertService extends Context.Service<SessionAlertService>()(
         });
       });
 
-      const watchSessionAlerts = Effect.fn("watchSessionAlerts")(function* () {
+      const watchSessionAlerts = Effect.fn("SessionAlertService.watchSessionAlerts")(function* () {
         const changedSessions = yield* watchChangedSessions();
         const heldStatusChanges = Stream.flatMap(
           Stream.groupByKey(changedSessions, (changedSession) => changedSession.id),
@@ -146,7 +151,9 @@ export class SessionAlertService extends Context.Service<SessionAlertService>()(
         );
       });
 
-      const notifyOnDesktop = Effect.fn("notifyOnDesktop")(function* (request: NotifyOnDesktopRequestDto) {
+      const notifyOnDesktop = Effect.fn("SessionAlertService.notifyOnDesktop")(function* (
+        request: NotifyOnDesktopRequestDto
+      ) {
         yield* desktopNotificationInfraService.notifyOnDesktop(request);
       });
 
@@ -154,5 +161,5 @@ export class SessionAlertService extends Context.Service<SessionAlertService>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("SessionAlertService", this.make()));
+  public static readonly layer = Layer.effect(this, this.make());
 }

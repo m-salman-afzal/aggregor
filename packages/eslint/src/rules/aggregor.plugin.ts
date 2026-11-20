@@ -42,18 +42,13 @@ export const AGGREGOR_PLUGIN_CONFIGS: Config[] = [
     rules: {"aggregor/declaring-file": "error", "aggregor/span-name": "error", "aggregor/stem-folder": "error"}
   },
   {
-    files: ["packages/vscode/src/**/*.ts", "packages/trace/src/**/*.ts", "packages/errors/src/**/*.ts"],
+    files: ["packages/vscode/src/**/*.ts", "packages/errors/src/**/*.ts"],
     plugins: {aggregor: AGGREGOR_PLUGIN},
     rules: {"aggregor/span-name": "error"}
   },
   // The domain can't import @pkg/constants, so its constants stay beside their rules; a model's shared columns are code.
   {
-    files: [
-      "apps/extension/src/**/*.ts",
-      "packages/vscode/src/**/*.ts",
-      "packages/trace/src/**/*.ts",
-      "packages/errors/src/**/*.ts"
-    ],
+    files: ["apps/extension/src/**/*.ts", "packages/vscode/src/**/*.ts", "packages/errors/src/**/*.ts"],
     ignores: ["apps/extension/src/domain/**", "**/*.model.ts"],
     plugins: {aggregor: AGGREGOR_PLUGIN},
     rules: {"aggregor/constant-placement": "error"}

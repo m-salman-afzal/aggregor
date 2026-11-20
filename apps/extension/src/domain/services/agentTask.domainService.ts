@@ -1,4 +1,3 @@
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {AGENT_TASK_KINDS} from "@valueObjects/agentTaskKind.valueObject.ts";
 import {Context, Effect, Layer, Record, Result, String} from "effect";
 
@@ -19,8 +18,8 @@ const AGENT_TASK_KINDS_BY_ID_PREFIX: Record.ReadonlyRecord<string, AgentTaskKind
 export class AgentTaskDomainService extends Context.Service<AgentTaskDomainService>()(
   "aggregor-app/domain/services/agentTask.domainService/AgentTaskDomainService",
   {
-    make: Effect.fn("make")(function* () {
-      const getAgentTaskKind = Effect.fn("getAgentTaskKind")(function* (taskId: string) {
+    make: Effect.fn("AgentTaskDomainService.make")(function* () {
+      const getAgentTaskKind = Effect.fn("AgentTaskDomainService.getAgentTaskKind")(function* (taskId: string) {
         const taskIdPrefix = String.slice(0, 1)(taskId);
 
         return Result.merge(
@@ -32,5 +31,5 @@ export class AgentTaskDomainService extends Context.Service<AgentTaskDomainServi
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("AgentTaskDomainService", this.make()));
+  public static readonly layer = Layer.effect(this, this.make());
 }

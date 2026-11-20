@@ -21,7 +21,6 @@ import {
   PLAIN_FUNCTION_BAN,
   PROVIDE_MERGE_BAN,
   SERVICE_CLASS_BAN,
-  SERVICE_LAYER_OWN_SPANS_BAN,
   STATUS_LITERAL_BAN,
   SYNTAX_BANS,
   TOP_LEVEL_FUNCTION_BAN
@@ -41,8 +40,7 @@ const CODE_BANS = [
   DEPENDENCY_PARAMETER_BAN,
   STATUS_LITERAL_BAN,
   ENUM_VALUES_ACCESS_BAN,
-  NESTED_SERVICE_YIELD_BAN,
-  SERVICE_LAYER_OWN_SPANS_BAN
+  NESTED_SERVICE_YIELD_BAN
 ];
 
 export const LAYER_CONFIGS: Config[] = [
@@ -105,7 +103,7 @@ export const LAYER_CONFIGS: Config[] = [
     rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ...SYNTAX_BANS, ...CONSTANT_BANS]}
   },
   {
-    files: ["packages/vscode/src/**/*.ts", "packages/trace/src/**/*.ts", "packages/errors/src/**/*.ts"],
+    files: ["packages/vscode/src/**/*.ts", "packages/errors/src/**/*.ts"],
     rules: {
       "@typescript-eslint/no-restricted-imports": ["error", {paths: IMPORT_BANS, patterns: [ERRORS_PACKAGE_IMPORTS]}],
       "no-restricted-syntax": [
@@ -127,7 +125,7 @@ export const LAYER_CONFIGS: Config[] = [
     }
   },
   {
-    files: ["packages/vscode/src/**/*.type.ts", "packages/trace/src/**/*.type.ts", "packages/errors/src/**/*.type.ts"],
+    files: ["packages/vscode/src/**/*.type.ts", "packages/errors/src/**/*.type.ts"],
     rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ...SYNTAX_BANS, NON_TYPE_BAN]}
   },
   {

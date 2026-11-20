@@ -1,7 +1,6 @@
 import {APP_LABELS, APP_NAME} from "@pkg/constants/src/app.constant.ts";
 import {SETTINGS_EDITOR_EXTENSION_FILTER, VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {Context, Effect, Layer, Queue, Schema, Stream} from "effect";
 
@@ -18,10 +17,10 @@ export class VscodeUtilsErrors extends TaggedErrors({
 }) {}
 
 export class VscodeUtils extends Context.Service<VscodeUtils>()("@pkg/vscode/vscode.utils/VscodeUtils", {
-  make: Effect.fn("make")(function* () {
+  make: Effect.fn("VscodeUtils.make")(function* () {
     const vsCodeApi = yield* VsCodeApi;
 
-    const acquireScopedDisposable = Effect.fn("acquireScopedDisposable")(function* <
+    const acquireScopedDisposable = Effect.fn("VscodeUtils.acquireScopedDisposable")(function* <
       VsCodeDisposable extends Disposable
     >(createVsCodeDisposable: () => VsCodeDisposable) {
       return yield* Effect.acquireRelease(Effect.sync(createVsCodeDisposable), (vsCodeDisposable) =>
@@ -31,13 +30,15 @@ export class VscodeUtils extends Context.Service<VscodeUtils>()("@pkg/vscode/vsc
       );
     });
 
-    const streamVsCodeEvent = Effect.fn("streamVsCodeEvent")(function* <EventValue>(vsCodeEvent: Event<EventValue>) {
+    const streamVsCodeEvent = Effect.fn("VscodeUtils.streamVsCodeEvent")(function* <EventValue>(
+      vsCodeEvent: Event<EventValue>
+    ) {
       return Stream.callback<EventValue>((eventQueue) =>
         acquireScopedDisposable(() => vsCodeEvent((eventValue) => Queue.offerUnsafe(eventQueue, eventValue)))
       );
     });
 
-    const setWhenClauseContextKey = Effect.fn("setWhenClauseContextKey")(function* (
+    const setWhenClauseContextKey = Effect.fn("VscodeUtils.setWhenClauseContextKey")(function* (
       contextKey: string,
       contextValue: unknown
     ) {
@@ -46,7 +47,7 @@ export class VscodeUtils extends Context.Service<VscodeUtils>()("@pkg/vscode/vsc
       );
     });
 
-    const runWithProgressIndicator = Effect.fn("runWithProgressIndicator")(function* <A, E, R>(
+    const runWithProgressIndicator = Effect.fn("VscodeUtils.runWithProgressIndicator")(function* <A, E, R>(
       progressOptions: ProgressOptions,
       effectToRun: Effect.Effect<A, E, R>
     ) {
@@ -59,16 +60,18 @@ export class VscodeUtils extends Context.Service<VscodeUtils>()("@pkg/vscode/vsc
       return yield* Effect.fromResult(effectResult);
     });
 
-    const openAggregorSettingsInSettingsEditor = Effect.fn("openAggregorSettingsInSettingsEditor")(function* () {
-      yield* Effect.promise(() =>
-        vsCodeApi.commands.executeCommand(
-          VS_CODE_COMMANDS.OPEN_SETTINGS,
-          `${SETTINGS_EDITOR_EXTENSION_FILTER}${vsCodeApi.extensionId}`
-        )
-      );
-    });
+    const openAggregorSettingsInSettingsEditor = Effect.fn("VscodeUtils.openAggregorSettingsInSettingsEditor")(
+      function* () {
+        yield* Effect.promise(() =>
+          vsCodeApi.commands.executeCommand(
+            VS_CODE_COMMANDS.OPEN_SETTINGS,
+            `${SETTINGS_EDITOR_EXTENSION_FILTER}${vsCodeApi.extensionId}`
+          )
+        );
+      }
+    );
 
-    const runChosenErrorButton = Effect.fn("runChosenErrorButton")(function* (
+    const runChosenErrorButton = Effect.fn("VscodeUtils.runChosenErrorButton")(function* (
       errorButtons: ErrorButtons,
       chosenButton: string | undefined
     ) {
@@ -84,7 +87,7 @@ export class VscodeUtils extends Context.Service<VscodeUtils>()("@pkg/vscode/vsc
         yield* Effect.promise(() => vsCodeApi.commands.executeCommand(commandToRun.commandId));
     });
 
-    const showErrorNotificationWithoutWaiting = Effect.fn("showErrorNotificationWithoutWaiting")(function* (
+    const showErrorNotificationWithoutWaiting = Effect.fn("VscodeUtils.showErrorNotificationWithoutWaiting")(function* (
       errorMessage: string,
       errorButtons: ErrorButtons = {}
     ) {
@@ -107,10 +110,9 @@ export class VscodeUtils extends Context.Service<VscodeUtils>()("@pkg/vscode/vsc
       );
     });
 
-    const decodeVsCodeArgument = Effect.fn("decodeVsCodeArgument")(function* <ArgumentSchema extends Schema.Constraint>(
-      argumentSchema: ArgumentSchema,
-      vsCodeArgument: unknown
-    ) {
+    const decodeVsCodeArgument = Effect.fn("VscodeUtils.decodeVsCodeArgument")(function* <
+      ArgumentSchema extends Schema.Constraint
+    >(argumentSchema: ArgumentSchema, vsCodeArgument: unknown) {
       return yield* Effect.mapError(Schema.decodeUnknownEffect(argumentSchema)(vsCodeArgument), (cause) =>
         VscodeUtilsErrors.InvalidVsCodeArgumentError.make({cause})
       );
@@ -127,5 +129,5 @@ export class VscodeUtils extends Context.Service<VscodeUtils>()("@pkg/vscode/vsc
     };
   })
 }) {
-  public static readonly layer = Layer.effect(this, ownSpans("VscodeUtils", this.make()));
+  public static readonly layer = Layer.effect(this, this.make());
 }

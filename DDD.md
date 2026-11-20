@@ -35,7 +35,7 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
 │ @pkg/constants  every constant outside the domain, one file a feature    │
 │ @pkg/vscode     VsCodeApi (the one runtime `vscode` import), VscodeUtils │
 │                 (the vscode helpers and argument decoding)               │
-│ @pkg/trace      ownSpans: marks a unit's spans with the unit's name      │
+
 │ @pkg/errors     TaggedErrors: builds a file's errors as one class        │
 └─────────▲──────────────── shared by FE and infra ────────────▲───────────┘
 ┌─ presentation (FE) ┴───────────────────────┐                 │
@@ -59,8 +59,8 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
 
 | Layer             | Holds                                                                                     | May import                                                                                                                    |
 | ----------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `domain/`         | Entities, value objects, domain services, repository interfaces and their errors          | `effect`, `@pkg/trace`'s `ownSpans`, `@pkg/errors`' `TaggedErrors`, domain                                                    |
-| `application/`    | Services (the use cases), DTOs, the interfaces of the infra services and config they use  | `effect`, `@pkg/constants`, `@pkg/trace`'s `ownSpans`, `@pkg/errors`' `TaggedErrors`, domain, application                     |
+| `domain/`         | Entities, value objects, domain services, repository interfaces and their errors          | `effect`, `@pkg/errors`' `TaggedErrors`, domain                                                                               |
+| `application/`    | Services (the use cases), DTOs, the interfaces of the infra services and config they use  | `effect`, `@pkg/constants`, `@pkg/errors`' `TaggedErrors`, domain, application                                                |
 | `infrastructure/` | Models, repositories, infra services, config, the layer graph, the trace log              | `effect`, `@effect/*`, `drizzle-orm`, `jsonc-parser`, `vscode` types, `node:*`, `@pkg/*`, domain, application, infrastructure |
 | `presentation/`   | Controllers, which register their commands, the command middleware, error messages, views | `effect`, `vscode` types, `@pkg/*`, and from the layers below only services and DTOs, each part as listed below               |
 | `extension.ts`    | `activate`: builds the runtime from the layer graph                                       | everything                                                                                                                    |
@@ -74,10 +74,9 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
   vscode helpers, argument decoding) lives in `@pkg/vscode`; constants live in `@pkg/constants`.
 - Within presentation:
   - **Controllers** import `@services`, `@dtos`, `@middlewares` and `@errorMessages`, to register their commands,
-    `@pkg/constants`, `@pkg/trace`'s `ownSpans`, `@pkg/errors`' `TaggedErrors` and `@pkg/vscode`'s `vscode.utils.ts`,
-    whose `VscodeUtils` decodes their input and opens the settings for Open Settings, which has no use case.
-  - **Error messages** import `@pkg/constants`, `@pkg/trace`'s `ownSpans`, `@pkg/errors`' `TaggedErrors`, and
-    `@services` for types only.
+    `@pkg/constants`, `@pkg/errors`' `TaggedErrors` and `@pkg/vscode`'s `vscode.utils.ts`, whose `VscodeUtils` decodes
+    their input and opens the settings for Open Settings, which has no use case.
+  - **Error messages** import `@pkg/constants`, `@pkg/errors`' `TaggedErrors`, and `@services` for types only.
   - **Views** import `@controllers`, their own files, `@pkg/*`, and `@dtos` for types only.
   - **Middlewares** import `@middlewares` and `@pkg/*`: a middleware runs inside the controller that calls it, which
     hands it everything else.
@@ -157,13 +156,13 @@ file suffix. A function's name starts with a verb that says what it does (`makeS
 - Every file with a role owns its spans, and the owner is its file name: a config, controller, domain service, error
   message, infra service, middleware, repository, service, transformer, utils or view file (`terminal.utils.ts` is
   `TerminalUtils`), and a layer file without the suffix (`backgroundJobs.layer.ts` is `BackgroundJobs`). A span is named
-  in one of two ways: a class's `make` is `make`, and every other `Effect.fn`, each a const inside a `make`, takes its
-  const's name alone. `ownSpans` gives them their owner (see Dependency injection), so the trace log prints
-  `SessionService.openSession`. A command's root span is its command ID.
-- The aggregor plugin (`packages/eslint/src/rules/`, one file per rule) checks the span names and the name each
-  `ownSpans` is given, the `.type.ts` placement, the stem folders, where constants live, that a comment is one line, and
-  each function's length (`max-lines-per-function`, ESLint's own with a unit's `make` exempt); it fixes span names; for
-  `apps/webview`, it also checks the folder-structure skill's rules (`packages/eslint/src/folderStructure/`).
+  in one of two ways: a class's `make` is `<Owner>.make`, and every other `Effect.fn`, each a const inside a `make`, is
+  `<Owner>.<const>`, its class and then its const, so the trace log prints `SessionService.openSession` as the source
+  writes it. A command's root span is its command ID.
+- The aggregor plugin (`packages/eslint/src/rules/`, one file per rule) checks the span names and that each unit's class
+  is named after its file, the `.type.ts` placement, the stem folders, where constants live, that a comment is one line,
+  and each function's length (`max-lines-per-function`, ESLint's own with a unit's `make` exempt); it fixes span names;
+  for `apps/webview`, it also checks the folder-structure skill's rules (`packages/eslint/src/folderStructure/`).
 - A constant lives in `@pkg/constants/src/<feature>.constant.ts`: ids, labels and texts, and also file and folder names,
   environment variables, external commands, VS Code's and other extensions' ids, timings and patterns. Constants that
   describe one thing share an object with a label per value (`TMUX.SOCKET_FILE_NAME`, `SESSIONS_VIEW.ID`). The domain,
@@ -191,9 +190,7 @@ packages/
   eslint/src/                              the repo's ESLint setup: base/ per file type, layers/ the DDD layering
                                            checks, folderStructure/ apps/webview's checks, rules/ the aggregor
                                            plugin (one file per rule), and eslint.config.ts composing them
-  trace/src/ownSpans.utils.ts              ownSpans: marks every span a unit makes, and every span made during a call
-                                           into it, with the unit's name, which the trace log prints in front; an
-                                           effect, stream or callback handed in as an argument keeps its caller's
+
   ui/src/                                  apps/webview's design system: theme.css (shadcn's tokens and the status
                                            colours from VS Code's theme) and components/base/, shadcn's components
                                            on Base UI, which shadcn's CLI writes (components.json)
@@ -611,23 +608,21 @@ apps/extension/tests/
   `deterministicKeys` checks.
 - **Unit:** every file that holds functions exports one `Context.Service` class, in the form Effect's docs use, and
   every function is a const inside its `make`:
-  `class SessionService extends Context.Service<SessionService>()("<key>", {make: Effect.fn("make")(…)})` with
-  `public static readonly layer = Layer.effect(this, ownSpans("SessionService", this.make()))`. `make` yields the unit's
-  dependencies once, at its top, holds every function of the unit as a const, and returns the ones callers use, `{}` for
-  a view or `BackgroundJobs`, which nothing calls; a member that takes no arguments is an `Effect`, built once. A
-  function inside `make` yields no service, so nothing a unit does needs anything from its caller. A long `make` is
-  fine; a class is divided where its parts clearly belong apart. Only `activate` and `deactivate`, which VS Code calls
-  directly, `ownSpans`, which every `static layer` line calls outside any effect, and `TaggedErrors`, which builds a
-  file's errors class when the file loads, outside any effect, are plain functions; a file that holds only definitions
-  (value objects, entities, DTOs, ports, table models, types) has no unit class.
+  `class SessionService extends Context.Service<SessionService>()("<key>", {make: Effect.fn("SessionService.make")(…)})`
+  with `public static readonly layer = Layer.effect(this, this.make())`. `make` yields the unit's dependencies once, at
+  its top, holds every function of the unit as a const, and returns the ones callers use, `{}` for a view or
+  `BackgroundJobs`, which nothing calls; a member that takes no arguments is an `Effect`, built once. A function inside
+  `make` yields no service, so nothing a unit does needs anything from its caller. A long `make` is fine; a class is
+  divided where its parts clearly belong apart. Only `activate` and `deactivate`, which VS Code calls directly, and
+  `TaggedErrors`, which builds a file's errors class when the file loads, outside any effect, are plain functions; a
+  file that holds only definitions (value objects, entities, DTOs, ports, table models, types) has no unit class.
 - **Implementation:** a port's implementation is a class named after its interface without the `I`, such as
   `SessionRepository` or `TerminalInfraService`, whose layer provides the port:
-  `Layer.effect(ITerminalInfraService, ownSpans("TerminalInfraService", this.make()))`. Nothing yields the
-  implementation class itself. The backend shows in the folder (`services/vscode/`), not the name, and the port class
-  stays in its `.interface.ts`.
+  `Layer.effect(ITerminalInfraService, this.make())`. Nothing yields the implementation class itself. The backend shows
+  in the folder (`services/vscode/`), not the name, and the port class stays in its `.interface.ts`.
 - **Base classes:** `BaseService` and `BaseRepository` each have one member, `makeFor`, which binds a repository or an
-  entity table and returns the base functions through `ownSpans`, so they keep `BaseService` and `BaseRepository` as
-  owner. A service or repository yields the class at the top of its `make`, calls `makeFor` there
+  entity table and returns the base functions, each named `BaseService.…` or `BaseRepository.…` like any other function
+  of its class. A service or repository yields the class at the top of its `make`, calls `makeFor` there
   (`const projectBaseService = yield* baseService.makeFor(projectRepository)`), and its layer provides the base class's.
 - **Nothing is passed as a dependency:** no function takes a service, a ref or a `…Dependencies` object as a parameter.
   State, such as a `Ref` or a cache, lives in the `make` of the unit whose functions own it, and another unit that needs
@@ -656,16 +651,14 @@ apps/extension/tests/
   rest together. `ApplicationLayer` merges `BackgroundJobs.layer`, so every job has started before a command or view
   exists. A watcher an implementation or a view runs starts in its own `make`. `decisions/backgroundJobs.md` lists them
   all.
-- **A unit's spans carry its name:** `ownSpans` (`@pkg/trace`) marks every span made inside the unit, and every span
-  made during a call into it, with the attribute `TRACE_LOGGING.SPAN_OWNER_ATTRIBUTE`; it marks effects, streams, and
-  what a member function returns. The trace log prints a marked span whose name has no dot as `<owner>.<name>` and
-  leaves the attribute out of the line, so a library's undotted span takes the unit it ran in (`BaseRepository.sqlite`).
-  An effect, a stream or a callback handed to a unit's member as an argument is the caller's work, so it keeps the
-  caller's mark while the unit runs it: `CommitMessageService`'s `writeCommitMessage`, which
-  `VscodeUtils.runWithProgressIndicator` runs, prints as `CommitMessageService.writeCommitMessage`, and a command
-  handler's spans stay its controller's although `RegisterCommandMiddleware` runs it. A tagged error or an exit passed
-  as an argument is a value, not work, and is left as it is. In a failure's stack the frame for a call into a unit
-  points at `ownSpans`, not at the calling line.
+- **A unit's spans carry its name:** every `Effect.fn` is named `<Owner>.<const>` in the source, and a class's `make`
+  `<Owner>.make`; `aggregor/span-name` checks each name and that the class is named after its file, and `pnpm lint:fix`
+  writes the names. Nothing is added while the extension runs, so a call into a unit is a plain call. The name is part
+  of the function, so an effect, a stream or a callback handed to another unit keeps it: `CommitMessageService`'s
+  `writeCommitMessage`, which `VscodeUtils.runWithProgressIndicator` runs, prints as
+  `CommitMessageService.writeCommitMessage`, and a command handler's spans stay its controller's although
+  `RegisterCommandMiddleware` runs it. A library's span keeps the name its library gave it (`sqlite`), under the span of
+  the unit that ran it. In a failure's stack the frame for a call into a unit is the calling line.
 - **Startup order is a dependency:** layers side by side are built at the same time, so a layer that must start after
   another is given it. `BaseRepository` is given `DatabaseLayer`, the SQL client with its migrations already run, and
   the commands and views are given all of `ApplicationLayer`.

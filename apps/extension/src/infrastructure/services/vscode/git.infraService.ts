@@ -1,7 +1,6 @@
 import {IGitInfraService, IGitInfraServiceErrors} from "@interfaces/git.infraService.interface.ts";
 import {GIT_EXTENSION} from "@pkg/constants/src/git.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {Context, Effect, Layer, Result, Schema} from "effect";
 
@@ -15,10 +14,10 @@ class GitInfraServiceErrors extends TaggedErrors({
 export class GitInfraService extends Context.Service<GitInfraService>()(
   "aggregor-app/infrastructure/services/vscode/git.infraService/GitInfraService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("GitInfraService.make")(function* () {
       const vsCodeApi = yield* VsCodeApi;
 
-      const getGitApi = Effect.fn("getGitApi")(function* () {
+      const getGitApi = Effect.fn("GitInfraService.getGitApi")(function* () {
         const gitExtension = yield* Effect.fromResult(
           Result.fromNullishOr(vsCodeApi.extensions.getExtension<GitExtension>(GIT_EXTENSION.ID), () =>
             IGitInfraServiceErrors.GitExtensionUnavailableError.make()
@@ -37,7 +36,7 @@ export class GitInfraService extends Context.Service<GitInfraService>()(
         });
       });
 
-      const findGitRepository = Effect.fn("findGitRepository")(function* (
+      const findGitRepository = Effect.fn("GitInfraService.findGitRepository")(function* (
         gitApi: API,
         projectPath: ProjectPathValueObject
       ) {
@@ -48,13 +47,15 @@ export class GitInfraService extends Context.Service<GitInfraService>()(
         );
       });
 
-      const getGitRepository = Effect.fn("getGitRepository")(function* (projectPath: ProjectPathValueObject) {
+      const getGitRepository = Effect.fn("GitInfraService.getGitRepository")(function* (
+        projectPath: ProjectPathValueObject
+      ) {
         const gitApi = yield* getGitApi();
 
         return yield* findGitRepository(gitApi, projectPath);
       });
 
-      const getRepositoryWithStagedChanges = Effect.fn("getRepositoryWithStagedChanges")(function* (
+      const getRepositoryWithStagedChanges = Effect.fn("GitInfraService.getRepositoryWithStagedChanges")(function* (
         projectPath: ProjectPathValueObject
       ) {
         return yield* Effect.filterOrFail(
@@ -64,20 +65,20 @@ export class GitInfraService extends Context.Service<GitInfraService>()(
         );
       });
 
-      const readStagedDiff = Effect.fn("readStagedDiff")(function* (repository: Repository) {
+      const readStagedDiff = Effect.fn("GitInfraService.readStagedDiff")(function* (repository: Repository) {
         return yield* Effect.tryPromise({
           catch: () => IGitInfraServiceErrors.GitDiffError.make(),
           try: () => repository.diff(true)
         });
       });
 
-      const getStagedDiff = Effect.fn("getStagedDiff")(function* (projectPath: ProjectPathValueObject) {
+      const getStagedDiff = Effect.fn("GitInfraService.getStagedDiff")(function* (projectPath: ProjectPathValueObject) {
         const repository = yield* getRepositoryWithStagedChanges(projectPath);
 
         return yield* readStagedDiff(repository);
       });
 
-      const setCommitMessageInput = Effect.fn("setCommitMessageInput")(function* (
+      const setCommitMessageInput = Effect.fn("GitInfraService.setCommitMessageInput")(function* (
         projectPath: ProjectPathValueObject,
         commitMessage: string
       ) {
@@ -88,7 +89,10 @@ export class GitInfraService extends Context.Service<GitInfraService>()(
         });
       });
 
-      const commit = Effect.fn("commit")(function* (projectPath: ProjectPathValueObject, commitMessage: string) {
+      const commit = Effect.fn("GitInfraService.commit")(function* (
+        projectPath: ProjectPathValueObject,
+        commitMessage: string
+      ) {
         const repository = yield* getGitRepository(projectPath);
 
         yield* Effect.tryPromise({
@@ -97,7 +101,7 @@ export class GitInfraService extends Context.Service<GitInfraService>()(
         });
       });
 
-      const openAndLoadRepository = Effect.fn("openAndLoadRepository")(function* (
+      const openAndLoadRepository = Effect.fn("GitInfraService.openAndLoadRepository")(function* (
         gitApi: API,
         projectPath: ProjectPathValueObject
       ) {
@@ -114,7 +118,7 @@ export class GitInfraService extends Context.Service<GitInfraService>()(
       });
 
       // Waits for the repository's first status, so Source Control can show its changes at once.
-      const openInSourceControl = Effect.fn("openInSourceControl")(
+      const openInSourceControl = Effect.fn("GitInfraService.openInSourceControl")(
         function* (projectPath: ProjectPathValueObject) {
           const gitApi = yield* getGitApi();
           if (gitApi.getRepository(vsCodeApi.Uri.file(projectPath)) !== null) return;
@@ -128,5 +132,5 @@ export class GitInfraService extends Context.Service<GitInfraService>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(IGitInfraService, ownSpans("GitInfraService", this.make()));
+  public static readonly layer = Layer.effect(IGitInfraService, this.make());
 }

@@ -6,7 +6,6 @@ import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {BaseService} from "@services/base.service.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {ProjectSettingsValueObjectSchema} from "@valueObjects/projectSettings.valueObject.ts";
@@ -31,7 +30,7 @@ export class ProjectServiceErrors extends TaggedErrors({
 export class ProjectService extends Context.Service<ProjectService>()(
   "aggregor-app/application/services/project.service/ProjectService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("ProjectService.make")(function* () {
       const projectRepository = yield* IProjectRepository;
       const sessionRepository = yield* ISessionRepository;
       const tmuxInfraService = yield* ITmuxInfraService;
@@ -43,7 +42,7 @@ export class ProjectService extends Context.Service<ProjectService>()(
       const projectBaseService = yield* baseService.makeFor(projectRepository);
       const sessionBaseService = yield* baseService.makeFor(sessionRepository);
 
-      const makeAddedProjectListItem = Effect.fn("makeAddedProjectListItem")(function* (
+      const makeAddedProjectListItem = Effect.fn("ProjectService.makeAddedProjectListItem")(function* (
         addedProject: ProjectEntity,
         addedProjectIds: readonly EntityIdValueObject[]
       ) {
@@ -57,7 +56,7 @@ export class ProjectService extends Context.Service<ProjectService>()(
         });
       });
 
-      const findProjectSettings = Effect.fn("findProjectSettings")(function* (
+      const findProjectSettings = Effect.fn("ProjectService.findProjectSettings")(function* (
         projectPath: ProjectPathValueObject,
         storedProjects: readonly ProjectEntity[]
       ) {
@@ -70,7 +69,7 @@ export class ProjectService extends Context.Service<ProjectService>()(
         return yield* Effect.orDie(Schema.decodeEffect(ProjectSettingsValueObjectSchema)({}));
       });
 
-      const makeOwnFolderProjectListItem = Effect.fn("makeOwnFolderProjectListItem")(function* (
+      const makeOwnFolderProjectListItem = Effect.fn("ProjectService.makeOwnFolderProjectListItem")(function* (
         ownFolderProject: WorkspaceFolderProject,
         storedProjects: readonly ProjectEntity[]
       ) {
@@ -84,7 +83,7 @@ export class ProjectService extends Context.Service<ProjectService>()(
         });
       });
 
-      const findSessionWorktreePaths = Effect.fn("findSessionWorktreePaths")(function* () {
+      const findSessionWorktreePaths = Effect.fn("ProjectService.findSessionWorktreePaths")(function* () {
         const storedSessions = yield* sessionBaseService.findEntities({});
 
         return new Set(
@@ -95,7 +94,7 @@ export class ProjectService extends Context.Service<ProjectService>()(
         );
       });
 
-      const listProjects = Effect.fn("listProjects")(function* () {
+      const listProjects = Effect.fn("ProjectService.listProjects")(function* () {
         const workspaceFolderProjects = yield* workspaceInfraService.listWorkspaceFolderProjects;
         const storedProjects = yield* projectBaseService.findEntities({});
         const addedProjects = Array.filter(storedProjects, (storedProject) => storedProject.isAdded);
@@ -119,7 +118,9 @@ export class ProjectService extends Context.Service<ProjectService>()(
         ];
       });
 
-      const findProjectListItem = Effect.fn("findProjectListItem")(function* (projectPath: ProjectPathValueObject) {
+      const findProjectListItem = Effect.fn("ProjectService.findProjectListItem")(function* (
+        projectPath: ProjectPathValueObject
+      ) {
         const projectListItems = yield* listProjects();
 
         return yield* Effect.fromResult(
@@ -130,7 +131,7 @@ export class ProjectService extends Context.Service<ProjectService>()(
         );
       });
 
-      const showFirstNewProject = Effect.fn("showFirstNewProject")(function* (
+      const showFirstNewProject = Effect.fn("ProjectService.showFirstNewProject")(function* (
         newProjectPaths: readonly ProjectPathValueObject[]
       ) {
         const workspaceFolderProjects = yield* workspaceInfraService.listWorkspaceFolderProjects;
@@ -140,20 +141,24 @@ export class ProjectService extends Context.Service<ProjectService>()(
         yield* workspaceInfraService.showOnlyProjectFolder(firstNewProjectPath, undefined);
       });
 
-      const addProjectPaths = Effect.fn("addProjectPaths")(function* (projectPaths: readonly ProjectPathValueObject[]) {
+      const addProjectPaths = Effect.fn("ProjectService.addProjectPaths")(function* (
+        projectPaths: readonly ProjectPathValueObject[]
+      ) {
         yield* Effect.forEach(projectPaths, (projectPath) =>
           projectBaseService.upsertEntity({isAdded: true, path: projectPath})
         );
       });
 
-      const findOrAddProject = Effect.fn("findOrAddProject")(function* (projectPath: ProjectPathValueObject) {
+      const findOrAddProject = Effect.fn("ProjectService.findOrAddProject")(function* (
+        projectPath: ProjectPathValueObject
+      ) {
         const [storedProject] = yield* projectBaseService.findEntities({path: projectPath});
         if (storedProject !== undefined) return storedProject;
 
         return yield* projectBaseService.addEntity({isAdded: false, path: projectPath});
       });
 
-      const addProject = Effect.fn("addProject")(
+      const addProject = Effect.fn("ProjectService.addProject")(
         function* () {
           const pickedFolderPaths = yield* userInputPromptInfraService.pickProjectFolderPaths;
           const projectListItems = yield* listProjects();
@@ -170,7 +175,7 @@ export class ProjectService extends Context.Service<ProjectService>()(
         Effect.catchTag("FolderPickCancelledError", () => Effect.void)
       );
 
-      const listAddedProjectOrder = Effect.fn("listAddedProjectOrder")(function* () {
+      const listAddedProjectOrder = Effect.fn("ProjectService.listAddedProjectOrder")(function* () {
         const storedProjects = yield* projectBaseService.findEntities({});
         const addedProjects = Array.filter(storedProjects, (storedProject) => storedProject.isAdded);
 
@@ -180,7 +185,7 @@ export class ProjectService extends Context.Service<ProjectService>()(
         };
       });
 
-      const moveProjectUp = Effect.fn("moveProjectUp")(function* (request: MoveProjectUpRequestDto) {
+      const moveProjectUp = Effect.fn("ProjectService.moveProjectUp")(function* (request: MoveProjectUpRequestDto) {
         const addedProjectOrder = yield* listAddedProjectOrder();
         const projectIndex = addedProjectOrder.addedProjectPaths.indexOf(request.projectPath);
         const projectIdsToPlaceAtEnd = yield* sortOrderDomainService.findEntityIdsToPlaceAtEnd(
@@ -191,7 +196,9 @@ export class ProjectService extends Context.Service<ProjectService>()(
         yield* projectBaseService.placeEntitiesAtEnd(projectIdsToPlaceAtEnd);
       });
 
-      const moveProjectDown = Effect.fn("moveProjectDown")(function* (request: MoveProjectDownRequestDto) {
+      const moveProjectDown = Effect.fn("ProjectService.moveProjectDown")(function* (
+        request: MoveProjectDownRequestDto
+      ) {
         const addedProjectOrder = yield* listAddedProjectOrder();
         const projectIndex = addedProjectOrder.addedProjectPaths.indexOf(request.projectPath);
         const projectIdsToPlaceAtEnd = yield* sortOrderDomainService.findEntityIdsToPlaceAtEnd(
@@ -202,7 +209,7 @@ export class ProjectService extends Context.Service<ProjectService>()(
         yield* projectBaseService.placeEntitiesAtEnd(projectIdsToPlaceAtEnd);
       });
 
-      const saveProjectSettings = Effect.fn("saveProjectSettings")(
+      const saveProjectSettings = Effect.fn("ProjectService.saveProjectSettings")(
         function* (request: SaveProjectSettingsRequestDto) {
           yield* findProjectListItem(request.projectPath);
           const project = yield* findOrAddProject(request.projectPath);
@@ -212,7 +219,7 @@ export class ProjectService extends Context.Service<ProjectService>()(
         Effect.catchTags({EntityNotFoundError: () => Effect.void, ProjectNotListedError: () => Effect.void})
       );
 
-      const endProjectFolderShells = Effect.fn("endProjectFolderShells")(function* (
+      const endProjectFolderShells = Effect.fn("ProjectService.endProjectFolderShells")(function* (
         projectPath: ProjectPathValueObject,
         storedProjects: readonly ProjectEntity[]
       ) {
@@ -230,7 +237,7 @@ export class ProjectService extends Context.Service<ProjectService>()(
       });
 
       // Its folder leaves the workspace first: a workspace folder that isn't added is listed as one of the window's own.
-      const removeProject = Effect.fn("removeProject")(
+      const removeProject = Effect.fn("ProjectService.removeProject")(
         function* (request: RemoveProjectRequestDto) {
           yield* workspaceInfraService.removeProjectFolder(request.projectPath);
           const storedProjects = yield* projectBaseService.findEntities({path: request.projectPath});
@@ -256,7 +263,5 @@ export class ProjectService extends Context.Service<ProjectService>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("ProjectService", this.make())).pipe(
-    Layer.provide(BaseService.layer)
-  );
+  public static readonly layer = Layer.effect(this, this.make()).pipe(Layer.provide(BaseService.layer));
 }

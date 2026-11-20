@@ -18,9 +18,9 @@ const OWNER_ROLE_SUFFIXES = new Map([
   ["view", "View"]
 ]);
 
-const OWN_SPANS_CALL = "CallExpression[callee.type='Identifier'][callee.name='ownSpans']";
-const MAKE_REASON = "a Context.Service's make is named make, and ownSpans prints its unit's name before it";
-const CONST_REASON = "a function inside a make takes its const's name, and ownSpans prints its unit's name before it";
+const SERVICE_CLASS =
+  "ClassDeclaration[superClass.callee.callee.object.name='Context'][superClass.callee.callee.property.name='Service']";
+const MAKE_FUNCTION_NAME = "make";
 
 const getOwnerOfFile = (filePath: string) => {
   const [stem, role, extension, ...rest] = basename(filePath).split(".");
@@ -46,18 +46,27 @@ const getAssignedConstName = (appliedCall: Rule.Node) => {
   return holder.id.name;
 };
 
+const findOwnerClassName = (effectFunctionCall: Rule.Node) => {
+  for (let ancestor = effectFunctionCall.parent; ancestor !== null; ancestor = ancestor.parent) {
+    if (ancestor.type === "ClassDeclaration") return ancestor.id.name;
+  }
+
+  return undefined;
+};
+
 const findExpectedSpanName = (effectFunctionCall: Rule.Node) => {
   const appliedCall = getAppliedCall(effectFunctionCall);
-  if (isServiceMakeProperty(appliedCall)) return {expectedName: "make", reason: MAKE_REASON};
-  const constName = getAssignedConstName(appliedCall);
+  const functionName = isServiceMakeProperty(appliedCall) ? MAKE_FUNCTION_NAME : getAssignedConstName(appliedCall);
+  if (functionName === undefined) return undefined;
+  const ownerClassName = findOwnerClassName(effectFunctionCall);
 
-  return constName === undefined ? undefined : {expectedName: constName, reason: CONST_REASON};
+  return ownerClassName === undefined ? functionName : `${ownerClassName}.${functionName}`;
 };
 
 const checkSpanName = (context: Rule.RuleContext, effectFunctionCall: Rule.Node) => {
   if (effectFunctionCall.type !== "CallExpression") return;
-  const expectedSpanName = findExpectedSpanName(effectFunctionCall);
-  if (expectedSpanName === undefined) {
+  const expectedName = findExpectedSpanName(effectFunctionCall);
+  if (expectedName === undefined) {
     context.report({messageId: "notAssigned", node: effectFunctionCall});
 
     return;
@@ -68,25 +77,18 @@ const checkSpanName = (context: Rule.RuleContext, effectFunctionCall: Rule.Node)
 
     return;
   }
-  if (nameArgument.value === expectedSpanName.expectedName) return;
+  if (nameArgument.value === expectedName) return;
   context.report({
-    data: expectedSpanName,
-    fix: (fixer) => fixer.replaceText(nameArgument, JSON.stringify(expectedSpanName.expectedName)),
+    data: {expectedName},
+    fix: (fixer) => fixer.replaceText(nameArgument, JSON.stringify(expectedName)),
     messageId: "wrongName",
     node: nameArgument
   });
 };
 
-const checkOwnSpansName = (context: Rule.RuleContext, owner: string | undefined, ownSpansCall: Rule.Node) => {
-  if (ownSpansCall.type !== "CallExpression" || owner === undefined) return;
-  const [nameArgument] = ownSpansCall.arguments;
-  if (nameArgument === undefined || (nameArgument.type === "Literal" && nameArgument.value === owner)) return;
-  context.report({
-    data: {owner},
-    fix: (fixer) => fixer.replaceText(nameArgument, JSON.stringify(owner)),
-    messageId: "wrongOwnSpansName",
-    node: nameArgument
-  });
+const checkOwnerClassName = (context: Rule.RuleContext, owner: string | undefined, serviceClass: Rule.Node) => {
+  if (serviceClass.type !== "ClassDeclaration" || owner === undefined || serviceClass.id.name === owner) return;
+  context.report({data: {owner}, messageId: "wrongClassName", node: serviceClass.id});
 };
 
 export const spanNameRule: Rule.RuleModule = {
@@ -97,16 +99,16 @@ export const spanNameRule: Rule.RuleModule = {
       [EFFECT_FUNCTION_CALL](effectFunctionCall: Rule.Node) {
         checkSpanName(context, effectFunctionCall);
       },
-      [OWN_SPANS_CALL](ownSpansCall: Rule.Node) {
-        checkOwnSpansName(context, owner, ownSpansCall);
+      [SERVICE_CLASS](serviceClass: Rule.Node) {
+        checkOwnerClassName(context, owner, serviceClass);
       }
     };
   },
   meta: {
     docs: {
       description:
-        "Name a Context.Service's make span make and every other Effect.fn span after its const, and pass ownSpans " +
-        "its file's owner."
+        "Name every Effect.fn span <its class>.<its const>, a Context.Service's make <its class>.make, and a unit's " +
+        "class after its file."
     },
     fixable: "code",
     messages: {
@@ -114,10 +116,12 @@ export const spanNameRule: Rule.RuleModule = {
         "Assign this Effect.fn to a const, or make it a Context.Service's make, so its span can be named after it and " +
         "a trace line finds its function with one search.",
       notLiteral: "Name this span with a string literal, so a trace line finds its function with one search.",
-      wrongName: 'Name this span "{{expectedName}}": {{reason}}, so a trace line finds its function with one search.',
-      wrongOwnSpansName:
-        'Pass "{{owner}}" to ownSpans: {{owner}} owns this file, and the trace log prints this name before every span ' +
-        "of the unit, so a trace line says which unit it ran in."
+      wrongClassName:
+        'Name this class "{{owner}}": a unit is named after its file, and its name stands before every span it ' +
+        "makes, so a trace line says which file it ran in.",
+      wrongName:
+        'Name this span "{{expectedName}}": a span carries its class and then its const, or make for the class\'s ' +
+        "make, so a trace line says which unit ran and finds its function with one search. `pnpm lint:fix` writes it."
     },
     schema: [],
     type: "suggestion"

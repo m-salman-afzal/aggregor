@@ -3,7 +3,6 @@ import {IDesktopNotificationInfraService} from "@interfaces/desktopNotification.
 import {APP_NAME} from "@pkg/constants/src/app.constant.ts";
 import {PLATFORMS, WSL_KERNEL_RELEASE_MARKER} from "@pkg/constants/src/process.constant.ts";
 import {DESKTOP_NOTIFIERS} from "@pkg/constants/src/sessionAlert.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Array, Config, Context, Effect, Layer, String} from "effect";
 import {ChildProcess} from "effect/process";
 import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
@@ -15,25 +14,28 @@ import type {DesktopNotificationRequest} from "@interfaces/desktopNotification.i
 export class DesktopNotificationInfraService extends Context.Service<DesktopNotificationInfraService>()(
   "aggregor-app/infrastructure/services/os/desktopNotification.infraService/DesktopNotificationInfraService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("DesktopNotificationInfraService.make")(function* () {
       const childProcessSpawner = yield* ChildProcessSpawner;
 
       // Without VS Code's desktop file, GNOME shows Aggregor's name and logo and a click brings nothing forward.
-      const makeVsCodeDesktopEntryHint = Effect.fn("makeVsCodeDesktopEntryHint")(function* () {
-        const vsCodeDesktopFile = yield* Config.withDefault(
-          Config.String(DESKTOP_NOTIFIERS.NOTIFY_SEND.DESKTOP_FILE_ENV),
-          ""
-        );
-        const vsCodeDesktopEntry = String.replace(
-          DESKTOP_NOTIFIERS.NOTIFY_SEND.DESKTOP_FILE_EXTENSION,
-          ""
-        )(vsCodeDesktopFile);
+      const makeVsCodeDesktopEntryHint = Effect.fn("DesktopNotificationInfraService.makeVsCodeDesktopEntryHint")(
+        function* () {
+          const vsCodeDesktopFile = yield* Config.withDefault(
+            Config.String(DESKTOP_NOTIFIERS.NOTIFY_SEND.DESKTOP_FILE_ENV),
+            ""
+          );
+          const vsCodeDesktopEntry = String.replace(
+            DESKTOP_NOTIFIERS.NOTIFY_SEND.DESKTOP_FILE_EXTENSION,
+            ""
+          )(vsCodeDesktopFile);
 
-        return vsCodeDesktopEntry === "" ? [] : ["--hint", `string:desktop-entry:${vsCodeDesktopEntry}`];
-      }, Effect.orDie);
+          return vsCodeDesktopEntry === "" ? [] : ["--hint", `string:desktop-entry:${vsCodeDesktopEntry}`];
+        },
+        Effect.orDie
+      );
 
       // A button can't bring VS Code forward, only a click on the notification itself can, so there is none.
-      const makeNotifySendArguments = Effect.fn("makeNotifySendArguments")(function* (
+      const makeNotifySendArguments = Effect.fn("DesktopNotificationInfraService.makeNotifySendArguments")(function* (
         desktopNotificationRequest: DesktopNotificationRequest
       ) {
         return [
@@ -47,7 +49,7 @@ export class DesktopNotificationInfraService extends Context.Service<DesktopNoti
       });
 
       // The portal drops what this carries, so it is off; notify-send waits, since GNOME deletes it once its sender leaves.
-      const notifyWithNotifySend = Effect.fn("notifyWithNotifySend")(function* (
+      const notifyWithNotifySend = Effect.fn("DesktopNotificationInfraService.notifyWithNotifySend")(function* (
         desktopNotificationRequest: DesktopNotificationRequest
       ) {
         const notifySendArguments = yield* makeNotifySendArguments(desktopNotificationRequest);
@@ -61,7 +63,7 @@ export class DesktopNotificationInfraService extends Context.Service<DesktopNoti
       });
 
       // osascript's notifications can't carry a button, so this one only tells.
-      const notifyWithOsascript = Effect.fn("notifyWithOsascript")(function* (
+      const notifyWithOsascript = Effect.fn("DesktopNotificationInfraService.notifyWithOsascript")(function* (
         desktopNotificationRequest: DesktopNotificationRequest
       ) {
         const scriptArguments = Array.flatMap(DESKTOP_NOTIFIERS.OSASCRIPT.SCRIPT_LINES, (scriptLine) => [
@@ -79,7 +81,7 @@ export class DesktopNotificationInfraService extends Context.Service<DesktopNoti
       });
 
       // The texts travel as base64, so no quote in them can break the script.
-      const makeWindowsToastScript = Effect.fn("makeWindowsToastScript")(function* (
+      const makeWindowsToastScript = Effect.fn("DesktopNotificationInfraService.makeWindowsToastScript")(function* (
         desktopNotificationRequest: DesktopNotificationRequest
       ) {
         const [encodedHeadline, encodedMessage, encodedLink] = Array.map(
@@ -108,7 +110,7 @@ export class DesktopNotificationInfraService extends Context.Service<DesktopNoti
       });
 
       // PowerShell takes the script as base64 UTF-16, so nothing in it passes through a Windows command line.
-      const notifyWithWindowsToast = Effect.fn("notifyWithWindowsToast")(function* (
+      const notifyWithWindowsToast = Effect.fn("DesktopNotificationInfraService.notifyWithWindowsToast")(function* (
         desktopNotificationRequest: DesktopNotificationRequest
       ) {
         const toastScript = yield* makeWindowsToastScript(desktopNotificationRequest);
@@ -125,7 +127,7 @@ export class DesktopNotificationInfraService extends Context.Service<DesktopNoti
       });
 
       // Windows itself runs no sessions, so it notifies only inside VS Code.
-      const findSystemNotifier = Effect.fn("findSystemNotifier")(function* () {
+      const findSystemNotifier = Effect.fn("DesktopNotificationInfraService.findSystemNotifier")(function* () {
         if (platform() === PLATFORMS.MACOS) return notifyWithOsascript;
         if (platform() !== PLATFORMS.LINUX) return undefined;
 
@@ -134,7 +136,7 @@ export class DesktopNotificationInfraService extends Context.Service<DesktopNoti
           : notifyWithNotifySend;
       });
 
-      const notifyOnDesktop = Effect.fn("notifyOnDesktop")(
+      const notifyOnDesktop = Effect.fn("DesktopNotificationInfraService.notifyOnDesktop")(
         function* (desktopNotificationRequest: DesktopNotificationRequest) {
           const systemNotifier = yield* findSystemNotifier();
           if (systemNotifier === undefined) return;
@@ -148,8 +150,7 @@ export class DesktopNotificationInfraService extends Context.Service<DesktopNoti
     })
   }
 ) {
-  public static readonly layer = Layer.effect(
-    IDesktopNotificationInfraService,
-    ownSpans("DesktopNotificationInfraService", this.make())
-  ).pipe(Layer.provide(NodeServices.layer));
+  public static readonly layer = Layer.effect(IDesktopNotificationInfraService, this.make()).pipe(
+    Layer.provide(NodeServices.layer)
+  );
 }

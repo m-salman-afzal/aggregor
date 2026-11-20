@@ -8,7 +8,6 @@ import {IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {IAgentHistoryInfraService} from "@interfaces/agentHistory.infraService.interface.ts";
 import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {BaseService} from "@services/base.service.ts";
 import {ProjectService} from "@services/project.service.ts";
 import {SESSION_LIFECYCLES} from "@valueObjects/sessionLifecycle.valueObject.ts";
@@ -38,7 +37,7 @@ interface FolderConversation {
 export class SessionImportService extends Context.Service<SessionImportService>()(
   "aggregor-app/application/services/sessionImport.service/SessionImportService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("SessionImportService.make")(function* () {
       const agentRepository = yield* IAgentRepository;
       const sessionRepository = yield* ISessionRepository;
       const agentHistoryInfraService = yield* IAgentHistoryInfraService;
@@ -48,7 +47,7 @@ export class SessionImportService extends Context.Service<SessionImportService>(
       const sessionBaseService = yield* baseService.makeFor(sessionRepository);
 
       // A session Aggregor started gave the agent its own id.
-      const findKnownAgentSessionIds = Effect.fn("findKnownAgentSessionIds")(function* () {
+      const findKnownAgentSessionIds = Effect.fn("SessionImportService.findKnownAgentSessionIds")(function* () {
         const storedSessions = yield* sessionBaseService.findEntities({});
         const knownAgentSessionIds: ReadonlySet<string> = new Set(
           Array.flatMap(storedSessions, (storedSession) =>
@@ -62,7 +61,7 @@ export class SessionImportService extends Context.Service<SessionImportService>(
         return knownAgentSessionIds;
       });
 
-      const listProjectWorktrees = Effect.fn("listProjectWorktrees")(
+      const listProjectWorktrees = Effect.fn("SessionImportService.listProjectWorktrees")(
         function* (projectPath: ProjectPathValueObject) {
           const gitWorktrees = yield* worktreeInfraService.listWorktrees(projectPath);
 
@@ -72,7 +71,9 @@ export class SessionImportService extends Context.Service<SessionImportService>(
         Effect.catchTag("NotGitRepositoryError", () => Effect.succeed(Array.empty<GitWorktree>()))
       );
 
-      const listProjectFolders = Effect.fn("listProjectFolders")(function* (projectPath: ProjectPathValueObject) {
+      const listProjectFolders = Effect.fn("SessionImportService.listProjectFolders")(function* (
+        projectPath: ProjectPathValueObject
+      ) {
         const projectWorktrees = yield* listProjectWorktrees(projectPath);
         const projectFolders: readonly ProjectFolder[] = [
           {folderPath: projectPath, worktree: undefined},
@@ -85,7 +86,7 @@ export class SessionImportService extends Context.Service<SessionImportService>(
         return projectFolders;
       });
 
-      const makeImportableSession = Effect.fn("makeImportableSession")(function* (
+      const makeImportableSession = Effect.fn("SessionImportService.makeImportableSession")(function* (
         folderConversation: FolderConversation
       ) {
         const worktree = folderConversation.worktree;
@@ -104,7 +105,7 @@ export class SessionImportService extends Context.Service<SessionImportService>(
         });
       });
 
-      const listFolderConversations = Effect.fn("listFolderConversations")(function* (
+      const listFolderConversations = Effect.fn("SessionImportService.listFolderConversations")(function* (
         agent: AgentEntity,
         projectFolder: ProjectFolder
       ) {
@@ -119,7 +120,7 @@ export class SessionImportService extends Context.Service<SessionImportService>(
         }));
       });
 
-      const listAgentImportableSessions = Effect.fn("listAgentImportableSessions")(function* (
+      const listAgentImportableSessions = Effect.fn("SessionImportService.listAgentImportableSessions")(function* (
         agent: AgentEntity,
         projectFolders: readonly ProjectFolder[],
         knownAgentSessionIds: ReadonlySet<string>
@@ -149,7 +150,7 @@ export class SessionImportService extends Context.Service<SessionImportService>(
         });
       });
 
-      const listImportableSessions = Effect.fn("listImportableSessions")(function* (
+      const listImportableSessions = Effect.fn("SessionImportService.listImportableSessions")(function* (
         request: ListImportableSessionsRequestDto
       ) {
         const projectListItem = yield* projectService.findProjectListItem(request.projectPath);
@@ -171,7 +172,7 @@ export class SessionImportService extends Context.Service<SessionImportService>(
         });
       });
 
-      const addImportedSession = Effect.fn("addImportedSession")(function* (
+      const addImportedSession = Effect.fn("SessionImportService.addImportedSession")(function* (
         projectId: EntityIdValueObject,
         importedSession: ImportedSessionDto
       ) {
@@ -187,7 +188,7 @@ export class SessionImportService extends Context.Service<SessionImportService>(
         });
       });
 
-      const importSessions = Effect.fn("importSessions")(
+      const importSessions = Effect.fn("SessionImportService.importSessions")(
         function* (request: ImportSessionsRequestDto) {
           const projectListItem = yield* projectService.findProjectListItem(request.projectPath);
           const project = yield* projectService.findOrAddProject(projectListItem.path);
@@ -222,7 +223,7 @@ export class SessionImportService extends Context.Service<SessionImportService>(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("SessionImportService", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([BaseService.layer, ProjectService.layer])
   );
 }

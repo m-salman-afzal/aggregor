@@ -2,7 +2,6 @@ import {NodeServices} from "@effect/platform-node";
 import {ProcessTreeUtils} from "@infraServices/process/processTree.utils.ts";
 import {LINUX_PROCESS_FILES} from "@pkg/constants/src/process.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Array, Context, Effect, Layer, Result, Schema, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 
@@ -20,12 +19,12 @@ class LinuxProcessUtilsErrors extends TaggedErrors({
 export class LinuxProcessUtils extends Context.Service<LinuxProcessUtils>()(
   "aggregor-app/infrastructure/services/process/linuxProcess.utils/LinuxProcessUtils",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("LinuxProcessUtils.make")(function* () {
       const fileSystem = yield* FileSystem;
       const processTreeUtils = yield* ProcessTreeUtils;
 
       // cgroup v2's one line, "0::/user.slice/…/run-p123-i456.scope".
-      const readCgroupPath = Effect.fn("readCgroupPath")(function* (processId: number) {
+      const readCgroupPath = Effect.fn("LinuxProcessUtils.readCgroupPath")(function* (processId: number) {
         const cgroupText = yield* fileSystem.readFileString(LINUX_PROCESS_FILES.CGROUP_FILE(processId));
         const unifiedLine = Array.findFirst(String.split("\n")(cgroupText), String.startsWith("0::"));
 
@@ -37,7 +36,7 @@ export class LinuxProcessUtils extends Context.Service<LinuxProcessUtils>()(
         );
       });
 
-      const readCgroupProcessIds = Effect.fn("readCgroupProcessIds")(function* (cgroupPath: string) {
+      const readCgroupProcessIds = Effect.fn("LinuxProcessUtils.readCgroupProcessIds")(function* (cgroupPath: string) {
         const processesText = yield* fileSystem.readFileString(
           `${LINUX_PROCESS_FILES.CGROUP_ROOT}${cgroupPath}/${LINUX_PROCESS_FILES.CGROUP_PROCESSES_FILE}`
         );
@@ -45,7 +44,7 @@ export class LinuxProcessUtils extends Context.Service<LinuxProcessUtils>()(
         return Array.map(Array.filter(String.split("\n")(processesText), String.isNonEmpty), Number);
       });
 
-      const findRootProcessIds = Effect.fn("findRootProcessIds")(function* (
+      const findRootProcessIds = Effect.fn("LinuxProcessUtils.findRootProcessIds")(function* (
         rootProcessId: number,
         groupSurroundings: GroupSurroundings
       ) {
@@ -57,7 +56,7 @@ export class LinuxProcessUtils extends Context.Service<LinuxProcessUtils>()(
       });
 
       // A pane in a systemd scope of its own brings in the scope, so a process that left the pane's tree, a detached browser, counts; a root that ended meanwhile brings in nothing.
-      const findLinuxGroupProcessIds = Effect.fn("findLinuxGroupProcessIds")(function* (
+      const findLinuxGroupProcessIds = Effect.fn("LinuxProcessUtils.findLinuxGroupProcessIds")(function* (
         processGroupRequest: ProcessGroupRequest,
         parentProcessIds: ReadonlyMap<number, number>
       ) {
@@ -74,7 +73,7 @@ export class LinuxProcessUtils extends Context.Service<LinuxProcessUtils>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("LinuxProcessUtils", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([ProcessTreeUtils.layer, NodeServices.layer])
   );
 }

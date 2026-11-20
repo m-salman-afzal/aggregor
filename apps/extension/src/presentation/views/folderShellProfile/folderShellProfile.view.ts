@@ -1,6 +1,5 @@
 import {FolderShellController} from "@controllers/folderShell.controller.ts";
 import {FOLDER_SHELL_TERMINAL} from "@pkg/constants/src/terminal.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 import {Context, Effect, Layer} from "effect";
@@ -10,12 +9,12 @@ import type {TerminalOptions} from "vscode";
 export class FolderShellProfileView extends Context.Service<FolderShellProfileView>()(
   "aggregor-app/presentation/views/folderShellProfile/folderShellProfile.view/FolderShellProfileView",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("FolderShellProfileView.make")(function* () {
       const folderShellController = yield* FolderShellController;
       const vsCodeApi = yield* VsCodeApi;
       const vscodeUtils = yield* VscodeUtils;
 
-      const prepareProfileTerminalOptions = Effect.fn("prepareProfileTerminalOptions")(
+      const prepareProfileTerminalOptions = Effect.fn("FolderShellProfileView.prepareProfileTerminalOptions")(
         function* () {
           const profileTerminal = yield* folderShellController.prepareProfileTerminalForFolderShellProfileView;
           const folderShellTerminal = profileTerminal.folderShellTerminal;
@@ -39,7 +38,7 @@ export class FolderShellProfileView extends Context.Service<FolderShellProfileVi
         )
       );
 
-      const provideTerminalProfile = Effect.fn("provideTerminalProfile")(function* () {
+      const provideTerminalProfile = Effect.fn("FolderShellProfileView.provideTerminalProfile")(function* () {
         const terminalOptions = yield* prepareProfileTerminalOptions();
 
         return new vsCodeApi.TerminalProfile(terminalOptions);
@@ -58,7 +57,5 @@ export class FolderShellProfileView extends Context.Service<FolderShellProfileVi
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("FolderShellProfileView", this.make())).pipe(
-    Layer.provide(FolderShellController.layer)
-  );
+  public static readonly layer = Layer.effect(this, this.make()).pipe(Layer.provide(FolderShellController.layer));
 }

@@ -277,15 +277,12 @@ heading there. Update this file in the same commit as a change that adds, remove
 - **What we use:** `effect` 4.1.4: `Effect.fn` for every function, which gives it its span; `Context.Service` classes in
   the form Effect's docs use, for ports and for units (`make` and a static `layer`); `Layer` for each implementation's
   and unit's own dependencies, and `Layer.mergeAll` with `Layer.withSpan` for each level
-  (`infrastructure/di/app.layer.ts`, `extension.ts`); `Effect.annotateSpans`, and `Effect.updateService` on
-  `References.TracerSpanAnnotations`, in `@pkg/trace`'s `ownSpans`, which marks a unit's spans with its name and keeps
-  the caller's on an effect, a stream or a callback handed to the unit as an argument; `ManagedRuntime` in
-  `extension.ts`; `Schema` for tagged errors (`Schema.TaggedError`, one per key of a file's errors class, through
-  `@pkg/errors`' `TaggedErrors`), entities, enum value objects and argument decoding; `Result`; `Stream`,
-  `SubscriptionRef`, `PubSub` and `Schedule`; `Config`; `Tracer` and `Logger` for the trace log
-  (`infrastructure/logger/traceLog.layer.ts`); and the unstable `effect/sql`, `effect/process` (`ChildProcess`),
-  `effect/FileSystem`, `effect/Path`, `effect/crypto` (`SecureRandom.uuidV7`) and `effect/reactivity`, each allowed by
-  name in `packages/tsconfigs/tsconfig.base.json`.
+  (`infrastructure/di/app.layer.ts`, `extension.ts`); `ManagedRuntime` in `extension.ts`; `Schema` for tagged errors
+  (`Schema.TaggedError`, one per key of a file's errors class, through `@pkg/errors`' `TaggedErrors`), entities, enum
+  value objects and argument decoding; `Result`; `Stream`, `SubscriptionRef`, `PubSub` and `Schedule`; `Config`;
+  `Tracer` and `Logger` for the trace log (`infrastructure/logger/traceLog.layer.ts`); and the unstable `effect/sql`,
+  `effect/process` (`ChildProcess`), `effect/FileSystem`, `effect/Path`, `effect/crypto` (`SecureRandom.uuidV7`) and
+  `effect/reactivity`, each allowed by name in `packages/tsconfigs/tsconfig.base.json`.
 - **Why:** "Effect 4" records no reason for the choice; it is what gives every function its span and every failure a
   typed error.
 - **Alternatives:** Not weighed in `decisions/`.

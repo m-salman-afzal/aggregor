@@ -3,7 +3,6 @@ import {
   IUserInputPromptInfraServiceErrors
 } from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {PROJECT_LABELS} from "@pkg/constants/src/project.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {Array, Context, Effect, Layer, Result} from "effect";
@@ -11,10 +10,10 @@ import {Array, Context, Effect, Layer, Result} from "effect";
 export class UserInputPromptInfraService extends Context.Service<UserInputPromptInfraService>()(
   "aggregor-app/infrastructure/services/vscode/userInputPrompt.infraService/UserInputPromptInfraService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("UserInputPromptInfraService.make")(function* () {
       const vsCodeApi = yield* VsCodeApi;
 
-      const pickProjectFolderPaths = Effect.fn("pickProjectFolderPaths")(function* () {
+      const pickProjectFolderPaths = Effect.fn("UserInputPromptInfraService.pickProjectFolderPaths")(function* () {
         const pickedFolderUris = yield* Effect.promise(() =>
           vsCodeApi.window.showOpenDialog({
             canSelectFiles: false,
@@ -38,8 +37,5 @@ export class UserInputPromptInfraService extends Context.Service<UserInputPrompt
     })
   }
 ) {
-  public static readonly layer = Layer.effect(
-    IUserInputPromptInfraService,
-    ownSpans("UserInputPromptInfraService", this.make())
-  );
+  public static readonly layer = Layer.effect(IUserInputPromptInfraService, this.make());
 }

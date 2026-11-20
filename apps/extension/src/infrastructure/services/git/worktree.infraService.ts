@@ -3,7 +3,6 @@ import {AggregorFolderUtils} from "@infraUtils/aggregorFolder.utils.ts";
 import {IWorktreeInfraService, IWorktreeInfraServiceErrors} from "@interfaces/worktree.infraService.interface.ts";
 import {GIT_COMMAND, WORKTREES} from "@pkg/constants/src/git.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {Array, Context, Effect, Layer, Result, Schema, Stream, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
@@ -31,14 +30,14 @@ class WorktreeInfraServiceErrors extends TaggedErrors({
 export class WorktreeInfraService extends Context.Service<WorktreeInfraService>()(
   "aggregor-app/infrastructure/services/git/worktree.infraService/WorktreeInfraService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("WorktreeInfraService.make")(function* () {
       const aggregorFolderUtils = yield* AggregorFolderUtils;
       const childProcessSpawner = yield* ChildProcessSpawner;
       const fileSystem = yield* FileSystem;
       const path = yield* Path;
       const aggregorFolderPath = yield* aggregorFolderUtils.getAggregorFolderPath;
 
-      const runGitCommand = Effect.fn("runGitCommand")(
+      const runGitCommand = Effect.fn("WorktreeInfraService.runGitCommand")(
         function* (repositoryPath: string, gitArguments: readonly string[]) {
           const gitProcess = yield* childProcessSpawner.spawn(
             ChildProcess.make(GIT_COMMAND.COMMAND, ["-C", repositoryPath, ...gitArguments], {
@@ -65,7 +64,10 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         )
       );
 
-      const findLineValue = Effect.fn("findLineValue")(function* (blockLines: readonly string[], linePrefix: string) {
+      const findLineValue = Effect.fn("WorktreeInfraService.findLineValue")(function* (
+        blockLines: readonly string[],
+        linePrefix: string
+      ) {
         return Result.map(
           Result.fromOption(Array.findFirst(blockLines, String.startsWith(linePrefix)), () => undefined),
           (blockLine) => String.slice(linePrefix.length)(blockLine)
@@ -73,7 +75,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
       });
 
       // `git worktree list --porcelain` gives a block per worktree, apart by a blank line; a detached one has no branch.
-      const readWorktreeBlock = Effect.fn("readWorktreeBlock")(function* (porcelainBlock: string) {
+      const readWorktreeBlock = Effect.fn("WorktreeInfraService.readWorktreeBlock")(function* (porcelainBlock: string) {
         const blockLines = String.split("\n")(porcelainBlock);
         const worktreeLine = yield* findLineValue(blockLines, GIT_COMMAND.PORCELAIN_WORKTREE_PREFIX);
         const branchLine = yield* findLineValue(blockLines, GIT_COMMAND.PORCELAIN_BRANCH_PREFIX);
@@ -86,7 +88,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         return worktree;
       });
 
-      const listWorktrees = Effect.fn("listWorktrees")(
+      const listWorktrees = Effect.fn("WorktreeInfraService.listWorktrees")(
         function* (projectPath: ProjectPathValueObject) {
           const porcelainOutput = yield* runGitCommand(projectPath, ["worktree", "list", "--porcelain"]);
           const porcelainBlocks = Array.filter(String.split("\n\n")(String.trim(porcelainOutput)), String.isNonEmpty);
@@ -99,14 +101,14 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         Effect.mapError(() => IWorktreeInfraServiceErrors.NotGitRepositoryError.make())
       );
 
-      const expandHomeFolder = Effect.fn("expandHomeFolder")(function* (folderPath: string) {
+      const expandHomeFolder = Effect.fn("WorktreeInfraService.expandHomeFolder")(function* (folderPath: string) {
         if (folderPath === "~" || String.startsWith("~/")(folderPath))
           return path.join(homedir(), String.slice(1)(folderPath));
 
         return folderPath;
       });
 
-      const findWorktreesFolderPath = Effect.fn("findWorktreesFolderPath")(function* (
+      const findWorktreesFolderPath = Effect.fn("WorktreeInfraService.findWorktreesFolderPath")(function* (
         createWorktreeRequest: CreateWorktreeRequest
       ) {
         if (createWorktreeRequest.worktreesFolderPath !== "")
@@ -115,13 +117,18 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         return path.join(aggregorFolderPath, WORKTREES.FOLDER_NAME, createWorktreeRequest.worktreesFolderName);
       });
 
-      const findWorktreesRootPath = Effect.fn("findWorktreesRootPath")(function* (worktreesFolderPath: string) {
+      const findWorktreesRootPath = Effect.fn("WorktreeInfraService.findWorktreesRootPath")(function* (
+        worktreesFolderPath: string
+      ) {
         if (worktreesFolderPath !== "") return yield* expandHomeFolder(worktreesFolderPath);
 
         return path.join(aggregorFolderPath, WORKTREES.FOLDER_NAME);
       });
 
-      const isBranchTaken = Effect.fn("isBranchTaken")(function* (repositoryPath: string, branchName: string) {
+      const isBranchTaken = Effect.fn("WorktreeInfraService.isBranchTaken")(function* (
+        repositoryPath: string,
+        branchName: string
+      ) {
         const branchCheck = yield* Effect.result(
           runGitCommand(repositoryPath, [
             "rev-parse",
@@ -134,7 +141,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         return Result.isSuccess(branchCheck);
       });
 
-      const isNameTaken = Effect.fn("isNameTaken")(function* (
+      const isNameTaken = Effect.fn("WorktreeInfraService.isNameTaken")(function* (
         projectPath: ProjectPathValueObject,
         worktree: GitWorktree
       ) {
@@ -144,7 +151,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         return isFolderTaken || isTakenAsBranch;
       });
 
-      const findFreeBranchName = Effect.fn("findFreeBranchName")(function* (
+      const findFreeBranchName = Effect.fn("WorktreeInfraService.findFreeBranchName")(function* (
         worktreePath: ProjectPathValueObject,
         branchName: string
       ) {
@@ -164,7 +171,9 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         );
       });
 
-      const hasUpstream = Effect.fn("hasUpstream")(function* (worktreePath: ProjectPathValueObject) {
+      const hasUpstream = Effect.fn("WorktreeInfraService.hasUpstream")(function* (
+        worktreePath: ProjectPathValueObject
+      ) {
         const upstreamCheck = yield* Effect.result(
           runGitCommand(worktreePath, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"])
         );
@@ -173,7 +182,9 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
       });
 
       // Two small reads and no git process, since a session's row reads its branch on every redraw.
-      const findGitDirectoryPath = Effect.fn("findGitDirectoryPath")(function* (checkoutPath: ProjectPathValueObject) {
+      const findGitDirectoryPath = Effect.fn("WorktreeInfraService.findGitDirectoryPath")(function* (
+        checkoutPath: ProjectPathValueObject
+      ) {
         const gitPath = path.join(checkoutPath, GIT_COMMAND.GIT_PATH_NAME);
         const gitPathInfo = yield* fileSystem.stat(gitPath);
         if (gitPathInfo.type === "Directory") return gitPath;
@@ -185,7 +196,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         );
       });
 
-      const readBranchName = Effect.fn("readBranchName")(
+      const readBranchName = Effect.fn("WorktreeInfraService.readBranchName")(
         function* (worktreePath: ProjectPathValueObject) {
           const gitDirectoryPath = yield* findGitDirectoryPath(worktreePath);
           const headFile = yield* fileSystem.readFileString(path.join(gitDirectoryPath, GIT_COMMAND.HEAD_FILE_NAME));
@@ -198,7 +209,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         Effect.mapError(() => IWorktreeInfraServiceErrors.NotGitRepositoryError.make())
       );
 
-      const renameBranch = Effect.fn("renameBranch")(
+      const renameBranch = Effect.fn("WorktreeInfraService.renameBranch")(
         function* (worktreePath: ProjectPathValueObject, branchName: string) {
           yield* runGitCommand(worktreePath, ["branch", "-m", branchName]);
         },
@@ -207,7 +218,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         )
       );
 
-      const findFreeWorktree = Effect.fn("findFreeWorktree")(function* (
+      const findFreeWorktree = Effect.fn("WorktreeInfraService.findFreeWorktree")(function* (
         createWorktreeRequest: CreateWorktreeRequest,
         worktreesFolderPath: string
       ) {
@@ -236,7 +247,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         );
       });
 
-      const createWorktree = Effect.fn("createWorktree")(
+      const createWorktree = Effect.fn("WorktreeInfraService.createWorktree")(
         function* (createWorktreeRequest: CreateWorktreeRequest) {
           const worktreesFolderPath = yield* findWorktreesFolderPath(createWorktreeRequest);
           const freeWorktree = yield* findFreeWorktree(createWorktreeRequest, worktreesFolderPath);
@@ -256,7 +267,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         )
       );
 
-      const copyIncludedFile = Effect.fn("copyIncludedFile")(function* (
+      const copyIncludedFile = Effect.fn("WorktreeInfraService.copyIncludedFile")(function* (
         copyIncludedFilesRequest: CopyIncludedFilesRequest,
         relativeFilePath: string
       ) {
@@ -268,7 +279,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
       });
 
       // git matches the patterns as .gitignore does, so `.env*` finds every .env file in the project, at any depth.
-      const copyIncludedFiles = Effect.fn("copyIncludedFiles")(
+      const copyIncludedFiles = Effect.fn("WorktreeInfraService.copyIncludedFiles")(
         function* (copyIncludedFilesRequest: CopyIncludedFilesRequest) {
           const includeFilePath = path.join(copyIncludedFilesRequest.projectPath, WORKTREES.INCLUDE_FILE);
           const hasIncludeFile = yield* fileSystem.exists(includeFilePath);
@@ -292,7 +303,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         Effect.catch((copyError) => Effect.logWarning("Could not copy the included files into the worktree", copyError))
       );
 
-      const isMadeByAggregor = Effect.fn("isMadeByAggregor")(function* (
+      const isMadeByAggregor = Effect.fn("WorktreeInfraService.isMadeByAggregor")(function* (
         worktreePath: ProjectPathValueObject,
         worktreesFolderPath: string
       ) {
@@ -309,7 +320,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         });
       });
 
-      const hasChanges = Effect.fn("hasChanges")(function* (worktreePath: ProjectPathValueObject) {
+      const hasChanges = Effect.fn("WorktreeInfraService.hasChanges")(function* (worktreePath: ProjectPathValueObject) {
         const statusResult = yield* Effect.result(runGitCommand(worktreePath, ["status", "--porcelain"]));
 
         return Result.match(statusResult, {
@@ -319,7 +330,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
       });
 
       // shortcut: reads, then removes, so a worktree added in between goes too; use rmdir once Effect's FileSystem has one.
-      const removeEmptyProjectFolder = Effect.fn("removeEmptyProjectFolder")(
+      const removeEmptyProjectFolder = Effect.fn("WorktreeInfraService.removeEmptyProjectFolder")(
         function* (worktreePath: ProjectPathValueObject) {
           const projectFolderPath = path.dirname(worktreePath);
           const worktreesRootPath = path.join(aggregorFolderPath, WORKTREES.FOLDER_NAME);
@@ -333,7 +344,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         Effect.ignore({log: "Debug", message: "Could not remove the project's empty worktrees folder"})
       );
 
-      const removeWorktree = Effect.fn("removeWorktree")(
+      const removeWorktree = Effect.fn("WorktreeInfraService.removeWorktree")(
         function* (projectPath: ProjectPathValueObject, worktreePath: ProjectPathValueObject) {
           const isFolderThere = yield* Effect.orElseSucceed(fileSystem.exists(worktreePath), () => true);
           if (isFolderThere && (yield* hasChanges(worktreePath)))
@@ -350,7 +361,9 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         )
       );
 
-      const parseWorktreeBranch = Effect.fn("parseWorktreeBranch")(function* (referenceLine: string) {
+      const parseWorktreeBranch = Effect.fn("WorktreeInfraService.parseWorktreeBranch")(function* (
+        referenceLine: string
+      ) {
         const [branchName, upstreamTrack = "", worktreePath = ""] = String.split("\t")(referenceLine);
         const worktreeBranch: WorktreeBranch = {
           branchName,
@@ -361,7 +374,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         return worktreeBranch;
       });
 
-      const listAggregorBranches = Effect.fn("listAggregorBranches")(
+      const listAggregorBranches = Effect.fn("WorktreeInfraService.listAggregorBranches")(
         function* (projectPath: ProjectPathValueObject) {
           const referenceOutput = yield* runGitCommand(projectPath, [
             "for-each-ref",
@@ -376,7 +389,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
       );
 
       // origin/HEAD is a symbolic ref to origin's default branch, which is listed on its own.
-      const listReferenceNames = Effect.fn("listReferenceNames")(function* (
+      const listReferenceNames = Effect.fn("WorktreeInfraService.listReferenceNames")(function* (
         projectPath: ProjectPathValueObject,
         referencePrefix: string
       ) {
@@ -393,7 +406,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         return Array.map(branchReferenceLines, (branchReferenceLine) => String.trim(branchReferenceLine));
       });
 
-      const listBranchNames = Effect.fn("listBranchNames")(
+      const listBranchNames = Effect.fn("WorktreeInfraService.listBranchNames")(
         function* (projectPath: ProjectPathValueObject) {
           const projectBranchNames: ProjectBranchNames = {
             localBranchNames: yield* listReferenceNames(projectPath, GIT_COMMAND.BRANCH_REF_PREFIX),
@@ -405,7 +418,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         Effect.mapError(() => IWorktreeInfraServiceErrors.NotGitRepositoryError.make())
       );
 
-      const findBaseBranch = Effect.fn("findBaseBranch")(
+      const findBaseBranch = Effect.fn("WorktreeInfraService.findBaseBranch")(
         function* (projectPath: ProjectPathValueObject) {
           const originHead = yield* Effect.result(
             runGitCommand(projectPath, ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"])
@@ -418,7 +431,9 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         Effect.mapError(() => IWorktreeInfraServiceErrors.NotGitRepositoryError.make())
       );
 
-      const isBranchMerged = Effect.fn("isBranchMerged")(function* (branchMergeCheck: BranchMergeCheck) {
+      const isBranchMerged = Effect.fn("WorktreeInfraService.isBranchMerged")(function* (
+        branchMergeCheck: BranchMergeCheck
+      ) {
         const ancestorCheck = yield* Effect.result(
           runGitCommand(branchMergeCheck.projectPath, [
             "merge-base",
@@ -431,7 +446,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         return Result.isSuccess(ancestorCheck);
       });
 
-      const pruneRemote = Effect.fn("pruneRemote")(
+      const pruneRemote = Effect.fn("WorktreeInfraService.pruneRemote")(
         function* (projectPath: ProjectPathValueObject) {
           yield* runGitCommand(projectPath, ["remote", "prune", "origin"]);
         },
@@ -439,7 +454,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         Effect.ignore({log: "Debug", message: "Could not prune origin's branches"})
       );
 
-      const fetchRemote = Effect.fn("fetchRemote")(
+      const fetchRemote = Effect.fn("WorktreeInfraService.fetchRemote")(
         function* (projectPath: ProjectPathValueObject) {
           yield* runGitCommand(projectPath, ["fetch", "--prune", "origin"]);
         },
@@ -448,7 +463,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
       );
 
       // -D, since a squash-merged branch never looks merged to git; the user picked it.
-      const deleteBranch = Effect.fn("deleteBranch")(
+      const deleteBranch = Effect.fn("WorktreeInfraService.deleteBranch")(
         function* (projectPath: ProjectPathValueObject, branchName: string) {
           yield* runGitCommand(projectPath, ["branch", "-D", branchName]);
         },
@@ -457,7 +472,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         )
       );
 
-      const sumNumstatLines = Effect.fn("sumNumstatLines")(function* (numstatOutput: string) {
+      const sumNumstatLines = Effect.fn("WorktreeInfraService.sumNumstatLines")(function* (numstatOutput: string) {
         const numstatLines = Array.filter(String.split(numstatOutput, "\n"), (numstatLine) => numstatLine !== "");
         const lineCounts = Array.map(numstatLines, (numstatLine) => String.split(numstatLine, "\t"));
 
@@ -468,7 +483,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         };
       });
 
-      const readTrackedDiffStats = Effect.fn("readTrackedDiffStats")(function* (
+      const readTrackedDiffStats = Effect.fn("WorktreeInfraService.readTrackedDiffStats")(function* (
         worktreePath: ProjectPathValueObject,
         baseBranchName: string
       ) {
@@ -479,7 +494,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
       });
 
       // Counted as git counts an added file: one line per newline, plus a last line without one.
-      const countNewFileLines = Effect.fn("countNewFileLines")(
+      const countNewFileLines = Effect.fn("WorktreeInfraService.countNewFileLines")(
         function* (newFilePath: string) {
           const newFileInfo = yield* fileSystem.stat(newFilePath);
           if (Number(newFileInfo.size) > GIT_COMMAND.MAX_COUNTED_FILE_BYTES) return 0;
@@ -492,7 +507,9 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         Effect.orElseSucceed(() => 0)
       );
 
-      const readNewFileDiffStats = Effect.fn("readNewFileDiffStats")(function* (worktreePath: ProjectPathValueObject) {
+      const readNewFileDiffStats = Effect.fn("WorktreeInfraService.readNewFileDiffStats")(function* (
+        worktreePath: ProjectPathValueObject
+      ) {
         const newFilesOutput = yield* runGitCommand(worktreePath, ["ls-files", "--others", "--exclude-standard", "-z"]);
         const newFilePaths = Array.filter(String.split(newFilesOutput, "\0"), (newFilePath) => newFilePath !== "");
         const newFileLineCounts = yield* Effect.forEach(
@@ -507,7 +524,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         };
       });
 
-      const readDiffStats = Effect.fn("readDiffStats")(
+      const readDiffStats = Effect.fn("WorktreeInfraService.readDiffStats")(
         function* (worktreePath: ProjectPathValueObject, baseBranchName: string) {
           const trackedDiffStats = yield* readTrackedDiffStats(worktreePath, baseBranchName);
           const newFileDiffStats = yield* readNewFileDiffStats(worktreePath);
@@ -547,8 +564,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(
-    IWorktreeInfraService,
-    ownSpans("WorktreeInfraService", this.make())
-  ).pipe(Layer.provide([AggregorFolderUtils.layer, NodeServices.layer]));
+  public static readonly layer = Layer.effect(IWorktreeInfraService, this.make()).pipe(
+    Layer.provide([AggregorFolderUtils.layer, NodeServices.layer])
+  );
 }

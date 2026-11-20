@@ -4,7 +4,6 @@ import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {REQUIRED_TOOLS, TOOL_INSTALL_COMMANDS} from "@pkg/constants/src/requiredTools.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Array, Context, Effect, Layer, Result, Stream} from "effect";
 
 import type {MissingToolDto} from "@dtos/requiredTools.dto.ts";
@@ -16,12 +15,12 @@ export class RequiredToolsServiceErrors extends TaggedErrors({
 export class RequiredToolsService extends Context.Service<RequiredToolsService>()(
   "aggregor-app/application/services/requiredTools.service/RequiredToolsService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("RequiredToolsService.make")(function* () {
       const shellCommandInfraService = yield* IShellCommandInfraService;
       const terminalInfraService = yield* ITerminalInfraService;
       const tmuxInfraService = yield* ITmuxInfraService;
 
-      const findMissingTmux = Effect.fn("findMissingTmux")(function* () {
+      const findMissingTmux = Effect.fn("RequiredToolsService.findMissingTmux")(function* () {
         const tmuxVersionResult = yield* Effect.result(tmuxInfraService.checkTmuxVersion);
 
         return Result.match(tmuxVersionResult, {
@@ -32,7 +31,7 @@ export class RequiredToolsService extends Context.Service<RequiredToolsService>(
         });
       });
 
-      const findMissingTools = Effect.fn("findMissingTools")(function* () {
+      const findMissingTools = Effect.fn("RequiredToolsService.findMissingTools")(function* () {
         const missingTmux = yield* findMissingTmux();
         const installedCommands = yield* shellCommandInfraService.listInstalledCommands([REQUIRED_TOOLS.GITHUB_CLI]);
         const missingGitHubCli = installedCommands.has(REQUIRED_TOOLS.GITHUB_CLI)
@@ -46,7 +45,7 @@ export class RequiredToolsService extends Context.Service<RequiredToolsService>(
         return missingTools;
       });
 
-      const findInstallCommandLine = Effect.fn("findInstallCommandLine")(function* (
+      const findInstallCommandLine = Effect.fn("RequiredToolsService.findInstallCommandLine")(function* (
         missingTools: readonly MissingToolDto[]
       ) {
         const installedCommands = yield* shellCommandInfraService.listInstalledCommands(
@@ -71,7 +70,7 @@ export class RequiredToolsService extends Context.Service<RequiredToolsService>(
         );
       });
 
-      const installRequiredTools = Effect.fn("installRequiredTools")(function* () {
+      const installRequiredTools = Effect.fn("RequiredToolsService.installRequiredTools")(function* () {
         const missingTools = yield* findMissingTools();
         if (missingTools.length === 0) return;
         const installCommandLine = yield* findInstallCommandLine(missingTools);
@@ -79,7 +78,7 @@ export class RequiredToolsService extends Context.Service<RequiredToolsService>(
         yield* terminalInfraService.openSetupTerminal(installCommandLine);
       });
 
-      const checkRequiredTools = Effect.fn("checkRequiredTools")(function* () {
+      const checkRequiredTools = Effect.fn("RequiredToolsService.checkRequiredTools")(function* () {
         const missingTools = yield* findMissingTools();
         const installCommandLineResult = yield* Effect.result(findInstallCommandLine(missingTools));
 
@@ -89,7 +88,7 @@ export class RequiredToolsService extends Context.Service<RequiredToolsService>(
         });
       });
 
-      const watchMissingTools = Effect.fn("watchMissingTools")(function* () {
+      const watchMissingTools = Effect.fn("RequiredToolsService.watchMissingTools")(function* () {
         const toolChecks = Stream.concat(Stream.succeed(undefined), terminalInfraService.closedSetupTerminals);
 
         return Stream.filter(
@@ -102,5 +101,5 @@ export class RequiredToolsService extends Context.Service<RequiredToolsService>(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("RequiredToolsService", this.make()));
+  public static readonly layer = Layer.effect(this, this.make());
 }

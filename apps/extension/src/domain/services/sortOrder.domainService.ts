@@ -1,4 +1,3 @@
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Array, Context, Effect, Layer} from "effect";
 
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
@@ -6,8 +5,8 @@ import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 export class SortOrderDomainService extends Context.Service<SortOrderDomainService>()(
   "aggregor-app/domain/services/sortOrder.domainService/SortOrderDomainService",
   {
-    make: Effect.fn("make")(function* () {
-      const findEntityIdsToPlaceAtEnd = Effect.fn("findEntityIdsToPlaceAtEnd")(function* (
+    make: Effect.fn("SortOrderDomainService.make")(function* () {
+      const findEntityIdsToPlaceAtEnd = Effect.fn("SortOrderDomainService.findEntityIdsToPlaceAtEnd")(function* (
         orderedEntityIds: readonly EntityIdValueObject[],
         movedIndex: number,
         targetIndex: number
@@ -25,14 +24,14 @@ export class SortOrderDomainService extends Context.Service<SortOrderDomainServi
         return reorderedEntityIds.slice(Math.min(movedIndex, targetIndex));
       });
 
-      const canMoveUpInOrder = Effect.fn("canMoveUpInOrder")(function* (
+      const canMoveUpInOrder = Effect.fn("SortOrderDomainService.canMoveUpInOrder")(function* (
         orderedEntityIds: readonly EntityIdValueObject[],
         entityId: EntityIdValueObject
       ) {
         return orderedEntityIds.indexOf(entityId) > 0;
       });
 
-      const canMoveDownInOrder = Effect.fn("canMoveDownInOrder")(function* (
+      const canMoveDownInOrder = Effect.fn("SortOrderDomainService.canMoveDownInOrder")(function* (
         orderedEntityIds: readonly EntityIdValueObject[],
         entityId: EntityIdValueObject
       ) {
@@ -45,5 +44,5 @@ export class SortOrderDomainService extends Context.Service<SortOrderDomainServi
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("SortOrderDomainService", this.make()));
+  public static readonly layer = Layer.effect(this, this.make());
 }

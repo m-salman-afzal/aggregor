@@ -1,7 +1,6 @@
 import {ProjectEntity} from "@entities/project/project.entity.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ProjectTableModel} from "@models/project.model.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {BaseRepository} from "@repositories/base/base.repository.ts";
 import {Context, Effect, Layer} from "effect";
 
@@ -10,7 +9,7 @@ import type {AddProjectRequest} from "@entities/project/project.repository.inter
 export class ProjectRepository extends Context.Service<ProjectRepository>()(
   "aggregor-app/infrastructure/repositories/project.repository/ProjectRepository",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("ProjectRepository.make")(function* () {
       const baseRepository = yield* BaseRepository;
 
       return yield* baseRepository.makeFor<ProjectEntity, AddProjectRequest>({
@@ -20,7 +19,7 @@ export class ProjectRepository extends Context.Service<ProjectRepository>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(IProjectRepository, ownSpans("ProjectRepository", this.make())).pipe(
+  public static readonly layer = Layer.effect(IProjectRepository, this.make()).pipe(
     Layer.provide(BaseRepository.layer)
   );
 }

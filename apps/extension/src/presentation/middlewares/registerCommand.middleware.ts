@@ -1,5 +1,4 @@
 import {APP_ERRORS} from "@pkg/constants/src/app.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 import {Context, Effect, Layer} from "effect";
@@ -16,11 +15,11 @@ interface CommandErrorMessage {
 export class RegisterCommandMiddleware extends Context.Service<RegisterCommandMiddleware>()(
   "aggregor-app/presentation/middlewares/registerCommand.middleware/RegisterCommandMiddleware",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("RegisterCommandMiddleware.make")(function* () {
       const vsCodeApi = yield* VsCodeApi;
       const vscodeUtils = yield* VscodeUtils;
 
-      const showCommandError = Effect.fn("showCommandError")(function* <CommandError>(
+      const showCommandError = Effect.fn("RegisterCommandMiddleware.showCommandError")(function* <CommandError>(
         commandId: string,
         commandError: CommandError,
         getCommandErrorMessage: (commandError: CommandError) => Effect.Effect<CommandErrorMessage>
@@ -30,7 +29,7 @@ export class RegisterCommandMiddleware extends Context.Service<RegisterCommandMi
         yield* vscodeUtils.showErrorNotificationWithoutWaiting(commandErrorMessage.message, commandErrorMessage);
       });
 
-      const showInvalidArguments = Effect.fn("showInvalidArguments")(function* (
+      const showInvalidArguments = Effect.fn("RegisterCommandMiddleware.showInvalidArguments")(function* (
         commandId: string,
         invalidArgument: unknown
       ) {
@@ -38,7 +37,10 @@ export class RegisterCommandMiddleware extends Context.Service<RegisterCommandMi
         yield* vscodeUtils.showErrorNotificationWithoutWaiting(APP_ERRORS.INVALID_COMMAND_ARGUMENTS(commandId));
       });
 
-      const registerCommand = Effect.fn("registerCommand")(function* <CommandError extends {readonly _tag: string}, R>(
+      const registerCommand = Effect.fn("RegisterCommandMiddleware.registerCommand")(function* <
+        CommandError extends {readonly _tag: string},
+        R
+      >(
         commandId: string,
         controller: (
           ...commandArguments: readonly unknown[]
@@ -70,5 +72,5 @@ export class RegisterCommandMiddleware extends Context.Service<RegisterCommandMi
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("RegisterCommandMiddleware", this.make()));
+  public static readonly layer = Layer.effect(this, this.make());
 }

@@ -1,11 +1,10 @@
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Array, Context, Effect, Layer} from "effect";
 
 export class ProcessTreeUtils extends Context.Service<ProcessTreeUtils>()(
   "aggregor-app/infrastructure/services/process/processTree.utils/ProcessTreeUtils",
   {
-    make: Effect.fn("make")(function* () {
-      const collectProcessTree = Effect.fn("collectProcessTree")(function* (
+    make: Effect.fn("ProcessTreeUtils.make")(function* () {
+      const collectProcessTree = Effect.fn("ProcessTreeUtils.collectProcessTree")(function* (
         rootProcessId: number,
         parentProcessIds: ReadonlyMap<number, number>
       ) {
@@ -32,5 +31,5 @@ export class ProcessTreeUtils extends Context.Service<ProcessTreeUtils>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("ProcessTreeUtils", this.make()));
+  public static readonly layer = Layer.effect(this, this.make());
 }

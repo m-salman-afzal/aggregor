@@ -167,8 +167,7 @@ What lint checks, where its setup lives, and how its messages read.
     definitions.
   - `TOP_LEVEL_FUNCTION_BAN` bans a top-level `Effect.fn` in `apps/extension/src` and `packages/vscode/src`, with no
     exemption: every function is a const inside its class's `make`.
-  - `SERVICE_LAYER_OWN_SPANS_BAN` fails a class whose static `layer` does not go through `ownSpans`, whether it is
-    `Layer.effect(this, …)` or a port implementation's `Layer.effect(IPort, …)`.
+
   - `NESTED_SERVICE_YIELD_BAN` fails a function inside another `Effect.fn` that yields a service class or calls a
     service's `.use`: the unit yields it once at the top of `make`.
   - `DEPENDENCY_PARAMETER_BAN` fails any parameter named or typed `…Dependencies`: a function reads services and shared
@@ -180,18 +179,18 @@ What lint checks, where its setup lives, and how its messages read.
     `<X>DomainService`, `<X>Utils`, `<X>Transformer`, `<X>View`, `<X>InfraService`, `<X>Repository`, `<X>Config` and
     `<X>Middleware`; a layer file's exported layer ends in `Layer`.
   - `@pkg/vscode`'s `.utils.ts` files get the extension's utils rules: the class, the ban on a top-level `Effect.fn`,
-    the `Utils` name and the layer through `ownSpans`.
-  - `importRules.ts` gives error messages their own allow-list (`effect`, `@pkg/constants`, `ownSpans`, and services'
-    types), lets a controller import the middleware, error messages and `@pkg/constants` it registers its commands with,
-    and `@pkg/vscode`'s `vscode.utils.ts`, whose `VscodeUtils` decodes its input and opens the settings, and lets every
-    layer, and `@pkg/vscode`, import `@pkg/trace`'s `ownSpans` and `@pkg/errors`' `TaggedErrors`, and nothing else from
-    `@pkg/errors`.
+    and the `Utils` name.
+  - `importRules.ts` gives error messages their own allow-list (`effect`, `@pkg/constants`, and services' types), lets a
+    controller import the middleware, error messages and `@pkg/constants` it registers its commands with, and
+    `@pkg/vscode`'s `vscode.utils.ts`, whose `VscodeUtils` decodes its input and opens the settings, and lets every
+    layer, and `@pkg/vscode`, import `@pkg/errors`' `TaggedErrors`, and nothing else from `@pkg/errors`.
   - The rules on which class a role's file may hold, and its name, accept a file's `…Errors` class beside its unit class
-    and don't take it for a unit. `packages/errors/src` is under the same code rules as `packages/trace/src`.
+    and don't take it for a unit. `packages/errors/src` is under the same code rules as `packages/vscode/src`, without
+    the unit rules.
 
-  In `packages/eslint/src/rules/`, `aggregor/span-name` names a class's `make` span `make` and every other `Effect.fn`
-  span after its const, and checks that `ownSpans` is given its file's owner, which for every file with a role is the
-  file itself (`terminal.utils.ts` is `TerminalUtils`). `aggregor/max-lines-per-function` replaces ESLint's own rule so
-  a class's `make`, or a `make<Name>` const such as `makeFor`, that holds `Effect.fn`s is exempt while each function
-  inside stays capped at 30 lines. `unicorn/name-replacements` allows `utils` and `application` as words, since they
-  name a role and a layer.
+  In `packages/eslint/src/rules/`, `aggregor/span-name` names a class's `make` span `<Class>.make` and every other
+  `Effect.fn` span `<Class>.<const>`, writes the name with `--fix`, and checks that a unit's class is named after its
+  file, which for every file with a role is the file itself (`terminal.utils.ts` is `TerminalUtils`).
+  `aggregor/max-lines-per-function` replaces ESLint's own rule so a class's `make`, or a `make<Name>` const such as
+  `makeFor`, that holds `Effect.fn`s is exempt while each function inside stays capped at 30 lines.
+  `unicorn/name-replacements` allows `utils` and `application` as words, since they name a role and a layer.

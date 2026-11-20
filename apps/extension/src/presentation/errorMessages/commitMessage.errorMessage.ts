@@ -1,5 +1,4 @@
 import {COMMIT_MESSAGE_ERRORS} from "@pkg/constants/src/commitMessage.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Context, Effect, Layer, Match} from "effect";
 
 import type {CommitMessageService} from "@services/commitMessage.service.ts";
@@ -9,10 +8,10 @@ type CommitMessageCommandError = Effect.Error<ReturnType<CommitMessageService["S
 export class CommitMessageErrorMessage extends Context.Service<CommitMessageErrorMessage>()(
   "aggregor-app/presentation/errorMessages/commitMessage.errorMessage/CommitMessageErrorMessage",
   {
-    make: Effect.fn("make")(function* () {
-      const getCommitMessageCommandErrorMessage = Effect.fn("getCommitMessageCommandErrorMessage")(function* (
-        commitMessageCommandError: CommitMessageCommandError
-      ) {
+    make: Effect.fn("CommitMessageErrorMessage.make")(function* () {
+      const getCommitMessageCommandErrorMessage = Effect.fn(
+        "CommitMessageErrorMessage.getCommitMessageCommandErrorMessage"
+      )(function* (commitMessageCommandError: CommitMessageCommandError) {
         return Match.valueTags(commitMessageCommandError, {
           CommitCliError: (error) => ({message: COMMIT_MESSAGE_ERRORS.COMMIT_CLI_FAILED(error.exitCode, error.stderr)}),
           CommitCliSpawnFailedError: (error) => ({message: COMMIT_MESSAGE_ERRORS.CLAUDE_CLI_FAILED(error.reason)}),
@@ -32,5 +31,5 @@ export class CommitMessageErrorMessage extends Context.Service<CommitMessageErro
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("CommitMessageErrorMessage", this.make()));
+  public static readonly layer = Layer.effect(this, this.make());
 }

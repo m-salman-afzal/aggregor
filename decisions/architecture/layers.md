@@ -64,8 +64,8 @@ DDD.md's layers: what each holds and how they talk.
     and response DTOs named for what they are (`SessionListItemDto`, `ProjectListItemDto`).
   - A controller decodes its input into the request DTO with `VscodeUtils`'s `decodeVsCodeArgument` and calls one
     service; it imports only services, DTOs, the middleware and error messages it registers its commands with,
-    `@pkg/constants`, `ownSpans`, `TaggedErrors` and `VscodeUtils`. Error messages import services' types; views import
-    controllers and DTOs' types. Presentation imports nothing from the domain or infrastructure.
+    `@pkg/constants`, `TaggedErrors` and `VscodeUtils`. Error messages import services' types; views import controllers
+    and DTOs' types. Presentation imports nothing from the domain or infrastructure.
   - A value object is only a value: the list's rows and changes became DTOs.
   - Source Control progress and its context key moved into `CommitMessageService`, through a new
     `IProgressInfraService`; `scm.*` became `commitMessage.*`.

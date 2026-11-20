@@ -2,44 +2,56 @@
 
 Span names, the trace log, and the skill that reads it.
 
-## A unit's spans take simple names, and the trace log prints the unit in front
+## A span's name is its class and its const, written in the source
 
-- **Decision:** an `Effect.fn` inside a `make` is named by its const alone, and a class's `make` is `make`; the owner is
-  supplied once, at the unit's boundary, and the trace log still prints it, so one search for a trace line finds the
-  code behind it. The user's call. Every file with a role is its own owner, named by its file: a helper is a unit with
-  its own mark, so `terminal.utils.ts` is `TerminalUtils` and prints its own name
-  (`RepositoryUtils.encodeStoredColumns`, `VscodeUtils.decodeVsCodeArgument`). There is no top-level `Effect.fn`, so a
-  span is named in one of two ways only: `make`, or its const's name.
-- **Solution:** `ownSpans` (`packages/trace/src/ownSpans.utils.ts`, `@pkg/trace`) wraps a unit's `make` and marks every
-  span made inside the unit, and every span made during a call into it, with an attribute whose key is
-  `TRACE_LOGGING.SPAN_OWNER_ATTRIBUTE`; it marks effects, streams, what a member function returns, and a stream an
-  effect hands back as its result, which another unit runs. An effect, a stream or a callback a caller hands a member as
-  an argument is the caller's work, so while the unit runs it, it keeps the mark the caller had when the call started; a
-  tagged error or an exit passed as an argument is a value, not work, and is left as it is. The trace log prints a
-  marked span whose name has no dot as `<owner>.<name>` and leaves the attribute out, so a line reads as before:
-  `aggregorApp.… > CommitMessageController.generateCommitMessageForSourceControl > CommitMessageService.generateCommitMessage`.
-  `aggregor/span-name` checks both naming modes and the name passed to `ownSpans`, and `pnpm lint:fix` corrects them.
-  Measured in a headless VS Code:
-  - `CommitMessageService.writeCommitMessage` prints under its own name although `VscodeUtils.runWithProgressIndicator`
-    runs it, and a command handler's spans stay its controller's although `RegisterCommandMiddleware` runs it:
-    `aggregorApp.renameSession > SessionController.renameChosenSession > SessionService.renameSession > BaseService.updateEntity > BaseRepository.updateRow > RepositoryUtils.encodeStoredColumns`.
-  - A failed command's message is shown by the middleware:
-    `aggregorApp.generateCommitMessage > RegisterCommandMiddleware.showCommandError > CommitMessageErrorMessage.getCommitMessageCommandErrorMessage`.
+- **Decision:** an `Effect.fn` is named `<Owner>.<const>`, its class and then its const, and a class's `make` is
+  `<Owner>.make`. The name is written in the source, so the trace log prints it as it is, one search for a trace line
+  finds the code behind it, and nothing is added while the extension runs. The user's call, after the two forms were
+  measured side by side. Every file with a role is its own owner, named by its file: a helper is a unit with its own
+  name, so `terminal.utils.ts` is `TerminalUtils` and prints its own name (`RepositoryUtils.encodeStoredColumns`,
+  `VscodeUtils.decodeVsCodeArgument`). There is no top-level `Effect.fn`, so a span is named in one of two ways only:
+  `<Owner>.make`, or `<Owner>.<const>`.
+- **Solution:** `aggregor/span-name` takes the owner from the class an `Effect.fn` is written in, `pnpm lint:fix` writes
+  the name, and the rule also checks that a unit's class is named after its file. A unit's layer is
+  `Layer.effect(this, this.make())`, as Effect's docs write it, and a call into a unit is a plain call. The name is part
+  of the function, so work handed to another unit keeps it: a command handler's spans stay its controller's although
+  `RegisterCommandMiddleware` runs it. Measured in a headless VS Code against the build where `ownSpans` supplied the
+  owner, on the 41 actions the Sessions view can send, four launches of each build taking turns, every launch from the
+  same data:
+  - Every span of our own prints as before:
+    `aggregorApp.renameSession > SessionController.renameChosenSession > SessionService.renameSession > BaseService.updateEntity > BaseRepository.updateRow > RepositoryUtils.encodeStoredColumns`,
+    and a failed command's message is still shown by the middleware:
+    `aggregorApp.openSessionPullRequest > RegisterCommandMiddleware.showCommandError > PullRequestErrorMessage.getPullRequestCommandErrorMessage`.
+    All 41 actions run the same chain of functions, span for span.
+  - No action is slower or faster: for all 41, the two builds' launches overlap or their medians are within 15% and 1
+    ms.
+  - An action allocates 8% to 15% less while it runs, since no wrapper copies the span's annotations on every call into
+    a unit: Rename Session 2,719 KB to 2,318 KB, redrawing the view 24,796 KB to 22,657 KB. The heap after startup is
+    48.0 MB against 47.8 MB, and activation is the same within what one launch varies (medians of 102 ms and 105 ms).
   - Startup nests under `Domain`, `Infrastructure` (`Infrastructure > Database.make`), `Application` (the jobs under
-    `Application > BackgroundJobs.make`) and `Presentation`.
+    `Application > BackgroundJobs.make`) and `Presentation`, as before.
 
-  Its limits: a library's span with an undotted name takes the unit it ran in, as `BaseRepository.sqlite` does; and in a
-  failure's stack the frame for a call into a unit points at `ownSpans`, not at the calling line.
+  Its limits: a library's span has no unit in its name. The SQL client's queries print as `sqlite`, and its migrator's
+  steps as `migrate`, `upgradeIfNeeded`, `BEGIN`, `SAVEPOINT`, `RELEASE SAVEPOINT` and `COMMIT`, where `ownSpans` had
+  printed the unit they ran in (`BaseRepository.sqlite`, `DatabaseUtils.migrate`); the span above one in the line names
+  the unit that ran it. That is 4 names in the replayed actions and 8 more while starting, 32 of the 452 distinct span
+  paths a startup prints. Every name repeats its class, 739 names in 91 files, and renaming a file or a class rewrites
+  its names, which `pnpm lint:fix` does.
 
-- **Alternatives considered:** the owner written into every name by `pnpm lint:fix`, the previous rule, and the fallback
-  if the simple names disappoint; an owner stated once per unit through a naming helper; a span of its own for every
-  call into a unit, which adds a line per call. A span on a unit's layer alone was tried and gives a command's lines no
-  owner, because a call hangs under its caller, not under the layer. Work handed to a unit carrying the running unit's
-  name, which printed `writeCommitMessage` as `ProgressInfraService.writeCommitMessage`, until `ownSpans` kept the
-  caller's mark on what it hands over. A top-level `Effect.fn` named `<Owner>.<const>`, which went with the last
-  top-level function. A helper file owned by the one owner in its folder (`tmuxServer.utils.ts`'s spans as
-  `TmuxInfraService.…`), which went once each helper became a unit with its own mark. Before that, a layer prefix such
-  as `TerminalService.openSessionTerminal`.
+- **Alternatives considered:** simple names with the owner supplied at the unit's boundary, the decision before this
+  one: `ownSpans` (`@pkg/trace`) wrapped a unit's `make` in a proxy, marked every span made inside the unit and during a
+  call into it with an attribute, and the trace log printed the attribute in front of a name without a dot. It kept the
+  names in the source short. It cost the allocations measured above on every call into a unit; special handling for an
+  effect, a stream or a callback handed to a unit, for a stream handed back as a result, and for a tagged error or an
+  exit passed as a value; a frame at `ownSpans` where a failure's stack should show the calling line; and one more
+  helper package. A build step that writes the owner into each name while bundling, which gives the same trace and keeps
+  the source short, turned down for a plugin and a parser of its own, tests that would see bare names, and source map
+  columns that shift on every renamed line. An owner stated once per unit through a naming helper; a span of its own for
+  every call into a unit, which adds a line per call. A span on a unit's layer alone was tried and gives a command's
+  lines no owner, because a call hangs under its caller, not under the layer. A top-level `Effect.fn` named
+  `<Owner>.<const>`, which went with the last top-level function. A helper file owned by the one owner in its folder
+  (`tmuxServer.utils.ts`'s spans as `TmuxInfraService.…`), which went once each helper became a unit of its own. Before
+  that, a layer prefix such as `TerminalService.openSessionTerminal`.
 
 ## Trace logging is a setting, and a trace carries each error's fields
 
