@@ -1,6 +1,5 @@
 import {NodeServices} from "@effect/platform-node";
 import {PROCESS_LISTING} from "@pkg/constants/src/process.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Array, Context, Effect, Layer, Result, String} from "effect";
 import {ChildProcess} from "effect/process";
 import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
@@ -10,10 +9,10 @@ import type {RunningProcess} from "@interfaces/process.infraService.interface.ts
 export class PsProcessUtils extends Context.Service<PsProcessUtils>()(
   "aggregor-app/infrastructure/services/process/psProcess.utils/PsProcessUtils",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("PsProcessUtils.make")(function* () {
       const childProcessSpawner = yield* ChildProcessSpawner;
 
-      const parsePsLine = Effect.fn("parsePsLine")(function* (psLine: string) {
+      const parsePsLine = Effect.fn("PsProcessUtils.parsePsLine")(function* (psLine: string) {
         const psFields = Result.fromOption(String.match(PROCESS_LISTING.LINE)(psLine), () => undefined);
         if (Result.isFailure(psFields) || psFields.success.groups === undefined) return [];
         const lineGroups = psFields.success.groups;
@@ -29,7 +28,7 @@ export class PsProcessUtils extends Context.Service<PsProcessUtils>()(
         return [runningProcess];
       });
 
-      const listRunningProcesses = Effect.fn("listRunningProcesses")(function* () {
+      const listRunningProcesses = Effect.fn("PsProcessUtils.listRunningProcesses")(function* () {
         const psLines = yield* Effect.orElseSucceed(
           childProcessSpawner.lines(ChildProcess.make(PROCESS_LISTING.COMMAND, PROCESS_LISTING.ARGUMENTS)),
           (): readonly string[] => []
@@ -43,7 +42,5 @@ export class PsProcessUtils extends Context.Service<PsProcessUtils>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("PsProcessUtils", this.make())).pipe(
-    Layer.provide(NodeServices.layer)
-  );
+  public static readonly layer = Layer.effect(this, this.make()).pipe(Layer.provide(NodeServices.layer));
 }

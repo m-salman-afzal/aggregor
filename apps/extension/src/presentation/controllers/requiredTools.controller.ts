@@ -1,27 +1,28 @@
 import {RequiredToolsErrorMessage} from "@errorMessages/requiredTools.errorMessage.ts";
 import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
 import {REQUIRED_TOOLS_COMMANDS} from "@pkg/constants/src/requiredTools.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {RequiredToolsService} from "@services/requiredTools.service.ts";
 import {Context, Effect, Layer} from "effect";
 
 export class RequiredToolsController extends Context.Service<RequiredToolsController>()(
   "aggregor-app/presentation/controllers/requiredTools.controller/RequiredToolsController",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("RequiredToolsController.make")(function* () {
       const registerCommandMiddleware = yield* RegisterCommandMiddleware;
       const requiredToolsService = yield* RequiredToolsService;
       const requiredToolsErrorMessage = yield* RequiredToolsErrorMessage;
 
-      const installRequiredToolsFromNotice = Effect.fn("installRequiredToolsFromNotice")(function* () {
-        yield* requiredToolsService.installRequiredTools;
-      });
-
-      const watchMissingToolsForRequiredToolsNoticesView = Effect.fn("watchMissingToolsForRequiredToolsNoticesView")(
+      const installRequiredToolsFromNotice = Effect.fn("RequiredToolsController.installRequiredToolsFromNotice")(
         function* () {
-          return yield* requiredToolsService.watchMissingTools;
+          yield* requiredToolsService.installRequiredTools;
         }
       );
+
+      const watchMissingToolsForRequiredToolsNoticesView = Effect.fn(
+        "RequiredToolsController.watchMissingToolsForRequiredToolsNoticesView"
+      )(function* () {
+        return yield* requiredToolsService.watchMissingTools;
+      });
 
       yield* registerCommandMiddleware.registerCommand(
         REQUIRED_TOOLS_COMMANDS.INSTALL,
@@ -36,7 +37,7 @@ export class RequiredToolsController extends Context.Service<RequiredToolsContro
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("RequiredToolsController", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([RequiredToolsErrorMessage.layer, RegisterCommandMiddleware.layer])
   );
 }

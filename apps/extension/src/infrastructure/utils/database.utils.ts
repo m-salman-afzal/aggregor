@@ -3,7 +3,6 @@ import {SqliteClient} from "@effect/sql-sqlite-node";
 import {AggregorFolderUtils} from "@infraUtils/aggregorFolder.utils.ts";
 import {DATABASE_BACKUP, DATABASE_FILE, MIGRATIONS} from "@pkg/constants/src/database.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {makeWithDefaults} from "drizzle-orm/effect-sqlite-node";
 import {migrate} from "drizzle-orm/effect-sqlite-node/migrator";
 import {Array, Context, Effect, Layer, Order, String} from "effect";
@@ -20,12 +19,12 @@ class DatabaseUtilsErrors extends TaggedErrors({
 export class DatabaseUtils extends Context.Service<DatabaseUtils>()(
   "aggregor-app/infrastructure/utils/database.utils/DatabaseUtils",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("DatabaseUtils.make")(function* () {
       const fileSystem = yield* FileSystem;
       const path = yield* Path;
       const aggregorFolderUtils = yield* AggregorFolderUtils;
 
-      const getDatabaseFilePath = Effect.fn("getDatabaseFilePath")(function* () {
+      const getDatabaseFilePath = Effect.fn("DatabaseUtils.getDatabaseFilePath")(function* () {
         const aggregorFolderPath = yield* aggregorFolderUtils.getAggregorFolderPath;
 
         return yield* aggregorFolderUtils.readAbsolutePathVariable(
@@ -35,7 +34,7 @@ export class DatabaseUtils extends Context.Service<DatabaseUtils>()(
       });
 
       // Matched by name, as the migrator matches them.
-      const findFirstPendingMigrationName = Effect.fn("findFirstPendingMigrationName")(function* (
+      const findFirstPendingMigrationName = Effect.fn("DatabaseUtils.findFirstPendingMigrationName")(function* (
         migrationsFolderPath: string
       ) {
         // eslint-disable-next-line no-restricted-syntax -- the caller opens the database, so its client comes with each call
@@ -57,7 +56,7 @@ export class DatabaseUtils extends Context.Service<DatabaseUtils>()(
         return firstPendingMigrationName;
       });
 
-      const readOpenDatabaseFilePath = Effect.fn("readOpenDatabaseFilePath")(function* () {
+      const readOpenDatabaseFilePath = Effect.fn("DatabaseUtils.readOpenDatabaseFilePath")(function* () {
         // eslint-disable-next-line no-restricted-syntax -- the caller opens the database, so its client comes with each call
         const sql = yield* SqlClient;
         const [mainDatabase] = yield* sql<{
@@ -70,7 +69,7 @@ export class DatabaseUtils extends Context.Service<DatabaseUtils>()(
       });
 
       // A second, read-only connection: VACUUM can't run inside the migrations' transaction.
-      const vacuumDatabaseInto = Effect.fn("vacuumDatabaseInto")(
+      const vacuumDatabaseInto = Effect.fn("DatabaseUtils.vacuumDatabaseInto")(
         function* (databaseFilePath: string, backupFilePath: string) {
           const readOnlySql = yield* SqliteClient.make({filename: databaseFilePath, readonly: true});
 
@@ -81,7 +80,7 @@ export class DatabaseUtils extends Context.Service<DatabaseUtils>()(
       );
 
       // The migrations' transaction holds the write lock, so nothing commits while the files are copied.
-      const copyDatabaseFiles = Effect.fn("copyDatabaseFiles")(function* (
+      const copyDatabaseFiles = Effect.fn("DatabaseUtils.copyDatabaseFiles")(function* (
         databaseFilePath: string,
         backupFilePath: string
       ) {
@@ -94,7 +93,7 @@ export class DatabaseUtils extends Context.Service<DatabaseUtils>()(
           );
       });
 
-      const writeBackup = Effect.fn("writeBackup")(
+      const writeBackup = Effect.fn("DatabaseUtils.writeBackup")(
         function* (databaseFilePath: string, backupFilePath: string) {
           yield* vacuumDatabaseInto(databaseFilePath, backupFilePath);
         },
@@ -103,12 +102,12 @@ export class DatabaseUtils extends Context.Service<DatabaseUtils>()(
       );
 
       // A backup of the same name, left by a migration that failed, holds an older state of the database.
-      const removeBackupFiles = Effect.fn("removeBackupFiles")(function* (backupFilePath: string) {
+      const removeBackupFiles = Effect.fn("DatabaseUtils.removeBackupFiles")(function* (backupFilePath: string) {
         yield* fileSystem.remove(backupFilePath, {force: true});
         yield* fileSystem.remove(`${backupFilePath}${DATABASE_BACKUP.WRITE_AHEAD_LOG_SUFFIX}`, {force: true});
       });
 
-      const removeOlderBackups = Effect.fn("removeOlderBackups")(function* (backupFilePath: string) {
+      const removeOlderBackups = Effect.fn("DatabaseUtils.removeOlderBackups")(function* (backupFilePath: string) {
         const backupFolderPath = path.dirname(backupFilePath);
         const backupFileName = path.basename(backupFilePath);
         const keptFileNames = new Set([`${backupFileName}${DATABASE_BACKUP.WRITE_AHEAD_LOG_SUFFIX}`, backupFileName]);
@@ -123,7 +122,7 @@ export class DatabaseUtils extends Context.Service<DatabaseUtils>()(
         );
       });
 
-      const backUpBeforeMigrating = Effect.fn("backUpBeforeMigrating")(
+      const backUpBeforeMigrating = Effect.fn("DatabaseUtils.backUpBeforeMigrating")(
         function* (migrationsFolderPath: string) {
           const firstPendingMigrationName = yield* findFirstPendingMigrationName(migrationsFolderPath);
           const databaseFilePath = yield* readOpenDatabaseFilePath();
@@ -143,7 +142,9 @@ export class DatabaseUtils extends Context.Service<DatabaseUtils>()(
       );
 
       // Foreign keys go off outside the transaction: a table rebuild drops the table, and the setting can't change inside one.
-      const applyPendingMigrations = Effect.fn("applyPendingMigrations")(function* (migrationsFolderPath: string) {
+      const applyPendingMigrations = Effect.fn("DatabaseUtils.applyPendingMigrations")(function* (
+        migrationsFolderPath: string
+      ) {
         // eslint-disable-next-line no-restricted-syntax -- the caller opens the database, so its client comes with each call
         const sql = yield* SqlClient;
         const database = yield* makeWithDefaults();
@@ -161,7 +162,7 @@ export class DatabaseUtils extends Context.Service<DatabaseUtils>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("DatabaseUtils", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([AggregorFolderUtils.layer, NodeServices.layer])
   );
 }

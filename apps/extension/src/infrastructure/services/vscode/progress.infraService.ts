@@ -1,5 +1,4 @@
 import {IProgressInfraService} from "@interfaces/progress.infraService.interface.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 import {Context, Effect, Layer} from "effect";
@@ -12,11 +11,11 @@ interface SourceControlProgress {
 export class ProgressInfraService extends Context.Service<ProgressInfraService>()(
   "aggregor-app/infrastructure/services/vscode/progress.infraService/ProgressInfraService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("ProgressInfraService.make")(function* () {
       const vsCodeApi = yield* VsCodeApi;
       const vscodeUtils = yield* VscodeUtils;
 
-      const runWithSourceControlProgress = Effect.fn("runWithSourceControlProgress")(
+      const runWithSourceControlProgress = Effect.fn("ProgressInfraService.runWithSourceControlProgress")(
         function* <A, E, R>(sourceControlProgress: SourceControlProgress, effect: Effect.Effect<A, E, R>) {
           yield* vscodeUtils.setWhenClauseContextKey(sourceControlProgress.busyContextKey, true);
 
@@ -39,5 +38,5 @@ export class ProgressInfraService extends Context.Service<ProgressInfraService>(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(IProgressInfraService, ownSpans("ProgressInfraService", this.make()));
+  public static readonly layer = Layer.effect(IProgressInfraService, this.make());
 }

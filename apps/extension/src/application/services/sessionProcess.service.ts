@@ -7,7 +7,6 @@ import {ISessionRepository} from "@entities/session/session.repository.interface
 import {IProcessInfraService} from "@interfaces/process.infraService.interface.ts";
 import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
 import {PROCESS_SAMPLING} from "@pkg/constants/src/process.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {BaseService} from "@services/base.service.ts";
 import {FolderShellService} from "@services/folderShell.service.ts";
 import {SessionService} from "@services/session.service.ts";
@@ -22,7 +21,7 @@ import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 export class SessionProcessService extends Context.Service<SessionProcessService>()(
   "aggregor-app/application/services/sessionProcess.service/SessionProcessService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("SessionProcessService.make")(function* () {
       const sessionRepository = yield* ISessionRepository;
       const processInfraService = yield* IProcessInfraService;
       const tmuxInfraService = yield* ITmuxInfraService;
@@ -31,7 +30,9 @@ export class SessionProcessService extends Context.Service<SessionProcessService
       const baseService = yield* BaseService;
       const sessionBaseService = yield* baseService.makeFor(sessionRepository);
 
-      const readTerminalProcesses = Effect.fn("readTerminalProcesses")(function* (tmuxSessionPanes: TmuxSessionPanes) {
+      const readTerminalProcesses = Effect.fn("SessionProcessService.readTerminalProcesses")(function* (
+        tmuxSessionPanes: TmuxSessionPanes
+      ) {
         const groupProcesses = yield* processInfraService.listGroupProcesses({
           hostProcessId: tmuxSessionPanes.tmuxServerProcessId,
           rootProcessIds: tmuxSessionPanes.paneProcessIds
@@ -40,7 +41,9 @@ export class SessionProcessService extends Context.Service<SessionProcessService
         return TerminalProcessesDtoSchema.make({processes: groupProcesses});
       });
 
-      const countFolderShellSessions = Effect.fn("countFolderShellSessions")(function* (session: SessionEntity) {
+      const countFolderShellSessions = Effect.fn("SessionProcessService.countFolderShellSessions")(function* (
+        session: SessionEntity
+      ) {
         const projectSessions = yield* sessionBaseService.findEntities({projectId: session.projectId});
 
         return Array.filter(
@@ -51,7 +54,9 @@ export class SessionProcessService extends Context.Service<SessionProcessService
         ).length;
       });
 
-      const readFolderShellProcesses = Effect.fn("readFolderShellProcesses")(function* (session: SessionEntity) {
+      const readFolderShellProcesses = Effect.fn("SessionProcessService.readFolderShellProcesses")(function* (
+        session: SessionEntity
+      ) {
         const folderShellRequest = yield* folderShellService.prepareSessionFolderShellRequest(session);
         const folderShellPanes = yield* tmuxInfraService.readFolderShellPanes(folderShellRequest.folderPath);
         const terminalProcesses = yield* readTerminalProcesses(folderShellPanes);
@@ -63,7 +68,9 @@ export class SessionProcessService extends Context.Service<SessionProcessService
         });
       });
 
-      const readSessionProcesses = Effect.fn("readSessionProcesses")(function* (sessionId: EntityIdValueObject) {
+      const readSessionProcesses = Effect.fn("SessionProcessService.readSessionProcesses")(function* (
+        sessionId: EntityIdValueObject
+      ) {
         const session = yield* sessionService.findSession(sessionId);
         const agentPanes = yield* tmuxInfraService.readSessionAgentPanes(sessionId);
         const agentTerminal = yield* readTerminalProcesses(agentPanes);
@@ -76,7 +83,7 @@ export class SessionProcessService extends Context.Service<SessionProcessService
         });
       });
 
-      const readWatchedSessionProcesses = Effect.fn("readWatchedSessionProcesses")(function* (
+      const readWatchedSessionProcesses = Effect.fn("SessionProcessService.readWatchedSessionProcesses")(function* (
         watchRequest: WatchSessionProcessesRequestDto
       ) {
         const sessionProcessResults = yield* Effect.forEach(watchRequest.sessionIds, (sessionId) =>
@@ -86,7 +93,7 @@ export class SessionProcessService extends Context.Service<SessionProcessService
         return Array.getSuccesses(sessionProcessResults);
       });
 
-      const watchSessionProcesses = Effect.fn("watchSessionProcesses")(function* (
+      const watchSessionProcesses = Effect.fn("SessionProcessService.watchSessionProcesses")(function* (
         watchRequests: Stream.Stream<WatchSessionProcessesRequestDto>
       ) {
         const readProcesses = (watchRequest: WatchSessionProcessesRequestDto) =>
@@ -105,7 +112,7 @@ export class SessionProcessService extends Context.Service<SessionProcessService
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("SessionProcessService", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([BaseService.layer, FolderShellService.layer, SessionService.layer])
   );
 }

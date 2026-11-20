@@ -1,7 +1,6 @@
 import {NodeServices} from "@effect/platform-node";
 import {ICommitCliInfraService, ICommitCliInfraServiceErrors} from "@interfaces/commitCli.infraService.interface.ts";
 import {EXIT_CODES} from "@pkg/constants/src/process.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Context, Effect, Layer, Stream, String} from "effect";
 import {ChildProcess} from "effect/process";
 import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
@@ -11,10 +10,10 @@ import type {CommitMessageRequest} from "@interfaces/commitCli.infraService.inte
 export class CommitCliInfraService extends Context.Service<CommitCliInfraService>()(
   "aggregor-app/infrastructure/services/commitCli/commitCli.infraService/CommitCliInfraService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("CommitCliInfraService.make")(function* () {
       const childProcessSpawner = yield* ChildProcessSpawner;
 
-      const runCommitCommand = Effect.fn("runCommitCommand")(
+      const runCommitCommand = Effect.fn("CommitCliInfraService.runCommitCommand")(
         function* (commitMessageRequest: CommitMessageRequest) {
           const commitCommandProcess = yield* childProcessSpawner.spawn(
             ChildProcess.make(commitMessageRequest.commitCommand, {
@@ -41,7 +40,7 @@ export class CommitCliInfraService extends Context.Service<CommitCliInfraService
         )
       );
 
-      const generateCommitMessage = Effect.fn("generateCommitMessage")(function* (
+      const generateCommitMessage = Effect.fn("CommitCliInfraService.generateCommitMessage")(function* (
         commitMessageRequest: CommitMessageRequest
       ) {
         const commitCommandOutput = yield* runCommitCommand(commitMessageRequest);
@@ -61,8 +60,7 @@ export class CommitCliInfraService extends Context.Service<CommitCliInfraService
     })
   }
 ) {
-  public static readonly layer = Layer.effect(
-    ICommitCliInfraService,
-    ownSpans("CommitCliInfraService", this.make())
-  ).pipe(Layer.provide(NodeServices.layer));
+  public static readonly layer = Layer.effect(ICommitCliInfraService, this.make()).pipe(
+    Layer.provide(NodeServices.layer)
+  );
 }

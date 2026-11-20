@@ -15,7 +15,6 @@ import {
 } from "@pkg/constants/src/sessionsView.constant.ts";
 import {WORKSPACE_TRUST_SETTINGS} from "@pkg/constants/src/vscode.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {SessionsPageUtils} from "@views/sessions/sessionsPage.utils.ts";
 import {Array, Context, Effect, Layer, Match, Ref, Result, Schema, Stream} from "effect";
@@ -44,7 +43,7 @@ const AccentColorSettingSchema = Schema.String.check(Schema.isPattern(SESSIONS_V
 export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>()(
   "aggregor-app/presentation/views/sessions/sessionsDrawing.utils/SessionsDrawingUtils",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("SessionsDrawingUtils.make")(function* () {
       const agentController = yield* AgentController;
       const pullRequestController = yield* PullRequestController;
       const sessionController = yield* SessionController;
@@ -61,28 +60,34 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         [SESSION_LISTS.SESSIONS]: {}
       });
 
-      const setShownWebviewView = Effect.fn("setShownWebviewView")(function* (webviewView: WebviewView) {
+      const setShownWebviewView = Effect.fn("SessionsDrawingUtils.setShownWebviewView")(function* (
+        webviewView: WebviewView
+      ) {
         yield* Ref.set(webviewViewReference, Result.succeed(webviewView));
       });
 
-      const clearShownWebviewView = Effect.fn("clearShownWebviewView")(function* () {
+      const clearShownWebviewView = Effect.fn("SessionsDrawingUtils.clearShownWebviewView")(function* () {
         yield* Ref.set(webviewViewReference, Result.fail(SessionsDrawingUtilsErrors.WebviewNotShownError.make()));
       });
 
-      const findShownWebviewView = Effect.fn("findShownWebviewView")(function* () {
+      const findShownWebviewView = Effect.fn("SessionsDrawingUtils.findShownWebviewView")(function* () {
         const webviewViewResult = yield* Ref.get(webviewViewReference);
 
         return yield* Effect.fromResult(webviewViewResult);
       });
 
       // A webview that isn't listening yet drops the message, and asks for everything once it listens.
-      const postToWebview = Effect.fn("postToWebview")(function* (sessionsViewMessage: SessionsViewMessage) {
+      const postToWebview = Effect.fn("SessionsDrawingUtils.postToWebview")(function* (
+        sessionsViewMessage: SessionsViewMessage
+      ) {
         const webviewView = yield* findShownWebviewView();
 
         yield* Effect.promise(() => webviewView.webview.postMessage(sessionsViewMessage));
       });
 
-      const makeSessionRow = Effect.fn("makeSessionRow")(function* (sessionListItem: SessionListItemDto) {
+      const makeSessionRow = Effect.fn("SessionsDrawingUtils.makeSessionRow")(function* (
+        sessionListItem: SessionListItemDto
+      ) {
         const webviewView = yield* findShownWebviewView();
         const sessionRow: SessionRowData = {
           ...(yield* sessionsPageUtils.getAgentIconUri(webviewView.webview, sessionListItem)),
@@ -92,7 +97,9 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         return sessionRow;
       });
 
-      const makeProjectRow = Effect.fn("makeProjectRow")(function* (projectSessions: ProjectSessionsDto) {
+      const makeProjectRow = Effect.fn("SessionsDrawingUtils.makeProjectRow")(function* (
+        projectSessions: ProjectSessionsDto
+      ) {
         const projectRow: ProjectRowData = {
           ...(projectSessions.hasLeftovers === undefined ? {} : {hasLeftovers: projectSessions.hasLeftovers}),
           ...(projectSessions.worktrees === undefined ? {} : {worktrees: projectSessions.worktrees}),
@@ -109,14 +116,14 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         return projectRow;
       });
 
-      const findShownPageCount = Effect.fn("findShownPageCount")(function* (projectPath: string) {
+      const findShownPageCount = Effect.fn("SessionsDrawingUtils.findShownPageCount")(function* (projectPath: string) {
         const shownPageCounts = yield* Ref.get(shownSessionPages);
         const shownPageCount = shownPageCounts[SESSION_LISTS.SESSIONS][projectPath];
 
         return shownPageCount === undefined ? SESSION_PAGES.FIRST_PAGE_COUNT : shownPageCount;
       });
 
-      const drawAllProjects = Effect.fn("drawAllProjects")(function* () {
+      const drawAllProjects = Effect.fn("SessionsDrawingUtils.drawAllProjects")(function* () {
         const shownPageCounts = yield* Ref.get(shownSessionPages);
         const projectsWithSessions = yield* sessionController.listProjectsWithSessionsForSessionsView(
           shownPageCounts[SESSION_LISTS.SESSIONS]
@@ -128,7 +135,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         yield* postToWebview({_tag: SESSIONS_VIEW_MESSAGE_TAGS.PROJECTS_DRAWN, projectRows});
       });
 
-      const drawArchive = Effect.fn("drawArchive")(function* () {
+      const drawArchive = Effect.fn("SessionsDrawingUtils.drawArchive")(function* () {
         const shownPageCounts = yield* Ref.get(shownSessionPages);
         const projectsWithArchivedSessions = yield* sessionController.listProjectsWithArchivedSessionsForSessionsView(
           shownPageCounts[SESSION_LISTS.ARCHIVE]
@@ -140,7 +147,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         yield* postToWebview({_tag: SESSIONS_VIEW_MESSAGE_TAGS.ARCHIVE_DRAWN, projectRows});
       });
 
-      const drawProject = Effect.fn("drawProject")(
+      const drawProject = Effect.fn("SessionsDrawingUtils.drawProject")(
         function* (projectPath: string) {
           const shownPageCount = yield* findShownPageCount(projectPath);
           const projectSessions = yield* sessionController.getProjectSessionsForSessionsView(
@@ -154,7 +161,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         Effect.catchTag("ProjectNotListedError", () => Effect.void)
       );
 
-      const drawMoreSessions = Effect.fn("drawMoreSessions")(function* (moreSessionsRequest: {
+      const drawMoreSessions = Effect.fn("SessionsDrawingUtils.drawMoreSessions")(function* (moreSessionsRequest: {
         readonly listId: SessionListId;
         readonly projectPath: string;
       }) {
@@ -173,7 +180,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
           : drawProject(moreSessionsRequest.projectPath);
       });
 
-      const drawImportableSessions = Effect.fn("drawImportableSessions")(
+      const drawImportableSessions = Effect.fn("SessionsDrawingUtils.drawImportableSessions")(
         function* (projectPath: string) {
           const importableSessions = yield* sessionImportController.listImportableSessionsForSessionsView(projectPath);
 
@@ -184,7 +191,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         )
       );
 
-      const drawLeftovers = Effect.fn("drawLeftovers")(
+      const drawLeftovers = Effect.fn("SessionsDrawingUtils.drawLeftovers")(
         function* (projectPath: string) {
           const leftovers = yield* worktreeController.listProjectLeftoversForSessionsView(projectPath);
 
@@ -193,7 +200,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         Effect.catch((leftoversError) => Effect.logWarning("Could not list the project's leftovers", leftoversError))
       );
 
-      const drawBranches = Effect.fn("drawBranches")(
+      const drawBranches = Effect.fn("SessionsDrawingUtils.drawBranches")(
         function* (projectPath: string) {
           const projectBranches = yield* worktreeController.listProjectBranchesForSessionsView(projectPath);
 
@@ -204,7 +211,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         Effect.catch((branchesError) => Effect.logWarning("Could not list the project's branches", branchesError))
       );
 
-      const drawPullRequests = Effect.fn("drawPullRequests")(
+      const drawPullRequests = Effect.fn("SessionsDrawingUtils.drawPullRequests")(
         function* (sessionId: string) {
           const pullRequests = yield* pullRequestController.listSessionPullRequestsForSessionsView(sessionId);
 
@@ -215,7 +222,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         )
       );
 
-      const drawSession = Effect.fn("drawSession")(
+      const drawSession = Effect.fn("SessionsDrawingUtils.drawSession")(
         function* (sessionId: string) {
           const sessionListItem = yield* sessionController.getSessionListItemForSessionsView(sessionId);
           const sessionRow = yield* makeSessionRow(sessionListItem);
@@ -225,7 +232,9 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         Effect.catchTag("SessionNotFoundError", () => Effect.void)
       );
 
-      const drawChange = Effect.fn("drawChange")(function* (sessionListChange: SessionListChangeDto) {
+      const drawChange = Effect.fn("SessionsDrawingUtils.drawChange")(function* (
+        sessionListChange: SessionListChangeDto
+      ) {
         yield* Match.valueTags(sessionListChange, {
           ProjectListChanged: () => Effect.andThen(drawAllProjects(), drawArchive()),
           ProjectSessionsChanged: (projectSessionsChanged) =>
@@ -234,11 +243,13 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         });
       });
 
-      const drawSessionProcesses = Effect.fn("drawSessionProcesses")(function* (sessionProcesses: SessionProcessesDto) {
+      const drawSessionProcesses = Effect.fn("SessionsDrawingUtils.drawSessionProcesses")(function* (
+        sessionProcesses: SessionProcessesDto
+      ) {
         yield* postToWebview({_tag: SESSIONS_VIEW_MESSAGE_TAGS.SESSION_PROCESSES_DRAWN, sessionProcesses});
       });
 
-      const drawViewedSession = Effect.fn("drawViewedSession")(
+      const drawViewedSession = Effect.fn("SessionsDrawingUtils.drawViewedSession")(
         function* () {
           const viewedSessionId = yield* sessionController.findViewedSessionIdForSessionsView;
 
@@ -247,18 +258,17 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         Effect.catchTag("NoViewedSessionError", () => Effect.void)
       );
 
-      const countViewSessionsWaitingOnUser = Effect.fn("countViewSessionsWaitingOnUser")(function* (
-        sessionsWaitingOnUser: readonly SessionListItemDto[],
-        isArchiveView: boolean
-      ) {
-        return Array.filter(
-          sessionsWaitingOnUser,
-          (sessionWaitingOnUser) => sessionWaitingOnUser.isArchived === isArchiveView
-        ).length;
-      });
+      const countViewSessionsWaitingOnUser = Effect.fn("SessionsDrawingUtils.countViewSessionsWaitingOnUser")(
+        function* (sessionsWaitingOnUser: readonly SessionListItemDto[], isArchiveView: boolean) {
+          return Array.filter(
+            sessionsWaitingOnUser,
+            (sessionWaitingOnUser) => sessionWaitingOnUser.isArchived === isArchiveView
+          ).length;
+        }
+      );
 
       // VS Code shows the view's badge on the activity bar too.
-      const drawWaitingCounts = Effect.fn("drawWaitingCounts")(function* () {
+      const drawWaitingCounts = Effect.fn("SessionsDrawingUtils.drawWaitingCounts")(function* () {
         const webviewView = yield* findShownWebviewView();
         const sessionsWaitingOnUser = yield* sessionController.listSessionsWaitingOnUserForSessionsView;
         const tooltipLines = Array.map(sessionsWaitingOnUser, (sessionWaitingOnUser) =>
@@ -280,7 +290,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         });
       });
 
-      const drawAppearance = Effect.fn("drawAppearance")(function* () {
+      const drawAppearance = Effect.fn("SessionsDrawingUtils.drawAppearance")(function* () {
         const configuredSettings = yield* vsCodeApi.getConfiguration(SETTINGS_SECTION);
         const fontSize = yield* Effect.orElseSucceed(
           Schema.decodeUnknownEffect(FontSizeSettingSchema)(configuredSettings.get(SESSIONS_VIEW_SETTINGS.FONT_SIZE)),
@@ -296,7 +306,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         yield* postToWebview({_tag: SESSIONS_VIEW_MESSAGE_TAGS.APPEARANCE_DRAWN, accentColor, fontSize});
       });
 
-      const makeAgentRow = Effect.fn("makeAgentRow")(function* (agentListItem: AgentListItemDto) {
+      const makeAgentRow = Effect.fn("SessionsDrawingUtils.makeAgentRow")(function* (agentListItem: AgentListItemDto) {
         const webviewView = yield* findShownWebviewView();
         const agentRow: AgentRowData = {
           agentListItem,
@@ -307,7 +317,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
       });
 
       // VS Code's own default turns trust on.
-      const readWorkspaceTrustEnabled = Effect.fn("readWorkspaceTrustEnabled")(function* () {
+      const readWorkspaceTrustEnabled = Effect.fn("SessionsDrawingUtils.readWorkspaceTrustEnabled")(function* () {
         const trustSettings = yield* vsCodeApi.getConfiguration(WORKSPACE_TRUST_SETTINGS.SECTION);
 
         return yield* Effect.orElseSucceed(
@@ -316,7 +326,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         );
       });
 
-      const drawAgents = Effect.fn("drawAgents")(function* () {
+      const drawAgents = Effect.fn("SessionsDrawingUtils.drawAgents")(function* () {
         const configuredSettings = yield* vsCodeApi.getConfiguration(SETTINGS_SECTION);
         const skipAgentPicker = yield* Effect.orElseSucceed(
           Schema.decodeUnknownEffect(Schema.Boolean)(configuredSettings.get(AGENT_SETTINGS.SKIP_AGENT_PICKER)),
@@ -334,7 +344,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
       });
 
       // The look first, so the rows draw in it.
-      const drawEverything = Effect.fn("drawEverything")(function* () {
+      const drawEverything = Effect.fn("SessionsDrawingUtils.drawEverything")(function* () {
         yield* drawAppearance();
         yield* drawAgents();
         yield* drawAllProjects();
@@ -365,7 +375,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("SessionsDrawingUtils", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([
       AgentController.layer,
       PullRequestController.layer,

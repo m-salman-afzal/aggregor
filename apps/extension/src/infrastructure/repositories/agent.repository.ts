@@ -3,7 +3,6 @@ import {AgentEntity} from "@entities/agent/agent.entity.ts";
 import {IAgentRepository, IAgentRepositoryErrors} from "@entities/agent/agent.repository.interface.ts";
 import {AGENT_ICON, AGENT_SETTINGS, AGENTS_SETTING_ID} from "@pkg/constants/src/agent.constant.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/app.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 import {EnvironmentVariablesValueObjectSchema} from "@valueObjects/environmentVariables.valueObject.ts";
@@ -24,18 +23,20 @@ const AgentSettingSchema = Schema.Struct({
 export class AgentRepository extends Context.Service<AgentRepository>()(
   "aggregor-app/infrastructure/repositories/agent.repository/AgentRepository",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("AgentRepository.make")(function* () {
       const vsCodeApi = yield* VsCodeApi;
       const vscodeUtils = yield* VscodeUtils;
       const path = yield* Path;
 
-      const resolveAgentIconPath = Effect.fn("resolveAgentIconPath")(function* (icon: string | undefined) {
+      const resolveAgentIconPath = Effect.fn("AgentRepository.resolveAgentIconPath")(function* (
+        icon: string | undefined
+      ) {
         const iconPath = icon === undefined ? AGENT_ICON.DEFAULT : icon;
 
         return path.isAbsolute(iconPath) ? iconPath : path.join(vsCodeApi.extensionUri.fsPath, iconPath);
       });
 
-      const decodeAgentFromSettingEntry = Effect.fn("decodeAgentFromSettingEntry")(
+      const decodeAgentFromSettingEntry = Effect.fn("AgentRepository.decodeAgentFromSettingEntry")(
         function* ([agentKey, agentSetting]: readonly [string, unknown]) {
           const agentSettingFields = yield* Schema.decodeUnknownEffect(AgentSettingSchema)(agentSetting);
           const agentArguments = agentSettingFields.args === undefined ? [] : agentSettingFields.args;
@@ -58,7 +59,7 @@ export class AgentRepository extends Context.Service<AgentRepository>()(
       );
 
       // VS Code merges the built-in defaults with the user's entries key by key; null hides an entry.
-      const readAgents = Effect.fn("readAgents")(function* () {
+      const readAgents = Effect.fn("AgentRepository.readAgents")(function* () {
         const config = yield* vsCodeApi.getConfiguration(SETTINGS_SECTION);
         const agentSettings: unknown = config.get(AGENT_SETTINGS.AGENTS);
         const agentEntries = Predicate.isObject(agentSettings) ? Record.toEntries(agentSettings) : [];
@@ -74,7 +75,7 @@ export class AgentRepository extends Context.Service<AgentRepository>()(
       const agents = yield* Ref.make<readonly AgentEntity[]>(initialAgents);
 
       // Read once and again on each change of the setting, so an invalid entry is warned about once, not on every read.
-      const watchAgentSettings = Effect.fn("watchAgentSettings")(function* () {
+      const watchAgentSettings = Effect.fn("AgentRepository.watchAgentSettings")(function* () {
         const settingsChanges = yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.workspace.onDidChangeConfiguration);
         const agentSettingChanges = Stream.filter(settingsChanges, (settingsChange) =>
           settingsChange.affectsConfiguration(AGENTS_SETTING_ID)
@@ -85,7 +86,7 @@ export class AgentRepository extends Context.Service<AgentRepository>()(
         );
       });
 
-      const findAgentById = Effect.fn("findAgentById")(function* (agentId: AgentIdValueObject) {
+      const findAgentById = Effect.fn("AgentRepository.findAgentById")(function* (agentId: AgentIdValueObject) {
         const currentAgents = yield* Ref.get(agents);
 
         return yield* Effect.fromResult(
@@ -105,7 +106,5 @@ export class AgentRepository extends Context.Service<AgentRepository>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(IAgentRepository, ownSpans("AgentRepository", this.make())).pipe(
-    Layer.provide(NodeServices.layer)
-  );
+  public static readonly layer = Layer.effect(IAgentRepository, this.make()).pipe(Layer.provide(NodeServices.layer));
 }

@@ -1,7 +1,6 @@
 import {NodeServices} from "@effect/platform-node";
 import {AgentHistoryUtils} from "@infraServices/agentHistory/agentHistory.utils.ts";
 import {COPILOT_HISTORY} from "@pkg/constants/src/agentHistory.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Array, Context, Effect, Layer, Record, Result, Schema, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
@@ -18,12 +17,14 @@ const CopilotEventLineJson = Schema.fromJsonString(
 export class CopilotHistoryUtils extends Context.Service<CopilotHistoryUtils>()(
   "aggregor-app/infrastructure/services/agentHistory/copilotHistory.utils/CopilotHistoryUtils",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("CopilotHistoryUtils.make")(function* () {
       const agentHistoryUtils = yield* AgentHistoryUtils;
       const fileSystem = yield* FileSystem;
       const path = yield* Path;
 
-      const readWorkspaceFields = Effect.fn("readWorkspaceFields")(function* (workspaceText: string) {
+      const readWorkspaceFields = Effect.fn("CopilotHistoryUtils.readWorkspaceFields")(function* (
+        workspaceText: string
+      ) {
         const workspaceFields: Record.ReadonlyRecord<string, string> = Record.fromEntries(
           Array.flatMap(String.split("\n")(workspaceText), (workspaceLine): readonly (readonly [string, string])[] => {
             const lineMatch = COPILOT_HISTORY.WORKSPACE_LINE.exec(workspaceLine);
@@ -39,7 +40,9 @@ export class CopilotHistoryUtils extends Context.Service<CopilotHistoryUtils>()(
         return workspaceFields;
       });
 
-      const findFirstUserMessage = Effect.fn("findFirstUserMessage")(function* (conversationFolderPath: string) {
+      const findFirstUserMessage = Effect.fn("CopilotHistoryUtils.findFirstUserMessage")(function* (
+        conversationFolderPath: string
+      ) {
         const eventsFilePath = path.join(conversationFolderPath, COPILOT_HISTORY.EVENTS_FILE_NAME);
         const isEventsFileFound = yield* fileSystem.exists(eventsFilePath);
         if (!isEventsFileFound) return "";
@@ -62,7 +65,7 @@ export class CopilotHistoryUtils extends Context.Service<CopilotHistoryUtils>()(
       });
 
       // A folder without workspace.yaml is only a lock left behind.
-      const readCopilotConversation = Effect.fn("readCopilotConversation")(function* (
+      const readCopilotConversation = Effect.fn("CopilotHistoryUtils.readCopilotConversation")(function* (
         conversationFolderPath: string,
         folderPath: string
       ) {
@@ -85,7 +88,9 @@ export class CopilotHistoryUtils extends Context.Service<CopilotHistoryUtils>()(
       });
 
       // No index records the folder, so every conversation's workspace.yaml is read.
-      const listCopilotConversations = Effect.fn("listCopilotConversations")(function* (folderPath: string) {
+      const listCopilotConversations = Effect.fn("CopilotHistoryUtils.listCopilotConversations")(function* (
+        folderPath: string
+      ) {
         const copilotHomePath = yield* agentHistoryUtils.readFolderFromEnvironment(
           COPILOT_HISTORY.HOME_ENV,
           COPILOT_HISTORY.DEFAULT_HOME_FOLDER
@@ -109,7 +114,7 @@ export class CopilotHistoryUtils extends Context.Service<CopilotHistoryUtils>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("CopilotHistoryUtils", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([AgentHistoryUtils.layer, NodeServices.layer])
   );
 }

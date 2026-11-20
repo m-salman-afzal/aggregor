@@ -1,7 +1,6 @@
 import {DatabaseLayer} from "@di/database.layer.ts";
 import {BaseEntity} from "@entities/base/base.entity.ts";
 import {IBaseRepositoryErrors} from "@entities/base/base.repository.interface.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {RepositoryUtils} from "@repositories/base/repository.utils.ts";
 import {ENTITY_CHANGE_KINDS} from "@valueObjects/entityChangeKind.valueObject.ts";
 import {gte, max} from "drizzle-orm";
@@ -40,11 +39,11 @@ const LatestWriteRowsSchema = Schema.Tuple([
 export class EntityChangeUtils extends Context.Service<EntityChangeUtils>()(
   "aggregor-app/infrastructure/repositories/base/entityChange.utils/EntityChangeUtils",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("EntityChangeUtils.make")(function* () {
       const database = yield* makeWithDefaults();
       const repositoryUtils = yield* RepositoryUtils;
 
-      const readStartingChangeCursor = Effect.fn("readStartingChangeCursor")(
+      const readStartingChangeCursor = Effect.fn("EntityChangeUtils.readStartingChangeCursor")(
         function* <Entity>(entityTable: EntityTable<Entity>) {
           const latestStampsRows = yield* database
             .select({
@@ -64,10 +63,9 @@ export class EntityChangeUtils extends Context.Service<EntityChangeUtils>()(
         Effect.mapError((cause) => IBaseRepositoryErrors.DatabaseReadError.make({cause}))
       );
 
-      const readRowsWrittenSince = Effect.fn("readRowsWrittenSince")(function* <Entity extends BaseEntity>(
-        entityTable: EntityTable<Entity>,
-        writtenSince: string
-      ) {
+      const readRowsWrittenSince = Effect.fn("EntityChangeUtils.readRowsWrittenSince")(function* <
+        Entity extends BaseEntity
+      >(entityTable: EntityTable<Entity>, writtenSince: string) {
         const storedRows = yield* repositoryUtils.selectRows(
           entityTable,
           gte(entityTable.tableModel.updatedAt, writtenSince),
@@ -90,10 +88,9 @@ export class EntityChangeUtils extends Context.Service<EntityChangeUtils>()(
         return Array.getSuccesses(changedRowResults);
       });
 
-      const advanceChangeCursor = Effect.fn("advanceChangeCursor")(function* <Entity extends BaseEntity>(
-        changeCursor: ChangeCursor,
-        changedRows: readonly ChangedRow<Entity>[]
-      ) {
+      const advanceChangeCursor = Effect.fn("EntityChangeUtils.advanceChangeCursor")(function* <
+        Entity extends BaseEntity
+      >(changeCursor: ChangeCursor, changedRows: readonly ChangedRow<Entity>[]) {
         const lastWrittenRow = changedRows.at(-1);
         if (lastWrittenRow === undefined) return changeCursor;
         const latestRows = Array.filter(changedRows, (writtenRow) => writtenRow.updatedAt === lastWrittenRow.updatedAt);
@@ -111,7 +108,7 @@ export class EntityChangeUtils extends Context.Service<EntityChangeUtils>()(
         return nextChangeCursor;
       });
 
-      const makeEntityChange = Effect.fn("makeEntityChange")(function* <Entity extends BaseEntity>(
+      const makeEntityChange = Effect.fn("EntityChangeUtils.makeEntityChange")(function* <Entity extends BaseEntity>(
         changeCursor: ChangeCursor,
         entity: Entity
       ) {
@@ -124,7 +121,7 @@ export class EntityChangeUtils extends Context.Service<EntityChangeUtils>()(
         } satisfies EntityChange<Entity>;
       });
 
-      const findEntityChanges = Effect.fn("findEntityChanges")(
+      const findEntityChanges = Effect.fn("EntityChangeUtils.findEntityChanges")(
         function* <Entity extends BaseEntity>(entityTable: EntityTable<Entity>, changeCursor: ChangeCursor) {
           const changedRows = yield* readRowsWrittenSince(entityTable, changeCursor.latestUpdatedAt);
           const rowsNotSeenYet = Array.filter(
@@ -147,7 +144,7 @@ export class EntityChangeUtils extends Context.Service<EntityChangeUtils>()(
           )
       );
 
-      const publishEntityChanges = Effect.fn("publishEntityChanges")(
+      const publishEntityChanges = Effect.fn("EntityChangeUtils.publishEntityChanges")(
         function* <Entity extends BaseEntity>(entityTable: EntityTable<Entity>, changeFeed: ChangeFeed<Entity>) {
           const dataVersionChanges = yield* repositoryUtils.watchDataVersionChanges;
           const changeCheckTriggers = Stream.merge(
@@ -168,9 +165,9 @@ export class EntityChangeUtils extends Context.Service<EntityChangeUtils>()(
       );
 
       // Reads where to start before the window's first write, so no write falls between the read and the first check.
-      const startEntityChangeFeed = Effect.fn("startEntityChangeFeed")(function* <Entity extends BaseEntity>(
-        entityTable: EntityTable<Entity>
-      ) {
+      const startEntityChangeFeed = Effect.fn("EntityChangeUtils.startEntityChangeFeed")(function* <
+        Entity extends BaseEntity
+      >(entityTable: EntityTable<Entity>) {
         const changeFeed: ChangeFeed<Entity> = {
           entityChanges: yield* PubSub.unbounded<EntityChange<Entity>>(),
           initialChangeCursor: yield* readStartingChangeCursor(entityTable),
@@ -188,7 +185,7 @@ export class EntityChangeUtils extends Context.Service<EntityChangeUtils>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("EntityChangeUtils", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([RepositoryUtils.layer, DatabaseLayer])
   );
 }

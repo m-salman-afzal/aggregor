@@ -1,17 +1,16 @@
 import {PullRequestController} from "@controllers/pullRequest.controller.ts";
 import {GITHUB_CLI_COMMANDS, GITHUB_CLI_LABELS, GITHUB_CLI_NOTICES} from "@pkg/constants/src/gitHubCli.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {Context, Effect, Layer, Stream} from "effect";
 
 export class GitHubCliNoticesView extends Context.Service<GitHubCliNoticesView>()(
   "aggregor-app/presentation/views/gitHubCliNotices/gitHubCliNotices.view/GitHubCliNoticesView",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("GitHubCliNoticesView.make")(function* () {
       const pullRequestController = yield* PullRequestController;
       const vsCodeApi = yield* VsCodeApi;
 
-      const offerGitHubCliSignIn = Effect.fn("offerGitHubCliSignIn")(function* () {
+      const offerGitHubCliSignIn = Effect.fn("GitHubCliNoticesView.offerGitHubCliSignIn")(function* () {
         const pickedAction = yield* Effect.promise(() =>
           vsCodeApi.window.showInformationMessage(GITHUB_CLI_NOTICES.SIGNED_OUT, GITHUB_CLI_LABELS.SIGN_IN)
         );
@@ -31,7 +30,5 @@ export class GitHubCliNoticesView extends Context.Service<GitHubCliNoticesView>(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("GitHubCliNoticesView", this.make())).pipe(
-    Layer.provide(PullRequestController.layer)
-  );
+  public static readonly layer = Layer.effect(this, this.make()).pipe(Layer.provide(PullRequestController.layer));
 }

@@ -182,8 +182,6 @@ export const EXPORTED_TYPE_BAN = {
   message: "Export types from a .type.ts or .interface.ts file; only a value object's type stays in its own file.",
   selector: "ExportNamedDeclaration > :matches(TSTypeAliasDeclaration, TSInterfaceDeclaration)"
 };
-const SERVICE_CLASS =
-  "ClassDeclaration[superClass.callee.callee.object.name='Context'][superClass.callee.callee.property.name='Service']";
 export const SERVICE_CLASS_BAN = {
   message:
     "A Context.Service class is either a port, declared in a .interface.ts file, or a unit whose make holds its " +
@@ -193,15 +191,6 @@ export const SERVICE_CLASS_BAN = {
     "DTO, model or type) declares no service class: move it to the file whose functions it holds.",
   selector:
     "ClassDeclaration > CallExpression.superClass > CallExpression.callee > MemberExpression[object.name='Context']"
-};
-export const SERVICE_LAYER_OWN_SPANS_BAN = {
-  message:
-    "Build a unit's layer with ownSpans: without it the unit's spans carry no owner in the trace log. Write " +
-    '`Layer.effect(this, ownSpans("<Owner>", this.make()))`, or `Layer.effect(IPort, ownSpans("<Owner>", ' +
-    "this.make()))` for a port's implementation.",
-  selector:
-    `${SERVICE_CLASS} > ClassBody > PropertyDefinition[static=true][key.name='layer']` +
-    ":not(:has(CallExpression[callee.name='ownSpans']))"
 };
 const TOP_LEVEL_CONST = (declarationHolder: string) =>
   `${declarationHolder} > VariableDeclaration > VariableDeclarator > ` +

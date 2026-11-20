@@ -5,7 +5,6 @@ import {PULL_REQUEST_OPEN_PLACES} from "@pkg/constants/src/gitHubCli.constant.ts
 import {SESSION_SETTINGS} from "@pkg/constants/src/session.constant.ts";
 import {SESSION_OPEN_PLACES} from "@pkg/constants/src/terminal.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
 import {AgentStatusValueObjectSchema} from "@valueObjects/agentStatus.valueObject.ts";
@@ -42,10 +41,10 @@ const AlertSettingsSchema = Schema.Struct({
 export class SettingsConfig extends Context.Service<SettingsConfig>()(
   "aggregor-app/infrastructure/config/settings.config/SettingsConfig",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("SettingsConfig.make")(function* () {
       const vsCodeApi = yield* VsCodeApi;
 
-      const readSettings = Effect.fn("readSettings")(
+      const readSettings = Effect.fn("SettingsConfig.readSettings")(
         function* () {
           const configuredSettings = yield* vsCodeApi.getConfiguration(SETTINGS_SECTION);
 
@@ -54,7 +53,7 @@ export class SettingsConfig extends Context.Service<SettingsConfig>()(
         Effect.mapError((schemaError) => ISettingsConfigErrors.InvalidSettingsError.make({reason: schemaError.message}))
       );
 
-      const readSessionSettings = Effect.fn("readSessionSettings")(
+      const readSessionSettings = Effect.fn("SettingsConfig.readSessionSettings")(
         function* () {
           const configuredSettings = yield* vsCodeApi.getConfiguration(SETTINGS_SECTION);
           const decodedSessionSettings = yield* Schema.decodeUnknownEffect(SessionSettingsSchema)(configuredSettings);
@@ -72,7 +71,7 @@ export class SettingsConfig extends Context.Service<SettingsConfig>()(
         Effect.mapError((schemaError) => ISettingsConfigErrors.InvalidSettingsError.make({reason: schemaError.message}))
       );
 
-      const readAlertSettings = Effect.fn("readAlertSettings")(
+      const readAlertSettings = Effect.fn("SettingsConfig.readAlertSettings")(
         function* () {
           const configuredSettings = yield* vsCodeApi.getConfiguration(SETTINGS_SECTION);
           const decodedAlertSettings = yield* Schema.decodeUnknownEffect(AlertSettingsSchema)(configuredSettings);
@@ -83,7 +82,7 @@ export class SettingsConfig extends Context.Service<SettingsConfig>()(
         Effect.mapError((schemaError) => ISettingsConfigErrors.InvalidSettingsError.make({reason: schemaError.message}))
       );
 
-      const readPullRequestSettings = Effect.fn("readPullRequestSettings")(
+      const readPullRequestSettings = Effect.fn("SettingsConfig.readPullRequestSettings")(
         function* () {
           const configuredSettings = yield* vsCodeApi.getConfiguration(SETTINGS_SECTION);
           const decodedPullRequestSettings =
@@ -97,7 +96,7 @@ export class SettingsConfig extends Context.Service<SettingsConfig>()(
         Effect.mapError((schemaError) => ISettingsConfigErrors.InvalidSettingsError.make({reason: schemaError.message}))
       );
 
-      const saveDefaultAgentId = Effect.fn("saveDefaultAgentId")(
+      const saveDefaultAgentId = Effect.fn("SettingsConfig.saveDefaultAgentId")(
         function* (agentId: AgentIdValueObject) {
           const config = yield* vsCodeApi.getConfiguration(SETTINGS_SECTION);
 
@@ -119,5 +118,5 @@ export class SettingsConfig extends Context.Service<SettingsConfig>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(ISettingsConfig, ownSpans("SettingsConfig", this.make()));
+  public static readonly layer = Layer.effect(ISettingsConfig, this.make());
 }

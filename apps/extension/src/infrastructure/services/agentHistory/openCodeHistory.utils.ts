@@ -2,7 +2,6 @@ import {NodeServices} from "@effect/platform-node";
 import {SqliteClient} from "@effect/sql-sqlite-node";
 import {AgentHistoryUtils} from "@infraServices/agentHistory/agentHistory.utils.ts";
 import {OPENCODE_HISTORY} from "@pkg/constants/src/agentHistory.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Array, Config, Context, Effect, Layer, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
@@ -20,13 +19,13 @@ interface OpenCodeSessionRow {
 export class OpenCodeHistoryUtils extends Context.Service<OpenCodeHistoryUtils>()(
   "aggregor-app/infrastructure/services/agentHistory/openCodeHistory.utils/OpenCodeHistoryUtils",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("OpenCodeHistoryUtils.make")(function* () {
       const agentHistoryUtils = yield* AgentHistoryUtils;
       const fileSystem = yield* FileSystem;
       const path = yield* Path;
 
       // OPENCODE_DB names the database in place of opencode.db, as a path or a file name in OpenCode's data folder.
-      const findOpenCodeDatabasePath = Effect.fn("findOpenCodeDatabasePath")(function* () {
+      const findOpenCodeDatabasePath = Effect.fn("OpenCodeHistoryUtils.findOpenCodeDatabasePath")(function* () {
         const dataHomePath = yield* agentHistoryUtils.readFolderFromEnvironment(
           OPENCODE_HISTORY.DATA_HOME_ENV,
           OPENCODE_HISTORY.DEFAULT_DATA_HOME
@@ -43,7 +42,7 @@ export class OpenCodeHistoryUtils extends Context.Service<OpenCodeHistoryUtils>(
         );
       });
 
-      const decodeOpenCodeConversation = Effect.fn("decodeOpenCodeConversation")(function* (
+      const decodeOpenCodeConversation = Effect.fn("OpenCodeHistoryUtils.decodeOpenCodeConversation")(function* (
         openCodeSessionRow: {readonly firstPrompt: string} & OpenCodeSessionRow
       ) {
         const agentConversation: AgentConversation = {
@@ -62,7 +61,7 @@ export class OpenCodeHistoryUtils extends Context.Service<OpenCodeHistoryUtils>(
       });
 
       // A child session is a subagent's.
-      const listOpenCodeConversations = Effect.fn("listOpenCodeConversations")(
+      const listOpenCodeConversations = Effect.fn("OpenCodeHistoryUtils.listOpenCodeConversations")(
         function* (folderPath: string) {
           const databaseFilePath = yield* findOpenCodeDatabasePath();
           yield* Effect.annotateCurrentSpan({databaseFilePath});
@@ -93,7 +92,7 @@ export class OpenCodeHistoryUtils extends Context.Service<OpenCodeHistoryUtils>(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("OpenCodeHistoryUtils", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([AgentHistoryUtils.layer, NodeServices.layer])
   );
 }

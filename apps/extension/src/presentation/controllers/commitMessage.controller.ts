@@ -2,7 +2,6 @@ import {GenerateCommitMessageRequestDtoSchema} from "@dtos/commitMessage.dto.ts"
 import {CommitMessageErrorMessage} from "@errorMessages/commitMessage.errorMessage.ts";
 import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
 import {COMMIT_MESSAGE_COMMANDS} from "@pkg/constants/src/commitMessage.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 import {CommitMessageService} from "@services/commitMessage.service.ts";
 import {Context, Effect, Layer, Schema} from "effect";
@@ -14,15 +13,15 @@ const SourceControlArgumentSchema = Schema.Struct({
 export class CommitMessageController extends Context.Service<CommitMessageController>()(
   "aggregor-app/presentation/controllers/commitMessage.controller/CommitMessageController",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("CommitMessageController.make")(function* () {
       const registerCommandMiddleware = yield* RegisterCommandMiddleware;
       const commitMessageService = yield* CommitMessageService;
       const commitMessageErrorMessage = yield* CommitMessageErrorMessage;
       const vscodeUtils = yield* VscodeUtils;
 
-      const generateCommitMessageForSourceControl = Effect.fn("generateCommitMessageForSourceControl")(function* (
-        sourceControlArgument: unknown
-      ) {
+      const generateCommitMessageForSourceControl = Effect.fn(
+        "CommitMessageController.generateCommitMessageForSourceControl"
+      )(function* (sourceControlArgument: unknown) {
         const vsCodeArgument = yield* vscodeUtils.decodeVsCodeArgument(
           SourceControlArgumentSchema,
           sourceControlArgument
@@ -43,7 +42,7 @@ export class CommitMessageController extends Context.Service<CommitMessageContro
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("CommitMessageController", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([CommitMessageErrorMessage.layer, RegisterCommandMiddleware.layer])
   );
 }

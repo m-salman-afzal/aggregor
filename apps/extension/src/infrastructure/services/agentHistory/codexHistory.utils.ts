@@ -2,7 +2,6 @@ import {NodeServices} from "@effect/platform-node";
 import {SqliteClient} from "@effect/sql-sqlite-node";
 import {AgentHistoryUtils} from "@infraServices/agentHistory/agentHistory.utils.ts";
 import {CODEX_HISTORY} from "@pkg/constants/src/agentHistory.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Config, Context, Effect, Layer} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
@@ -20,12 +19,12 @@ interface CodexThreadRow {
 export class CodexHistoryUtils extends Context.Service<CodexHistoryUtils>()(
   "aggregor-app/infrastructure/services/agentHistory/codexHistory.utils/CodexHistoryUtils",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("CodexHistoryUtils.make")(function* () {
       const agentHistoryUtils = yield* AgentHistoryUtils;
       const fileSystem = yield* FileSystem;
       const path = yield* Path;
 
-      const findCodexDatabasePath = Effect.fn("findCodexDatabasePath")(function* () {
+      const findCodexDatabasePath = Effect.fn("CodexHistoryUtils.findCodexDatabasePath")(function* () {
         const codexHomePath = yield* agentHistoryUtils.readFolderFromEnvironment(
           CODEX_HISTORY.HOME_ENV,
           CODEX_HISTORY.DEFAULT_HOME_FOLDER
@@ -37,7 +36,9 @@ export class CodexHistoryUtils extends Context.Service<CodexHistoryUtils>()(
         return path.join(sqliteHomePath === "" ? codexHomePath : sqliteHomePath, CODEX_HISTORY.DATABASE_FILE_NAME);
       });
 
-      const decodeCodexConversation = Effect.fn("decodeCodexConversation")(function* (codexThreadRow: CodexThreadRow) {
+      const decodeCodexConversation = Effect.fn("CodexHistoryUtils.decodeCodexConversation")(function* (
+        codexThreadRow: CodexThreadRow
+      ) {
         const agentConversation: AgentConversation = {
           agentSessionId: codexThreadRow.id,
           title: yield* agentHistoryUtils.formatTextAsOneLineTitle(
@@ -52,7 +53,7 @@ export class CodexHistoryUtils extends Context.Service<CodexHistoryUtils>()(
       });
 
       // Codex's own list leaves out empty threads, subagents', and those started by exec or an MCP client.
-      const listCodexConversations = Effect.fn("listCodexConversations")(
+      const listCodexConversations = Effect.fn("CodexHistoryUtils.listCodexConversations")(
         function* (folderPath: string) {
           const databaseFilePath = yield* findCodexDatabasePath();
           yield* Effect.annotateCurrentSpan({databaseFilePath});
@@ -76,7 +77,7 @@ export class CodexHistoryUtils extends Context.Service<CodexHistoryUtils>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("CodexHistoryUtils", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([AgentHistoryUtils.layer, NodeServices.layer])
   );
 }

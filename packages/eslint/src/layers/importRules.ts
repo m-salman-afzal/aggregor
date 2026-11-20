@@ -8,7 +8,6 @@ export const IMPORT_BANS = [
   {allowTypeImports: true, message: "Import only vscode's types; yield VsCodeApi for its values.", name: "vscode"}
 ];
 
-const OWN_SPANS_IMPORT = String.raw`@pkg/trace/src/ownSpans\.utils\.ts$`;
 const TAGGED_ERRORS_IMPORT = String.raw`@pkg/errors/src/taggedErrors\.utils\.ts$`;
 
 export const ERRORS_PACKAGE_IMPORTS = {
@@ -24,41 +23,39 @@ const INFRASTRUCTURE_ALIASES = "config|models|di|logger|repositories|infraServic
 
 const DOMAIN_IMPORTS = {
   message:
-    "The domain layer imports only effect, @pkg/trace's ownSpans, @pkg/errors' TaggedErrors, and other domain " +
-    "code, through its aliases.",
-  regex: `^(?!effect(/|$)|${OWN_SPANS_IMPORT}|${TAGGED_ERRORS_IMPORT}|@(${DOMAIN_ALIASES})/)`
+    "The domain layer imports only effect, @pkg/errors' TaggedErrors, and other domain code, through its aliases.",
+  regex: `^(?!effect(/|$)|${TAGGED_ERRORS_IMPORT}|@(${DOMAIN_ALIASES})/)`
 };
 
 const APPLICATION_IMPORTS = {
   message:
-    "The application layer imports only effect, @pkg/constants, @pkg/trace's ownSpans, @pkg/errors' TaggedErrors, " +
-    "and domain or application code, through their aliases.",
-  regex: `^(?!effect(/|$)|@pkg/constants/|${OWN_SPANS_IMPORT}|${TAGGED_ERRORS_IMPORT}|@(${DOMAIN_ALIASES}|${APPLICATION_ALIASES})/)`
+    "The application layer imports only effect, @pkg/constants, @pkg/errors' TaggedErrors, and domain or " +
+    "application code, through their aliases.",
+  regex: `^(?!effect(/|$)|@pkg/constants/|${TAGGED_ERRORS_IMPORT}|@(${DOMAIN_ALIASES}|${APPLICATION_ALIASES})/)`
 };
 
 const PRESENTATION_IMPORTS = {
   message:
-    "A middleware imports only effect, vscode types, @pkg (ownSpans and VscodeUtils among it) and other middlewares: " +
+    "A middleware imports only effect, vscode types, @pkg (VscodeUtils among it) and other middlewares: " +
     "it runs inside the controller that calls it, which hands it everything else.",
   regex: "^(?!effect(/|$)|vscode$|@pkg/|@middlewares/)"
 };
 
 const CONTROLLER_IMPORTS = {
   message:
-    "A controller imports only effect, services, DTOs, middlewares, error messages, @pkg/constants, @pkg/trace's " +
-    "ownSpans, @pkg/errors' TaggedErrors and @pkg/vscode's VscodeUtils, for argument decoding and the commands " +
-    "that only drive VS Code: it registers its commands, decodes each one's input into a request DTO and calls a " +
-    "service.",
+    "A controller imports only effect, services, DTOs, middlewares, error messages, @pkg/constants, @pkg/errors' " +
+    "TaggedErrors and @pkg/vscode's VscodeUtils, for argument decoding and the commands that only drive VS Code: " +
+    "it registers its commands, decodes each one's input into a request DTO and calls a service.",
   regex:
     "^(?!effect(/|$)|@(services|dtos|middlewares|errorMessages)/|@pkg/constants/|" +
-    `${OWN_SPANS_IMPORT}|${TAGGED_ERRORS_IMPORT}|@pkg/vscode/src/vscode\\.utils\\.ts$)`
+    `${TAGGED_ERRORS_IMPORT}|@pkg/vscode/src/vscode\\.utils\\.ts$)`
 };
 
 const ERROR_MESSAGE_IMPORTS = {
   message:
-    "An error message imports only effect, @pkg/constants, @pkg/trace's ownSpans, @pkg/errors' TaggedErrors, and " +
-    "services' types, whose failures it turns into messages.",
-  regex: `^(?!effect(/|$)|@pkg/constants/|${OWN_SPANS_IMPORT}|${TAGGED_ERRORS_IMPORT}|@services/)`
+    "An error message imports only effect, @pkg/constants, @pkg/errors' TaggedErrors, and services' types, whose " +
+    "failures it turns into messages.",
+  regex: `^(?!effect(/|$)|@pkg/constants/|${TAGGED_ERRORS_IMPORT}|@services/)`
 };
 
 const VIEW_IMPORTS = {

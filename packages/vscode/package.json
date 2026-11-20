@@ -8,7 +8,6 @@
   "dependencies": {
     "@pkg/constants": "workspace:*",
     "@pkg/errors": "workspace:*",
-    "@pkg/trace": "workspace:*",
     "@pkg/tsconfigs": "workspace:*",
     "effect": "catalog:"
   },

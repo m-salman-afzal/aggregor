@@ -2,7 +2,6 @@ import {SessionEntity} from "@entities/session/session.entity.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {ProjectTableModel} from "@models/project.model.ts";
 import {SessionTableModel} from "@models/session.model.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {BaseRepository} from "@repositories/base/base.repository.ts";
 import {eq} from "drizzle-orm";
 import {Context, Effect, Layer} from "effect";
@@ -18,7 +17,7 @@ const sessionProjectJoin = {
 export class SessionRepository extends Context.Service<SessionRepository>()(
   "aggregor-app/infrastructure/repositories/session.repository/SessionRepository",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("SessionRepository.make")(function* () {
       const baseRepository = yield* BaseRepository;
 
       return yield* baseRepository.makeFor<SessionEntity, AddSessionRequest>({
@@ -29,7 +28,7 @@ export class SessionRepository extends Context.Service<SessionRepository>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(ISessionRepository, ownSpans("SessionRepository", this.make())).pipe(
+  public static readonly layer = Layer.effect(ISessionRepository, this.make()).pipe(
     Layer.provide(BaseRepository.layer)
   );
 }

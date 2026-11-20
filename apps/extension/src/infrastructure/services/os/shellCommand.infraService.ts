@@ -1,7 +1,6 @@
 import {NodeServices} from "@effect/platform-node";
 import {IShellCommandInfraService} from "@interfaces/shellCommand.infraService.interface.ts";
 import {COMMAND_SEARCH, PLATFORMS} from "@pkg/constants/src/process.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Array, Config, Context, Effect, Layer, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
@@ -15,12 +14,12 @@ interface CommandSearch {
 export class ShellCommandInfraService extends Context.Service<ShellCommandInfraService>()(
   "aggregor-app/infrastructure/services/os/shellCommand.infraService/ShellCommandInfraService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("ShellCommandInfraService.make")(function* () {
       const fileSystem = yield* FileSystem;
       const path = yield* Path;
 
       // Windows runs a bare name through PATHEXT's endings; elsewhere the name is the file.
-      const readCommandSearch = Effect.fn("readCommandSearch")(function* () {
+      const readCommandSearch = Effect.fn("ShellCommandInfraService.readCommandSearch")(function* () {
         const searchPath = yield* Config.withDefault(Config.String(COMMAND_SEARCH.PATH_ENV), "");
         const pathExtensions = yield* Config.withDefault(
           Config.String(COMMAND_SEARCH.PATH_EXTENSIONS_ENV),
@@ -40,7 +39,7 @@ export class ShellCommandInfraService extends Context.Service<ShellCommandInfraS
         return commandSearch;
       }, Effect.orDie);
 
-      const isRunnableFile = Effect.fn("isRunnableFile")(
+      const isRunnableFile = Effect.fn("ShellCommandInfraService.isRunnableFile")(
         function* (filePath: string) {
           const fileInfo = yield* fileSystem.stat(filePath);
 
@@ -54,7 +53,7 @@ export class ShellCommandInfraService extends Context.Service<ShellCommandInfraS
         Effect.orElseSucceed(() => false)
       );
 
-      const isCommandInstalled = Effect.fn("isCommandInstalled")(function* (
+      const isCommandInstalled = Effect.fn("ShellCommandInfraService.isCommandInstalled")(function* (
         command: string,
         commandSearch: CommandSearch
       ) {
@@ -70,7 +69,9 @@ export class ShellCommandInfraService extends Context.Service<ShellCommandInfraS
         return runnableResults.includes(true);
       });
 
-      const listInstalledCommands = Effect.fn("listInstalledCommands")(function* (commands: readonly string[]) {
+      const listInstalledCommands = Effect.fn("ShellCommandInfraService.listInstalledCommands")(function* (
+        commands: readonly string[]
+      ) {
         const commandSearch = yield* readCommandSearch();
         const installedCommands = yield* Effect.filter(Array.dedupe(commands), (command) =>
           isCommandInstalled(command, commandSearch)
@@ -83,8 +84,7 @@ export class ShellCommandInfraService extends Context.Service<ShellCommandInfraS
     })
   }
 ) {
-  public static readonly layer = Layer.effect(
-    IShellCommandInfraService,
-    ownSpans("ShellCommandInfraService", this.make())
-  ).pipe(Layer.provide(NodeServices.layer));
+  public static readonly layer = Layer.effect(IShellCommandInfraService, this.make()).pipe(
+    Layer.provide(NodeServices.layer)
+  );
 }

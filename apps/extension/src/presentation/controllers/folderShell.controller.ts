@@ -2,7 +2,6 @@ import {OpenProjectTerminalRequestDtoSchema, OpenSessionFolderTerminalRequestDto
 import {FolderShellErrorMessage} from "@errorMessages/folderShell.errorMessage.ts";
 import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
 import {TERMINAL_COMMANDS} from "@pkg/constants/src/terminal.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 import {FolderShellService} from "@services/folderShell.service.ts";
 import {Context, Effect, Layer} from "effect";
@@ -10,29 +9,31 @@ import {Context, Effect, Layer} from "effect";
 export class FolderShellController extends Context.Service<FolderShellController>()(
   "aggregor-app/presentation/controllers/folderShell.controller/FolderShellController",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("FolderShellController.make")(function* () {
       const registerCommandMiddleware = yield* RegisterCommandMiddleware;
       const folderShellService = yield* FolderShellService;
       const folderShellErrorMessage = yield* FolderShellErrorMessage;
       const vscodeUtils = yield* VscodeUtils;
 
-      const openChosenProjectTerminal = Effect.fn("openChosenProjectTerminal")(function* (chosenProject: unknown) {
+      const openChosenProjectTerminal = Effect.fn("FolderShellController.openChosenProjectTerminal")(function* (
+        chosenProject: unknown
+      ) {
         const request = yield* vscodeUtils.decodeVsCodeArgument(OpenProjectTerminalRequestDtoSchema, chosenProject);
         yield* folderShellService.openProjectTerminal(request);
       });
 
-      const openChosenSessionFolderTerminal = Effect.fn("openChosenSessionFolderTerminal")(function* (
-        chosenSession: unknown
-      ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(
-          OpenSessionFolderTerminalRequestDtoSchema,
-          chosenSession
-        );
-        yield* folderShellService.openSessionFolderTerminal(request);
-      });
+      const openChosenSessionFolderTerminal = Effect.fn("FolderShellController.openChosenSessionFolderTerminal")(
+        function* (chosenSession: unknown) {
+          const request = yield* vscodeUtils.decodeVsCodeArgument(
+            OpenSessionFolderTerminalRequestDtoSchema,
+            chosenSession
+          );
+          yield* folderShellService.openSessionFolderTerminal(request);
+        }
+      );
 
       const prepareProfileTerminalForFolderShellProfileView = Effect.fn(
-        "prepareProfileTerminalForFolderShellProfileView"
+        "FolderShellController.prepareProfileTerminalForFolderShellProfileView"
       )(function* () {
         return yield* folderShellService.prepareProfileTerminal;
       });
@@ -56,7 +57,7 @@ export class FolderShellController extends Context.Service<FolderShellController
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("FolderShellController", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([FolderShellErrorMessage.layer, RegisterCommandMiddleware.layer])
   );
 }
