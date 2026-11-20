@@ -54,7 +54,9 @@ How a session's status shows on its row.
   one tmux stopped listing once the list has held still for 10 seconds, and, as the window starts with tmux listing no
   agent, turns every `running` mark into `interrupted`. The wait keeps the mark through a shutdown, which ends VS Code
   within it. aggregor-pty writes `exited` however its agent ends, a shutdown's SIGTERM included, so the mark can't come
-  from the status columns.
+  from the status columns. Explainer: [Interrupted Sessions](https://claude.ai/artifact/UebQZoxrmT9BvAcF5H4ShF), made
+  2026-11-20, a 30-second film of the marks through agents starting, a stop while VS Code runs, a restart, the next
+  window's start and a click that resumes one.
 - **Alternatives considered:** the status columns alone, which a clean shutdown sets to exited like any other end;
   aggregor-pty recording that a signal ended its agent, which Stop Agent's hangup also sends; the machine's boot id, a
   platform call per system that still needs to know what ran at the shutdown; restoring each session's last status,
