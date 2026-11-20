@@ -171,6 +171,28 @@ Where a session's agent runs, its tab, and resuming it.
   unbinding the unwanted keys one by one, which misses those a new tmux adds, as 3.8 added the floating panes; keeping
   the right-click menu for its Copy and Paste entries, which sit beside Split, Float and Kill.
 
+## Selecting and scrolling don't look or act like a tmux mode
+
+- **Problem:** with the mouse on, a drag, a double click and the wheel go through tmux's copy mode. On a Mac's trackpad
+  that read as a broken terminal: the selection was tmux's yellow, its position line (`[12/345]`) sat on the pane's
+  first row, a press that slipped a cell copied over the clipboard, and scrolling jumped. Measured on tmux 3.8 with this
+  file: tmux scrolls five lines for each wheel event, and a trackpad sends a stream of them where a mouse wheel sends
+  one per notch; a press whose pointer leaves its cell enters copy mode, copies and leaves it on release; and copy
+  mode's keys were vi's or emacs', whichever `$EDITOR` named, so the same stray key did different things on two
+  machines.
+- **Decision:** copy mode stays, since it is the only way to scroll back and select, and loses what made it show: the
+  selection is drawn in reverse, no position line is drawn, its keys are always tmux's emacs set (a stray key does
+  nothing there, where vi's letters move the cursor and open prompts), a press that ends in the cell it began in copies
+  nothing, and on macOS a wheel event scrolls one line.
+- **Solution:** `mode-style reverse`, `copy-mode-position-format ""` (set with `-q`, as the option is newer than tmux
+  3.2), `mode-keys emacs`, a `MouseDragEnd1Pane` binding that cancels when the selection starts and ends in one cell,
+  and the two wheel bindings inside `if-shell '[ "$(uname)" = Darwin ]'`. Checked on Linux with tmux 3.8, the macOS
+  branch with its condition forced; no Mac was at hand, so its effect on a real trackpad is unmeasured.
+- **Alternatives considered:** VS Code's own selection colour, which tmux cannot read, so a fixed one would be wrong on
+  the other theme; one line per wheel event everywhere, which makes a mouse wheel on Linux five times slower; ignoring
+  any drag of a cell or two, which would stop two characters being selected; telling Mac users to select with
+  Option+drag, which needs VS Code's `terminal.integrated.macOptionClickForcesSelection` and does nothing for scrolling.
+
 ## The tmux code is tmux itself, with a file on top for each kind of thing that runs in it
 
 - **Problem:** `TmuxInfraService` was one file of 411 lines that knew tmux and agents at once: the command lines, the
