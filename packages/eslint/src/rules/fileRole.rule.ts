@@ -1,11 +1,11 @@
 import {
   FILE_ROLES,
   findSourceRoot,
+  formatNameAsCamelCase,
   isAppEntry,
   isCamelCaseName,
   parseFileName,
-  showPath,
-  toCamelCaseName
+  showPath
 } from "@pkg/eslint/src/folderStructure/folderStructure.utils.ts";
 import {basename, dirname, relative, sep} from "node:path";
 
@@ -22,7 +22,10 @@ const findFolderNameReport = (filePath: string, sourceRootPath: string): FileNam
   const badFolderName = folderNames.find((folderName) => !isCamelCaseName(folderName));
   if (badFolderName === undefined) return undefined;
 
-  return {data: {name: badFolderName, suggestion: toCamelCaseName(badFolderName)}, messageId: "folderNotCamelCase"};
+  return {
+    data: {name: badFolderName, suggestion: formatNameAsCamelCase(badFolderName)},
+    messageId: "folderNotCamelCase"
+  };
 };
 
 const findRoleReport = (fileName: string): FileNameReport | undefined => {
@@ -50,7 +53,7 @@ const findNamePartReport = (fileName: string): FileNameReport | undefined => {
   const nameParts = fileName.split(".").slice(0, -1);
   const badNamePart = nameParts.find((namePart) => !isCamelCaseName(namePart));
   if (badNamePart === undefined) return undefined;
-  const suggestion = fileName.replace(badNamePart, toCamelCaseName(badNamePart));
+  const suggestion = fileName.replace(badNamePart, formatNameAsCamelCase(badNamePart));
 
   return {data: {fileName, suggestion}, messageId: "fileNotCamelCase"};
 };

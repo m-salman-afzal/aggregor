@@ -1,7 +1,6 @@
 import type {NewSessionOptionTab} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.type.ts";
 import type {UserInputOption} from "@/modules/sessions/sessions.type.ts";
 
-// The picker opens on the tab holding the chosen option.
 export const findChosenTabLabel = (optionTabs: readonly NewSessionOptionTab[] | undefined, chosenOptionId: string) => {
   const chosenTab = optionTabs?.find((optionTab) =>
     optionTab.options.some((option) => option.optionId === chosenOptionId)

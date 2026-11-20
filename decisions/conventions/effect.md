@@ -17,9 +17,10 @@ How the extension uses Effect.
 
 - **Problem:** a crash inside a command was lost, and failed background work was swallowed silently.
 - **Decision:** every command runs as a root span named by its command ID, and every function is an `Effect.fn`, so each
-  call is a child span. Finished spans and Effect logs go to the Aggregor App output channel, which VS Code also writes
-  to disk. Lint bans `Effect.gen` and `Effect.withSpan`. Tree items, badges and the spinner run untraced. The trace
-  shows what ran and what failed, and a test reads it from disk; per-row callbacks would flood it.
+  call is a child span; inside a unit, every function is an `Effect.fn` const in its `make`. Finished spans and Effect
+  logs go to the Aggregor App output channel, which VS Code also writes to disk. Lint bans `Effect.gen` and
+  `Effect.withSpan`. Tree items, badges and the spinner run untraced. The trace shows what ran and what failed, and a
+  test reads it from disk; per-row callbacks would flood it.
 
 ## `Result`, never `Option`; no `?.` or `??`
 
@@ -29,16 +30,51 @@ How the extension uses Effect.
 
 ## Small functions
 
-- **Decision:** lint caps a function at 30 lines. Helpers sit at module level and take their shared state as parameters;
-  a layer's `make` only creates state, starts watchers and wires the service. Files have no length limit since (ESLint's
-  `max-lines` was 300), so an entity's use cases stay in one service. Each function does one job and shows up as its own
-  span.
+- **Decision:** lint caps a function at 30 lines, except a `make` that holds its unit's functions, which only gathers
+  them; every function inside it stays capped. The functions read their shared state and the unit's dependencies from
+  `make`. Files have no length limit since (ESLint's `max-lines` was 300), so an entity's use cases stay in one service.
+  Each function does one job and shows up as its own span.
+- **Solution:** `aggregor/max-lines-per-function` runs ESLint's own rule and drops its report on a class's `make`, or a
+  `make<Name>` const such as a base class's `makeFor`, that holds an `Effect.fn`.
+- **Alternatives considered:** helpers at module level that take their shared state as parameters, with a layer's `make`
+  only creating state, starting watchers and wiring the service, which passed every helper's needs up to its callers.
 
-## Errors are `Schema.TaggedError`s at the top of the file that raises them
+## A file's errors are one class, at the top of the file that raises them
 
-- **Decision:** an interface's errors live in its `.interface.ts`, and every other error in the file that raises it.
-  Lint bans `.error.ts` files, keeps errors above a file's code and checks the `Error` suffix.
-- **Alternatives considered:** an `errors/` folder per layer, then an `.error.ts` beside its file.
+- **Problem:** every error was its own `Schema.TaggedError` class, four lines each: 82 classes in 35 files, stacked at
+  the top of each file before the unit's own class. The owner wanted one class per unit to hold them.
+- **Decision:** a class per file, built from one object by `TaggedErrors`, from each error's tag to its fields. Each
+  error keeps its own tag and its own type, so a signature still says exactly which errors a function can fail with,
+  `Effect.catchTag` still clears a handled error from the type, and each command's error-message table still fails the
+  typecheck when a tag has no branch. Trace lines are unchanged, since the tags are. An interface's errors live in its
+  `.interface.ts`, and every other error in the file that raises it.
+- **Solution:** `TaggedErrors` in `packages/errors/src/taggedErrors.utils.ts` (`@pkg/errors`) makes a
+  `Schema.TaggedError` class per key and returns them as the statics of a class to extend:
+  `class ITmuxInfraServiceErrors extends TaggedErrors({TmuxSessionNotRunningError: {}, TmuxUnavailableError: {…}}) {}`.
+  The class is named its file's unit or port plus `Errors` (`SessionServiceErrors`, `ITerminalInfraServiceErrors`;
+  `IBaseRepositoryErrors` in `base.repository.interface.ts`, which has no class), sits after the imports and the types
+  that stand alone, above the file's other class, has an empty body, and is exported only when another file uses it. Its
+  keys end in `Error`, in alphabetical order, and a comment about an error sits above its key. An error is made as
+  `ITmuxInfraServiceErrors.TmuxUnavailableError.make({})` and named as `ITmuxInfraServiceErrors["TmuxUnavailableError"]`
+  or `ITmuxInfraServiceErrors["TmuxSessionNotRunningError" | "TmuxUnavailableError"]`. Errors take no
+  `{readonly brand: unique symbol}` argument, since their tags keep them apart; entities keep theirs. Lint fails a
+  `Schema.TaggedError` class in the extension's source, its tests or `@pkg/vscode`; checks that a `TaggedErrors` class
+  is named `…Errors`, has an empty body and keys ending in `Error`, is the only one in its file and comes before the
+  file's other classes; lets every layer and `@pkg/vscode` import `TaggedErrors`; and bans `.error.ts` files. Limits:
+  `TaggedErrors` is a house helper, not an Effect API, with one type assertion inside it; it is the fourth plain
+  top-level function, after `activate`, `deactivate` and `ownSpans`, since it builds classes when a file loads, outside
+  any effect; an error's class name at run time is no longer its tag, though its `_tag` and its `name` are.
+- **Alternatives considered:** each compiled under the repo's typecheck before deciding.
+  - Effect 4's own form, one `Schema.TaggedError` class per unit with a `reason` field holding a `Schema.TaggedUnion` of
+    the cases, handled one at a time with `Effect.catchReason`. It is built in, but a handled reason stays in the error
+    type (the whole class is still in the error channel after `catchReason`), every signature says only "this unit's
+    error", and every message table has to cover every reason of the class.
+  - The error classes as statics of the unit's own class: does not compile (TS2506), because `make` raises the unit's
+    errors inside the class's own base expression.
+  - Static class expressions written by hand inside a holder class: every error is still a whole four-line class, and
+    every type position becomes `InstanceType<typeof Holder.SomeError>`.
+  - One class per error, at the top of its file or in `.error.ts` files: no new helper, but the stack of classes the
+    owner objected to stays. For where errors live, an `errors/` folder per layer, then an `.error.ts` beside its file.
 
 ## Every Effect diagnostic is an error
 

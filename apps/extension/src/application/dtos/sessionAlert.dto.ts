@@ -4,7 +4,6 @@ import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {StatusKindValueObjectSchema} from "@valueObjects/statusKind.valueObject.ts";
 import {Schema} from "effect";
 
-// A turn that ended in idle arrives as done; no icon means the agent left the settings.
 export const SessionAlertDtoSchema = Schema.Struct({
   displayName: Schema.String,
   icon: Schema.optional(AgentIconValueObjectSchema),

@@ -274,12 +274,18 @@ heading there. Update this file in the same commit as a change that adds, remove
 ### Effect
 
 - **What it is:** a TypeScript library for typed errors, services, concurrency and tracing.
-- **What we use:** `effect` 4.1.2: `Effect.fn` for every function, which gives it its span; `Layer` and `Context` for
-  services (`infrastructure/di/app.layer.ts`); `ManagedRuntime` in `extension.ts`; `Schema` for tagged errors, entities,
-  enum value objects and argument decoding; `Result`; `Stream`, `SubscriptionRef`, `PubSub` and `Schedule`; `Config`;
-  `Tracer` and `Logger` for the trace log (`infrastructure/logger/traceLog.layer.ts`); and the unstable `effect/sql`,
-  `effect/process` (`ChildProcess`), `effect/FileSystem`, `effect/Path`, `effect/crypto` (`SecureRandom.uuidV7`) and
-  `effect/reactivity`, each allowed by name in `packages/tsconfigs/tsconfig.base.json`.
+- **What we use:** `effect` 4.1.4: `Effect.fn` for every function, which gives it its span; `Context.Service` classes in
+  the form Effect's docs use, for ports and for units (`make` and a static `layer`); `Layer` for each implementation's
+  and unit's own dependencies, and `Layer.mergeAll` with `Layer.withSpan` for each level
+  (`infrastructure/di/app.layer.ts`, `extension.ts`); `Effect.annotateSpans`, and `Effect.updateService` on
+  `References.TracerSpanAnnotations`, in `@pkg/trace`'s `ownSpans`, which marks a unit's spans with its name and keeps
+  the caller's on an effect, a stream or a callback handed to the unit as an argument; `ManagedRuntime` in
+  `extension.ts`; `Schema` for tagged errors (`Schema.TaggedError`, one per key of a file's errors class, through
+  `@pkg/errors`' `TaggedErrors`), entities, enum value objects and argument decoding; `Result`; `Stream`,
+  `SubscriptionRef`, `PubSub` and `Schedule`; `Config`; `Tracer` and `Logger` for the trace log
+  (`infrastructure/logger/traceLog.layer.ts`); and the unstable `effect/sql`, `effect/process` (`ChildProcess`),
+  `effect/FileSystem`, `effect/Path`, `effect/crypto` (`SecureRandom.uuidV7`) and `effect/reactivity`, each allowed by
+  name in `packages/tsconfigs/tsconfig.base.json`.
 - **Why:** "Effect 4" records no reason for the choice; it is what gives every function its span and every failure a
   typed error.
 - **Alternatives:** Not weighed in `decisions/`.
@@ -288,8 +294,9 @@ heading there. Update this file in the same commit as a change that adds, remove
 ### @effect/platform-node
 
 - **What it is:** Effect's Node.js implementations of its platform services.
-- **What we use:** 4.1.2: `NodeServices.layer`, for `FileSystem`, `Path` and `ChildProcessSpawner`
-  (`infrastructure/di/app.layer.ts`).
+- **What we use:** 4.1.4: `NodeServices.layer`, for `FileSystem`, `Path` and `ChildProcessSpawner`: each infrastructure
+  layer that reads one gives it to itself, and `infrastructure/di/app.layer.ts` gives it to the application services,
+  for `Path`.
 - **Why:** the code asks for Effect's platform services, and this layer provides them in the extension host.
 - **Alternatives:** Not weighed in `decisions/`.
   - Other options: `node:fs` and `node:child_process` directly, or execa.
@@ -461,13 +468,13 @@ the theme and the base components.
 ### ESLint
 
 - **What it is:** a JavaScript and TypeScript linter.
-- **What we use:** 10.14.0, `pnpm lint:check` with `--max-warnings 0`. `@pkg/eslint` (`packages/eslint/src`) holds
+- **What we use:** 10.15.0, `pnpm lint:check` with `--max-warnings 0`. `@pkg/eslint` (`packages/eslint/src`) holds
   `base/` per file type, `layers/` for the DDD layering, `folderStructure/` for `apps/webview`, and `rules/`, the
-  aggregor plugin (`span-name`, `constant-placement`, `type-placement`, `declaring-file`, `stem-folder`, and for the
-  webview `file-role`, `building-block`, `kind-folder`, `module-boundary`, `no-pass-through` and `single-consumer`).
-  Plugins: typescript-eslint, unicorn, perfectionist, import-x, e18e, `@eslint/markdown`, `@eslint/json`,
-  eslint-package-json, eslint-plugin-pnpm (the catalog checks), eslint-plugin-prettier, and eslint-plugin-react-hooks
-  7.1.1 for the webview.
+  aggregor plugin (`span-name`, `max-lines-per-function`, which replaces ESLint's own so a unit's `make` is exempt,
+  `constant-placement`, `type-placement`, `declaring-file`, `stem-folder`, and for the webview `file-role`,
+  `building-block`, `kind-folder`, `module-boundary`, `no-pass-through` and `single-consumer`). Plugins:
+  typescript-eslint, unicorn, perfectionist, import-x, e18e, `@eslint/markdown`, `@eslint/json`, eslint-package-json,
+  eslint-plugin-pnpm (the catalog checks), eslint-plugin-prettier, and eslint-plugin-react-hooks 7.1.1 for the webview.
 - **Why:** "Conventions are enforced by lint, not prose".
 - **Alternatives:** "The ESLint setup lives in `@pkg/eslint`": the base setup at the root, one file per category.
   - Other options for the linter, not weighed in `decisions/`: Biome or oxlint.
@@ -475,7 +482,7 @@ the theme and the base components.
 ### Prettier
 
 - **What it is:** a code formatter.
-- **What we use:** 3.9.10, `.prettierrc`: 120 columns, `proseWrap: always`. `pnpm format:check`, and staged files before
+- **What we use:** 3.10.1, `.prettierrc`: 120 columns, `proseWrap: always`. `pnpm format:check`, and staged files before
   each commit.
 - **Why:** not recorded; "Lint and format on commit" records the setup.
 - **Alternatives:** Not weighed in `decisions/`.

@@ -10,7 +10,6 @@ export const OpenSessionFolderTerminalRequestDtoSchema = Schema.Struct({sessionI
 
 export type OpenSessionFolderTerminalRequestDto = typeof OpenSessionFolderTerminalRequestDtoSchema.Type;
 
-// With no folder shell terminal, VS Code opens its own shell, as it does without Aggregor.
 export const ProfileTerminalDtoSchema = Schema.Struct({
   folderShellTerminal: Schema.optional(
     Schema.Struct({

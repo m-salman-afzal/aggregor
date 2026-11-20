@@ -1,37 +1,43 @@
 import {IProgressInfraService} from "@interfaces/progress.infraService.interface.ts";
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {runWithProgressIndicator, setWhenClauseContextKey} from "@pkg/vscode/src/vscode.utils.ts";
-import {Effect, Layer} from "effect";
+import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
+import {Context, Effect, Layer} from "effect";
 
 interface SourceControlProgress {
   readonly busyContextKey: string;
   readonly progressTitle: string;
 }
 
-const withSourceControlProgress = Effect.fn("ProgressInfraService.withSourceControlProgress")(
-  function* <A, E, R>(sourceControlProgress: SourceControlProgress, effect: Effect.Effect<A, E, R>) {
-    const vsCodeApi = yield* VsCodeApi;
-    yield* setWhenClauseContextKey(sourceControlProgress.busyContextKey, true);
+export class ProgressInfraService extends Context.Service<ProgressInfraService>()(
+  "aggregor-app/infrastructure/services/vscode/progress.infraService/ProgressInfraService",
+  {
+    make: Effect.fn("make")(function* () {
+      const vsCodeApi = yield* VsCodeApi;
+      const vscodeUtils = yield* VscodeUtils;
 
-    return yield* runWithProgressIndicator(
-      {location: vsCodeApi.ProgressLocation.SourceControl, title: sourceControlProgress.progressTitle},
-      effect
-    );
-  },
-  (effect, sourceControlProgress) =>
-    Effect.ensuring(effect, setWhenClauseContextKey(sourceControlProgress.busyContextKey, false))
-);
+      const runWithSourceControlProgress = Effect.fn("runWithSourceControlProgress")(
+        function* <A, E, R>(sourceControlProgress: SourceControlProgress, effect: Effect.Effect<A, E, R>) {
+          yield* vscodeUtils.setWhenClauseContextKey(sourceControlProgress.busyContextKey, true);
 
-const makeProgressInfraService = Effect.fn("ProgressInfraService.make")(function* () {
-  const vsCodeApi = yield* VsCodeApi;
+          return yield* vscodeUtils.runWithProgressIndicator(
+            {location: vsCodeApi.ProgressLocation.SourceControl, title: sourceControlProgress.progressTitle},
+            effect
+          );
+        },
+        (effect, sourceControlProgress) =>
+          Effect.ensuring(effect, vscodeUtils.setWhenClauseContextKey(sourceControlProgress.busyContextKey, false))
+      );
 
-  return {
-    withSourceControlProgress: <A, E, R>(
-      progressTitle: string,
-      busyContextKey: string,
-      effect: Effect.Effect<A, E, R>
-    ) => Effect.provideService(withSourceControlProgress({busyContextKey, progressTitle}, effect), VsCodeApi, vsCodeApi)
-  };
-});
-
-export const ProgressInfraService = Layer.effect(IProgressInfraService, makeProgressInfraService());
+      return {
+        runWithSourceControlProgress: <A, E, R>(
+          progressTitle: string,
+          busyContextKey: string,
+          effect: Effect.Effect<A, E, R>
+        ) => runWithSourceControlProgress({busyContextKey, progressTitle}, effect)
+      };
+    })
+  }
+) {
+  public static readonly layer = Layer.effect(IProgressInfraService, ownSpans("ProgressInfraService", this.make()));
+}

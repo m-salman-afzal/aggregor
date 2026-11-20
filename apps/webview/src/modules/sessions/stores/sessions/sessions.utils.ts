@@ -13,31 +13,26 @@ const replaceProjectRow = (projectRows: readonly ProjectRowData[], changedProjec
     projectRow.projectListItem.path === changedProjectRow.projectListItem.path ? changedProjectRow : projectRow
   );
 
-// Leftovers listed for a dialog already closed, or for another project, are dropped.
 const fillLeftovers = (userInput: undefined | UserInput, leftovers: ProjectLeftoversDto) =>
   userInput?._tag === USER_INPUT_TAGS.CLEAN_UP && userInput.projectPath === leftovers.projectPath
     ? {...userInput, leftovers}
     : userInput;
 
-// Conversations listed for a dialog already closed, or for another project, are dropped.
 const fillImportableSessions = (userInput: undefined | UserInput, importableSessions: ImportableSessionsDto) =>
   userInput?._tag === USER_INPUT_TAGS.IMPORT_SESSIONS && userInput.projectPath === importableSessions.projectPath
     ? {...userInput, importableSessions}
     : userInput;
 
-// Pull requests listed for a dialog already closed, or for another session, are dropped.
 const fillPullRequests = (userInput: undefined | UserInput, pullRequests: SessionPullRequestsDto) =>
   userInput?._tag === USER_INPUT_TAGS.PULL_REQUEST && userInput.linkedSession.sessionId === pullRequests.sessionId
     ? {...userInput, pullRequests}
     : userInput;
 
-// The dialog keeps the last project's branches, and offers them only while that project is chosen.
 const fillBranches = (userInput: undefined | UserInput, branches: ProjectBranchesDto) =>
   userInput?._tag === USER_INPUT_TAGS.NEW_SESSION || userInput?._tag === USER_INPUT_TAGS.WORKING_TREE
     ? {...userInput, branches}
     : userInput;
 
-// Only the session's project gets a new object, so the other projects don't draw again.
 const replaceSessionRow = (projectRows: readonly ProjectRowData[], changedSessionRow: SessionRowData) =>
   projectRows.map((projectRow) =>
     projectRow.sessionRows.some(
@@ -133,13 +128,12 @@ const reduceHostMessage = <Tag extends keyof HostMessagesByTag>(
 export const applyHostMessage = (sessionsData: SessionsData, hostMessage: SessionsViewMessage) =>
   reduceHostMessage(sessionsData, hostMessage._tag, hostMessage);
 
-export const foldKey = <Key extends string>(foldedKeys: ReadonlySet<Key>, key: Key, isOpen: boolean) => {
+export const addOrRemoveFoldedKey = <Key extends string>(foldedKeys: ReadonlySet<Key>, key: Key, isOpen: boolean) => {
   const otherFoldedKeys = [...foldedKeys].filter((foldedKey) => foldedKey !== key);
 
   return new Set(isOpen ? otherFoldedKeys : [...otherFoldedKeys, key]);
 };
 
-// A dropdown shows only while its session's agent runs, so only those dropdowns are read.
 export const listWatchedSessionIds = (sessionsData: SessionsData) =>
   [...sessionsData.projectRows, ...sessionsData.archiveProjectRows]
     .flatMap((projectRow) => projectRow.sessionRows)
@@ -151,5 +145,4 @@ export const listWatchedSessionIds = (sessionsData: SessionsData) =>
     .map((sessionRow) => sessionRow.sessionListItem.sessionId)
     .toSorted();
 
-// A project shows in both lists, and folds in each on its own.
 export const makeProjectKey = (listId: SessionListId, projectPath: string) => `${listId}:${projectPath}`;

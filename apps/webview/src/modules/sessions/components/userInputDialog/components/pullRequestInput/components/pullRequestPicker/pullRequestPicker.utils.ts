@@ -6,7 +6,7 @@ import type {UserInputOption} from "@/modules/sessions/sessions.type.ts";
 import type {ListedPullRequestDto} from "@dtos/pullRequest.dto.ts";
 import type {SessionListItemDto} from "@dtos/session.dto.ts";
 
-export const toPullRequestOptions = (
+export const makePullRequestOptions = (
   pullRequests: readonly ListedPullRequestDto[],
   linkedSession: SessionListItemDto
 ): readonly UserInputOption[] =>
@@ -17,7 +17,6 @@ export const toPullRequestOptions = (
     optionId: `${pullRequest.number}`
   }));
 
-// The dialog opens on the session's pull request when gh listed it, else on the newest.
 export const findDefaultPullRequestId = (
   pullRequests: readonly ListedPullRequestDto[],
   linkedSession: SessionListItemDto

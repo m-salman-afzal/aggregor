@@ -1,19 +1,45 @@
 import {ImportSessionsRequestDtoSchema, ListImportableSessionsRequestDtoSchema} from "@dtos/sessionImport.dto.ts";
-import {decodeVsCodeArgument} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
-import {importSessions, listImportableSessions} from "@services/sessionImport.service.ts";
-import {Effect} from "effect";
+import {SessionImportErrorMessage} from "@errorMessages/sessionImport.errorMessage.ts";
+import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
+import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
+import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
+import {SessionImportService} from "@services/sessionImport.service.ts";
+import {Context, Effect, Layer} from "effect";
 
-export const importChosenSessions = Effect.fn("SessionImportController.importChosenSessions")(function* (
-  chosenSessions: unknown
+export class SessionImportController extends Context.Service<SessionImportController>()(
+  "aggregor-app/presentation/controllers/sessionImport.controller/SessionImportController",
+  {
+    make: Effect.fn("make")(function* () {
+      const registerCommandMiddleware = yield* RegisterCommandMiddleware;
+      const sessionImportService = yield* SessionImportService;
+      const sessionImportErrorMessage = yield* SessionImportErrorMessage;
+      const vscodeUtils = yield* VscodeUtils;
+
+      const importChosenSessions = Effect.fn("importChosenSessions")(function* (chosenSessions: unknown) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(ImportSessionsRequestDtoSchema, chosenSessions);
+        yield* sessionImportService.importSessions(request);
+      });
+
+      const listImportableSessionsForSessionsView = Effect.fn("listImportableSessionsForSessionsView")(function* (
+        projectPath: string
+      ) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(ListImportableSessionsRequestDtoSchema, {projectPath});
+
+        return yield* sessionImportService.listImportableSessions(request);
+      });
+
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.IMPORT,
+        importChosenSessions,
+        sessionImportErrorMessage.getSessionImportCommandErrorMessage
+      );
+
+      return {importChosenSessions, listImportableSessionsForSessionsView};
+    })
+  }
 ) {
-  const request = yield* decodeVsCodeArgument(ImportSessionsRequestDtoSchema, chosenSessions);
-  yield* importSessions(request);
-});
-
-export const listImportableSessionsForSessionsView = Effect.fn(
-  "SessionImportController.listImportableSessionsForSessionsView"
-)(function* (projectPath: string) {
-  const request = yield* decodeVsCodeArgument(ListImportableSessionsRequestDtoSchema, {projectPath});
-
-  return yield* listImportableSessions(request);
-});
+  public static readonly layer = Layer.effect(this, ownSpans("SessionImportController", this.make())).pipe(
+    Layer.provide([SessionImportErrorMessage.layer, RegisterCommandMiddleware.layer])
+  );
+}

@@ -1,14 +1,42 @@
-import {installRequiredTools, watchMissingTools} from "@services/requiredTools.service.ts";
-import {Effect} from "effect";
+import {RequiredToolsErrorMessage} from "@errorMessages/requiredTools.errorMessage.ts";
+import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
+import {REQUIRED_TOOLS_COMMANDS} from "@pkg/constants/src/requiredTools.constant.ts";
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
+import {RequiredToolsService} from "@services/requiredTools.service.ts";
+import {Context, Effect, Layer} from "effect";
 
-export const installRequiredToolsFromNotice = Effect.fn("RequiredToolsController.installRequiredToolsFromNotice")(
-  function* () {
-    yield* installRequiredTools();
+export class RequiredToolsController extends Context.Service<RequiredToolsController>()(
+  "aggregor-app/presentation/controllers/requiredTools.controller/RequiredToolsController",
+  {
+    make: Effect.fn("make")(function* () {
+      const registerCommandMiddleware = yield* RegisterCommandMiddleware;
+      const requiredToolsService = yield* RequiredToolsService;
+      const requiredToolsErrorMessage = yield* RequiredToolsErrorMessage;
+
+      const installRequiredToolsFromNotice = Effect.fn("installRequiredToolsFromNotice")(function* () {
+        yield* requiredToolsService.installRequiredTools;
+      });
+
+      const watchMissingToolsForRequiredToolsNoticesView = Effect.fn("watchMissingToolsForRequiredToolsNoticesView")(
+        function* () {
+          return yield* requiredToolsService.watchMissingTools;
+        }
+      );
+
+      yield* registerCommandMiddleware.registerCommand(
+        REQUIRED_TOOLS_COMMANDS.INSTALL,
+        installRequiredToolsFromNotice,
+        requiredToolsErrorMessage.getRequiredToolsCommandErrorMessage
+      );
+
+      return {
+        installRequiredToolsFromNotice: installRequiredToolsFromNotice(),
+        watchMissingToolsForRequiredToolsNoticesView: watchMissingToolsForRequiredToolsNoticesView()
+      };
+    })
   }
-);
-
-export const watchMissingToolsForRequiredToolsNoticesView = Effect.fn(
-  "RequiredToolsController.watchMissingToolsForRequiredToolsNoticesView"
-)(function* () {
-  return yield* watchMissingTools();
-});
+) {
+  public static readonly layer = Layer.effect(this, ownSpans("RequiredToolsController", this.make())).pipe(
+    Layer.provide([RequiredToolsErrorMessage.layer, RegisterCommandMiddleware.layer])
+  );
+}

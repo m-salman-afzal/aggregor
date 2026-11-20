@@ -1,4 +1,3 @@
-// The built-in agents whose history records the folder each conversation ran in, by their key in aggregorApp.agents.
 export const AGENT_HISTORY_AGENT_IDS = {
   CLAUDE: "claude",
   CODEX: "codex",
@@ -59,7 +58,6 @@ export const COPILOT_HISTORY = {
   WORKSPACE_QUOTES: /^["']|["']$/gu
 } as const;
 
-// A first prompt shown as a title keeps to one line.
 export const AGENT_HISTORY_TITLE = {
   LINE_BREAKS: /\s+/gu,
   MAX_LENGTH: 80
@@ -68,8 +66,12 @@ export const AGENT_HISTORY_TITLE = {
 export const SESSION_IMPORT_LABELS = {
   CHECKING: "Looking through each agent's history…",
   IMPORT: "Import",
+  MAIN_FOLDER_SECTION: (agentName: string) => `${agentName} · main folder`,
   MENU: "Import Sessions…",
-  NONE: "No agent has a conversation in this folder that isn't a session already.",
+  NO_MATCH: "No conversation matches your search.",
+  NONE: "No agent has a conversation in this project or its worktrees that isn't a session already.",
+  SEARCH_PLACEHOLDER: "Search by title, worktree or branch",
   SELECT_ALL: "Select all",
-  TITLE: (projectName: string) => `Import sessions into ${projectName}`
+  TITLE: (projectName: string) => `Import sessions into ${projectName}`,
+  WORKTREES_SECTION: (agentName: string) => `${agentName} · worktrees`
 } as const;

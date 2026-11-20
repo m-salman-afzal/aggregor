@@ -7,7 +7,6 @@ export const REQUIRED_TOOLS = {
   TMUX: "tmux"
 } as const;
 
-// The first package manager on PATH installs every missing tool in one command; sudo asks in the terminal.
 export const TOOL_INSTALL_COMMANDS = [
   {installCommandLine: "brew install", packageManager: "brew", packageNames: {gh: "gh", tmux: "tmux"}},
   {installCommandLine: "sudo apt-get install -y", packageManager: "apt-get", packageNames: {gh: "gh", tmux: "tmux"}},
@@ -26,7 +25,6 @@ export const TOOL_INSTALL_PAGES = {
   tmux: "https://github.com/tmux/tmux/wiki/Installing"
 } as const;
 
-// One terminal for everything Aggregor runs for the user; its output stays until Enter, and its close checks again.
 export const SETUP_TERMINAL = {
   CLOSE_PROMPT: "; printf '\\nPress Enter to close.'; read -r _",
   NAME: "Aggregor Setup",

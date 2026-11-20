@@ -130,7 +130,6 @@ fn copy_input(writer: SharedWriter) {
     });
 }
 
-/// Resizes follow our terminal; a hangup or termination is passed on to the agent, and we exit when it does.
 fn forward_signals(
     master: Box<dyn MasterPty + Send>,
     mut killer: Box<dyn ChildKiller + Send + Sync>,

@@ -8,11 +8,8 @@ const MAX_BODY_LENGTH: usize = 4096 - 4;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Event {
-    /// What follows `OSC 7501 ;`.
     ProgramStatus(Vec<u8>),
-    /// What follows `OSC 0 ;` or `OSC 2 ;`.
     Title(Vec<u8>),
-    /// RIS (`ESC c`), which removes every record.
     FullReset,
 }
 
@@ -25,7 +22,6 @@ enum Mode {
     OscEscape,
 }
 
-/// Finds the sequences it cares about in a byte stream, across read boundaries.
 #[derive(Default)]
 pub struct Scanner {
     mode: Mode,
@@ -71,7 +67,6 @@ impl Scanner {
                 if byte == b'\\' {
                     self.finish(on_event);
                 } else {
-                    // An ESC that doesn't make ST abandons the OSC and starts a new sequence.
                     self.mode = Mode::Escape;
                     self.step(byte, on_event);
                 }

@@ -39,7 +39,6 @@ export const findDefaultWorkingTree = (projectRow: ProjectRowData | undefined) =
     ? WORKING_TREE_CHOICE_TAGS.NEW_WORKTREE
     : WORKING_TREE_CHOICE_TAGS.PROJECT_ROOT;
 
-// Only a new worktree goes in the worktrees folder; an existing one stays where it was made.
 export const findNewWorktreesRootPath = (projectRows: readonly ProjectRowData[], choices: NewSessionChoices) =>
   choices.workingTree === WORKING_TREE_CHOICE_TAGS.NEW_WORKTREE
     ? findProjectRow(projectRows, choices.projectPath)?.worktreesRootPath
@@ -63,7 +62,6 @@ export const makeNewSessionRequest = (newSessionChoices: NewSessionRequestChoice
   return newSessionRequest;
 };
 
-// The branches are read when New worktree is picked, and again when the project changes under it.
 export const askForBranchesWhenNeeded = (
   previousChoices: NewSessionChoices | undefined,
   nextChoices: NewSessionChoices
@@ -88,14 +86,14 @@ export const chooseNewSessionParts = (
   setChoices(nextChoices);
 };
 
-const toProjectOptions = (projectRows: readonly ProjectRowData[]): readonly UserInputOption[] =>
+const makeProjectOptions = (projectRows: readonly ProjectRowData[]): readonly UserInputOption[] =>
   projectRows.map((projectRow) => ({
     description: projectRow.projectListItem.path,
     label: projectRow.projectListItem.name,
     optionId: projectRow.projectListItem.path
   }));
 
-const toAgentOptions = (agentRows: readonly AgentRowData[]): readonly UserInputOption[] =>
+const makeAgentOptions = (agentRows: readonly AgentRowData[]): readonly UserInputOption[] =>
   agentRows.map((agentRow) => ({
     description: agentRow.agentListItem.command,
     iconUri: agentRow.iconUri,
@@ -114,7 +112,6 @@ const markCurrentWorkingTree = (workingTreeOption: UserInputOption, currentWorki
     ? {...workingTreeOption, badge: SESSION_LABELS.CURRENT}
     : workingTreeOption;
 
-// A worktree another session works in, in either list, isn't offered again; a moved session's own is.
 const findFreeWorktrees = (
   projectRow: ProjectRowData | undefined,
   allProjectRows: readonly ProjectRowData[],
@@ -131,7 +128,7 @@ const findFreeWorktrees = (
   return (projectRow?.worktrees ?? []).filter((worktree) => !usedWorktreePaths.has(worktree.worktreePath));
 };
 
-const toWorkingTreeOptions = (
+const makeWorkingTreeOptions = (
   projectRow: ProjectRowData | undefined,
   allProjectRows: readonly ProjectRowData[],
   movedSession: SessionListItemDto | undefined
@@ -159,7 +156,6 @@ const toWorkingTreeOptions = (
   return workingTreeOptions.map((workingTreeOption) => markCurrentWorkingTree(workingTreeOption, currentWorkingTree));
 };
 
-// A moved session's dialog opens on the working tree it has now.
 export const findMovedSessionChoices = (movedSession: SessionListItemDto): NewSessionChoices => ({
   agentId: "",
   baseBranchName: CURRENT_COMMIT_OPTION_ID,
@@ -191,13 +187,12 @@ export const findDefaultChoices = (
   };
 };
 
-// A star saves the default on the host and picks that agent here, before the host sends the agents again.
 const setDefaultAgent = (optionSources: NewSessionOptionSources, agentId: string) => {
   runCommandOnHost(AGENT_COMMANDS.SET_DEFAULT, {agentId});
   optionSources.choose({agentId});
 };
 
-const toProjectGroup = (optionSources: NewSessionOptionSources): NewSessionOptionGroup => ({
+const makeProjectOptionGroup = (optionSources: NewSessionOptionSources): NewSessionOptionGroup => ({
   chosenOptionId: optionSources.choices.projectPath,
   isDropdown: true,
   legend: SESSION_LABELS.PROJECT_SECTION,
@@ -209,10 +204,10 @@ const toProjectGroup = (optionSources: NewSessionOptionSources): NewSessionOptio
       workingTree: findDefaultWorkingTree(findProjectRow(optionSources.projectRows, projectPath))
     });
   },
-  options: toProjectOptions(optionSources.projectRows)
+  options: makeProjectOptions(optionSources.projectRows)
 });
 
-const toAgentGroup = (optionSources: NewSessionOptionSources): NewSessionOptionGroup => ({
+const makeAgentOptionGroup = (optionSources: NewSessionOptionSources): NewSessionOptionGroup => ({
   chosenOptionId: optionSources.choices.agentId,
   isDropdown: true,
   legend: SESSION_LABELS.AGENT_SECTION,
@@ -223,10 +218,10 @@ const toAgentGroup = (optionSources: NewSessionOptionSources): NewSessionOptionG
   onSecondaryAction: (agentId) => {
     setDefaultAgent(optionSources, agentId);
   },
-  options: toAgentOptions(optionSources.agentRows)
+  options: makeAgentOptions(optionSources.agentRows)
 });
 
-const toWorkingTreeGroup = (
+const makeWorkingTreeOptionGroup = (
   optionSources: NewSessionOptionSources,
   projectRow: ProjectRowData | undefined
 ): NewSessionOptionGroup => ({
@@ -237,14 +232,13 @@ const toWorkingTreeGroup = (
   onChoose: (workingTree) => {
     optionSources.choose({workingTree});
   },
-  options: toWorkingTreeOptions(projectRow, optionSources.allProjectRows, optionSources.movedSession)
+  options: makeWorkingTreeOptions(projectRow, optionSources.allProjectRows, optionSources.movedSession)
 });
 
-const toBranchOptions = (branchNames: readonly string[] | undefined): readonly UserInputOption[] =>
+const makeBranchOptions = (branchNames: readonly string[] | undefined): readonly UserInputOption[] =>
   (branchNames ?? []).map((branchName) => ({label: branchName, optionId: branchName}));
 
-// Branches read for another project aren't offered; until this project's arrive, only the current commit is.
-const toBaseBranchTabs = (
+const makeBaseBranchOptionTabs = (
   branches: ProjectBranchesDto | undefined,
   projectPath: string
 ): readonly NewSessionOptionTab[] => {
@@ -259,18 +253,18 @@ const toBaseBranchTabs = (
     {
       isLoading: false,
       label: SESSION_LABELS.LOCAL_BRANCHES_TAB,
-      options: [currentCommitOption, ...toBranchOptions(projectBranches?.localBranchNames)]
+      options: [currentCommitOption, ...makeBranchOptions(projectBranches?.localBranchNames)]
     },
     {
       isLoading: projectBranches === undefined || projectBranches.isFetchingRemote,
       label: SESSION_LABELS.REMOTE_BRANCHES_TAB,
-      options: toBranchOptions(projectBranches?.remoteBranchNames)
+      options: makeBranchOptions(projectBranches?.remoteBranchNames)
     }
   ];
 };
 
-const toBaseBranchGroup = (optionSources: NewSessionOptionSources): NewSessionOptionGroup => {
-  const baseBranchTabs = toBaseBranchTabs(optionSources.branches, optionSources.choices.projectPath);
+const makeBaseBranchOptionGroup = (optionSources: NewSessionOptionSources): NewSessionOptionGroup => {
+  const baseBranchTabs = makeBaseBranchOptionTabs(optionSources.branches, optionSources.choices.projectPath);
 
   return {
     chosenOptionId: optionSources.choices.baseBranchName,
@@ -289,12 +283,12 @@ export const makeOptionGroups = (optionSources: NewSessionOptionSources): readon
   const projectRow = findProjectRow(optionSources.projectRows, optionSources.choices.projectPath);
   const isGitProject = projectRow?.worktrees !== undefined;
   const optionGroups: readonly (false | NewSessionOptionGroup)[] = [
-    optionSources.isProjectShown && toProjectGroup(optionSources),
-    optionSources.isAgentShown && toAgentGroup(optionSources),
-    isGitProject && toWorkingTreeGroup(optionSources, projectRow),
+    optionSources.isProjectShown && makeProjectOptionGroup(optionSources),
+    optionSources.isAgentShown && makeAgentOptionGroup(optionSources),
+    isGitProject && makeWorkingTreeOptionGroup(optionSources, projectRow),
     isGitProject &&
       optionSources.choices.workingTree === WORKING_TREE_CHOICE_TAGS.NEW_WORKTREE &&
-      toBaseBranchGroup(optionSources)
+      makeBaseBranchOptionGroup(optionSources)
   ];
 
   return optionGroups.filter((optionGroup): optionGroup is NewSessionOptionGroup => optionGroup !== false);

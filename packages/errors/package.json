@@ -1,0 +1,12 @@
+{
+  "name": "@pkg/errors",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./*"
+  },
+  "dependencies": {
+    "@pkg/tsconfigs": "workspace:*",
+    "effect": "catalog:"
+  }
+}

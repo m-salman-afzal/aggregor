@@ -13,11 +13,27 @@ What things are called, and when a comment is worth it.
   options go here instead. The naming rules make code readable on its own, so comments stay a rarity, and one line
   leaves no room to narrate.
 - **Solution:** `aggregor/one-line-comment` (`packages/eslint/src/rules/`), on every TypeScript file, reports a block
-  comment that spans lines and line comments on consecutive lines. A directive a tool reads (`eslint-disable`, `@ts-`, a
-  triple-slash reference) is not counted, so a one-line reason may sit above one. It can't judge whether a line is
-  obvious; that stays with review. CSS and Rust are not linted.
+  comment that spans lines, line comments on consecutive lines, and any comment inside an `…Errors` class, whose keys
+  name the errors. A directive a tool reads (`eslint-disable`, `@ts-`, a triple-slash reference) is not counted, so a
+  one-line reason may sit above one. It can't judge whether a line is obvious; that stays with review. CSS and Rust are
+  not linted.
 - **Alternatives considered:** prose only, which drifted; a cap on comments per file, which punishes the files with real
   platform quirks.
+
+## A function's name starts with a verb
+
+- **Problem:** functions were named for what comes out (`toSessionRow`, `toNamePart`), for how they wrap
+  (`withSourceControlProgress`) or with an adjective (`newSession`), so a reader had to open one to learn what calling
+  it does. The rule in prose alone was broken again and again.
+- **Decision:** a function's name starts with a verb that says what it does, and one job has one verb everywhere:
+  `make…` assembles a DTO, row, option list or key from its inputs, `decode…` turns stored or outside input into a
+  domain or port type, `parse…` splits a line of text, `format…As…` produces text, `run…` wraps an effect, `create…`
+  makes a new thing, `find…` looks one up. A value is named for what it is (`settingTextWithProjectFolder`).
+- **Solution:** lint (`VERB_FIRST_NAME_BANS` in `packages/eslint/src/layers/syntaxBans.ts`, on every TypeScript file)
+  fails a variable, parameter, function or member whose name starts with `to`, `as`, `from`, `with`, `of` or `into`, and
+  a function whose name starts with `new`. React's `on…` callback props and a library's own option keys pass.
+- **Alternatives considered:** a list of allowed verbs, which would fail every verb not yet on it; prose only, which did
+  not hold.
 
 ## "Project", not "repo"
 
@@ -29,11 +45,12 @@ What things are called, and when a comment is worth it.
 - **Problem:** `IPromptInfraService` read like an LLM prompt, and `clickedProject` named the gesture, not the thing.
 - **Decision:** `IUserInputPromptInfraService` (`userInputPrompt.infraService.ts`), and the webview's `UserInput` and
   `userInputDialog/`; "prompt" is kept for LLM prompts. `chosenProject` and `chosenSession` for what a command acts on,
-  chosen from its row or the picker: `newSessionInChosenProject` (also the command ID), `openChosenSession`,
-  `renameChosenSession`, `removeChosenSession` and `removeChosenProject`, with the raw argument named `projectRow` or
-  `sessionRow`. `prepareColumns` became `replaceUndefinedWithNull`, and `writeRowLast` `writeRowAtEnd`. Lint's
-  abbreviation rule suggests "chosen" for "clicked", and `AGENTS.md`'s naming rule says it. A name a person reads
-  without the code open should say what the thing is.
+  chosen from its row or the picker: `createSessionInChosenProject` (its command ID stays
+  `aggregorApp.newSessionInChosenProject`), `openChosenSession`, `renameChosenSession`, `removeChosenSession` and
+  `removeChosenProject`, with the raw argument named `projectRow` or `sessionRow`. `prepareColumns` became
+  `replaceUndefinedWithNull`, and `writeRowLast` `writeRowAtEnd`. Lint's abbreviation rule suggests "chosen" for
+  "clicked", and `AGENTS.md`'s naming rule says it. A name a person reads without the code open should say what the
+  thing is.
 - **Alternatives considered:** `activeProject` or `openedProject`: "active" and "opened" already describe the project
   shown in the window, and a session you remove or rename may be closed or idle. `selectedProject`: VS Code's tree
   selection, which an inline button doesn't change.

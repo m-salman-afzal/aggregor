@@ -28,6 +28,8 @@
     "@effect/platform-node": "catalog:",
     "@effect/sql-sqlite-node": "catalog:",
     "@pkg/constants": "workspace:*",
+    "@pkg/errors": "workspace:*",
+    "@pkg/trace": "workspace:*",
     "@pkg/typings": "workspace:*",
     "@pkg/vscode": "workspace:*",
     "drizzle-orm": "catalog:",

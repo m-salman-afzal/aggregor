@@ -26,7 +26,6 @@ import {
 
 import type {ExtensionContext, WorkspaceConfiguration} from "vscode";
 
-// The only runtime import of `vscode`. Everything else yields VsCodeApi and imports vscode types only.
 export class VsCodeApi extends Context.Service<
   VsCodeApi,
   {

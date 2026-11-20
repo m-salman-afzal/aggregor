@@ -38,20 +38,34 @@ fill the gaps with guesses.
 ## 3. Read it
 
 - **A span line** is `<time> [<level>] <root> > <child> > … <duration>ms <outcome> <attribute>=<value> …`. The root is a
-  command ID (`aggregorApp.*`, listed in `apps/extension/package.json`) or, for background work such as a watcher, a
-  layer's `<Owner>.make`. A span ends after its children, so a call's lines print innermost first.
+  command ID (`aggregorApp.*`, listed in `apps/extension/package.json`) or, for startup and background work such as a
+  watcher, the level its layer was built in (`Domain`, `Infrastructure`, `Application`, `Presentation`), followed by the
+  unit's `<Owner>.make`: `Infrastructure > Database.make`, and the jobs `BackgroundJobs` starts under
+  `Application > BackgroundJobs.make > SessionService.startSessionTitleSync`. A span ends after its children, so a
+  call's lines print innermost first.
 - **An outcome** is `ok`, or `failed: <ErrorTag> <field>=<value> …`, `failed: defect <Error>: <message>` or
   `failed: interrupted`. The deepest span that failed is where the failure started; the first ancestor that ends `ok`
   handled it. Handled failures are routine (a cancelled pick, a session removed meanwhile); the lead is a failure
-  nothing expected, or a handled one followed by the wrong result.
+  nothing expected, or a handled one followed by the wrong result. A failed command's message shows as
+  `aggregorApp.generateCommitMessage > RegisterCommandMiddleware.showCommandError > CommitMessageErrorMessage.getCommitMessageCommandErrorMessage`.
 - **Attributes** after the outcome are what the code annotated the span with, such as `projectPath` and
   `workspaceFolderPaths` on `WorkspaceInfraService.showOnlyProjectFolder`.
-- **`[warning]` and `[error]` lines** carry the message, then the cause with a stack whose frames are span names:
-  `at WorkspaceInfraService.updateWorkspaceFolders (file:///…/dist/extension.js:15984:16)`.
-- **From a span to its code:** `<Owner>.<const>` is the const in the file named for the owner:
-  `WorkspaceInfraService.showOnlyProjectFolder` is `showOnlyProjectFolder` in
-  `apps/extension/src/infrastructure/services/vscode/workspace.infraService.ts`, and `<Owner>.make` is its layer's
-  `make<Owner>`. `grep -rn '"<span name>"' apps/extension/src` finds it.
+- **`[warning]` and `[error]` lines** carry the message, then the cause with a stack whose frames are span names as the
+  code writes them, the bare name of a const inside a `make`
+  (`at updateWorkspaceFolders (file:///…/dist/extension.js:15984:16)`). The frame for a call into a unit points at
+  `ownSpans.utils.ts`, not at the calling line.
+- **From a span to its code:** `<Owner>.<name>` is the const `<name>` inside the `make` of the class named `<Owner>`, in
+  the file named for it: `WorkspaceInfraService.showOnlyProjectFolder` is `showOnlyProjectFolder` in
+  `apps/extension/src/infrastructure/services/vscode/workspace.infraService.ts`, `RepositoryUtils.encodeStoredColumns`
+  is in `repository.utils.ts`, and `<Owner>.make` is the class's `make`. The code names the span `"<name>"` alone and
+  the trace log puts the unit in front, so search the owner's file for `"<name>"`. An effect, a stream or a callback
+  handed to a unit keeps its caller's name, so a line names the file that holds the code:
+  `aggregorApp.renameSession > SessionController.renameChosenSession > SessionService.renameSession > BaseService.updateEntity > BaseRepository.updateRow > RepositoryUtils.encodeStoredColumns`
+  reads straight down the files, although `RegisterCommandMiddleware` runs the handler, and
+  `CommitMessageService.writeCommitMessage` is in `commitMessage.service.ts` although `VscodeUtils` runs it. The one
+  exception is a library's span with an undotted name, which takes the unit it ran in: `BaseRepository.sqlite` is a
+  query Effect's SQL client ran for `base.repository.ts`. When the owner's file has no such const, search the whole
+  source: `grep -rn '"<name>"' apps/extension/src packages/vscode/src`.
 - **The timeline:** take the lines from a little before the user's report to the end, and find the first failure. A
   failure that repeats is usually the effect of an earlier one, whose state it keeps hitting.
 

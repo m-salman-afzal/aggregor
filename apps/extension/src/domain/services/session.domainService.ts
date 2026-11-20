@@ -1,9 +1,11 @@
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
 import {AGENT_TASK_STATES} from "@valueObjects/agentTaskState.valueObject.ts";
 import {LaunchPlanValueObjectSchema} from "@valueObjects/launchPlan.valueObject.ts";
 import {SESSION_RUN_STATES} from "@valueObjects/sessionRunState.valueObject.ts";
 import {SESSION_STATUSES} from "@valueObjects/sessionStatus.valueObject.ts";
-import {Array, DateTime, Effect, Predicate, Result, Schema, String} from "effect";
+import {Array, Context, DateTime, Effect, Layer, Predicate, Result, Schema, String} from "effect";
 
 import type {AgentEntity} from "@entities/agent/agent.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
@@ -15,33 +17,13 @@ interface SessionViewingFacts {
   readonly isInView: boolean;
 }
 
-// The agent resumes with the agent's own id for the conversation, which the agent never showed.
-export class AgentSessionIdNotFoundError extends Schema.TaggedError<
-  AgentSessionIdNotFoundError,
-  {readonly brand: unique symbol}
->()("AgentSessionIdNotFoundError", {agentName: Schema.String}) {}
-
-// The agent resumes without naming a conversation, as Antigravity's -c.
-export class AgentConversationIdNotFoundError extends Schema.TaggedError<
-  AgentConversationIdNotFoundError,
-  {readonly brand: unique symbol}
->()("AgentConversationIdNotFoundError", {agentName: Schema.String}) {}
-
-export class SessionNamedByUserError extends Schema.TaggedError<
-  SessionNamedByUserError,
-  {readonly brand: unique symbol}
->()("SessionNamedByUserError", {}) {}
-
-// The titles hold only status marks or an id, or the agent has not named the conversation.
-export class SessionTitleNotFoundError extends Schema.TaggedError<
-  SessionTitleNotFoundError,
-  {readonly brand: unique symbol}
->()("SessionTitleNotFoundError", {}) {}
-
-export class SessionTitleUnchangedError extends Schema.TaggedError<
-  SessionTitleUnchangedError,
-  {readonly brand: unique symbol}
->()("SessionTitleUnchangedError", {}) {}
+export class SessionDomainServiceErrors extends TaggedErrors({
+  AgentConversationIdNotFoundError: {agentName: Schema.String},
+  AgentSessionIdNotFoundError: {agentName: Schema.String},
+  SessionNamedByUserError: {},
+  SessionTitleNotFoundError: {},
+  SessionTitleUnchangedError: {}
+}) {}
 
 // Agents put status marks (Claude's ✳, Codex's ⠋, emoji) around the title; Unicode classes keep every language.
 const STATUS_MARKS_AT_ENDS = /^[\p{C}\p{S}\p{Z}]+|[\p{C}\p{S}\p{Z}]+$/gu;
@@ -57,176 +39,201 @@ const REGEX_SYNTAX_CHARACTERS = /[$()*+./?[\\\]^{|}]/gu;
 const SESSION_ID_VARIABLE = `\${sessionId}`;
 const AGENT_SESSION_ID_VARIABLE = `\${agentSessionId}`;
 
-const fillInVariables = Effect.fn("SessionDomainService.fillInVariables")(function* (
-  agentArgument: string,
-  agent: AgentEntity,
-  session: SessionEntity
+export class SessionDomainService extends Context.Service<SessionDomainService>()(
+  "aggregor-app/domain/services/session.domainService/SessionDomainService",
+  {
+    make: Effect.fn("make")(function* () {
+      const fillInVariables = Effect.fn("fillInVariables")(function* (
+        agentArgument: string,
+        agent: AgentEntity,
+        session: SessionEntity
+      ) {
+        const filledInArgument = String.replaceAll(SESSION_ID_VARIABLE, session.conversationId)(agentArgument);
+        if (!String.includes(AGENT_SESSION_ID_VARIABLE)(filledInArgument)) return filledInArgument;
+        const latestAgentSessionId = session.latestAgentSessionId;
+        if (latestAgentSessionId === undefined)
+          return yield* SessionDomainServiceErrors.AgentSessionIdNotFoundError.make({agentName: agent.name});
+
+        return String.replaceAll(AGENT_SESSION_ID_VARIABLE, latestAgentSessionId)(filledInArgument);
+      });
+
+      const getAgentConversationId = Effect.fn("getAgentConversationId")(function* (
+        agent: AgentEntity,
+        session: SessionEntity
+      ) {
+        const conversationIdArgument = Array.findFirst(
+          agent.resumeArgs,
+          (resumeArgument) =>
+            String.includes(SESSION_ID_VARIABLE)(resumeArgument) ||
+            String.includes(AGENT_SESSION_ID_VARIABLE)(resumeArgument)
+        );
+        const resumeArgument = yield* Effect.fromResult(
+          Result.fromOption(conversationIdArgument, () =>
+            SessionDomainServiceErrors.AgentConversationIdNotFoundError.make({agentName: agent.name})
+          )
+        );
+
+        return yield* fillInVariables(resumeArgument, agent, session);
+      });
+
+      const prepareLaunchPlan = Effect.fn("prepareLaunchPlan")(function* (agent: AgentEntity, session: SessionEntity) {
+        const agentArguments = session.hasConversation ? agent.resumeArgs : agent.args;
+
+        return LaunchPlanValueObjectSchema.make({
+          command: agent.command,
+          commandArguments: yield* Effect.forEach(agentArguments, (agentArgument) =>
+            fillInVariables(agentArgument, agent, session)
+          ),
+          environmentVariables: agent.environmentVariables
+        });
+      });
+
+      // Agents add their name, command or the project folder to the title: "<title> - GitHub Copilot", "<title> | <folder>".
+      const dropNamesAtEnds = Effect.fn("dropNamesAtEnds")(function* (title: string, names: readonly string[]) {
+        return Array.reduce(names, title, (remainingTitle, name) => {
+          const nameAsText = String.replaceAll(REGEX_SYNTAX_CHARACTERS, "\\$&")(name);
+          const nameAtEnds = new RegExp(`^${nameAsText}\\s*[-|:]\\s*|\\s*[-|:]\\s*${nameAsText}$`, "giu");
+
+          return String.replace(nameAtEnds, "")(remainingTitle);
+        });
+      });
+
+      const getDefaultSessionName = Effect.fn("getDefaultSessionName")(function* (
+        projectName: string,
+        existingSessions: readonly SessionEntity[]
+      ) {
+        const takenSessionNames = new Set(Array.map(existingSessions, (session) => session.name));
+        let sessionNumber = 1;
+        while (takenSessionNames.has(`${projectName} #${sessionNumber}`)) sessionNumber += 1;
+
+        return `${projectName} #${sessionNumber}`;
+      });
+
+      const getSessionTitle = Effect.fn("getSessionTitle")(function* (
+        session: SessionEntity,
+        agent: AgentEntity,
+        projectName: string
+      ) {
+        const names = [agent.name, agent.command, projectName];
+        const lowercaseNames = new Set(Array.map(names, String.toLowerCase));
+        const agentTitles = Array.filter([session.reportedTitle, session.terminalTitle], Predicate.isNotUndefined);
+        const cleanedTitles = yield* Effect.forEach(agentTitles, (agentTitle) =>
+          Effect.map(
+            dropNamesAtEnds(String.replace(STATUS_MARKS_AT_ENDS, "")(agentTitle), names),
+            String.replace(STATUS_MARKS_AT_ENDS, "")
+          )
+        );
+        const sessionTitle = Array.findFirst(
+          cleanedTitles,
+          (title) =>
+            title !== "" &&
+            !lowercaseNames.has(String.toLowerCase(title)) &&
+            !ID_ONLY_TITLE.test(title) &&
+            !START_TIME_TITLE.test(title)
+        );
+
+        return yield* Effect.fromResult(
+          Result.fromOption(sessionTitle, () => SessionDomainServiceErrors.SessionTitleNotFoundError.make())
+        );
+      });
+
+      const getSessionTitleToSave = Effect.fn("getSessionTitleToSave")(function* (
+        session: SessionEntity,
+        agent: AgentEntity,
+        projectName: string
+      ) {
+        if (session.customName !== undefined) return yield* SessionDomainServiceErrors.SessionNamedByUserError.make();
+        const sessionTitle = yield* getSessionTitle(session, agent, projectName);
+        if (sessionTitle === session.name) return yield* SessionDomainServiceErrors.SessionTitleUnchangedError.make();
+
+        return sessionTitle;
+      });
+
+      const isFinishedTurnUnseen = Effect.fn("isFinishedTurnUnseen")(function* (
+        session: SessionEntity,
+        isInView: boolean
+      ) {
+        if (isInView || session.statusChangedAt === undefined) return false;
+
+        return session.viewedAt === undefined || DateTime.isGreaterThan(session.statusChangedAt, session.viewedAt);
+      });
+
+      // OpenCode reports its own conversation again as a task, with the title it reports for itself.
+      const getSessionTasks = Effect.fn("getSessionTasks")(function* (session: SessionEntity) {
+        return Array.filter(
+          session.tasks,
+          (agentTask) => agentTask.title === undefined || agentTask.title !== session.reportedTitle
+        );
+      });
+
+      // A sub-agent can work on after the agent's own turn has ended, which keeps the row working.
+      const hasWorkingTask = Effect.fn("hasWorkingTask")(function* (session: SessionEntity) {
+        const sessionTasks = yield* getSessionTasks(session);
+
+        return Array.some(sessionTasks, (agentTask) => agentTask.state === AGENT_TASK_STATES.WORKING);
+      });
+
+      const getSessionStatus = Effect.fn("getSessionStatus")(function* (
+        session: SessionEntity,
+        sessionViewingFacts: SessionViewingFacts
+      ) {
+        if (!sessionViewingFacts.isAgentRunning)
+          return session.runState === SESSION_RUN_STATES.INTERRUPTED
+            ? SESSION_STATUSES.INTERRUPTED
+            : SESSION_STATUSES.EXITED;
+        if (session.status !== AGENT_STATUSES.BLOCKED && (yield* hasWorkingTask(session)))
+          return SESSION_STATUSES.WORKING;
+        if (session.status === AGENT_STATUSES.UNKNOWN) return SESSION_STATUSES.IDLE;
+        if (
+          session.status === AGENT_STATUSES.DONE &&
+          !(yield* isFinishedTurnUnseen(session, sessionViewingFacts.isInView))
+        )
+          return SESSION_STATUSES.IDLE;
+
+        return session.status;
+      });
+
+      const isSessionTurnRunning = Effect.fn("isSessionTurnRunning")(function* (
+        sessionStatus: SessionStatusValueObject
+      ) {
+        return sessionStatus === SESSION_STATUSES.WORKING || sessionStatus === SESSION_STATUSES.BLOCKED;
+      });
+
+      // Agents that end a turn with idle rather than done (OpenCode) have finished when they go from working back to idle.
+      const getAlertedStatus = Effect.fn("getAlertedStatus")(function* (
+        heldStatus: AgentStatusValueObject,
+        previousHeldStatus: AgentStatusValueObject | undefined
+      ) {
+        if (heldStatus === AGENT_STATUSES.IDLE && previousHeldStatus === AGENT_STATUSES.WORKING)
+          return AGENT_STATUSES.DONE;
+
+        return heldStatus;
+      });
+
+      const isSessionWaitingOnUser = Effect.fn("isSessionWaitingOnUser")(function* (
+        sessionStatus: SessionStatusValueObject
+      ) {
+        return (
+          sessionStatus === SESSION_STATUSES.BLOCKED ||
+          sessionStatus === SESSION_STATUSES.ERROR ||
+          sessionStatus === SESSION_STATUSES.DONE
+        );
+      });
+
+      return {
+        getAgentConversationId,
+        getAlertedStatus,
+        getDefaultSessionName,
+        getSessionStatus,
+        getSessionTasks,
+        getSessionTitle,
+        getSessionTitleToSave,
+        isSessionTurnRunning,
+        isSessionWaitingOnUser,
+        prepareLaunchPlan
+      };
+    })
+  }
 ) {
-  const filledInArgument = String.replaceAll(SESSION_ID_VARIABLE, session.conversationId)(agentArgument);
-  if (!String.includes(AGENT_SESSION_ID_VARIABLE)(filledInArgument)) return filledInArgument;
-  const latestAgentSessionId = session.latestAgentSessionId;
-  if (latestAgentSessionId === undefined) return yield* AgentSessionIdNotFoundError.make({agentName: agent.name});
-
-  return String.replaceAll(AGENT_SESSION_ID_VARIABLE, latestAgentSessionId)(filledInArgument);
-});
-
-// The agent's own id for the conversation, filled into the resume argument that names it, as OpenCode's ses_‹id›.
-export const getAgentConversationId = Effect.fn("SessionDomainService.getAgentConversationId")(function* (
-  agent: AgentEntity,
-  session: SessionEntity
-) {
-  const conversationIdArgument = Array.findFirst(
-    agent.resumeArgs,
-    (resumeArgument) =>
-      String.includes(SESSION_ID_VARIABLE)(resumeArgument) || String.includes(AGENT_SESSION_ID_VARIABLE)(resumeArgument)
-  );
-  const resumeArgument = yield* Effect.fromResult(
-    Result.fromOption(conversationIdArgument, () => AgentConversationIdNotFoundError.make({agentName: agent.name}))
-  );
-
-  return yield* fillInVariables(resumeArgument, agent, session);
-});
-
-export const prepareLaunchPlan = Effect.fn("SessionDomainService.prepareLaunchPlan")(function* (
-  agent: AgentEntity,
-  session: SessionEntity
-) {
-  const agentArguments = session.hasConversation ? agent.resumeArgs : agent.args;
-
-  return LaunchPlanValueObjectSchema.make({
-    command: agent.command,
-    commandArguments: yield* Effect.forEach(agentArguments, (agentArgument) =>
-      fillInVariables(agentArgument, agent, session)
-    ),
-    environmentVariables: agent.environmentVariables
-  });
-});
-
-// Agents add their name, command or the project folder to the title: "<title> - GitHub Copilot", "<title> | <folder>".
-const dropNamesAtEnds = Effect.fn("SessionDomainService.dropNamesAtEnds")(function* (
-  title: string,
-  names: readonly string[]
-) {
-  return Array.reduce(names, title, (remainingTitle, name) => {
-    const nameAsText = String.replaceAll(REGEX_SYNTAX_CHARACTERS, "\\$&")(name);
-    const nameAtEnds = new RegExp(`^${nameAsText}\\s*[-|:]\\s*|\\s*[-|:]\\s*${nameAsText}$`, "giu");
-
-    return String.replace(nameAtEnds, "")(remainingTitle);
-  });
-});
-
-// The lowest free "<project> #n", so removing #1 frees the name for the next session.
-export const getDefaultSessionName = Effect.fn("SessionDomainService.getDefaultSessionName")(function* (
-  projectName: string,
-  existingSessions: readonly SessionEntity[]
-) {
-  const takenSessionNames = new Set(Array.map(existingSessions, (session) => session.name));
-  let sessionNumber = 1;
-  while (takenSessionNames.has(`${projectName} #${sessionNumber}`)) sessionNumber += 1;
-
-  return `${projectName} #${sessionNumber}`;
-});
-
-export const getSessionTitle = Effect.fn("SessionDomainService.getSessionTitle")(function* (
-  session: SessionEntity,
-  agent: AgentEntity,
-  projectName: string
-) {
-  const names = [agent.name, agent.command, projectName];
-  const lowercaseNames = new Set(Array.map(names, String.toLowerCase));
-  const agentTitles = Array.filter([session.reportedTitle, session.terminalTitle], Predicate.isNotUndefined);
-  const cleanedTitles = yield* Effect.forEach(agentTitles, (agentTitle) =>
-    Effect.map(
-      dropNamesAtEnds(String.replace(STATUS_MARKS_AT_ENDS, "")(agentTitle), names),
-      String.replace(STATUS_MARKS_AT_ENDS, "")
-    )
-  );
-  const sessionTitle = Array.findFirst(
-    cleanedTitles,
-    (title) =>
-      title !== "" &&
-      !lowercaseNames.has(String.toLowerCase(title)) &&
-      !ID_ONLY_TITLE.test(title) &&
-      !START_TIME_TITLE.test(title)
-  );
-
-  return yield* Effect.fromResult(Result.fromOption(sessionTitle, () => SessionTitleNotFoundError.make()));
-});
-
-// Saved as the session's name, so the row keeps it while the agent is gone or resuming.
-export const getSessionTitleToSave = Effect.fn("SessionDomainService.getSessionTitleToSave")(function* (
-  session: SessionEntity,
-  agent: AgentEntity,
-  projectName: string
-) {
-  if (session.customName !== undefined) return yield* SessionNamedByUserError.make();
-  const sessionTitle = yield* getSessionTitle(session, agent, projectName);
-  if (sessionTitle === session.name) return yield* SessionTitleUnchangedError.make();
-
-  return sessionTitle;
-});
-
-const isFinishedTurnUnseen = Effect.fn("SessionDomainService.isFinishedTurnUnseen")(function* (
-  session: SessionEntity,
-  isInView: boolean
-) {
-  if (isInView || session.statusChangedAt === undefined) return false;
-
-  return session.viewedAt === undefined || DateTime.isGreaterThan(session.statusChangedAt, session.viewedAt);
-});
-
-// OpenCode reports its own conversation again as a task, with the title it reports for itself.
-export const getSessionTasks = Effect.fn("SessionDomainService.getSessionTasks")(function* (session: SessionEntity) {
-  return Array.filter(
-    session.tasks,
-    (agentTask) => agentTask.title === undefined || agentTask.title !== session.reportedTitle
-  );
-});
-
-// A sub-agent can work on after the agent's own turn has ended, which keeps the row working.
-const hasWorkingTask = Effect.fn("SessionDomainService.hasWorkingTask")(function* (session: SessionEntity) {
-  const sessionTasks = yield* getSessionTasks(session);
-
-  return Array.some(sessionTasks, (agentTask) => agentTask.state === AGENT_TASK_STATES.WORKING);
-});
-
-// No process means the agent is gone, even after a reboot; no report yet shows idle, so the row never looks stuck.
-export const getSessionStatus = Effect.fn("SessionDomainService.getSessionStatus")(function* (
-  session: SessionEntity,
-  sessionViewingFacts: SessionViewingFacts
-) {
-  if (!sessionViewingFacts.isAgentRunning)
-    return session.runState === SESSION_RUN_STATES.INTERRUPTED ? SESSION_STATUSES.INTERRUPTED : SESSION_STATUSES.EXITED;
-  if (session.status !== AGENT_STATUSES.BLOCKED && (yield* hasWorkingTask(session))) return SESSION_STATUSES.WORKING;
-  if (session.status === AGENT_STATUSES.UNKNOWN) return SESSION_STATUSES.IDLE;
-  if (session.status === AGENT_STATUSES.DONE && !(yield* isFinishedTurnUnseen(session, sessionViewingFacts.isInView)))
-    return SESSION_STATUSES.IDLE;
-
-  return session.status;
-});
-
-export const isSessionTurnRunning = Effect.fn("SessionDomainService.isSessionTurnRunning")(function* (
-  sessionStatus: SessionStatusValueObject
-) {
-  return sessionStatus === SESSION_STATUSES.WORKING || sessionStatus === SESSION_STATUSES.BLOCKED;
-});
-
-// Agents that end a turn with idle rather than done (OpenCode) have finished when they go from working back to idle.
-export const getAlertedStatus = Effect.fn("SessionDomainService.getAlertedStatus")(function* (
-  heldStatus: AgentStatusValueObject,
-  previousHeldStatus: AgentStatusValueObject | undefined
-) {
-  if (heldStatus === AGENT_STATUSES.IDLE && previousHeldStatus === AGENT_STATUSES.WORKING) return AGENT_STATUSES.DONE;
-
-  return heldStatus;
-});
-
-export const isSessionWaitingOnUser = Effect.fn("SessionDomainService.isSessionWaitingOnUser")(function* (
-  sessionStatus: SessionStatusValueObject
-) {
-  return (
-    sessionStatus === SESSION_STATUSES.BLOCKED ||
-    sessionStatus === SESSION_STATUSES.ERROR ||
-    sessionStatus === SESSION_STATUSES.DONE
-  );
-});
+  public static readonly layer = Layer.effect(this, ownSpans("SessionDomainService", this.make()));
+}

@@ -1,4 +1,5 @@
-import {Context, Schema} from "effect";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+import {Context} from "effect";
 
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
@@ -9,10 +10,9 @@ export interface WorkspaceFolderProject {
   readonly path: ProjectPathValueObject;
 }
 
-export class NoSessionToReopenError extends Schema.TaggedError<
-  NoSessionToReopenError,
-  {readonly brand: unique symbol}
->()("NoSessionToReopenError", {}) {}
+export class IWorkspaceInfraServiceErrors extends TaggedErrors({
+  NoSessionToReopenError: {}
+}) {}
 
 // Once the window shows one project, folder 0 is a hidden, empty anchor folder and the project is folder 1.
 export class IWorkspaceInfraService extends Context.Service<
@@ -26,7 +26,10 @@ export class IWorkspaceInfraService extends Context.Service<
       projectPath: ProjectPathValueObject,
       sessionToReopen: EntityIdValueObject | undefined
     ) => Effect.Effect<void>;
-    readonly takeSessionToReopen: Effect.Effect<EntityIdValueObject, NoSessionToReopenError>;
+    readonly takeSessionToReopen: Effect.Effect<
+      EntityIdValueObject,
+      IWorkspaceInfraServiceErrors["NoSessionToReopenError"]
+    >;
     readonly workspaceFolderChanges: Stream.Stream<void>;
   }
 >()("aggregor-app/application/interfaces/workspace.infraService.interface/IWorkspaceInfraService") {}

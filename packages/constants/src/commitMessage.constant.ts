@@ -2,7 +2,6 @@ export const COMMIT_MESSAGE_COMMANDS = {
   GENERATE: "aggregorApp.generateCommitMessage"
 } as const;
 
-// True while a commit message is being written, so the Source Control button can show it.
 export const COMMIT_MESSAGE_CONTEXT_KEYS = {
   IS_GENERATING: "aggregorApp.isGeneratingCommitMessage"
 } as const;

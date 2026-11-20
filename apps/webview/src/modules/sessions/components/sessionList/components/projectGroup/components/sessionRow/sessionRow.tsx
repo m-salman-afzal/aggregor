@@ -11,7 +11,6 @@ interface SessionRowProps {
   readonly sessionRow: SessionRowData;
 }
 
-// The dropdown opens under the row, inside its list item, so the row keeps its place in the list.
 export const SessionRow = (props: SessionRowProps) => {
   const sessionRowView = useSessionRow(props);
 

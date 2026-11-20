@@ -1,6 +1,19 @@
-import {AppLayer} from "@di/app.layer.ts";
+import {AgentController} from "@controllers/agent.controller.ts";
+import {AppController} from "@controllers/app.controller.ts";
+import {CommitMessageController} from "@controllers/commitMessage.controller.ts";
+import {FolderShellController} from "@controllers/folderShell.controller.ts";
+import {ProjectController} from "@controllers/project.controller.ts";
+import {PullRequestController} from "@controllers/pullRequest.controller.ts";
+import {RequiredToolsController} from "@controllers/requiredTools.controller.ts";
+import {SessionController} from "@controllers/session.controller.ts";
+import {SessionAlertController} from "@controllers/sessionAlert.controller.ts";
+import {SessionImportController} from "@controllers/sessionImport.controller.ts";
+import {SessionProcessController} from "@controllers/sessionProcess.controller.ts";
+import {WorktreeController} from "@controllers/worktree.controller.ts";
+import {ApplicationLayer} from "@di/app.layer.ts";
 import {TraceLogLayer} from "@logger/traceLog.layer.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
+import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 import {FolderShellProfileView} from "@views/folderShellProfile/folderShellProfile.view.ts";
 import {GitHubCliNoticesView} from "@views/gitHubCliNotices/gitHubCliNotices.view.ts";
 import {RequiredToolsNoticesView} from "@views/requiredToolsNotices/requiredToolsNotices.view.ts";
@@ -8,9 +21,27 @@ import {SessionAlertsView} from "@views/sessionAlerts/sessionAlerts.view.ts";
 import {SessionsView} from "@views/sessions/sessions.view.ts";
 import {Effect, Layer, ManagedRuntime} from "effect";
 
-import {RoutesLayer} from "./presentation/routes.ts";
-
 import type {ExtensionContext} from "vscode";
+
+const PresentationLayer = Layer.mergeAll(
+  AgentController.layer,
+  AppController.layer,
+  CommitMessageController.layer,
+  FolderShellController.layer,
+  ProjectController.layer,
+  PullRequestController.layer,
+  RequiredToolsController.layer,
+  SessionController.layer,
+  SessionAlertController.layer,
+  SessionImportController.layer,
+  SessionProcessController.layer,
+  WorktreeController.layer,
+  SessionsView.layer,
+  SessionAlertsView.layer,
+  GitHubCliNoticesView.layer,
+  RequiredToolsNoticesView.layer,
+  FolderShellProfileView.layer
+).pipe(Layer.withSpan("Presentation"), Layer.provide([ApplicationLayer, VscodeUtils.layer]));
 
 let activeRuntime: {readonly dispose: () => Promise<void>} | undefined;
 
@@ -18,18 +49,7 @@ let activeRuntime: {readonly dispose: () => Promise<void>} | undefined;
 const activate = (extensionContext: ExtensionContext) => {
   // TraceLogLayer goes under everything, so every layer's startup work is traced and logged too.
   const runtime = ManagedRuntime.make(
-    Layer.mergeAll(
-      RoutesLayer,
-      SessionsView,
-      SessionAlertsView,
-      GitHubCliNoticesView,
-      RequiredToolsNoticesView,
-      FolderShellProfileView
-    ).pipe(
-      Layer.provideMerge(AppLayer),
-      Layer.provide(TraceLogLayer),
-      Layer.provideMerge(VsCodeApi.layer(extensionContext))
-    )
+    PresentationLayer.pipe(Layer.provide(TraceLogLayer), Layer.provide(VsCodeApi.layer(extensionContext)))
   );
   activeRuntime = runtime;
 

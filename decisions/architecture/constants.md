@@ -31,11 +31,11 @@ Where constants live and what they may hold.
   tmux and aggregor-pty errors on what was found, the row tooltip on whether the agent left a message. A choice in a
   text file is out of sight of the code that makes it, and none of its cases reads as a whole sentence.
 - **Decision:** a constant is a literal, or a text with holes: an arrow whose whole body is one template literal. A text
-  that depends on a case is one constant per case, and a util beside the code that uses it picks one: the presenter for
-  an error's message, `application/utils/sessionQuestion.utils.ts` (`@applicationUtils`, a new alias) for the stop and
-  archive questions, the webview's `sessionRow.utils.ts` for the tooltip. `CONSTANT_BANS` in `syntaxBans.ts` bans
-  conditions, calls, spreads and operators in `@pkg/constants`, and any other function there. Archive's Stop Agent line
-  is now the one Stop Agent uses, which it repeated word for word. Each text reads whole where it is kept, and each
-  choice sits with the code that makes it.
+  that depends on a case is one constant per case, and a util beside the code that uses it picks one: the error message
+  for a failure's text, the webview's `rowActions.utils.ts` (`makeStopAgentsQuestion`) for the stop question, which the
+  webview asks before it sends the request, the webview's `sessionRow.utils.ts` for the tooltip. `CONSTANT_BANS` in
+  `syntaxBans.ts` bans conditions, calls, spreads and operators in `@pkg/constants`, and any other function there.
+  Archive's Stop Agent line is now the one Stop Agent uses, which it repeated word for word. Each text reads whole where
+  it is kept, and each choice sits with the code that makes it.
 - **Alternatives considered:** no functions in constants at all, with `{placeholder}` texts filled by a formatter, which
   TypeScript can't check.

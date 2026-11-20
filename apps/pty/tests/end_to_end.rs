@@ -7,8 +7,7 @@ use std::process::{Command, Stdio};
 
 const SESSION_ID: &str = "01a1b9ae-8986-7295-b1cc-487c4a1396f4";
 
-/// The extension's own migrations, so the binary is tested against the real schema. Each test gets its own folder, since
-/// tests run in parallel.
+/// Each test gets its own folder, since tests run in parallel.
 fn create_database(test_name: &str) -> PathBuf {
     let directory = std::env::temp_dir().join(format!("aggregor-pty-test-{}-{test_name}", std::process::id()));
     fs::create_dir_all(&directory).unwrap();
@@ -44,7 +43,6 @@ fn passes_output_through_and_writes_the_session_row() {
     let database_path = create_database("status");
     let message = STANDARD.encode("Approve Write: notes.txt");
     let title = STANDARD.encode("Write the notes");
-    // The agent asks whether the terminal supports OSC 7501 and reads the reply in non-canonical mode (`read -n`).
     let script = format!(
         r#"printf '\033]7501;?\033\\'
         IFS= read -r -s -n 9 -t 5 reply

@@ -12,8 +12,6 @@ import type {
 } from "@pkg/constants/src/sessionsView.constant.ts";
 import type {Ref, SubscriptionRef} from "effect";
 
-// apps/webview imports these for types only.
-
 export interface SessionRowData {
   readonly agentIconUri?: string;
   readonly sessionListItem: SessionListItemDto;
@@ -35,16 +33,12 @@ export interface AgentRowData {
 
 export type SessionListId = (typeof SESSION_LISTS)[keyof typeof SESSION_LISTS];
 
-// The sessions whose dropdowns the webview shows open, whose processes it reads.
 export type OpenDropdownSessionIds = SubscriptionRef.SubscriptionRef<readonly string[]>;
 
-// How many pages of sessions each project shows in each list, by project path; a project not in it shows one.
 export type ShownSessionPages = Ref.Ref<Readonly<Record<SessionListId, Readonly<Record<string, number>>>>>;
 
-// A row's key, the field its command's request DTO starts from.
 export type RowCommandArgument = Readonly<Record<string, string>>;
 
-// The request DTO the command's controller decodes.
 export type CommandRequest = Readonly<Record<string, unknown>>;
 
 export type SessionsViewMessage =
@@ -56,7 +50,6 @@ export type SessionsViewMessage =
     }
   | {
       readonly _tag: typeof SESSIONS_VIEW_MESSAGE_TAGS.APPEARANCE_DRAWN;
-      // neutral, theme, palette or a #rrggbb colour.
       readonly accentColor: string;
       readonly fontSize: number;
     }

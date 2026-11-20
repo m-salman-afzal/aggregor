@@ -15,7 +15,6 @@ export const SESSIONS_WEBVIEW = {
   BUILD_FOLDER: "dist/webview",
   DEVELOPMENT_SERVER_ENTRY_PATH: "/src/main.tsx",
   DEVELOPMENT_SERVER_URL_VARIABLE: "AGGREGOR_WEBVIEW_DEV_SERVER_URL",
-  // The dev server's socket URL is its URL with ws in place of http.
   HTTP_SCHEME_PATTERN: /^http/u,
   ROOT_ELEMENT_ID: "root",
   SCRIPT_FILE_NAME: "webview.js",
@@ -55,7 +54,6 @@ export const SESSION_LISTS = {
   SESSIONS: "sessions"
 } as const;
 
-// The view runs no other command the webview asks for.
 export const SESSIONS_WEBVIEW_COMMANDS = [
   AGENT_COMMANDS.SET_DEFAULT,
   GITHUB_CLI_COMMANDS.LINK_SESSION_PULL_REQUEST,

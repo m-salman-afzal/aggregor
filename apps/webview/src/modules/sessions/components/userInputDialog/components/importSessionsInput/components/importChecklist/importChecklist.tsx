@@ -20,10 +20,12 @@ export const ImportChecklist = (props: ImportChecklistProps) => {
         <DialogDescription className="text-foreground/80">{SESSION_IMPORT_LABELS.NONE}</DialogDescription>
       ) : (
         <ImportList
-          agentChecklistGroups={importChecklistView.agentChecklistGroups}
-          areAllTicked={importChecklistView.areAllTicked}
+          areAllShownTicked={importChecklistView.areAllShownTicked}
+          onChangeSearchText={importChecklistView.changeSearchText}
           onToggleAll={importChecklistView.toggleAll}
           onToggleRow={importChecklistView.toggleRow}
+          searchText={importChecklistView.searchText}
+          shownChecklistSections={importChecklistView.shownChecklistSections}
           tickedRowKeys={importChecklistView.tickedRowKeys}
         />
       )}

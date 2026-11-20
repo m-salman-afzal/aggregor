@@ -38,7 +38,7 @@ const findSharedRowLabel = (actionGroup: readonly RowAction[]) => {
     : undefined;
 };
 
-export const toMenuGroups = (actionGroups: readonly (readonly RowAction[])[]): readonly MenuGroup[] =>
+export const makeMenuGroups = (actionGroups: readonly (readonly RowAction[])[]): readonly MenuGroup[] =>
   actionGroups.map((actionGroup) => ({
     groupKey: actionGroup.map((rowAction) => rowAction.commandId).join(" "),
     rowActions: actionGroup,
@@ -108,7 +108,6 @@ const askDestructiveQuestion = (
   });
 };
 
-// Stopping asks only when it would cut a turn short.
 const stopAgentsAsking = (askingContext: AskingContext, rowAction: RowAction, commandArgument: RowCommandArgument) => {
   const runningSessionListItems = listStoppedSessionListItems(
     askingContext,
@@ -231,7 +230,6 @@ const unlinkWorktreeAsking = (askingContext: AskingContext, commandArgument: Row
   moveSessionAsking(askingContext, movedSession, {commandArgument, commandId: SESSION_COMMANDS.UNLINK_WORKTREE});
 };
 
-// The dialog opens at once and fills in when gh has listed the repository's pull requests.
 const linkPullRequestAsking = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
   const linkedSession = findSessionListItem(askingContext, commandArgument.sessionId);
   if (linkedSession === undefined) return;
@@ -270,7 +268,6 @@ const editProjectSettings = (askingContext: AskingContext, commandArgument: RowC
   });
 };
 
-// The dialog opens at once and fills in when the host has pruned origin and listed the leftovers.
 const cleanUpLeftoversAsking = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
   const projectListItem = findListedProject(askingContext, commandArgument);
   if (projectListItem === undefined) return;
@@ -287,7 +284,6 @@ const cleanUpLeftoversAsking = (askingContext: AskingContext, commandArgument: R
   askHostForLeftovers(projectListItem.path);
 };
 
-// The dialog opens at once and fills in when the host has read each agent's history.
 const importSessionsAsking = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
   const projectListItem = findListedProject(askingContext, commandArgument);
   if (projectListItem === undefined) return;
@@ -327,7 +323,6 @@ const showNewSessionInput = (askingContext: AskingContext, projectPath: string |
   });
 };
 
-// No choice to make, as in a folder outside git with one agent, starts at once; with no project, Add Project comes first.
 const startSessionAsking = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
   const [onlyProjectRow] = askingContext.projectRows;
   if (onlyProjectRow === undefined) {
@@ -356,7 +351,6 @@ const startSessionAsking = (askingContext: AskingContext, commandArgument: RowCo
   showNewSessionInput(askingContext, projectPath);
 };
 
-// When the clipboard refuses, the id shows in a text field to copy by hand.
 const copySessionId = (askingContext: AskingContext, commandArgument: RowCommandArgument) => {
   const sessionListItem = findSessionListItem(askingContext, commandArgument.sessionId);
   if (sessionListItem === undefined || sessionListItem.agentConversationId === undefined) return;
@@ -412,7 +406,6 @@ const askingActions: Partial<Record<RowAction["commandId"], AskingAction>> = {
   }
 };
 
-// What needs the user's answer asks it here, then sends the host a request it can run without asking.
 export const runRowActionAsking = (
   askingContext: AskingContext,
   rowAction: RowAction,

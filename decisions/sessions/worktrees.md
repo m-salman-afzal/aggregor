@@ -7,7 +7,7 @@ Where a session works: its project's root, or a git worktree of its own.
 - **Problem:** a session can work in its project's root, in a new worktree, or in a worktree that already exists, and
   New Session already asked for the project and the agent one dialog at a time.
 - **Decision:** one dialog shows every choice left to make at once, each with its default chosen, and Start sends one
-  `newSession {projectPath, agentId, workingTree}` request. The project shows when New Session came from the list's
+  `createSession {projectPath, agentId, workingTree}` request. The project shows when New Session came from the list's
   button and there is more than one; the agent when more than one is installed, unless `aggregorApp.skipAgentPicker`
   skips it for a default; the working tree in a git project: Project root, New worktree, and each of the repository's
   worktrees no session works in; and with New worktree chosen, the branch it starts from (see "A new worktree is named
