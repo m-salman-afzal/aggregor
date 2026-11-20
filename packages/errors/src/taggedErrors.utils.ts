@@ -4,7 +4,6 @@ import type {Cause} from "effect";
 
 type ErrorFieldsByTag = Readonly<Record<string, Schema.Struct.Fields>>;
 
-// The statics: one error class per tag, to make an error with.
 type TaggedErrorClasses<FieldsByTag extends ErrorFieldsByTag> = {
   readonly [ErrorTag in keyof FieldsByTag & string]: Schema.Class<
     TaggedErrorOf<ErrorTag, FieldsByTag[ErrorTag]>,

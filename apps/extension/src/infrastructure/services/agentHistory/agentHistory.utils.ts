@@ -16,7 +16,6 @@ export class AgentHistoryUtils extends Context.Service<AgentHistoryUtils>()(
       const path = yield* Path;
       const homeFolderPath = homedir();
 
-      // A variable the agent reads to move its store, or the folder it defaults to under the home folder.
       const readFolderFromEnvironment = Effect.fn("readFolderFromEnvironment")(function* (
         environmentVariable: string,
         defaultFolderName: string
@@ -26,7 +25,6 @@ export class AgentHistoryUtils extends Context.Service<AgentHistoryUtils>()(
         return configuredFolder === "" ? path.join(homeFolderPath, defaultFolderName) : configuredFolder;
       }, Effect.orDie);
 
-      // From position for at most byteCount bytes; a file shorter than that reads what it has.
       const readFileSlice = Effect.fn("readFileSlice")(function* (fileSlice: FileSlice) {
         const openedFile = yield* fileSystem.open(fileSlice.filePath, {flag: "r"});
         const readBytes = yield* openedFile.readAlloc(fileSlice.byteCount, {position: fileSlice.position});
@@ -45,7 +43,6 @@ export class AgentHistoryUtils extends Context.Service<AgentHistoryUtils>()(
         return yield* readFileSlice({byteCount, filePath, position: tailStart});
       });
 
-      // Lines that aren't whole JSON in the schema's shape are left out.
       const decodeJsonLines = Effect.fn("decodeJsonLines")(function* <LineType>(
         lineSchema: Schema.Codec<LineType, string>,
         jsonLines: string
@@ -55,7 +52,7 @@ export class AgentHistoryUtils extends Context.Service<AgentHistoryUtils>()(
         );
       });
 
-      const toOneLineTitle = Effect.fn("toOneLineTitle")(function* (text: string) {
+      const formatTextAsOneLineTitle = Effect.fn("formatTextAsOneLineTitle")(function* (text: string) {
         const oneLineText = String.trim(String.replaceAll(AGENT_HISTORY_TITLE.LINE_BREAKS, " ")(text));
 
         return oneLineText.length > AGENT_HISTORY_TITLE.MAX_LENGTH
@@ -63,7 +60,7 @@ export class AgentHistoryUtils extends Context.Service<AgentHistoryUtils>()(
           : oneLineText;
       });
 
-      return {decodeJsonLines, readFileSlice, readFileTail, readFolderFromEnvironment, toOneLineTitle};
+      return {decodeJsonLines, formatTextAsOneLineTitle, readFileSlice, readFileTail, readFolderFromEnvironment};
     })
   }
 ) {

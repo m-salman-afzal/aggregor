@@ -8,8 +8,8 @@ import {
   saveWebviewState
 } from "@/modules/sessions/sessions.service.ts";
 import {
+  addOrRemoveFoldedKey,
   applyHostMessage,
-  foldKey,
   listWatchedSessionIds,
   makeProjectKey
 } from "@/modules/sessions/stores/sessions/sessions.utils.ts";
@@ -49,7 +49,6 @@ let sessionsData: SessionsData = {
 
 let watchedSessionIds: readonly string[] = [];
 
-// The host reads the processes of the dropdowns asked for last, so it hears again only when they change.
 const watchOpenDropdowns = (nextSessionsData: SessionsData) => {
   const nextWatchedSessionIds = listWatchedSessionIds(nextSessionsData);
   if (nextWatchedSessionIds.join() === watchedSessionIds.join()) return;
@@ -78,21 +77,23 @@ const setSessionsData = (nextSessionsData: SessionsData) => {
 };
 
 const setListOpen = (listId: SessionListId, isOpen: boolean) => {
-  setSessionsData({...sessionsData, collapsedListIds: foldKey(sessionsData.collapsedListIds, listId, isOpen)});
+  setSessionsData({
+    ...sessionsData,
+    collapsedListIds: addOrRemoveFoldedKey(sessionsData.collapsedListIds, listId, isOpen)
+  });
 };
 
 const setProjectOpen = (projectKey: string, isOpen: boolean) => {
   setSessionsData({
     ...sessionsData,
-    collapsedProjectKeys: foldKey(sessionsData.collapsedProjectKeys, projectKey, isOpen)
+    collapsedProjectKeys: addOrRemoveFoldedKey(sessionsData.collapsedProjectKeys, projectKey, isOpen)
   });
 };
 
-// A closed dropdown drops its reading, so it opens again on a fresh one rather than an old one.
 const setSessionDropdownOpen = (sessionId: string, isOpen: boolean) => {
   setSessionsData({
     ...sessionsData,
-    openDropdownSessionIds: foldKey(sessionsData.openDropdownSessionIds, sessionId, !isOpen),
+    openDropdownSessionIds: addOrRemoveFoldedKey(sessionsData.openDropdownSessionIds, sessionId, !isOpen),
     sessionProcessesBySessionId: new Map(
       [...sessionsData.sessionProcessesBySessionId].filter(([readSessionId]) => isOpen || readSessionId !== sessionId)
     )
@@ -102,8 +103,8 @@ const setSessionDropdownOpen = (sessionId: string, isOpen: boolean) => {
 const revealSessionsProject = (projectPath: string) => {
   setSessionsData({
     ...sessionsData,
-    collapsedListIds: foldKey(sessionsData.collapsedListIds, SESSION_LISTS.SESSIONS, true),
-    collapsedProjectKeys: foldKey(
+    collapsedListIds: addOrRemoveFoldedKey(sessionsData.collapsedListIds, SESSION_LISTS.SESSIONS, true),
+    collapsedProjectKeys: addOrRemoveFoldedKey(
       sessionsData.collapsedProjectKeys,
       makeProjectKey(SESSION_LISTS.SESSIONS, projectPath),
       true
@@ -119,7 +120,7 @@ const closeUserInput = () => {
   setSessionsData({...sessionsData, userInput: undefined});
 };
 
-// Each answer closes the dialog first, then hands the answer to the input that asked for it.
+// The dialog closes before the answer runs, so an answer may open the next one.
 const takeUserInput = () => {
   const userInput = sessionsData.userInput;
   closeUserInput();
@@ -171,7 +172,6 @@ const hideWorktreeTrustHint = () => {
   setSessionsData({...sessionsData, isWorktreeTrustHintHidden: true});
 };
 
-// Marked at once, so the row follows the click while the host is still busy switching the window.
 const markViewedSession = (sessionId: string) => {
   setSessionsData({...sessionsData, viewedSessionId: sessionId});
 };

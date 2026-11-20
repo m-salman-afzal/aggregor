@@ -32,7 +32,6 @@ export class ISettingsConfigErrors extends TaggedErrors({
   InvalidSettingsError: {reason: Schema.String}
 }) {}
 
-// Read fresh on every call, so a change applies at once.
 export class ISettingsConfig extends Context.Service<
   ISettingsConfig,
   {

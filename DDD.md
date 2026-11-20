@@ -104,7 +104,9 @@ controllers, error messages and views), which also rejects relative imports.
 
 Each file's suffix names its role, each role lives in one layer, and the file's main names carry the role.
 `packages/eslint/src/layers/roleNames.ts` checks the names with `@typescript-eslint/naming-convention`, one block per
-file suffix.
+file suffix. A function's name starts with a verb that says what it does (`makeSessionRow`, `decodeStoredRow`,
+`runWithSourceControlProgress`): `VERB_FIRST_NAME_BANS` in `syntaxBans.ts` fails a name that starts with `to`, `as`,
+`from`, `with`, `of` or `into`, and a function whose name starts with `new`.
 
 | Role                    | Layer                             | File                                                    | Names                                              |
 | ----------------------- | --------------------------------- | ------------------------------------------------------- | -------------------------------------------------- |
@@ -206,7 +208,7 @@ apps/extension/src/
   domain/
     entities/
       base/
-        base.entity.ts                     BaseEntity (Schema.Class: id, sortId, updatedAt, deletedAt; fromRow, the
+        base.entity.ts                     BaseEntity (Schema.Class: id, sortId, updatedAt, deletedAt; decodeStoredRow, the
                                            factory every stored row goes through)
         base.repository.interface.ts       IBaseRepository<Entity, AddRequest>: add, findById, findMany, findPage,
                                            update, upsert, softDelete, placeAtEnd, entityChanges; EntityChange,
@@ -256,7 +258,7 @@ apps/extension/src/
                                            rows move within an order
       pagination.domainService.ts          makePagination: what a page is, from its request and the row counts
       worktree.domainService.ts            getWorktreeName, getWorktreeBranchName, getWorktreesFolderName,
-                                           getTitledBranchName, hasWorktreeBranchFirstName, toNamePart: what a
+                                           getTitledBranchName, hasWorktreeBranchFirstName, formatTextAsNamePart: what a
                                            session's worktree, its branch and its project's worktrees folder are
                                            called
       folderShell.domainService.ts         getFolderShellName: what a folder's shell is called in tmux
@@ -266,7 +268,7 @@ apps/extension/src/
       base.service.ts                      BaseService.makeFor(repository): addEntity, findEntityById,
                                            findEntities, findEntityPage, updateEntity, upsertEntity, removeEntity,
                                            placeEntitiesAtEnd, bound to one repository
-      session.service.ts                   newSession (in a project, with an agent or the default one, at the
+      session.service.ts                   createSession (in a project, with an agent or the default one, at the
                                            project's root, in a new worktree or in an existing one),
                                            openSession, archiveSession,
                                            unarchiveSession, removeSession,
@@ -297,7 +299,7 @@ apps/extension/src/
       pullRequest.service.ts               openSessionPullRequest, signInToGitHubCli, watchGitHubCliSignedOut,
                                            startPullRequestRefreshOnTurnEnd
       sessionImport.service.ts             listImportableSessions (each agent's conversations in a project's folder
-                                           that aren't sessions yet), importSessions
+                                           and in its worktrees that aren't sessions yet), importSessions
       requiredTools.service.ts             watchMissingTools: tmux and gh checked at start and after the setup
                                            terminal closes; installRequiredTools; NoPackageManagerError
       worktree.service.ts                  listProjectLeftovers, cleanUpProjectLeftovers (a project's worktrees and
@@ -319,8 +321,9 @@ apps/extension/src/
       folderShell.dto.ts                   OpenProjectTerminalRequestDto, OpenSessionFolderTerminalRequestDto
       pullRequest.dto.ts                   OpenSessionPullRequestRequestDto
       requiredTools.dto.ts                 MissingToolsDto with its MissingToolDto
-      sessionImport.dto.ts                 ImportableSessionsDto (AgentImportableSessionsDto, ImportableSessionDto),
-                                           ImportSessionsRequestDto with its ImportedSessionDto
+      sessionImport.dto.ts                 ImportableSessionsDto (AgentImportableSessionsDto, ImportableSessionDto
+                                           with the worktree it ran in), ImportSessionsRequestDto with its
+                                           ImportedSessionDto
       worktree.dto.ts                      ProjectLeftoversDto (LeftoverWorktreeDto, LeftoverBranchDto), and a
                                            request DTO per worktree use case
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
@@ -359,7 +362,7 @@ apps/extension/src/
       desktopNotification.infraService.interface.ts
                                            notifyOnDesktop: the system's own notification, whose Open opens a link;
                                            DesktopNotificationRequest
-      progress.infraService.interface.ts   withSourceControlProgress
+      progress.infraService.interface.ts   runWithSourceControlProgress
       workspace.infraService.interface.ts  listWorkspaceFolderProjects, workspaceFolderChanges,
                                            showOnlyProjectFolder, removeProjectFolder, takeSessionToReopen;
                                            WorkspaceFolderProject, NoSessionToReopenError
@@ -501,8 +504,8 @@ apps/extension/tests/
   Lint (`no-restricted-syntax`) checks the entity file's exports.
 - Every entity stored in the database extends `BaseEntity` (`id`, `sortId`, `updatedAt`, `deletedAt`), and its
   repository and entity service build on the base pieces: `BaseRepository` and `BaseService`. Rows reach the domain only
-  through `BaseEntity.fromRow`, inside the base repository, so no entity knows how it is stored. `AgentEntity` lives in
-  the user's settings instead, so it is a plain `Schema.Class` whose id is its settings key.
+  through `BaseEntity.decodeStoredRow`, inside the base repository, so no entity knows how it is stored. `AgentEntity`
+  lives in the user's settings instead, so it is a plain `Schema.Class` whose id is its settings key.
 - `EntityIdValueObject`, `ProjectPathValueObject` and `AgentIdValueObject` are branded with `Schema.brand`; a value
   object that is a set of values (`AgentStatusValueObject`, `SessionStatusValueObject`, `StatusKindValueObject`,
   `EntityChangeKindValueObject`) is a `Schema.Enum` with UPPER_CASE keys, and its file exports the values beside the
@@ -528,8 +531,9 @@ apps/extension/tests/
 ## Application
 
 - An application service is a unit of use cases, one per entity or feature, as long as its use cases need: commands
-  (`newSession`), queries that return response DTOs (`getSessionListItem`), and the work that runs for the window's life
-  (`startSessionTitleSync`). A use case takes a request DTO, and turns entities into response DTOs before they leave it.
+  (`createSession`), queries that return response DTOs (`getSessionListItem`), and the work that runs for the window's
+  life (`startSessionTitleSync`). A use case takes a request DTO, and turns entities into response DTOs before they
+  leave it.
 - A use case asks the user nothing: its request DTO carries every choice (the project, the agent, the name), and the
   front end asks for them and confirms what needs confirming before it sends the request. Add Project, which needs the
   system's folder dialog that a webview can't open, asks through `IUserInputPromptInfraService`. A use case shows

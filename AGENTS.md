@@ -38,11 +38,13 @@ that no scope covers, add its scope in that PR, to `pr-title.yaml` and with what
   message code in `application/services/commitMessage.service.ts` and `infrastructure/services/commitCli` is the
   reference. Name a thing by what it is to the user, not by the gesture that reached it (`chosenProject`, not
   `clickedProject`), and give each word one meaning: a "prompt" is an LLM's, so asking the user is a user-input prompt
-  (`IUserInputPromptInfraService`).
+  (`IUserInputPromptInfraService`). A function's name starts with a verb that says what it does (`makeSessionRow`,
+  `decodeStoredRow`, `runWithSourceControlProgress`), never with `to`, `as`, `from`, `with`, `of`, `into` or `new`; lint
+  fails those.
 - **Comments only for what the code hides.** Write a comment only for a hidden side effect or a behaviour a reader can't
   see in the code: a platform limit, a workaround, a constraint from outside the file. Never one that says what a file,
   type, function or line is or does; the names say that. One line, about the code as it is now, updated or deleted with
-  its code; lint (`aggregor/one-line-comment`) fails a longer one.
+  its code; lint (`aggregor/one-line-comment`) fails a longer one, and any comment inside an errors class.
 - **No object destructuring.** Name the object and read each value as `object.key` where it is used
   (`sessionListItem.status`, `props.sessionRow`), so a reader deep in a long function sees where each value comes from.
   Array destructuring (`const [value, setValue] = useState()`) and named imports stay. Lint bans `ObjectPattern`

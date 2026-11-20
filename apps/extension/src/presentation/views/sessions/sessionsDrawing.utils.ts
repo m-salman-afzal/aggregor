@@ -34,7 +34,6 @@ import type {
 import type {WebviewView} from "vscode";
 
 class SessionsDrawingUtilsErrors extends TaggedErrors({
-  // VS Code shows the view's webview the first time the view comes into sight, and disposes it when the view closes.
   WebviewNotShownError: {}
 }) {}
 
@@ -83,7 +82,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         yield* Effect.promise(() => webviewView.webview.postMessage(sessionsViewMessage));
       });
 
-      const toSessionRow = Effect.fn("toSessionRow")(function* (sessionListItem: SessionListItemDto) {
+      const makeSessionRow = Effect.fn("makeSessionRow")(function* (sessionListItem: SessionListItemDto) {
         const webviewView = yield* findShownWebviewView();
         const sessionRow: SessionRowData = {
           ...(yield* sessionsPageUtils.getAgentIconUri(webviewView.webview, sessionListItem)),
@@ -93,7 +92,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         return sessionRow;
       });
 
-      const toProjectRow = Effect.fn("toProjectRow")(function* (projectSessions: ProjectSessionsDto) {
+      const makeProjectRow = Effect.fn("makeProjectRow")(function* (projectSessions: ProjectSessionsDto) {
         const projectRow: ProjectRowData = {
           ...(projectSessions.hasLeftovers === undefined ? {} : {hasLeftovers: projectSessions.hasLeftovers}),
           ...(projectSessions.worktrees === undefined ? {} : {worktrees: projectSessions.worktrees}),
@@ -103,7 +102,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
           projectListItem: projectSessions.projectListItem,
           sessionPage: projectSessions.sessionPage,
           sessionRows: yield* Effect.forEach(projectSessions.sessionListItems, (sessionListItem) =>
-            toSessionRow(sessionListItem)
+            makeSessionRow(sessionListItem)
           )
         };
 
@@ -123,26 +122,24 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
           shownPageCounts[SESSION_LISTS.SESSIONS]
         );
         const projectRows = yield* Effect.forEach(projectsWithSessions, (projectSessions) =>
-          toProjectRow(projectSessions)
+          makeProjectRow(projectSessions)
         );
 
         yield* postToWebview({_tag: SESSIONS_VIEW_MESSAGE_TAGS.PROJECTS_DRAWN, projectRows});
       });
 
-      // The Archive is small, so any change but a session's own redraws it whole.
       const drawArchive = Effect.fn("drawArchive")(function* () {
         const shownPageCounts = yield* Ref.get(shownSessionPages);
         const projectsWithArchivedSessions = yield* sessionController.listProjectsWithArchivedSessionsForSessionsView(
           shownPageCounts[SESSION_LISTS.ARCHIVE]
         );
         const projectRows = yield* Effect.forEach(projectsWithArchivedSessions, (projectSessions) =>
-          toProjectRow(projectSessions)
+          makeProjectRow(projectSessions)
         );
 
         yield* postToWebview({_tag: SESSIONS_VIEW_MESSAGE_TAGS.ARCHIVE_DRAWN, projectRows});
       });
 
-      // A project no longer listed draws nothing: the change that unlisted it redraws every project.
       const drawProject = Effect.fn("drawProject")(
         function* (projectPath: string) {
           const shownPageCount = yield* findShownPageCount(projectPath);
@@ -150,14 +147,13 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
             projectPath,
             shownPageCount
           );
-          const projectRow = yield* toProjectRow(projectSessions);
+          const projectRow = yield* makeProjectRow(projectSessions);
 
           yield* postToWebview({_tag: SESSIONS_VIEW_MESSAGE_TAGS.PROJECT_DRAWN, projectRow});
         },
         Effect.catchTag("ProjectNotListedError", () => Effect.void)
       );
 
-      // Show more adds a page to what the project's list shows, until a redraw of the list.
       const drawMoreSessions = Effect.fn("drawMoreSessions")(function* (moreSessionsRequest: {
         readonly listId: SessionListId;
         readonly projectPath: string;
@@ -177,7 +173,6 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
           : drawProject(moreSessionsRequest.projectPath);
       });
 
-      // A project no longer listed draws no list; the webview's dialog keeps waiting until closed.
       const drawImportableSessions = Effect.fn("drawImportableSessions")(
         function* (projectPath: string) {
           const importableSessions = yield* sessionImportController.listImportableSessionsForSessionsView(projectPath);
@@ -189,7 +184,6 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         )
       );
 
-      // A project no longer listed, or no git repository, draws no list; the webview's dialog keeps waiting until closed.
       const drawLeftovers = Effect.fn("drawLeftovers")(
         function* (projectPath: string) {
           const leftovers = yield* worktreeController.listProjectLeftoversForSessionsView(projectPath);
@@ -199,7 +193,6 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         Effect.catch((leftoversError) => Effect.logWarning("Could not list the project's leftovers", leftoversError))
       );
 
-      // A project no longer listed, or no git repository, draws no branches; the dialog keeps offering the current commit.
       const drawBranches = Effect.fn("drawBranches")(
         function* (projectPath: string) {
           const projectBranches = yield* worktreeController.listProjectBranchesForSessionsView(projectPath);
@@ -211,7 +204,6 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         Effect.catch((branchesError) => Effect.logWarning("Could not list the project's branches", branchesError))
       );
 
-      // A session removed meanwhile draws no list; the webview's dialog keeps waiting until closed.
       const drawPullRequests = Effect.fn("drawPullRequests")(
         function* (sessionId: string) {
           const pullRequests = yield* pullRequestController.listSessionPullRequestsForSessionsView(sessionId);
@@ -223,11 +215,10 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         )
       );
 
-      // A session removed meanwhile draws nothing: the change that removed it redraws its project.
       const drawSession = Effect.fn("drawSession")(
         function* (sessionId: string) {
           const sessionListItem = yield* sessionController.getSessionListItemForSessionsView(sessionId);
-          const sessionRow = yield* toSessionRow(sessionListItem);
+          const sessionRow = yield* makeSessionRow(sessionListItem);
 
           yield* postToWebview({_tag: SESSIONS_VIEW_MESSAGE_TAGS.SESSION_DRAWN, sessionRow});
         },
@@ -247,7 +238,6 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         yield* postToWebview({_tag: SESSIONS_VIEW_MESSAGE_TAGS.SESSION_PROCESSES_DRAWN, sessionProcesses});
       });
 
-      // With no session in front, the last one keeps its mark.
       const drawViewedSession = Effect.fn("drawViewedSession")(
         function* () {
           const viewedSessionId = yield* sessionController.findViewedSessionIdForSessionsView;
@@ -306,7 +296,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
         yield* postToWebview({_tag: SESSIONS_VIEW_MESSAGE_TAGS.APPEARANCE_DRAWN, accentColor, fontSize});
       });
 
-      const toAgentRow = Effect.fn("toAgentRow")(function* (agentListItem: AgentListItemDto) {
+      const makeAgentRow = Effect.fn("makeAgentRow")(function* (agentListItem: AgentListItemDto) {
         const webviewView = yield* findShownWebviewView();
         const agentRow: AgentRowData = {
           agentListItem,
@@ -333,7 +323,7 @@ export class SessionsDrawingUtils extends Context.Service<SessionsDrawingUtils>(
           () => false
         );
         const agentListItems = yield* agentController.listAgentsForSessionsView;
-        const agentRows = yield* Effect.forEach(agentListItems, (agentListItem) => toAgentRow(agentListItem));
+        const agentRows = yield* Effect.forEach(agentListItems, (agentListItem) => makeAgentRow(agentListItem));
 
         yield* postToWebview({
           _tag: SESSIONS_VIEW_MESSAGE_TAGS.AGENTS_DRAWN,

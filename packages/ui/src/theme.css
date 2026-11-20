@@ -6,7 +6,6 @@
 /* VS Code puts its theme kind on the body. */
 @custom-variant dark (&:where(.vscode-dark *, .vscode-high-contrast:not(.vscode-high-contrast-light) *));
 
-/* Movement only for users who haven't asked for less, in the system's settings or VS Code's Reduce Motion; fades stay. */
 @custom-variant motion-ok {
   @media (prefers-reduced-motion: no-preference) {
     &:where(:not(.vscode-reduce-motion *)) {
@@ -68,13 +67,11 @@
 :root {
   --background: var(--vscode-sideBar-background);
   --foreground: var(--vscode-sideBar-foreground, var(--vscode-foreground));
-  /* Neutral, the accent with no data-accent rule below, shades with the text. */
   --shade: var(--aggregor-shade, var(--foreground));
   --brand-foreground: oklch(from var(--brand) clamp(0.16, calc((0.7 - l) * 1000), 0.98) 0 0);
   --brand-glow: color-mix(in srgb, var(--brand) 30%, transparent);
   --card: var(--vscode-sideBar-background);
   --card-foreground: var(--vscode-foreground);
-  /* shadcn's names for the levels, set here, where --level is 0: a popup is level 1, what is highlighted on it level 2. */
   --popover: --theme(--color-lift-1 inline);
   --popover-foreground: var(--foreground);
   --primary: var(--brand);
@@ -90,11 +87,9 @@
   --input: var(--vscode-input-border, transparent);
   --ring: var(--brand);
   --radius: 0.5rem;
-  /* Level n is n steps from the background toward the shade, in oklab so steps look equal; each state is one level up. */
   --level: 0;
   --level-step: 10%;
   --hairline: color-mix(in srgb, var(--foreground) 14%, transparent);
-  /* A status is drawn in the theme's terminal colours, the palette its agents' terminals already use. */
   --status-blocked: var(--vscode-terminal-ansiYellow);
   --status-done: var(--vscode-terminal-ansiGreen);
   --status-error: var(--vscode-errorForeground);
@@ -102,17 +97,14 @@
   --status-idle: var(--vscode-descriptionForeground);
   --status-interrupted: var(--vscode-editorWarning-foreground);
   --status-working: var(--vscode-terminal-ansiCyan);
-  /* Source Control's own colours for added and deleted files. */
   --diff-added: var(--vscode-gitDecoration-addedResourceForeground);
   --diff-deleted: var(--vscode-gitDecoration-deletedResourceForeground);
-  /* GitHub's own hues for a pull request's state, from the theme's terminal palette. */
   --pull-request-closed: var(--vscode-terminal-ansiRed);
   --pull-request-draft: var(--vscode-descriptionForeground);
   --pull-request-merged: var(--vscode-terminal-ansiMagenta);
   --pull-request-open: var(--vscode-terminal-ansiGreen);
 }
 
-/* The two colours keep their hue but are held to a lightness that shows against the theme kind's background. */
 :root {
   --foreground-strong: color-mix(in srgb, var(--foreground), black 40%);
   --brand: oklch(from var(--aggregor-accent, var(--vscode-focusBorder)) clamp(0.42, l, 0.6) calc(c * 1.25) h);
@@ -125,7 +117,6 @@
   --brand-end: oklch(from var(--vscode-terminal-ansiBlue) clamp(0.74, l, 0.9) calc(c * 1.25) h);
 }
 
-/* The app names its accent on an element it draws; a colour of the user's own and the text size come in its <style>. */
 :root:has([data-accent="theme"]) {
   --aggregor-accent: var(--vscode-activityBarBadge-background);
   --aggregor-shade: var(--brand);
@@ -140,7 +131,6 @@
   --aggregor-shade: var(--brand);
 }
 
-/* The body's text is the size the user sets, and every rem scales with it. */
 html {
   font-size: calc(var(--aggregor-font-size, 14px) / 0.875);
 }

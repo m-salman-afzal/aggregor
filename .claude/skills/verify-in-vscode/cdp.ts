@@ -122,7 +122,7 @@ export const hoverInSessionsWebview = async (point: string) => {
   await sendCdpCommand("Input.dispatchMouseEvent", {type: "mouseMoved", x: pointX, y: pointY});
 };
 
-export const screenshot = async (screenshotPath: string) => {
+export const saveWindowScreenshot = async (screenshotPath: string) => {
   if (!path.isAbsolute(screenshotPath)) throw new Error("Pass an absolute path for the screenshot.");
 
   const capture = await sendCdpCommand("Page.captureScreenshot", {format: "png"});

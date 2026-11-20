@@ -8,8 +8,6 @@ import {afterAll, describe, expect, it} from "vitest";
 
 import type {Config} from "eslint/config";
 
-// The folder-structure rules on a small front end on disk, since they read the files around the one they lint.
-
 const APP_FILES: Readonly<Record<string, string>> = {
   "main.tsx": 'import {Sessions} from "@/modules/sessions/sessions.tsx";\n',
   "modules/other/other.tsx":

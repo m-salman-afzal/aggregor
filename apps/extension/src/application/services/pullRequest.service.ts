@@ -36,7 +36,6 @@ export class PullRequestService extends Context.Service<PullRequestService>()(
       const baseService = yield* BaseService;
       const sessionBaseService = yield* baseService.makeFor(sessionRepository);
 
-      // Where aggregorApp.openPullRequestIn says.
       const openSessionPullRequest = Effect.fn("openSessionPullRequest")(function* (
         request: OpenSessionPullRequestRequestDto
       ) {
@@ -58,7 +57,6 @@ export class PullRequestService extends Context.Service<PullRequestService>()(
         Effect.catchTag("EntityNotFoundError", () => Effect.void)
       );
 
-      // The row goes back to the worktree branch's pull request, or none in the project root.
       const unlinkSessionPullRequest = Effect.fn("unlinkSessionPullRequest")(
         function* (request: UnlinkSessionPullRequestRequestDto) {
           yield* sessionBaseService.updateEntity(request.sessionId, {pullRequestNumber: undefined});
@@ -66,7 +64,6 @@ export class PullRequestService extends Context.Service<PullRequestService>()(
         Effect.catchTag("EntityNotFoundError", () => Effect.void)
       );
 
-      // From the session's own folder, so gh asks the repository the session works in.
       const listSessionPullRequests = Effect.fn("listSessionPullRequests")(function* (
         request: ListSessionPullRequestsRequestDto
       ) {
@@ -103,7 +100,6 @@ export class PullRequestService extends Context.Service<PullRequestService>()(
         return Stream.as(gitHubCliInfraService.gitHubCliSignedOutProblems, undefined);
       });
 
-      // A root session with no linked pull request, or one in a worktree git no longer knows, has nothing to look up.
       const refreshSessionPullRequest = Effect.fn("refreshSessionPullRequest")(
         function* (session: SessionEntity) {
           const pullRequestLookup = yield* sessionService.findSessionPullRequestLookup(session);
@@ -139,7 +135,6 @@ export class PullRequestService extends Context.Service<PullRequestService>()(
         if (isTurnEnd) yield* Effect.withTracerEnabled(refreshSessionPullRequest(updatedSession), true);
       });
 
-      // An agent that just finished a turn may have pushed its branch or opened its pull request; only that is traced.
       const startPullRequestRefreshOnTurnEnd = Effect.fn("startPullRequestRefreshOnTurnEnd")(function* () {
         const lastStatusChangeTimes = yield* Ref.make<ReadonlyMap<EntityIdValueObject, number>>(new Map());
         const updatedSessions = Stream.filterMap(sessionRepository.entityChanges, (sessionChange) =>

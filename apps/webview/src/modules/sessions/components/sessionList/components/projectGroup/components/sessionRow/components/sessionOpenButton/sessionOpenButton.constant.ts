@@ -3,7 +3,6 @@ import {GitMergeIcon, GitPullRequestClosedIcon, GitPullRequestDraftIcon, GitPull
 import type {SessionPullRequestDto} from "@dtos/session.dto.ts";
 import type {LucideIcon} from "lucide-react";
 
-// A click on the pull request opens it rather than the session; the row's … menu opens it from the keyboard.
 export const PULL_REQUEST_LINK_ATTRIBUTE = "data-pull-request-link";
 
 export const PULL_REQUEST_STATE_ICONS = {

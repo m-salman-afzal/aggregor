@@ -15,7 +15,6 @@ export class FolderShellProfileView extends Context.Service<FolderShellProfileVi
       const vsCodeApi = yield* VsCodeApi;
       const vscodeUtils = yield* VscodeUtils;
 
-      // No options launch VS Code's own shell, so a failure still opens a terminal.
       const prepareProfileTerminalOptions = Effect.fn("prepareProfileTerminalOptions")(
         function* () {
           const profileTerminal = yield* folderShellController.prepareProfileTerminalForFolderShellProfileView;

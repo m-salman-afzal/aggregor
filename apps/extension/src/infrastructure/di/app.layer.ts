@@ -52,7 +52,6 @@ const DomainLayer = Layer.mergeAll(
   WorktreeDomainService.layer
 ).pipe(Layer.withSpan("Domain"), Layer.provide(SecureRandom.layerWebCrypto));
 
-// Fails to compile when a port's implementation leaves more than VsCodeApi for extension.ts to provide.
 const InfrastructureLayer = Layer.mergeAll(
   AgentHistoryInfraService.layer,
   AgentRepository.layer,
@@ -91,8 +90,4 @@ export const ApplicationLayer = Layer.mergeAll(
   WorkspaceService.layer,
   WorktreeService.layer,
   BackgroundJobs.layer
-).pipe(
-  Layer.withSpan("Application"),
-  // NodeServices is for the application services, which read Path themselves.
-  Layer.provide([DomainLayer, InfrastructureLayer, NodeServices.layer])
-);
+).pipe(Layer.withSpan("Application"), Layer.provide([DomainLayer, InfrastructureLayer, NodeServices.layer]));

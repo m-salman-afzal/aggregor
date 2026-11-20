@@ -47,15 +47,12 @@ export class WorkspaceService extends Context.Service<WorkspaceService>()(
           yield* gitInfraService.openInSourceControl(session.workingFolderPath);
           yield* workspaceInfraService.showOnlyProjectFolder(session.workingFolderPath, session.id);
         },
-        // A tab left running by a removed session has no project to show.
         Effect.catchTag("SessionNotFoundError", () => Effect.void),
-        // No command started this, so a failure is logged.
         Effect.catch((databaseError) =>
           Effect.logWarning("Could not keep the workspace's folders listed", databaseError)
         )
       );
 
-      // Like VS Code's Agents window, the workspace follows the session in view; with none in view the project stays.
       const startShownProjectSync = Effect.fn("startShownProjectSync")(function* () {
         yield* Effect.forkScoped(
           // A switch takes about a second, so only the last session viewed during one is switched to next.
@@ -68,7 +65,6 @@ export class WorkspaceService extends Context.Service<WorkspaceService>()(
         );
       });
 
-      // Opening Aggregor's workspace reloaded the window, which closed the session's tab.
       const reopenSessionAfterReload = Effect.fn("reopenSessionAfterReload")(
         function* () {
           const sessionId = yield* workspaceInfraService.takeSessionToReopen;
@@ -79,7 +75,6 @@ export class WorkspaceService extends Context.Service<WorkspaceService>()(
         Effect.catch((openError) => Effect.logWarning("Could not reopen the session after the reload", openError))
       );
 
-      // In the background, so the window starts without waiting for the session's tab.
       const startSessionReopenAfterReload = Effect.fn("startSessionReopenAfterReload")(function* () {
         yield* Effect.forkScoped(reopenSessionAfterReload());
       });

@@ -1,11 +1,9 @@
 export const TMUX = {
   COMMAND: "tmux",
-  // Read instead of ~/.tmux.conf when the server starts, and again when a window starts.
   CONFIG_FILE: "assets/tmux.conf",
   // The oldest tmux tmux.conf works with: extended-keys and terminal-features arrived in 3.2.
   MINIMUM_VERSION: {MAJOR: 3, MINOR: 2},
   SETUP_SHELL: "sh",
-  // Aggregor's own server, apart from the user's tmux; a test's Aggregor folder gets one of its own.
   SOCKET_FILE_NAME: "tmux.sock",
   // What `tmux -V` prints: "tmux 3.8", "tmux 3.3a" or "tmux next-3.6".
   VERSION_NUMBER_PATTERN: /(?<major>\d+)\.(?<minor>\d+)/u,
@@ -28,7 +26,6 @@ export const AGENT_START_WAIT = {
 export const FOLDER_SHELL = {
   // tmux before 3.7 sizes a pane's history as the pane is made, so there a shell keeps tmux.conf's limit.
   HISTORY_LINES: "100000",
-  // Runs the user's login shell, after the command line's own arguments: a systemd scope's, or none.
   START_SCRIPT: 'unset TMUX TMUX_PANE; exec "$@" "$SHELL" -l',
   // tmux.conf's status line shows this option of the shell's tmux session.
   STATUS_LABEL_OPTION: "@aggregor_folder_label"

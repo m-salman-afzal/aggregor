@@ -12,7 +12,6 @@ export interface GitWorktree {
 export interface CreateWorktreeRequest {
   readonly branchName: string;
   readonly projectPath: ProjectPathValueObject;
-  // A branch name, or HEAD for the project's current commit.
   readonly startPoint: string;
   readonly worktreeName: string;
   readonly worktreesFolderName: string;
@@ -21,14 +20,12 @@ export interface CreateWorktreeRequest {
 
 export interface WorktreeBranch {
   readonly branchName: string;
-  // The upstream it tracked is gone from the remote, as when its pull request merged and the remote branch was deleted.
   readonly isUpstreamGone: boolean;
   readonly worktreePath: string;
 }
 
 export interface ProjectBranchNames {
   readonly localBranchNames: readonly string[];
-  // origin's, as of the last fetch.
   readonly remoteBranchNames: readonly string[];
 }
 
@@ -38,7 +35,6 @@ export interface BranchMergeCheck {
   readonly projectPath: ProjectPathValueObject;
 }
 
-// What the worktree changed since it split from the base branch: its commits, its uncommitted edits and its new files.
 export interface WorktreeDiffStats {
   readonly changedFileCount: number;
   readonly deletionCount: number;
@@ -73,7 +69,6 @@ export class IWorktreeInfraService extends Context.Service<
     ) => Effect.Effect<void, IWorktreeInfraServiceErrors["BranchDeleteFailedError"]>;
     // Network: brings origin's branches up to date; offline, nothing changes.
     readonly fetchRemote: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;
-    // origin's default branch, or the project's own checked-out branch when there is no origin.
     readonly findBaseBranch: (
       projectPath: ProjectPathValueObject
     ) => Effect.Effect<string, IWorktreeInfraServiceErrors["NotGitRepositoryError"]>;
@@ -85,7 +80,6 @@ export class IWorktreeInfraService extends Context.Service<
     readonly hasChanges: (worktreePath: ProjectPathValueObject) => Effect.Effect<boolean>;
     readonly hasUpstream: (worktreePath: ProjectPathValueObject) => Effect.Effect<boolean>;
     readonly isBranchMerged: (branchMergeCheck: BranchMergeCheck) => Effect.Effect<boolean>;
-    // Under Aggregor's worktrees folder, or the project's own worktree folder setting.
     readonly isMadeByAggregor: (
       worktreePath: ProjectPathValueObject,
       worktreesFolderPath: string
@@ -101,7 +95,6 @@ export class IWorktreeInfraService extends Context.Service<
     ) => Effect.Effect<readonly GitWorktree[], IWorktreeInfraServiceErrors["NotGitRepositoryError"]>;
     // Network: refreshes which upstreams are gone; offline, nothing changes.
     readonly pruneRemote: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;
-    // A worktree's or a project's checkout; a detached one gives its commit's short hash.
     readonly readBranchName: (
       worktreePath: ProjectPathValueObject
     ) => Effect.Effect<string, IWorktreeInfraServiceErrors["NotGitRepositoryError"]>;
@@ -109,12 +102,10 @@ export class IWorktreeInfraService extends Context.Service<
       worktreePath: ProjectPathValueObject,
       baseBranchName: string
     ) => Effect.Effect<WorktreeDiffStats, IWorktreeInfraServiceErrors["NotGitRepositoryError"]>;
-    // A folder already gone is only forgotten by git.
     readonly removeWorktree: (
       projectPath: ProjectPathValueObject,
       worktreePath: ProjectPathValueObject
     ) => Effect.Effect<void, IWorktreeInfraServiceErrors["WorktreeHasChangesError" | "WorktreeRemoveFailedError"]>;
-    // Renames the branch the worktree has checked out.
     readonly renameBranch: (
       worktreePath: ProjectPathValueObject,
       branchName: string

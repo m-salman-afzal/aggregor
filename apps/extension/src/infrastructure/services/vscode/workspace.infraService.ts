@@ -71,16 +71,11 @@ class WorkspaceInfraServiceErrors extends TaggedErrors({
   FolderSelectFailedError: {cause: Schema.Unknown},
   NoCopiedProjectSettingsError: {},
   NoIncomingProjectSettingsError: {},
-  // The window has no saved workspace file: it shows a folder, or an untitled workspace.
   NoSavedWorkspaceFileError: {},
-  // VS Code refused the edit, as when the file changed after it was read.
   SettingsFileEditRejectedError: {settingsFilePath: Schema.String},
   SettingsFileNotOpenedError: {cause: Schema.Unknown, settingsFilePath: Schema.String},
-  // VS Code didn't save the file even when asked again; the edit stays unsaved in its copy.
   SettingsFileNotSavedError: {settingsFilePath: Schema.String},
-  // The settings file isn't JSON with comments, as while it is being edited.
   SettingsFileUnreadableError: {settingsFilePath: Schema.String},
-  // Unsaved changes outlasted another writer's time to save, as an editor's would; the sync after their save writes it.
   SettingsFileUnsavedError: {settingsFilePath: Schema.String},
   WorkspaceFoldersUpdateRejectedError: {}
 }) {}
@@ -94,7 +89,6 @@ interface IncomingProject {
   readonly settings: Result.Result<FolderSettings, WorkspaceInfraServiceErrors["NoIncomingProjectSettingsError"]>;
 }
 
-// Each side is compared with the last copy, to tell an edit on one side from one on the other.
 const CopiedProjectSettingsJson = Schema.fromJsonString(
   Schema.Struct({projectPath: Schema.String, settings: FolderSettingsSchema})
 );
@@ -191,7 +185,6 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         );
       }, Effect.timeout(WORKSPACE_FOLDERS_CHANGE.TIMEOUT));
 
-      // Written on every switch, which also brings back a deleted or edited copy.
       const writeAnchorFolderSettings = Effect.fn("writeAnchorFolderSettings")(function* (
         projectPath: ProjectPathValueObject
       ) {
@@ -207,7 +200,6 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         );
       });
 
-      // A saved workspace whose folder 0 is the anchor folder: Aggregor's own, or one the user saved.
       const isSavedAnchoredWorkspace = Effect.fn("isSavedAnchoredWorkspace")(function* () {
         return yield* Effect.sync(() => {
           const workspaceFile = vsCodeApi.workspace.workspaceFile;
@@ -254,7 +246,6 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         return yield* Schema.decodeUnknownEffect(FolderSettingsSchema)(parsedSettings);
       });
 
-      // A project without a settings file has no settings.
       const readProjectSettings = Effect.fn("readProjectSettings")(function* (projectPath: string) {
         const settingsFilePath = yield* findProjectSettingsFilePath(projectPath);
         if (!(yield* fileSystem.exists(settingsFilePath))) return {};
@@ -296,7 +287,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
           Array.join(String.split(settingText, variable), variableValue);
 
         return yield* mapSettingTexts(projectSettings, (settingText) => {
-          const withProjectFolder = replaceVariable(
+          const settingTextWithProjectFolder = replaceVariable(
             replaceVariable(
               settingText,
               PROJECT_SETTINGS_SYNC.WORKSPACE_FOLDER_BASENAME_VARIABLE,
@@ -306,10 +297,12 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
             projectPath
           );
           const isRelativePath = Array.some(PROJECT_SETTINGS_SYNC.RELATIVE_PATH_PREFIXES, (relativePathPrefix) =>
-            String.startsWith(relativePathPrefix)(withProjectFolder)
+            String.startsWith(relativePathPrefix)(settingTextWithProjectFolder)
           );
 
-          return isRelativePath ? path.resolve(projectPath, withProjectFolder) : withProjectFolder;
+          return isRelativePath
+            ? path.resolve(projectPath, settingTextWithProjectFolder)
+            : settingTextWithProjectFolder;
         });
       });
 
@@ -362,7 +355,6 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         });
       });
 
-      // The project's edit wins; one made only in the workspace file goes to the project's file, and undefined removes it.
       const mergeProjectSettings = Effect.fn("mergeProjectSettings")(function* (
         workspaceSettings: FolderSettings,
         projectSettings: FolderSettings,
@@ -464,7 +456,6 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         return settingsDocument;
       });
 
-      // One edit that replaces the whole text, then a save, so the file changes once.
       const saveSettingsDocumentText = Effect.fn("saveSettingsDocumentText")(function* (
         settingsDocument: TextDocument,
         editedSettingsText: string
@@ -520,7 +511,6 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         if (editedSettingsText !== settingsText) yield* saveSettingsDocumentText(settingsDocument, editedSettingsText);
       });
 
-      // Only the settings change, so the folders VS Code wrote stay as they are.
       const writeWorkspaceFileSettings = Effect.fn("writeWorkspaceFileSettings")(function* (
         workspaceSettings: FolderSettings
       ) {
@@ -616,7 +606,6 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         });
       });
 
-      // A failure leaves both sides, edits included, for the next sync.
       const syncShownProjectSettings = Effect.fn("syncShownProjectSettings")(
         function* () {
           if (!(yield* isAggregorWorkspaceOpen())) return;
@@ -629,7 +618,6 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         Effect.ignore({log: "Warn", message: "Could not sync the project's settings with Aggregor's workspace"})
       );
 
-      // One sync at a time, and none while a switch runs.
       const syncShownProjectSettingsInTurn = Effect.fn("syncShownProjectSettingsInTurn")(function* () {
         yield* Semaphore.withPermits(projectSettingsLock, 1)(syncShownProjectSettings());
       });
@@ -693,7 +681,6 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         })
       );
 
-      // The window opens the workspace even when the project's settings can't be read; the next sync copies them.
       const prepareOpeningWorkspaceSettings = Effect.fn("prepareOpeningWorkspaceSettings")(
         function* (projectPath: ProjectPathValueObject) {
           return yield* prepareWorkspaceSettings(projectPath);
@@ -783,7 +770,6 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         yield* Effect.timeout(Deferred.await(foldersChanged), WORKSPACE_FOLDERS_CHANGE.TIMEOUT);
       }, Effect.scoped);
 
-      // Settings that can't be read leave the workspace file's as they are, for the sync once the project is in.
       const readIncomingProjectSettings = Effect.fn("readIncomingProjectSettings")(
         function* (projectPath: ProjectPathValueObject) {
           return yield* prepareWorkspaceSettings(projectPath);
@@ -822,15 +808,15 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         incomingProject: IncomingProject
       ) {
         const anchorFolder = yield* findAnchorFolderEntry(workspaceFileContents.folders);
-        const withProjectFolder = yield* editJsonPropertyInText(
+        const workspaceFileTextWithProjectFolder = yield* editJsonPropertyInText(
           workspaceFileContents.text,
           WORKSPACE_FOLDERS_CHANGE.FILE_KEY,
           [anchorFolder, {path: incomingProject.projectPath}]
         );
-        if (Result.isFailure(incomingProject.settings)) return withProjectFolder;
+        if (Result.isFailure(incomingProject.settings)) return workspaceFileTextWithProjectFolder;
 
         return yield* editJsonPropertyInText(
-          withProjectFolder,
+          workspaceFileTextWithProjectFolder,
           PROJECT_SETTINGS_SYNC.WORKSPACE_FILE_SETTINGS_KEY,
           incomingProject.settings.success
         );
@@ -874,7 +860,6 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         );
       });
 
-      // The last resort when VS Code confirms no folder change at all: the reloaded window reads its folders from the file.
       const reloadWindowForProject = Effect.fn("reloadWindowForProject")(function* (
         projectPath: ProjectPathValueObject,
         sessionToReopen: EntityIdValueObject | undefined
@@ -991,7 +976,6 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         Effect.ignore({log: "Warn", message: "Could not take the project out of the workspace"})
       );
 
-      // Read and deleted, so the session opens once; any failure means there is none.
       const takeSessionToReopen = Effect.fn("takeSessionToReopen")(
         function* () {
           const sessionToReopenPath = path.join(path.dirname(anchorFolderPath), SESSION_TO_REOPEN.FILE_NAME);

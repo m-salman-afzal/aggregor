@@ -56,7 +56,6 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
         Effect.catchTag("NoFolderShellTerminalOpenError", () => Effect.void)
       );
 
-      // With no terminal open, the one that opens starts on the folder's shell.
       const openFolderShell = Effect.fn("openFolderShell")(function* (folderShellRequest: FolderShellRequest) {
         yield* showFolderShellInOpenTerminal(folderShellRequest);
         const terminalCommand = yield* tmuxInfraService.prepareFolderShellTerminalCommand(folderShellRequest);
@@ -67,7 +66,6 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
         });
       });
 
-      // A project no longer listed opens nothing.
       const openProjectTerminal = Effect.fn("openProjectTerminal")(
         function* (request: OpenProjectTerminalRequestDto) {
           const chosenProject = yield* projectService.findProjectListItem(request.projectPath);
@@ -86,7 +84,6 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
           : FOLDER_SHELL_STATUS_LABEL.WORKTREE(projectName, path.basename(session.worktreePath));
       });
 
-      // A root session shares its project's shell; sessions in one worktree share the worktree's.
       const prepareSessionFolderShellRequest = Effect.fn("prepareSessionFolderShellRequest")(function* (
         session: SessionEntity
       ) {
@@ -109,7 +106,6 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
         Effect.catchTag("ProjectNotListedError", () => Effect.void)
       );
 
-      // No command started this, so a failure is logged; with no Aggregor terminal open nothing moves.
       const showViewedSessionFolderShell = Effect.fn("showViewedSessionFolderShell")(
         function* (viewedSessionId: EntityIdValueObject) {
           const viewedSession = yield* sessionService.findSession(viewedSessionId);
@@ -123,7 +119,6 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
         )
       );
 
-      // tmux switches the terminal behind VS Code's back, so the Terminal panel stays open or hidden as it was.
       const startFolderShellFollow = Effect.fn("startFolderShellFollow")(function* () {
         yield* Effect.forkScoped(
           SubscriptionRef.changes(terminalInfraService.viewedSessionId).pipe(
@@ -146,7 +141,6 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
         );
       });
 
-      // A worktree shown in the window is no project, so its shell takes the label of a session working there.
       const prepareShownFolderShellRequest = Effect.fn("prepareShownFolderShellRequest")(function* () {
         const workspaceFolderProjects = yield* workspaceInfraService.listWorkspaceFolderProjects;
         const [shownFolder] = workspaceFolderProjects;
@@ -159,7 +153,6 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
         return folderShellRequest;
       });
 
-      // The session in view picks the shell, as the follow would; with none in view, the folder shown in the window does.
       const prepareProfileFolderShellRequest = Effect.fn("prepareProfileFolderShellRequest")(function* () {
         const viewedSessionId = yield* SubscriptionRef.get(terminalInfraService.viewedSessionId);
         if (Result.isFailure(viewedSessionId)) return yield* prepareShownFolderShellRequest();

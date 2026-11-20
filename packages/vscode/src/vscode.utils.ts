@@ -31,7 +31,6 @@ export class VscodeUtils extends Context.Service<VscodeUtils>()("@pkg/vscode/vsc
       );
     });
 
-    // The listener is disposed when whoever runs the stream closes its scope.
     const streamVsCodeEvent = Effect.fn("streamVsCodeEvent")(function* <EventValue>(vsCodeEvent: Event<EventValue>) {
       return Stream.callback<EventValue>((eventQueue) =>
         acquireScopedDisposable(() => vsCodeEvent((eventValue) => Queue.offerUnsafe(eventQueue, eventValue)))
@@ -47,7 +46,6 @@ export class VscodeUtils extends Context.Service<VscodeUtils>()("@pkg/vscode/vsc
       );
     });
 
-    // The effect's failure comes back out once the progress ends.
     const runWithProgressIndicator = Effect.fn("runWithProgressIndicator")(function* <A, E, R>(
       progressOptions: ProgressOptions,
       effectToRun: Effect.Effect<A, E, R>
@@ -86,7 +84,6 @@ export class VscodeUtils extends Context.Service<VscodeUtils>()("@pkg/vscode/vsc
         yield* Effect.promise(() => vsCodeApi.commands.executeCommand(commandToRun.commandId));
     });
 
-    // Without waiting for the user to dismiss it, so whatever failed can finish now.
     const showErrorNotificationWithoutWaiting = Effect.fn("showErrorNotificationWithoutWaiting")(function* (
       errorMessage: string,
       errorButtons: ErrorButtons = {}
@@ -110,7 +107,6 @@ export class VscodeUtils extends Context.Service<VscodeUtils>()("@pkg/vscode/vsc
       );
     });
 
-    // VS Code passes arguments untyped; each caller decodes the ones its menu entry or view sends.
     const decodeVsCodeArgument = Effect.fn("decodeVsCodeArgument")(function* <ArgumentSchema extends Schema.Constraint>(
       argumentSchema: ArgumentSchema,
       vsCodeArgument: unknown

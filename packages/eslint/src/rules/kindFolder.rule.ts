@@ -16,7 +16,6 @@ import type {Rule} from "eslint";
 
 type FolderReport = Readonly<{data: Record<string, string>; messageId: string}>;
 
-// A store always sits in its module's stores/ folder, even alone, beside its helpers there.
 const ALWAYS_FOLDED_KINDS = new Set(["store"]);
 
 const getRoleTitle = (role: string) => {

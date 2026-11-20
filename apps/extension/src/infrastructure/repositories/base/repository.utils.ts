@@ -28,7 +28,7 @@ export class RepositoryUtils extends Context.Service<RepositoryUtils>()(
         return DateTime.formatIso(now);
       });
 
-      // A missing value is stored as NULL, and a DateTime as ISO 8601 text, as aggregor-pty writes its timestamps.
+      // A DateTime is stored as ISO 8601 text, as aggregor-pty writes its timestamps.
       const encodeStoredColumn = Effect.fn("encodeStoredColumn")(function* (columnValue: unknown) {
         if (columnValue === undefined) return null;
         if (DateTime.isDateTime(columnValue)) return DateTime.formatIso(columnValue);
@@ -37,7 +37,6 @@ export class RepositoryUtils extends Context.Service<RepositoryUtils>()(
         return yield* Schema.encodeUnknownEffect(StoredJsonSchema)(columnValue);
       });
 
-      // An object column, such as a project's settings, is stored as its JSON text.
       const encodeStoredColumns = Effect.fn("encodeStoredColumns")(function* (columns: StoredColumns) {
         const encodedEntries = yield* Effect.forEach(Record.toEntries(columns), ([columnName, columnValue]) =>
           Effect.map(encodeStoredColumn(columnValue), (encodedValue) => [columnName, encodedValue] as const)
@@ -56,7 +55,6 @@ export class RepositoryUtils extends Context.Service<RepositoryUtils>()(
         return Array.isReadonlyArrayNonEmpty(uniqueColumns) ? uniqueColumns : [tableModel.id];
       });
 
-      // Through each column, so a value is stored the way the column stores it (a boolean as 0 or 1).
       const makeFilterClauses = Effect.fn("makeFilterClauses")(function* (
         tableModel: BaseTableModel,
         filter: StoredColumns
@@ -80,7 +78,7 @@ export class RepositoryUtils extends Context.Service<RepositoryUtils>()(
         return dataVersionRow.dataVersion;
       });
 
-      // data_version changes with each commit from another connection, never this one's own; the poll runs untraced.
+      // data_version changes with each commit from another connection, never this one's own.
       const watchDataVersionChanges = Effect.fn("watchDataVersionChanges")(function* () {
         const dataVersions = Stream.fromEffectSchedule(
           Effect.withTracerEnabled(readDataVersion(), false),
@@ -90,7 +88,6 @@ export class RepositoryUtils extends Context.Service<RepositoryUtils>()(
         return Stream.drop(Stream.changes(dataVersions), 1);
       });
 
-      // Returns the query unrun, for its caller to order and limit.
       const buildJoinedSelect = Effect.fn("buildJoinedSelect")(function* <Entity>(entityTable: EntityTable<Entity>) {
         const joinedColumns = entityTable.join === undefined ? {} : entityTable.join.joinedColumns;
         const selectedRows = database
@@ -115,7 +112,6 @@ export class RepositoryUtils extends Context.Service<RepositoryUtils>()(
         return yield* joinedSelect.joinedRows.where(rowCondition).orderBy(orderColumn);
       });
 
-      // Newest first: the highest sortId leads.
       const selectRowPage = Effect.fn("selectRowPage")(function* <Entity>(
         entityTable: EntityTable<Entity>,
         rowCondition: SQL | undefined,

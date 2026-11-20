@@ -14,33 +14,30 @@ export class WorktreeDomainService extends Context.Service<WorktreeDomainService
   "aggregor-app/domain/services/worktree.domainService/WorktreeDomainService",
   {
     make: Effect.fn("make")(function* () {
-      const toNamePart = Effect.fn("toNamePart")(function* (text: string) {
+      const formatTextAsNamePart = Effect.fn("formatTextAsNamePart")(function* (text: string) {
         return String.replace(
           EDGE_SEPARATOR_PATTERN,
           ""
         )(String.replace(NAME_SEPARATOR_PATTERN, "-")(String.toLowerCase(text)));
       });
 
-      // "jsTester #3" becomes "jstester-3": the worktree's folder, and its branch after the prefix.
       const getWorktreeName = Effect.fn("getWorktreeName")(function* (sessionName: string) {
-        return yield* toNamePart(sessionName);
+        return yield* formatTextAsNamePart(sessionName);
       });
 
       const getWorktreeBranchName = Effect.fn("getWorktreeBranchName")(function* (worktreeName: string) {
         return `${WORKTREE_BRANCH_PREFIX}${worktreeName}`;
       });
 
-      // The id's end keeps two projects with the same folder name apart.
       const getWorktreesFolderName = Effect.fn("getWorktreesFolderName")(function* (
         projectName: string,
         projectId: EntityIdValueObject
       ) {
-        return `${yield* toNamePart(projectName)}-${String.slice(-PROJECT_ID_SUFFIX_LENGTH)(projectId)}`;
+        return `${yield* formatTextAsNamePart(projectName)}-${String.slice(-PROJECT_ID_SUFFIX_LENGTH)(projectId)}`;
       });
 
-      // "Fix the login redirect after OAuth" becomes aggregor/fix-the-login-redirect-after-oauth, cut at a word past 50.
       const getTitledBranchName = Effect.fn("getTitledBranchName")(function* (sessionTitle: string) {
-        const titleName = yield* toNamePart(sessionTitle);
+        const titleName = yield* formatTextAsNamePart(sessionTitle);
         if (titleName.length <= TITLED_NAME_MAX_LENGTH) return `${WORKTREE_BRANCH_PREFIX}${titleName}`;
         const cutName = String.slice(0, TITLED_NAME_MAX_LENGTH)(titleName);
         const wordName = String.replace(LAST_WORD_PART_PATTERN, "")(cutName);
@@ -48,7 +45,6 @@ export class WorktreeDomainService extends Context.Service<WorktreeDomainService
         return `${WORKTREE_BRANCH_PREFIX}${wordName}`;
       });
 
-      // A branch still named after its worktree's folder has the name Aggregor gave it, which a title may replace.
       const hasWorktreeBranchFirstName = Effect.fn("hasWorktreeBranchFirstName")(function* (
         branchName: string,
         worktreeFolderName: string
@@ -57,12 +53,12 @@ export class WorktreeDomainService extends Context.Service<WorktreeDomainService
       });
 
       return {
+        formatTextAsNamePart,
         getTitledBranchName,
         getWorktreeBranchName,
         getWorktreeName,
         getWorktreesFolderName,
-        hasWorktreeBranchFirstName,
-        toNamePart
+        hasWorktreeBranchFirstName
       };
     })
   }

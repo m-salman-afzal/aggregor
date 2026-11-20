@@ -29,7 +29,7 @@ import {
 
 import type {Config} from "eslint/config";
 
-const extensionFiles = (filePatterns: readonly string[]) =>
+const prefixWithExtensionSourceFolder = (filePatterns: readonly string[]) =>
   filePatterns.map((filePattern) => `apps/extension/src/${filePattern}`);
 
 const CODE_BANS = [
@@ -58,7 +58,7 @@ export const LAYER_CONFIGS: Config[] = [
     rules: {"no-restricted-syntax": ["error", ...CODE_BANS, SERVICE_CLASS_BAN]}
   },
   {
-    files: extensionFiles([
+    files: prefixWithExtensionSourceFolder([
       "**/*.service.ts",
       "**/*.controller.ts",
       "**/*.errorMessage.ts",
@@ -75,21 +75,21 @@ export const LAYER_CONFIGS: Config[] = [
     rules: {"no-restricted-syntax": ["error", ...CODE_BANS]}
   },
   {
-    files: extensionFiles(["infrastructure/di/**/*.ts"]),
+    files: prefixWithExtensionSourceFolder(["infrastructure/di/**/*.ts"]),
     rules: {"no-restricted-syntax": ["error", ...CODE_BANS, LAYER_MERGE_SPAN_BAN]}
   },
   {
-    files: extensionFiles(["infrastructure/di/app.layer.ts"]),
+    files: prefixWithExtensionSourceFolder(["infrastructure/di/app.layer.ts"]),
     rules: {"no-restricted-syntax": ["error", ...CODE_BANS, LAYER_MERGE_SPAN_BAN, PROVIDE_MERGE_BAN]}
   },
   {
-    files: extensionFiles(["extension.ts"]),
+    files: prefixWithExtensionSourceFolder(["extension.ts"]),
     rules: {
       "no-restricted-syntax": ["error", ...CODE_BANS, SERVICE_CLASS_BAN, LAYER_MERGE_SPAN_BAN, PROVIDE_MERGE_BAN]
     }
   },
   {
-    files: extensionFiles(["**/*.entity.ts"]),
+    files: prefixWithExtensionSourceFolder(["**/*.entity.ts"]),
     rules: {"no-restricted-syntax": ["error", ...CODE_BANS, SERVICE_CLASS_BAN, ENTITY_EXPORT_BAN]}
   },
   {
@@ -100,12 +100,10 @@ export const LAYER_CONFIGS: Config[] = [
     files: ["apps/extension/src/**/*.dto.ts"],
     rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ...SYNTAX_BANS, SERVICE_CLASS_BAN, PLAIN_FUNCTION_BAN]}
   },
-  // The texts the user reads live in @pkg/constants, so they call the CLIs agents too.
   {
     files: ["packages/constants/src/**/*.ts"],
     rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ...SYNTAX_BANS, ...CONSTANT_BANS]}
   },
-  // @pkg/vscode, @pkg/trace and @pkg/errors are shared by every layer, under the same code rules.
   {
     files: ["packages/vscode/src/**/*.ts", "packages/trace/src/**/*.ts", "packages/errors/src/**/*.ts"],
     rules: {
@@ -120,7 +118,6 @@ export const LAYER_CONFIGS: Config[] = [
       ]
     }
   },
-  // @pkg/vscode's helpers are a unit, under the extension's utils rules.
   {
     files: ["packages/vscode/src/**/*.utils.ts"],
     rules: {

@@ -3,13 +3,10 @@ import {Array, Context, Effect, Layer} from "effect";
 
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 
-// A moved row takes the place of the row at the target: after it when moving down, before it when moving up.
-
 export class SortOrderDomainService extends Context.Service<SortOrderDomainService>()(
   "aggregor-app/domain/services/sortOrder.domainService/SortOrderDomainService",
   {
     make: Effect.fn("make")(function* () {
-      // Placing these rows after every other row of the table gives the new order.
       const findEntityIdsToPlaceAtEnd = Effect.fn("findEntityIdsToPlaceAtEnd")(function* (
         orderedEntityIds: readonly EntityIdValueObject[],
         movedIndex: number,

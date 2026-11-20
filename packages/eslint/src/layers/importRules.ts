@@ -3,7 +3,6 @@ export const OPTION_IMPORT_BANS = [
   {message: "Use Result: its error says why a value is missing.", name: "effect/Option"}
 ];
 
-// packages/vscode/src/vscode.api.ts holds the one runtime import of vscode; everything else yields VsCodeApi.
 export const IMPORT_BANS = [
   ...OPTION_IMPORT_BANS,
   {allowTypeImports: true, message: "Import only vscode's types; yield VsCodeApi for its values.", name: "vscode"}
@@ -69,7 +68,6 @@ const VIEW_IMPORTS = {
   regex: "^(?!effect(/|$)|vscode$|@pkg/|@(controllers|views|dtos)/)"
 };
 
-// Type-only imports: an error message names its services' failures, a view the DTOs it draws.
 const SERVICE_TYPE_IMPORTS = {
   allowTypeImports: true,
   message: "An error message imports only services' types.",

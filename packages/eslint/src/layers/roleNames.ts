@@ -30,7 +30,6 @@ export const ROLE_NAMES = {
   "**/*.service.ts": UNIT_CLASS_NAME("Service"),
   "**/*.transformer.ts": UNIT_CLASS_NAME("Transformer"),
   "**/*.utils.ts": UNIT_CLASS_NAME("Utils"),
-  // An enum value object's values go out as an UPPER_CASE constant beside its schema (AGENT_STATUSES).
   "**/*.valueObject.ts": [
     {format: ["PascalCase"], selector: ["typeAlias", "interface"], suffix: ["ValueObject"]},
     {

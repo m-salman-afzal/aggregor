@@ -30,7 +30,6 @@ export class BaseRepository extends Context.Service<BaseRepository>()(
       const entityIdDomainService = yield* EntityIdDomainService;
       const paginationDomainService = yield* PaginationDomainService;
 
-      // Every write notifies the change feed, so this window's own writes show at once.
       const makeFor = Effect.fn("makeFor")(function* <Entity extends BaseEntity, AddRequest extends StoredColumns>(
         entityTable: EntityTable<Entity>
       ) {
@@ -44,7 +43,7 @@ export class BaseRepository extends Context.Service<BaseRepository>()(
             );
 
             return yield* Effect.forEach(storedRows, (storedRow) =>
-              BaseEntity.fromRow(entityTable.entitySchema, storedRow)
+              BaseEntity.decodeStoredRow(entityTable.entitySchema, storedRow)
             );
           },
           Effect.mapError((cause) => IBaseRepositoryErrors.DatabaseReadError.make({cause}))
@@ -82,7 +81,7 @@ export class BaseRepository extends Context.Service<BaseRepository>()(
                 : and(listedCondition, lt(entityTable.tableModel.sortId, afterSortId));
             const pageRows = yield* repositoryUtils.selectRowPage(entityTable, pageCondition, pageRequest.pageSize);
             const entities = yield* Effect.forEach(pageRows, (pageRow) =>
-              BaseEntity.fromRow(entityTable.entitySchema, pageRow)
+              BaseEntity.decodeStoredRow(entityTable.entitySchema, pageRow)
             );
             const lastEntity = entities.at(-1);
             const lastCursor = lastEntity === undefined ? undefined : String(lastEntity.sortId);

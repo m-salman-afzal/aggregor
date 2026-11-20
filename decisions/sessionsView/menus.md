@@ -41,7 +41,7 @@ The Sessions view's buttons and menus, on its lists and its rows, and the questi
   - `rowActions.utils.ts` runs a row action: New Session opens one dialog with the choices left to make (Add Project
     first when there is none; see `sessions/worktrees.md`); Rename asks for the name; Remove asks while the agent runs;
     a stop asks only when it cuts a turn short. Each sends a complete request:
-    `newSession {projectPath, agentId, workingTree}` (no agent: the default, or the only one installed),
+    `createSession {projectPath, agentId, workingTree}` (no agent: the default, or the only one installed),
     `renameSession {sessionId, customName}`, `setDefaultAgent {agentId}` for the star.
   - Each user input carries what its answer does; the store keeps the one that is open, and the dialog closes before
     running the answer, so an answer may open the next one. The webview draws it with shadcn's dialog and input on Base

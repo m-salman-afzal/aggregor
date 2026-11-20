@@ -97,7 +97,6 @@ export class SessionAlertService extends Context.Service<SessionAlertService>()(
         );
       });
 
-      // A failed settings read leaves the alert out, and is logged.
       const readNotifyOnStatuses = Effect.fn("readNotifyOnStatuses")(
         function* () {
           const alertSettings = yield* settingsConfig.readAlertSettings;
@@ -112,8 +111,7 @@ export class SessionAlertService extends Context.Service<SessionAlertService>()(
         )
       );
 
-      // Out of view means out of view both when the state changed and once it has held.
-      const toSessionAlert = Effect.fn("toSessionAlert")(function* (heldStatusChange: HeldStatusChange) {
+      const makeSessionAlertIfDue = Effect.fn("makeSessionAlertIfDue")(function* (heldStatusChange: HeldStatusChange) {
         if (heldStatusChange.wasInView || (yield* isSessionInView(heldStatusChange.session.id)))
           return yield* SessionAlertServiceErrors.SessionAlertSkippedError.make();
         const alertedStatus = yield* sessionDomainService.getAlertedStatus(
@@ -135,7 +133,6 @@ export class SessionAlertService extends Context.Service<SessionAlertService>()(
         });
       });
 
-      // Every session's changes are held apart, so one session's quick changes never hold back another's.
       const watchSessionAlerts = Effect.fn("watchSessionAlerts")(function* () {
         const changedSessions = yield* watchChangedSessions();
         const heldStatusChanges = Stream.flatMap(
@@ -145,7 +142,7 @@ export class SessionAlertService extends Context.Service<SessionAlertService>()(
         );
 
         return Stream.filterMapEffect(heldStatusChanges, (heldStatusChange) =>
-          Effect.result(toSessionAlert(heldStatusChange))
+          Effect.result(makeSessionAlertIfDue(heldStatusChange))
         );
       });
 

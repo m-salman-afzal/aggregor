@@ -44,7 +44,6 @@ export class EntityChangeUtils extends Context.Service<EntityChangeUtils>()(
       const database = yield* makeWithDefaults();
       const repositoryUtils = yield* RepositoryUtils;
 
-      // Where change checks start: after every row written before the window started.
       const readStartingChangeCursor = Effect.fn("readStartingChangeCursor")(
         function* <Entity>(entityTable: EntityTable<Entity>) {
           const latestStampsRows = yield* database
@@ -65,7 +64,6 @@ export class EntityChangeUtils extends Context.Service<EntityChangeUtils>()(
         Effect.mapError((cause) => IBaseRepositoryErrors.DatabaseReadError.make({cause}))
       );
 
-      // Every row written at or after the instant, soft-deleted ones too; a row that no longer decodes is skipped.
       const readRowsWrittenSince = Effect.fn("readRowsWrittenSince")(function* <Entity extends BaseEntity>(
         entityTable: EntityTable<Entity>,
         writtenSince: string
@@ -78,7 +76,7 @@ export class EntityChangeUtils extends Context.Service<EntityChangeUtils>()(
         const changedRowResults = yield* Effect.forEach(storedRows, (storedRow) =>
           Effect.result(
             Effect.zipWith(
-              BaseEntity.fromRow(entityTable.entitySchema, storedRow),
+              BaseEntity.decodeStoredRow(entityTable.entitySchema, storedRow),
               Schema.encodeUnknownEffect(StoredRowJsonSchema)(storedRow),
               (entity, storedRowJson): ChangedRow<Entity> => ({
                 entity,
@@ -113,7 +111,7 @@ export class EntityChangeUtils extends Context.Service<EntityChangeUtils>()(
         return nextChangeCursor;
       });
 
-      const toEntityChange = Effect.fn("toEntityChange")(function* <Entity extends BaseEntity>(
+      const makeEntityChange = Effect.fn("makeEntityChange")(function* <Entity extends BaseEntity>(
         changeCursor: ChangeCursor,
         entity: Entity
       ) {
@@ -126,7 +124,6 @@ export class EntityChangeUtils extends Context.Service<EntityChangeUtils>()(
         } satisfies EntityChange<Entity>;
       });
 
-      // A failed check changes nothing, and the next one reads from the same cursor.
       const findEntityChanges = Effect.fn("findEntityChanges")(
         function* <Entity extends BaseEntity>(entityTable: EntityTable<Entity>, changeCursor: ChangeCursor) {
           const changedRows = yield* readRowsWrittenSince(entityTable, changeCursor.latestUpdatedAt);
@@ -135,7 +132,7 @@ export class EntityChangeUtils extends Context.Service<EntityChangeUtils>()(
             (changedRow) => changeCursor.latestRowsAsJson.get(changedRow.entity.id) !== changedRow.storedRowJson
           );
           const entityChanges = yield* Effect.forEach(rowsNotSeenYet, (rowNotSeenYet) =>
-            toEntityChange(changeCursor, rowNotSeenYet.entity)
+            makeEntityChange(changeCursor, rowNotSeenYet.entity)
           );
           const nextChangeCursor = yield* advanceChangeCursor(changeCursor, changedRows);
 
@@ -150,7 +147,6 @@ export class EntityChangeUtils extends Context.Service<EntityChangeUtils>()(
           )
       );
 
-      // Checks again after another connection's write, which data_version shows, and after each of this window's own.
       const publishEntityChanges = Effect.fn("publishEntityChanges")(
         function* <Entity extends BaseEntity>(entityTable: EntityTable<Entity>, changeFeed: ChangeFeed<Entity>) {
           const dataVersionChanges = yield* repositoryUtils.watchDataVersionChanges;

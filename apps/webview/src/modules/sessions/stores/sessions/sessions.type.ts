@@ -23,7 +23,6 @@ export interface SessionsData {
   readonly isWorktreeTrustHintHidden: boolean;
   readonly openDropdownSessionIds: ReadonlySet<string>;
   readonly projectRows: readonly ProjectRowData[];
-  // The latest reading of each open dropdown's processes, kept until its dropdown closes.
   readonly sessionProcessesBySessionId: ReadonlyMap<string, SessionProcessesDto>;
   readonly skipAgentPicker: boolean;
   readonly styleNonce: string | undefined;

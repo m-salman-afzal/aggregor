@@ -31,7 +31,6 @@ export const ListedPullRequestDtoSchema = Schema.Struct({
 
 export type ListedPullRequestDto = typeof ListedPullRequestDtoSchema.Type;
 
-// With a problem, gh listed nothing: it isn't signed in, or it couldn't list this repository's pull requests.
 export const SessionPullRequestsDtoSchema = Schema.Struct({
   listProblem: Schema.optional(
     Schema.Literals([PULL_REQUEST_LIST_PROBLEMS.FAILED, PULL_REQUEST_LIST_PROBLEMS.SIGNED_OUT])

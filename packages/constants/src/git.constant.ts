@@ -10,15 +10,12 @@ export const GIT_COMMAND = {
   ENVIRONMENT: {GIT_TERMINAL_PROMPT: "0"},
   // A big fetch outlasts the prune timeout; killed midway, it keeps nothing and the next one starts over.
   FETCH_TIMEOUT: "30 seconds",
-  // A project's own checkout has the repository folder here instead.
   GIT_PATH_NAME: ".git",
   // A linked worktree's .git is a file naming its folder in the repository's .git; that folder holds its HEAD.
   GITDIR_PREFIX: "gitdir: ",
   HEAD_FILE_NAME: "HEAD",
   HEAD_REF_PREFIX: "ref: refs/heads/",
-  // A new worktree's start point when the user picks no branch.
   HEAD_START_POINT: "HEAD",
-  // A new file larger than this, or a binary one, counts as a changed file with no lines.
   MAX_COUNTED_FILE_BYTES: 1_000_000,
   NEW_FILE_READ_CONCURRENCY: 8,
   PORCELAIN_BRANCH_PREFIX: "branch refs/heads/",

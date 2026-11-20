@@ -40,7 +40,6 @@ export class ShellCommandInfraService extends Context.Service<ShellCommandInfraS
         return commandSearch;
       }, Effect.orDie);
 
-      // A file the user may run: on Windows any file, elsewhere one with an execute bit.
       const isRunnableFile = Effect.fn("isRunnableFile")(
         function* (filePath: string) {
           const fileInfo = yield* fileSystem.stat(filePath);

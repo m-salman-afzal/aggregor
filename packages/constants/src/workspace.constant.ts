@@ -20,7 +20,6 @@ export const ANCHOR_FOLDER_SETTINGS = {
   TERMINAL_CWD_KEY: "terminal.integrated.cwd"
 } as const;
 
-// Aggregor's own, added to the shown project's in the workspace file: the terminal VS Code opens itself is the Aggregor terminal.
 export const AGGREGOR_WORKSPACE_SETTINGS = {
   "terminal.integrated.defaultProfile.linux": FOLDER_SHELL_TERMINAL.NAME,
   "terminal.integrated.defaultProfile.osx": FOLDER_SHELL_TERMINAL.NAME
@@ -32,7 +31,6 @@ export const PROJECT_SETTINGS_SYNC = {
   CURRENT_FOLDER: "./",
   DEFAULT_INDENTATION: "    ",
   EMPTY_SETTINGS_TEXT: "{}\n",
-  // Matched against the text before a property: the spaces or tabs it starts its line with.
   INDENTATION_PATTERN: /\n(?<indentation>[\t ]+)$/u,
   PARENT_FOLDER: "..",
   RELATIVE_PATH_PREFIXES: ["./", "../"],

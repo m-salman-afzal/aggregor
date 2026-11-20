@@ -43,14 +43,14 @@ export class OpenCodeHistoryUtils extends Context.Service<OpenCodeHistoryUtils>(
         );
       });
 
-      const toOpenCodeConversation = Effect.fn("toOpenCodeConversation")(function* (
+      const decodeOpenCodeConversation = Effect.fn("decodeOpenCodeConversation")(function* (
         openCodeSessionRow: {readonly firstPrompt: string} & OpenCodeSessionRow
       ) {
         const agentConversation: AgentConversation = {
           agentSessionId: String.startsWith(OPENCODE_HISTORY.SESSION_ID_PREFIX)(openCodeSessionRow.id)
             ? String.slice(OPENCODE_HISTORY.SESSION_ID_PREFIX.length)(openCodeSessionRow.id)
             : openCodeSessionRow.id,
-          title: yield* agentHistoryUtils.toOneLineTitle(
+          title: yield* agentHistoryUtils.formatTextAsOneLineTitle(
             openCodeSessionRow.title === null || openCodeSessionRow.title === ""
               ? openCodeSessionRow.firstPrompt
               : openCodeSessionRow.title
@@ -61,7 +61,7 @@ export class OpenCodeHistoryUtils extends Context.Service<OpenCodeHistoryUtils>(
         return agentConversation;
       });
 
-      // A child session is a subagent's; one with no user message never got going.
+      // A child session is a subagent's.
       const listOpenCodeConversations = Effect.fn("listOpenCodeConversations")(
         function* (folderPath: string) {
           const databaseFilePath = yield* findOpenCodeDatabasePath();
@@ -82,7 +82,7 @@ export class OpenCodeHistoryUtils extends Context.Service<OpenCodeHistoryUtils>(
               (openCodeSessionRow): openCodeSessionRow is {readonly firstPrompt: string} & OpenCodeSessionRow =>
                 openCodeSessionRow.firstPrompt !== null
             ),
-            toOpenCodeConversation
+            decodeOpenCodeConversation
           );
         },
         Effect.scoped,

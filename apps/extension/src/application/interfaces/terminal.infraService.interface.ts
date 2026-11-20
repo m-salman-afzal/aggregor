@@ -38,20 +38,16 @@ export interface SessionTabRequest {
 export class ITerminalInfraServiceErrors extends TaggedErrors({
   NoFolderShellTerminalOpenError: {},
   NoSessionTabOpenError: {},
-  // No session's tab is in front of the user; TerminalInfraService's trace says why.
   NoViewedSessionError: {},
   TerminalLaunchFailedError: {cause: Schema.Unknown},
   TerminalNotFoundError: {sessionId: EntityIdValueObjectSchema}
 }) {}
 
-// A tab is a tmux client attached to the session's agent, so closing it leaves the agent running.
 export class ITerminalInfraService extends Context.Service<
   ITerminalInfraService,
   {
     readonly activatedSessionIds: Stream.Stream<EntityIdValueObject>;
-    // tmux can attach the window's Aggregor terminal to another folder's shell, which VS Code can't see.
     readonly assignShownFolderShellPath: (folderPath: ProjectPathValueObject) => Effect.Effect<void>;
-    // tmux can attach a tab to another session, so each tab counts as the session its tmux client shows.
     readonly assignShownSessions: (
       shownSessionIdsByTabProcessId: ReadonlyMap<number, EntityIdValueObject>
     ) => Effect.Effect<void>;
@@ -71,11 +67,8 @@ export class ITerminalInfraService extends Context.Service<
     readonly focusSessionTerminal: (
       sessionId: EntityIdValueObject
     ) => Effect.Effect<void, ITerminalInfraServiceErrors["TerminalNotFoundError"]>;
-    // The folder whose shell the Aggregor terminal showed when the user closed it; a reload or a quit yields none.
     readonly folderShellPathsClosedByUser: Stream.Stream<ProjectPathValueObject>;
-    // VS Code can rename only the active terminal.
     readonly nameActiveSessionTab: (sessionId: EntityIdValueObject, tabName: string) => Effect.Effect<void>;
-    // A window has one Aggregor terminal: it opens the first time and comes to the front after that.
     readonly openFolderShellTerminal: (
       folderShellTerminalRequest: FolderShellTerminalRequest
     ) => Effect.Effect<void, ITerminalInfraServiceErrors["TerminalLaunchFailedError"]>;
@@ -83,9 +76,7 @@ export class ITerminalInfraService extends Context.Service<
       session: SessionEntity,
       sessionTabRequest: SessionTabRequest
     ) => Effect.Effect<void, ITerminalInfraServiceErrors["TerminalLaunchFailedError"]>;
-    // A command the user watches and answers, such as sudo's password; its output stays until they press Enter.
     readonly openSetupTerminal: (commandLine: string) => Effect.Effect<void>;
-    // What VS Code launches for the Aggregor terminal profile, the same as Aggregor launches itself.
     readonly prepareFolderShellTerminalOptions: (
       terminalCommand: TerminalCommand
     ) => Effect.Effect<FolderShellTerminalOptions>;

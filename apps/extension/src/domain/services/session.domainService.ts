@@ -18,12 +18,9 @@ interface SessionViewingFacts {
 }
 
 export class SessionDomainServiceErrors extends TaggedErrors({
-  // The agent resumes without naming a conversation, as Antigravity's -c.
   AgentConversationIdNotFoundError: {agentName: Schema.String},
-  // The agent resumes with the agent's own id for the conversation, which the agent never showed.
   AgentSessionIdNotFoundError: {agentName: Schema.String},
   SessionNamedByUserError: {},
-  // The titles hold only status marks or an id, or the agent has not named the conversation.
   SessionTitleNotFoundError: {},
   SessionTitleUnchangedError: {}
 }) {}
@@ -60,7 +57,6 @@ export class SessionDomainService extends Context.Service<SessionDomainService>(
         return String.replaceAll(AGENT_SESSION_ID_VARIABLE, latestAgentSessionId)(filledInArgument);
       });
 
-      // The agent's own id for the conversation, filled into the resume argument that names it, as OpenCode's ses_‹id›.
       const getAgentConversationId = Effect.fn("getAgentConversationId")(function* (
         agent: AgentEntity,
         session: SessionEntity
@@ -102,7 +98,6 @@ export class SessionDomainService extends Context.Service<SessionDomainService>(
         });
       });
 
-      // The lowest free "<project> #n", so removing #1 frees the name for the next session.
       const getDefaultSessionName = Effect.fn("getDefaultSessionName")(function* (
         projectName: string,
         existingSessions: readonly SessionEntity[]
@@ -142,7 +137,6 @@ export class SessionDomainService extends Context.Service<SessionDomainService>(
         );
       });
 
-      // Saved as the session's name, so the row keeps it while the agent is gone or resuming.
       const getSessionTitleToSave = Effect.fn("getSessionTitleToSave")(function* (
         session: SessionEntity,
         agent: AgentEntity,
@@ -179,7 +173,6 @@ export class SessionDomainService extends Context.Service<SessionDomainService>(
         return Array.some(sessionTasks, (agentTask) => agentTask.state === AGENT_TASK_STATES.WORKING);
       });
 
-      // No process means the agent is gone, even after a reboot; no report yet shows idle, so the row never looks stuck.
       const getSessionStatus = Effect.fn("getSessionStatus")(function* (
         session: SessionEntity,
         sessionViewingFacts: SessionViewingFacts

@@ -8,7 +8,6 @@ import {FileSystem} from "effect/FileSystem";
 
 import type {ProcessGroupRequest} from "@interfaces/process.infraService.interface.ts";
 
-// What every root of one group is read against.
 interface GroupSurroundings {
   readonly hostCgroupPath: string;
   readonly parentProcessIds: ReadonlyMap<number, number>;

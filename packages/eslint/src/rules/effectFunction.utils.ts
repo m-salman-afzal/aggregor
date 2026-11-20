@@ -35,7 +35,6 @@ const isEffectFunctionBody = (functionNode: Rule.Node) => {
   return appliedCall.arguments[0] === functionNode && isMemberCall(appliedCall.callee, "Effect", "fn");
 };
 
-// Context.Service<Unit>()("key", {make: Effect.fn("make")(...)}).
 export const isServiceMakeProperty = (appliedCall: Rule.Node) => {
   const property = appliedCall.parent;
   if (property === null || property.type !== "Property" || property.value !== appliedCall) return false;
@@ -49,7 +48,6 @@ export const isServiceMakeProperty = (appliedCall: Rule.Node) => {
   );
 };
 
-// A make<Name> const builds what a unit hands out, such as a base class's makeFor.
 const isMakeConst = (appliedCall: Rule.Node) => {
   const declarator = appliedCall.parent;
   if (declarator === null || declarator.type !== "VariableDeclarator" || declarator.init !== appliedCall) return false;

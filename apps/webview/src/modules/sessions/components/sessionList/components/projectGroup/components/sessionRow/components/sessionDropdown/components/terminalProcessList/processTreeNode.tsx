@@ -8,7 +8,6 @@ interface ProcessTreeNodeProps {
   readonly processTreeItem: ProcessTreeItem;
 }
 
-// A process with children folds them, open at first; one without keeps the chevron's room so names line up.
 export const ProcessTreeNode = (props: ProcessTreeNodeProps) => (
   <li title={props.processTreeItem.sessionProcess.commandLine}>
     {props.processTreeItem.childItems.length === 0 ? (

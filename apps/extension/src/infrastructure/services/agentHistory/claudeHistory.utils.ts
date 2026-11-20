@@ -35,7 +35,6 @@ export class ClaudeHistoryUtils extends Context.Service<ClaudeHistoryUtils>()(
       const fileSystem = yield* FileSystem;
       const path = yield* Path;
 
-      // A rename beats the generated title, and the latest of each wins.
       const findClaudeTitle = Effect.fn("findClaudeTitle")(function* (tailLines: readonly ClaudeHistoryLine[]) {
         const customTitles = Array.flatMap(tailLines, (historyLine) =>
           historyLine.customTitle === undefined ? [] : [historyLine.customTitle]
@@ -93,14 +92,13 @@ export class ClaudeHistoryUtils extends Context.Service<ClaudeHistoryUtils>()(
         return Result.orElse(claudeTitle, () => firstPrompt);
       });
 
-      // A conversation with neither a title nor a prompt never got going, and isn't offered.
       const readClaudeConversation = Effect.fn("readClaudeConversation")(function* (conversationFilePath: string) {
         const fileInfo = yield* fileSystem.stat(conversationFilePath);
         const titleText = yield* readClaudeTitleText(conversationFilePath);
         if (Result.isFailure(titleText)) return Result.failVoid;
         const agentConversation: AgentConversation = {
           agentSessionId: path.basename(conversationFilePath, CLAUDE_HISTORY.CONVERSATION_FILE_EXTENSION),
-          title: yield* agentHistoryUtils.toOneLineTitle(titleText.success),
+          title: yield* agentHistoryUtils.formatTextAsOneLineTitle(titleText.success),
           updatedAtMillis: Result.getOrElse(
             Result.map(
               Result.fromOption(fileInfo.mtime, () => undefined),

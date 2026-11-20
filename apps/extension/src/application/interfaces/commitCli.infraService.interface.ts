@@ -16,7 +16,6 @@ export class ICommitCliInfraServiceErrors extends TaggedErrors({
   EmptyCommitMessageError: {}
 }) {}
 
-// The user's commit command: it reads the staged diff on stdin and prints a commit message.
 export class ICommitCliInfraService extends Context.Service<
   ICommitCliInfraService,
   {

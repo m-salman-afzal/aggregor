@@ -3,7 +3,6 @@ import {basename} from "node:path";
 
 import type {Rule} from "eslint";
 
-// session.repository.ts is SessionRepository's, agentInfraServices.layer.ts is AgentInfraServices'.
 const OWNER_ROLE_SUFFIXES = new Map([
   ["config", "Config"],
   ["controller", "Controller"],

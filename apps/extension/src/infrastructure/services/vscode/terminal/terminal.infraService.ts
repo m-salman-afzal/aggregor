@@ -105,7 +105,6 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
         );
       });
 
-      // A tab tmux lists no client for, such as one still starting, keeps the session it has.
       const findShownSessionTerminal = Effect.fn("findShownSessionTerminal")(function* (
         shownSessionIdsByTabProcessId: ReadonlyMap<number, EntityIdValueObject>,
         assignedSessionId: EntityIdValueObject,
@@ -213,7 +212,6 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
         return yield* terminalUtils.findTrackedSessionId(vsCodeApi.window.activeTerminal);
       });
 
-      // The interface only says that no session is in view; readViewedSessionId's span keeps the reason.
       const findViewedSessionId = Effect.fn("findViewedSessionId")(
         function* () {
           return yield* readViewedSessionId();

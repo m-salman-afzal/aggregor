@@ -6,7 +6,6 @@ const TOP_LEVEL_ERRORS_CLASS = `:matches(${ERRORS_CLASS}, ${EXPORTED_ERRORS_CLAS
 const EXPORTED_CODE =
   "ExportNamedDeclaration[declaration.type=/^(VariableDeclaration|FunctionDeclaration|ClassDeclaration)$/]";
 
-// A front end without Effect, apps/webview, leaves these out.
 export const EFFECT_SYNTAX_BANS = [
   {message: "No optional chaining: check the value explicitly.", selector: "ChainExpression"},
   {
@@ -14,7 +13,6 @@ export const EFFECT_SYNTAX_BANS = [
     selector: "LogicalExpression[operator='??']"
   },
   {message: "No ??=: check the value explicitly.", selector: "AssignmentExpression[operator='??=']"},
-  // Match fails the typecheck when a new tag has no branch; a comparison lets it fall through unnoticed.
   {
     message: "Match on a tag with Match.valueTags, or Match.tag and Match.exhaustive, instead of comparing _tag.",
     selector: "BinaryExpression[operator=/^[!=]==$/] > MemberExpression[property.name='_tag']"
@@ -93,11 +91,40 @@ export const ERRORS_CLASS_BANS = [
   }
 ];
 
+const NON_VERB_FIRST_WORD = "/^(to|as|from|with|of|into)[A-Z]/";
+const FUNCTION_VALUE =
+  ":matches([init.type=/^(ArrowFunctionExpression|FunctionExpression)$/], [init.callee.callee.property.name='fn'])";
+const NON_VERB_NAME_MESSAGE =
+  "Start a function's name with a verb that says what it does, and a value's with what it is (`makeSessionRow`, " +
+  "`decodeStoredRow`, `settingTextWithProjectFolder`), not with to, as, from, with, of or into: `toSessionRow` names " +
+  "what comes out, and a reader has to open the function to learn what calling it does.";
+
+export const VERB_FIRST_NAME_BANS = [
+  {
+    message: NON_VERB_NAME_MESSAGE,
+    selector:
+      `VariableDeclarator[id.name=${NON_VERB_FIRST_WORD}], FunctionDeclaration[id.name=${NON_VERB_FIRST_WORD}], ` +
+      `:function > Identifier.params[name=${NON_VERB_FIRST_WORD}], ` +
+      `:matches(TSPropertySignature, TSMethodSignature, MethodDefinition, PropertyDefinition)` +
+      `[key.name=${NON_VERB_FIRST_WORD}], ` +
+      `Property[shorthand=false][key.name=${NON_VERB_FIRST_WORD}][value.type=/Function|CallExpression/]`
+  },
+  {
+    message:
+      "Start a function's name with a verb: `createSession`, not `newSession`. A value that is new keeps the word " +
+      "(`newSessionRequest`); a function does something, and its name says what.",
+    selector:
+      `VariableDeclarator[id.name=/^new[A-Z]/]${FUNCTION_VALUE}, FunctionDeclaration[id.name=/^new[A-Z]/], ` +
+      ":matches(TSMethodSignature, MethodDefinition)[key.name=/^new[A-Z]/]"
+  }
+];
+
 export const GENERAL_SYNTAX_BANS = [
   {message: "Import by name: list what the file takes from the module.", selector: "ImportNamespaceSpecifier"},
   {message: "No else: return early from the if instead.", selector: "IfStatement[alternate]"},
   OBJECT_DESTRUCTURING_BAN,
-  TAG_LITERAL_BAN
+  TAG_LITERAL_BAN,
+  ...VERB_FIRST_NAME_BANS
 ];
 
 export const SYNTAX_BANS = [...EFFECT_SYNTAX_BANS, ...ERRORS_CLASS_BANS, ...GENERAL_SYNTAX_BANS];

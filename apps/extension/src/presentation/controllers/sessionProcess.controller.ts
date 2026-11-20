@@ -11,7 +11,6 @@ export class SessionProcessController extends Context.Service<SessionProcessCont
       const sessionProcessService = yield* SessionProcessService;
       const vscodeUtils = yield* VscodeUtils;
 
-      // A list that isn't one of session ids stops the readings, as closing every dropdown does.
       const watchSessionProcessesForSessionsView = Effect.fn("watchSessionProcessesForSessionsView")(function* (
         openDropdownSessionIds: Stream.Stream<readonly string[]>
       ) {

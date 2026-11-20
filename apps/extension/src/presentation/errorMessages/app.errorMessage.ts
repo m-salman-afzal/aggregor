@@ -5,7 +5,6 @@ export class AppErrorMessage extends Context.Service<AppErrorMessage>()(
   "aggregor-app/presentation/errorMessages/app.errorMessage/AppErrorMessage",
   {
     make: Effect.fn("make")(function* () {
-      // The app's own commands, such as Open Settings, only drive VS Code, so they have no failure to present.
       const getAppCommandErrorMessage = Effect.fn("getAppCommandErrorMessage")(function* (appCommandError: never) {
         return appCommandError;
       });

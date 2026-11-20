@@ -8,7 +8,6 @@ export class PaginationDomainService extends Context.Service<PaginationDomainSer
   "aggregor-app/domain/services/pagination.domainService/PaginationDomainService",
   {
     make: Effect.fn("make")(function* () {
-      // An empty list still has one page, the empty first one.
       const makePagination = Effect.fn("makePagination")(function* (
         pageRequest: Pick<PaginationValueObject, "afterCursor" | "pageSize">,
         rowCounts: Pick<PaginationValueObject, "precedingCount" | "totalCount">,

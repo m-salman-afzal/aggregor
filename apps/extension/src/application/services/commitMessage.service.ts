@@ -39,7 +39,7 @@ export class CommitMessageService extends Context.Service<CommitMessageService>(
       const writeCommitMessageShowingProgress = Effect.fn("writeCommitMessageShowingProgress")(function* (
         projectPath: ProjectPathValueObject
       ) {
-        yield* progressInfraService.withSourceControlProgress(
+        yield* progressInfraService.runWithSourceControlProgress(
           COMMIT_MESSAGE_LABELS.GENERATING,
           COMMIT_MESSAGE_CONTEXT_KEYS.IS_GENERATING,
           writeCommitMessage(projectPath)

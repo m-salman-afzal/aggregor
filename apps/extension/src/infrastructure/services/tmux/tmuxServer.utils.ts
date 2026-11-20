@@ -92,7 +92,6 @@ export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
         return String.replaceAll("#", "##")(text);
       });
 
-      // No tmux, or no server yet, runs nothing.
       const listTmuxSessionNames = Effect.fn("listTmuxSessionNames")(function* () {
         return yield* Effect.orElseSucceed(
           runTmuxCommand(["list-sessions", "-F", "#{session_name}"]),
@@ -100,7 +99,7 @@ export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
         );
       });
 
-      // The path comes last, since it alone can hold spaces; no tmux, or no server yet, has no clients.
+      // The path comes last, since it alone can hold spaces.
       const listTmuxClients = Effect.fn("listTmuxClients")(function* () {
         const clientLines = yield* Effect.orElseSucceed(
           runTmuxCommand([...["list-clients", "-F"], "#{client_pid} #{client_name} #{session_name} #{session_path}"]),
@@ -165,7 +164,6 @@ export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
         ]);
       });
 
-      // A session that has already ended has nothing to kill.
       const killTmuxSession = Effect.fn("killTmuxSession")(function* (sessionName: string) {
         yield* Effect.ignore(runTmuxCommand(["kill-session", "-t", `=${sessionName}`]), {
           log: "Debug",
@@ -173,7 +171,6 @@ export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
         });
       });
 
-      // Without a systemd user manager, what tmux starts runs in the tmux server's cgroup.
       const prepareOwnScopeArguments = Effect.fn("prepareOwnScopeArguments")(function* (
         memoryLimit: string | undefined
       ) {

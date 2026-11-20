@@ -12,7 +12,6 @@ import {Path} from "effect/Path";
 
 import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
 
-// The command and the name default to the entry's key, resumeArgs to args, and the icon to Aggregor's logo.
 const AgentSettingSchema = Schema.Struct({
   args: Schema.optional(Schema.Array(Schema.String)),
   command: Schema.optional(Schema.NonEmptyString),
@@ -30,18 +29,17 @@ export class AgentRepository extends Context.Service<AgentRepository>()(
       const vscodeUtils = yield* VscodeUtils;
       const path = yield* Path;
 
-      // A relative icon is inside the extension's folder.
-      const toAgentIcon = Effect.fn("toAgentIcon")(function* (icon: string | undefined) {
+      const resolveAgentIconPath = Effect.fn("resolveAgentIconPath")(function* (icon: string | undefined) {
         const iconPath = icon === undefined ? AGENT_ICON.DEFAULT : icon;
 
         return path.isAbsolute(iconPath) ? iconPath : path.join(vsCodeApi.extensionUri.fsPath, iconPath);
       });
 
-      const toAgent = Effect.fn("toAgent")(
+      const decodeAgentFromSettingEntry = Effect.fn("decodeAgentFromSettingEntry")(
         function* ([agentKey, agentSetting]: readonly [string, unknown]) {
           const agentSettingFields = yield* Schema.decodeUnknownEffect(AgentSettingSchema)(agentSetting);
           const agentArguments = agentSettingFields.args === undefined ? [] : agentSettingFields.args;
-          const agentIcon = yield* toAgentIcon(agentSettingFields.icon);
+          const agentIcon = yield* resolveAgentIconPath(agentSettingFields.icon);
 
           return yield* Schema.decodeEffect(AgentEntity)({
             args: agentArguments,
@@ -66,7 +64,7 @@ export class AgentRepository extends Context.Service<AgentRepository>()(
         const agentEntries = Predicate.isObject(agentSettings) ? Record.toEntries(agentSettings) : [];
         const shownAgentEntries = Array.filter(agentEntries, ([, agentSetting]) => agentSetting !== null);
         const agentResults = yield* Effect.forEach(shownAgentEntries, (agentEntry) =>
-          Effect.result(toAgent(agentEntry))
+          Effect.result(decodeAgentFromSettingEntry(agentEntry))
         );
 
         return Array.getSuccesses(agentResults);

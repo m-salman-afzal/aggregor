@@ -60,7 +60,6 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         return new Set<string | undefined>(Array.map(usingSessions, (usingSession) => usingSession.worktreePath));
       });
 
-      // A worktree is left over once no ongoing session works in it and no archived session's agent still runs there.
       const findLeftoverWorktrees = Effect.fn("findLeftoverWorktrees")(function* (
         projectListItem: ProjectListItemDto,
         runningSessionIds: ReadonlySet<EntityIdValueObject>
@@ -77,7 +76,6 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         );
       });
 
-      // A branch is left over with no worktree, or with a worktree that is.
       const findProjectLeftovers = Effect.fn("findProjectLeftovers")(function* (
         projectListItem: ProjectListItemDto,
         runningSessionIds: ReadonlySet<EntityIdValueObject>
@@ -111,7 +109,7 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         });
       });
 
-      const toLeftoverWorktree = Effect.fn("toLeftoverWorktree")(function* (leftoverWorktree: GitWorktree) {
+      const makeLeftoverWorktree = Effect.fn("makeLeftoverWorktree")(function* (leftoverWorktree: GitWorktree) {
         return {
           branchName: leftoverWorktree.branchName,
           hasChanges: yield* worktreeInfraService.hasChanges(leftoverWorktree.worktreePath),
@@ -120,7 +118,7 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         };
       });
 
-      const toLeftoverBranch = Effect.fn("toLeftoverBranch")(function* (
+      const makeLeftoverBranch = Effect.fn("makeLeftoverBranch")(function* (
         projectPath: ProjectPathValueObject,
         leftoverBranch: WorktreeBranch,
         baseBranchName: string
@@ -147,11 +145,11 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         return ProjectLeftoversDtoSchema.make({
           baseBranchName,
           branches: yield* Effect.forEach(projectLeftovers.leftoverBranches, (leftoverBranch) =>
-            toLeftoverBranch(projectListItem.path, leftoverBranch, baseBranchName)
+            makeLeftoverBranch(projectListItem.path, leftoverBranch, baseBranchName)
           ),
           projectPath: projectListItem.path,
           worktrees: yield* Effect.forEach(projectLeftovers.leftoverWorktrees, (leftoverWorktree) =>
-            toLeftoverWorktree(leftoverWorktree)
+            makeLeftoverWorktree(leftoverWorktree)
           )
         });
       });
@@ -170,7 +168,6 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         if (isWorktreeShown) yield* workspaceInfraService.showOnlyProjectFolder(projectPath, undefined);
       });
 
-      // The archived sessions that worked there have no folder left to reopen in.
       const removeLeftoverWorktree = Effect.fn("removeLeftoverWorktree")(function* (
         projectPath: ProjectPathValueObject,
         leftoverWorktree: GitWorktree
@@ -191,7 +188,6 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         return keptNames;
       });
 
-      // A branch still checked out in a kept worktree stays.
       const deleteLeftoverBranch = Effect.fn("deleteLeftoverBranch")(
         function* (projectPath: ProjectPathValueObject, leftoverBranch: WorktreeBranch) {
           yield* worktreeInfraService.deleteBranch(projectPath, leftoverBranch.branchName);
@@ -214,7 +210,7 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         Effect.catchTag("EntityNotFoundError", () => Effect.void)
       );
 
-      // Only what is still left over goes, whatever the request names; worktrees go first, freeing their branches.
+      // Worktrees go first, freeing their branches.
       const cleanUpProjectLeftovers = Effect.fn("cleanUpProjectLeftovers")(
         function* (request: CleanUpProjectLeftoversRequestDto) {
           const projectListItem = yield* projectService.findProjectListItem(request.projectPath);
@@ -242,7 +238,6 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         Effect.catchTag("ProjectNotListedError", () => Effect.void)
       );
 
-      // Only a worktree Aggregor made, and no other session works in, is deleted; git refuses one with changes.
       const removeSessionWorktree = Effect.fn("removeSessionWorktree")(
         function* (session: SessionEntity) {
           const worktreePath = session.worktreePath;
@@ -282,7 +277,6 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         return yield* readProjectBranches(projectPath, false);
       });
 
-      // What a new worktree can start from: the refs as they are at once, so the dialog never waits, then again once fetched.
       const listProjectBranches = Effect.fn("listProjectBranches")(function* (request: ListProjectBranchesRequestDto) {
         const projectListItem = yield* projectService.findProjectListItem(request.projectPath);
 

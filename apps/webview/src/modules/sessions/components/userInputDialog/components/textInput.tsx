@@ -10,7 +10,7 @@ interface TextInputProps {
   readonly value: string;
 }
 
-// The input comes first, so it takes the focus, with its text selected so typing replaces it.
+// The input comes first, so it takes the dialog's focus.
 export const TextInput = (props: TextInputProps) => (
   <form className="flex flex-col gap-4" onSubmit={props.onEnterText}>
     <Input

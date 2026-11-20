@@ -39,7 +39,7 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
         return runningSessionIds;
       });
 
-      // Windows VSIXs carry no aggregor-pty; a failed check counts as missing, so the user hears why no session starts.
+      // Windows VSIXs carry no aggregor-pty.
       const findPtyBinaryPath = Effect.fn("findPtyBinaryPath")(function* (ptyBinaryPath: string) {
         const isPtyBinaryFound = yield* Effect.orElseSucceed(fileSystem.exists(ptyBinaryPath), () => false);
         if (!isPtyBinaryFound)
@@ -174,7 +174,6 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
         );
       });
 
-      // The first set counts every agent as started.
       const watchStartedOrStoppedSessionIds = Effect.fn("watchStartedOrStoppedSessionIds")(function* () {
         return Stream.mapAccum(
           SubscriptionRef.changes(runningSessionIds),

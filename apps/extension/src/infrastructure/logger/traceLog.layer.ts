@@ -69,7 +69,6 @@ export class TraceLog extends Context.Service<TraceLog>()(
           : localSpan.name;
       };
 
-      // "aggregorApp.openSession > SessionController.openChosenSession": the span's name after its ancestors'.
       const formatSpanPath = (span: Tracer.AnySpan): string =>
         Match.valueTags(span, {
           ExternalSpan: () => "external",
@@ -83,7 +82,6 @@ export class TraceLog extends Context.Service<TraceLog>()(
             )
         });
 
-      // One line for any value: an error's name and message, anything else as Node prints it.
       const formatTraceValue = (traceValue: unknown) =>
         traceValue instanceof Error
           ? `${traceValue.name}: ${traceValue.message}`
@@ -92,7 +90,7 @@ export class TraceLog extends Context.Service<TraceLog>()(
               " "
             )(inspect(traceValue, {depth: TRACE_LOGGING.VALUE_DEPTH}));
 
-      // "SettingsFileNotSavedError settingsFilePath=…": each field, and the cause, which an error keeps out of its own keys.
+      // An error keeps its cause out of its own keys.
       const formatFailedError = (failedError: unknown) => {
         if (!Predicate.hasProperty(failedError, "_tag")) return formatTraceValue(failedError);
         // Effect's own errors carry a type marker key, such as "~effect/Cause/TimeoutError", which says nothing more.
@@ -121,7 +119,6 @@ export class TraceLog extends Context.Service<TraceLog>()(
       const formatSpanOutcome = (exit: Exit.Exit<unknown, unknown>) =>
         Exit.isSuccess(exit) ? "ok" : `failed: ${Array.join(Array.map(exit.cause.reasons, formatFailureReason), ", ")}`;
 
-      // What the span was annotated with, such as the project a switch brings in.
       const formatSpanAttributes = (span: Tracer.Span) =>
         Array.join(
           Array.map(

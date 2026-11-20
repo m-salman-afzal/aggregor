@@ -105,7 +105,6 @@ export class GitInfraService extends Context.Service<GitInfraService>()(
           catch: (cause) => GitInfraServiceErrors.GitRepositoryOpenFailedError.make({cause}),
           try: () => gitApi.openRepository(vsCodeApi.Uri.file(projectPath))
         });
-        // A folder that is not a git repository opens nothing.
         if (repository === null) return;
 
         yield* Effect.tryPromise({

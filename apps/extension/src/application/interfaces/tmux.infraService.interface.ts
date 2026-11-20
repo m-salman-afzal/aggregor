@@ -11,7 +11,6 @@ import type {Effect, Stream, SubscriptionRef} from "effect";
 
 export interface FolderShellRequest {
   readonly folderPath: ProjectPathValueObject;
-  // What the shell's status line shows, since one terminal shows every folder's shell.
   readonly statusLabel: string;
 }
 
@@ -30,28 +29,19 @@ export interface TmuxSessionPanes {
 }
 
 export class ITmuxInfraServiceErrors extends TaggedErrors({
-  // The terminal's process is no tmux client, as while it starts.
   FolderShellNotShownError: {},
-  // The terminal's process is no tmux client, or tmux could not start the folder's shell.
   FolderShellSwitchFailedError: {folderPath: ProjectPathValueObjectSchema},
-  // This build has no aggregor-pty: a Windows VSIX, where sessions need WSL, or a local build without it.
   PtyBinaryNotFoundError: {isWindows: Schema.Boolean},
-  // tmux doesn't run the session's agent, or the tab's process is no tmux client.
   SessionTabSwitchFailedError: {sessionId: EntityIdValueObjectSchema},
-  // tmux runs no such session: its agent, or its folder's shell, has ended.
   TmuxSessionNotRunningError: {},
-  // tmux is missing from PATH, or older than the version Aggregor's tmux.conf needs.
   TmuxUnavailableError: {foundVersion: Schema.optional(Schema.String)}
 }) {}
 
-// Each session's agent, and each folder's shell, runs in its own tmux session, which outlives its terminal and VS Code.
 export class ITmuxInfraService extends Context.Service<
   ITmuxInfraService,
   {
-    // tmux's version, when it is on PATH and new enough for Aggregor's tmux.conf.
     readonly checkTmuxVersion: Effect.Effect<string, ITmuxInfraServiceErrors["TmuxUnavailableError"]>;
     readonly endFolderShell: (folderPath: ProjectPathValueObject) => Effect.Effect<void>;
-    // The command attaches to the folder's shell when it runs, and otherwise starts it.
     readonly prepareFolderShellTerminalCommand: (
       folderShellRequest: FolderShellRequest
     ) => Effect.Effect<TerminalCommand, ITmuxInfraServiceErrors["TmuxUnavailableError"]>;
@@ -67,17 +57,14 @@ export class ITmuxInfraService extends Context.Service<
     readonly readSessionAgentPanes: (
       sessionId: EntityIdValueObject
     ) => Effect.Effect<TmuxSessionPanes, ITmuxInfraServiceErrors["TmuxSessionNotRunningError"]>;
-    // A tab's process is a tmux client, and tmux knows which session each client is attached to.
     readonly readShownSessionIdsByTabProcessId: Effect.Effect<ReadonlyMap<number, EntityIdValueObject>>;
     readonly refreshRunningSessionIds: Effect.Effect<ReadonlySet<EntityIdValueObject>>;
     // As last read: at window start or focus, when a terminal closes, after a tab opens and after each stop.
     readonly runningSessionIds: SubscriptionRef.SubscriptionRef<ReadonlySet<EntityIdValueObject>>;
-    // Attaches the terminal's tmux client to the folder's shell, started first when it isn't running.
     readonly showFolderShellInTerminal: (
       terminalProcessId: number,
       folderShellRequest: FolderShellRequest
     ) => Effect.Effect<void, ITmuxInfraServiceErrors["FolderShellSwitchFailedError"]>;
-    // Attaches the tab's tmux client to another running session, so the tab itself stays as it is.
     readonly showSessionInTab: (
       tabProcessId: number,
       sessionId: EntityIdValueObject

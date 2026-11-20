@@ -4,7 +4,6 @@ import {SESSION_LISTS, SESSIONS_WEBVIEW_MESSAGE_TAGS} from "@pkg/constants/src/s
 import type {SessionListId} from "@/modules/sessions/sessions.type.ts";
 import type {CommandRequest, SessionsViewMessage, SessionsWebviewMessage} from "@views/sessions/sessions.view.type.ts";
 
-// A folded project is keyed by its list and its path, since a project shows in both lists.
 interface WebviewState {
   readonly collapsedListIds: readonly SessionListId[];
   readonly collapsedProjectKeys: readonly string[];

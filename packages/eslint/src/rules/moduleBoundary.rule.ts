@@ -5,7 +5,6 @@ import type {Rule} from "eslint";
 
 const APP_ALIAS = "@/";
 
-// The modules a path sits in, outermost first: src/modules/sessions/modules/archive/... is sessions, then archive.
 const listModuleNames = (pathParts: readonly string[]) =>
   pathParts.flatMap((pathPart, partIndex) => {
     const moduleName = pathParts[partIndex + 1];

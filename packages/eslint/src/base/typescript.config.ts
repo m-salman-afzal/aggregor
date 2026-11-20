@@ -68,7 +68,6 @@ export const TYPESCRIPT_CONFIGS: Config[] = defineConfig([
       "@typescript-eslint/prefer-readonly-parameter-types": "off",
       // Effect's asyncFunction rule bans the async keyword, so a function that returns a promise is a plain function.
       "@typescript-eslint/promise-function-async": "off",
-      // The core max-lines-per-function with a unit's make exempt, since that make holds the unit's functions.
       "aggregor/max-lines-per-function": [
         "error",
         {
@@ -82,7 +81,6 @@ export const TYPESCRIPT_CONFIGS: Config[] = defineConfig([
       "func-names": ["error", "always", {generators: "never"}],
       "id-length": ["error", {min: 3, properties: "never"}],
       "import-x/consistent-type-specifier-style": ["error", "prefer-top-level"],
-      // Files grow as long as their use cases need; functions stay small.
       "max-lines": "off",
       "max-lines-per-function": "off",
       "max-statements": ["off", {max: 20}, {ignoreTopLevelFunctions: true}],

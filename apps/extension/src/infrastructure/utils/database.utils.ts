@@ -34,7 +34,7 @@ export class DatabaseUtils extends Context.Service<DatabaseUtils>()(
         );
       });
 
-      // Matched by name, as the migrator matches them. A new database has no record of migrations.
+      // Matched by name, as the migrator matches them.
       const findFirstPendingMigrationName = Effect.fn("findFirstPendingMigrationName")(function* (
         migrationsFolderPath: string
       ) {
@@ -123,7 +123,6 @@ export class DatabaseUtils extends Context.Service<DatabaseUtils>()(
         );
       });
 
-      // When no backup can be written the migrations still run, and the warning says so.
       const backUpBeforeMigrating = Effect.fn("backUpBeforeMigrating")(
         function* (migrationsFolderPath: string) {
           const firstPendingMigrationName = yield* findFirstPendingMigrationName(migrationsFolderPath);

@@ -20,7 +20,7 @@ export class SessionsPageUtils extends Context.Service<SessionsPageUtils>()(
         });
       });
 
-      // An icon outside the extension needs its folder allowed; VS Code then reloads the page, which asks to be drawn again.
+      // Changing localResourceRoots makes VS Code reload the page, which asks to be drawn again.
       const allowIconFolder = Effect.fn("allowIconFolder")(function* (webview: Webview, iconFileUri: Uri) {
         const iconFolderUri = vsCodeApi.Uri.joinPath(iconFileUri, "..");
         const allowedFolderUris =
@@ -66,7 +66,6 @@ export class SessionsPageUtils extends Context.Service<SessionsPageUtils>()(
         });
       });
 
-      // From apps/webview's dev server while F5 sets its URL, so edits reload in place; else from the build.
       const makeWebviewHtml = Effect.fn("makeWebviewHtml")(function* (webview: Webview) {
         const developmentServerUrl = yield* Config.withDefault(
           Config.String(SESSIONS_WEBVIEW.DEVELOPMENT_SERVER_URL_VARIABLE),

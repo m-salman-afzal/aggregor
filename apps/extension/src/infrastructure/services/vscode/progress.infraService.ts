@@ -16,7 +16,7 @@ export class ProgressInfraService extends Context.Service<ProgressInfraService>(
       const vsCodeApi = yield* VsCodeApi;
       const vscodeUtils = yield* VscodeUtils;
 
-      const withSourceControlProgress = Effect.fn("withSourceControlProgress")(
+      const runWithSourceControlProgress = Effect.fn("runWithSourceControlProgress")(
         function* <A, E, R>(sourceControlProgress: SourceControlProgress, effect: Effect.Effect<A, E, R>) {
           yield* vscodeUtils.setWhenClauseContextKey(sourceControlProgress.busyContextKey, true);
 
@@ -30,11 +30,11 @@ export class ProgressInfraService extends Context.Service<ProgressInfraService>(
       );
 
       return {
-        withSourceControlProgress: <A, E, R>(
+        runWithSourceControlProgress: <A, E, R>(
           progressTitle: string,
           busyContextKey: string,
           effect: Effect.Effect<A, E, R>
-        ) => withSourceControlProgress({busyContextKey, progressTitle}, effect)
+        ) => runWithSourceControlProgress({busyContextKey, progressTitle}, effect)
       };
     })
   }

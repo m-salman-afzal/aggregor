@@ -31,7 +31,6 @@ export default defineConfig((configEnvironment) => {
       lib: {entry: "src/extension.ts", fileName: () => "extension.js", formats: ["es"]},
       minify: production,
       outDir: "dist",
-      // vscode is the host and node builtins stay external; everything else, effect included, is bundled.
       rolldownOptions: {external: ["vscode", externalNode, ...builtinModules]},
       sourcemap: !production,
       target: "node24"

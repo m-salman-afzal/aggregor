@@ -26,12 +26,12 @@ export class FolderShellDomainService extends Context.Service<FolderShellDomainS
         return String.padStart(PATH_HASH_HEX_LENGTH, "0")(pathHash.toString(16));
       });
 
-      // "/code/My.App" becomes "shell-my-app-1a2b3c": tmux takes no dots or colons, and the hash keeps same-named folders apart.
+      // tmux takes no dots or colons in a session name, and the hash keeps same-named folders apart.
       const getFolderShellName = Effect.fn("getFolderShellName")(function* (
         folderName: string,
         folderPath: ProjectPathValueObject
       ) {
-        return `${FOLDER_SHELL_NAME_PREFIX}${yield* worktreeDomainService.toNamePart(folderName)}-${yield* hashFolderPath(folderPath)}`;
+        return `${FOLDER_SHELL_NAME_PREFIX}${yield* worktreeDomainService.formatTextAsNamePart(folderName)}-${yield* hashFolderPath(folderPath)}`;
       });
 
       return {getFolderShellName};

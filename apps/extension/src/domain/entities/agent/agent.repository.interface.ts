@@ -7,7 +7,6 @@ import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
 import type {Effect} from "effect";
 
 export class IAgentRepositoryErrors extends TaggedErrors({
-  // No agent has that key: it was renamed, hidden with null, or left out as invalid.
   AgentNotFoundError: {agentId: AgentIdValueObjectSchema}
 }) {}
 

@@ -43,7 +43,7 @@ export class ProjectService extends Context.Service<ProjectService>()(
       const projectBaseService = yield* baseService.makeFor(projectRepository);
       const sessionBaseService = yield* baseService.makeFor(sessionRepository);
 
-      const toAddedProjectListItem = Effect.fn("toAddedProjectListItem")(function* (
+      const makeAddedProjectListItem = Effect.fn("makeAddedProjectListItem")(function* (
         addedProject: ProjectEntity,
         addedProjectIds: readonly EntityIdValueObject[]
       ) {
@@ -57,7 +57,6 @@ export class ProjectService extends Context.Service<ProjectService>()(
         });
       });
 
-      // A listed project has no stored row until its first session or its settings are saved.
       const findProjectSettings = Effect.fn("findProjectSettings")(function* (
         projectPath: ProjectPathValueObject,
         storedProjects: readonly ProjectEntity[]
@@ -71,7 +70,7 @@ export class ProjectService extends Context.Service<ProjectService>()(
         return yield* Effect.orDie(Schema.decodeEffect(ProjectSettingsValueObjectSchema)({}));
       });
 
-      const toOwnFolderProjectListItem = Effect.fn("toOwnFolderProjectListItem")(function* (
+      const makeOwnFolderProjectListItem = Effect.fn("makeOwnFolderProjectListItem")(function* (
         ownFolderProject: WorkspaceFolderProject,
         storedProjects: readonly ProjectEntity[]
       ) {
@@ -96,7 +95,6 @@ export class ProjectService extends Context.Service<ProjectService>()(
         );
       });
 
-      // An added project shown in the window stays an added project, and a session's worktree shown there is no project.
       const listProjects = Effect.fn("listProjects")(function* () {
         const workspaceFolderProjects = yield* workspaceInfraService.listWorkspaceFolderProjects;
         const storedProjects = yield* projectBaseService.findEntities({});
@@ -113,10 +111,10 @@ export class ProjectService extends Context.Service<ProjectService>()(
 
         return [
           ...(yield* Effect.forEach(ownFolderProjects, (ownFolderProject) =>
-            toOwnFolderProjectListItem(ownFolderProject, storedProjects)
+            makeOwnFolderProjectListItem(ownFolderProject, storedProjects)
           )),
           ...(yield* Effect.forEach(addedProjects, (addedProject) =>
-            toAddedProjectListItem(addedProject, addedProjectIds)
+            makeAddedProjectListItem(addedProject, addedProjectIds)
           ))
         ];
       });
@@ -132,7 +130,6 @@ export class ProjectService extends Context.Service<ProjectService>()(
         );
       });
 
-      // Opening Aggregor's workspace reloads the window; nothing runs there yet.
       const showFirstNewProject = Effect.fn("showFirstNewProject")(function* (
         newProjectPaths: readonly ProjectPathValueObject[]
       ) {
@@ -149,7 +146,6 @@ export class ProjectService extends Context.Service<ProjectService>()(
         );
       });
 
-      // A workspace folder's new row is not added, so the folder stays one of the window's own.
       const findOrAddProject = Effect.fn("findOrAddProject")(function* (projectPath: ProjectPathValueObject) {
         const [storedProject] = yield* projectBaseService.findEntities({path: projectPath});
         if (storedProject !== undefined) return storedProject;
@@ -160,7 +156,6 @@ export class ProjectService extends Context.Service<ProjectService>()(
       const addProject = Effect.fn("addProject")(
         function* () {
           const pickedFolderPaths = yield* userInputPromptInfraService.pickProjectFolderPaths;
-          // One of the window's own folders is listed already.
           const projectListItems = yield* listProjects();
           const ownFolderProjects = Array.filter(projectListItems, (projectListItem) => !projectListItem.isAdded);
           const projectPaths = new Set(Array.map(ownFolderProjects, (ownFolderProject) => ownFolderProject.path));
@@ -207,7 +202,6 @@ export class ProjectService extends Context.Service<ProjectService>()(
         yield* projectBaseService.placeEntitiesAtEnd(projectIdsToPlaceAtEnd);
       });
 
-      // A listed project without a stored row gets one here, left unadded so its place in the list stays.
       const saveProjectSettings = Effect.fn("saveProjectSettings")(
         function* (request: SaveProjectSettingsRequestDto) {
           yield* findProjectListItem(request.projectPath);
@@ -218,7 +212,6 @@ export class ProjectService extends Context.Service<ProjectService>()(
         Effect.catchTags({EntityNotFoundError: () => Effect.void, ProjectNotListedError: () => Effect.void})
       );
 
-      // No row shows the project's shell, or its sessions' worktrees' shells, once it is removed, so they would run on unseen.
       const endProjectFolderShells = Effect.fn("endProjectFolderShells")(function* (
         projectPath: ProjectPathValueObject,
         storedProjects: readonly ProjectEntity[]

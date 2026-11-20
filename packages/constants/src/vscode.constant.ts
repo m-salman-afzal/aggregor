@@ -8,7 +8,6 @@ export const VS_CODE_COMMANDS = {
   SET_CONTEXT: "setContext"
 } as const;
 
-// The Settings editor's search for one extension's settings, before the extension's id.
 export const SETTINGS_EDITOR_EXTENSION_FILTER = "@ext:";
 
 // VS Code reads it at startup, so a change shows only after a restart.

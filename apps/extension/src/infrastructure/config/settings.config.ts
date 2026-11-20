@@ -97,7 +97,6 @@ export class SettingsConfig extends Context.Service<SettingsConfig>()(
         Effect.mapError((schemaError) => ISettingsConfigErrors.InvalidSettingsError.make({reason: schemaError.message}))
       );
 
-      // A failed write only costs the reorder, so it is logged.
       const saveDefaultAgentId = Effect.fn("saveDefaultAgentId")(
         function* (agentId: AgentIdValueObject) {
           const config = yield* vsCodeApi.getConfiguration(SETTINGS_SECTION);

@@ -13,7 +13,6 @@ export class AppController extends Context.Service<AppController>()(
       const appErrorMessage = yield* AppErrorMessage;
       const vscodeUtils = yield* VscodeUtils;
 
-      // Open Settings only drives VS Code, so it goes straight to the helper, with no use case.
       const openAggregorSettings = Effect.fn("openAggregorSettings")(function* () {
         yield* vscodeUtils.openAggregorSettingsInSettingsEditor;
       });

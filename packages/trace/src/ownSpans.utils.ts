@@ -5,8 +5,6 @@ type CallerAnnotations = MutableRef.MutableRef<SpanAnnotations | undefined>;
 
 type SpanAnnotations = Readonly<Record<string, unknown>>;
 
-// These combinators wrap every call into a unit, so they stay plain functions: a span of their own would show in every trace.
-
 // A tagged error or an exit is an effect too, but it is a value passed around, not work that makes spans.
 // eslint-disable-next-line no-restricted-syntax -- wraps every call into a unit, so a span of its own would show in every trace
 const isEffectToRun = (maybeEffect: unknown) =>
@@ -47,7 +45,6 @@ const restoreCallerAnnotations = (callerAnnotations: CallerAnnotations) => (unit
   return annotationsAtCall === undefined ? unitAnnotations : annotationsAtCall;
 };
 
-// An effect, a stream or a callback handed to a unit is the caller's work, so its spans keep the caller's owner.
 // eslint-disable-next-line no-restricted-syntax -- wraps every call into a unit, so a span of its own would show in every trace
 const keepCallerAnnotations = (callerAnnotations: CallerAnnotations, handedValue: unknown): unknown => {
   // A class is a function too, so the proxy changes only what calling it returns.

@@ -32,7 +32,6 @@ export class RequiredToolsService extends Context.Service<RequiredToolsService>(
         });
       });
 
-      // Looked up afresh each time, so a tool installed since counts.
       const findMissingTools = Effect.fn("findMissingTools")(function* () {
         const missingTmux = yield* findMissingTmux();
         const installedCommands = yield* shellCommandInfraService.listInstalledCommands([REQUIRED_TOOLS.GITHUB_CLI]);
@@ -72,7 +71,6 @@ export class RequiredToolsService extends Context.Service<RequiredToolsService>(
         );
       });
 
-      // Nothing missing opens no terminal: another window, or the user by hand, may have installed it since.
       const installRequiredTools = Effect.fn("installRequiredTools")(function* () {
         const missingTools = yield* findMissingTools();
         if (missingTools.length === 0) return;
@@ -91,7 +89,6 @@ export class RequiredToolsService extends Context.Service<RequiredToolsService>(
         });
       });
 
-      // Once when the window starts and again each time the setup terminal closes, only while something is missing.
       const watchMissingTools = Effect.fn("watchMissingTools")(function* () {
         const toolChecks = Stream.concat(Stream.succeed(undefined), terminalInfraService.closedSetupTerminals);
 

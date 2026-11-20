@@ -1,3 +1,4 @@
+import {WorktreeListItemDtoSchema} from "@dtos/session.dto.ts";
 import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {Schema} from "effect";
@@ -9,12 +10,12 @@ export type ListImportableSessionsRequestDto = typeof ListImportableSessionsRequ
 export const ImportableSessionDtoSchema = Schema.Struct({
   agentSessionId: Schema.NonEmptyString,
   title: Schema.String,
-  updatedAt: Schema.String
+  updatedAt: Schema.String,
+  worktree: Schema.optional(WorktreeListItemDtoSchema)
 });
 
 export type ImportableSessionDto = typeof ImportableSessionDtoSchema.Type;
 
-// Newest first.
 export const AgentImportableSessionsDtoSchema = Schema.Struct({
   agentId: AgentIdValueObjectSchema,
   agentName: Schema.String,
@@ -33,7 +34,8 @@ export type ImportableSessionsDto = typeof ImportableSessionsDtoSchema.Type;
 export const ImportedSessionDtoSchema = Schema.Struct({
   agentId: AgentIdValueObjectSchema,
   agentSessionId: Schema.NonEmptyString,
-  title: Schema.String
+  title: Schema.String,
+  worktreePath: Schema.optional(ProjectPathValueObjectSchema)
 });
 
 export type ImportedSessionDto = typeof ImportedSessionDtoSchema.Type;

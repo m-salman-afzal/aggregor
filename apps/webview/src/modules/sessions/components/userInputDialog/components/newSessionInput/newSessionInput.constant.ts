@@ -1,4 +1,3 @@
-// The base branch's id when the worktree starts from the project's current commit.
 export const CURRENT_COMMIT_OPTION_ID = "";
 
 export const OPTION_ROW =

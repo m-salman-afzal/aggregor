@@ -35,9 +35,11 @@ export class SessionController extends Context.Service<SessionController>()(
       const sessionErrorMessage = yield* SessionErrorMessage;
       const vscodeUtils = yield* VscodeUtils;
 
-      const newSessionInChosenProject = Effect.fn("newSessionInChosenProject")(function* (chosenProject: unknown) {
+      const createSessionInChosenProject = Effect.fn("createSessionInChosenProject")(function* (
+        chosenProject: unknown
+      ) {
         const request = yield* vscodeUtils.decodeVsCodeArgument(NewSessionRequestDtoSchema, chosenProject);
-        yield* sessionService.newSession(request);
+        yield* sessionService.createSession(request);
       });
 
       const openChosenSession = Effect.fn("openChosenSession")(function* (chosenSession: unknown) {
@@ -225,7 +227,7 @@ export class SessionController extends Context.Service<SessionController>()(
       );
       yield* registerCommandMiddleware.registerCommand(
         SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT,
-        newSessionInChosenProject,
+        createSessionInChosenProject,
         sessionErrorMessage.getSessionCommandErrorMessage
       );
       yield* registerCommandMiddleware.registerCommand(
@@ -289,6 +291,7 @@ export class SessionController extends Context.Service<SessionController>()(
         archiveChosenProjectSessions,
         archiveChosenSession,
         changeChosenSessionWorkingTree,
+        createSessionInChosenProject,
         findViewedSessionIdForSessionsView: findViewedSessionIdForSessionsView(),
         getProjectSessionsForSessionsView,
         getSessionListItemForSessionsView,
@@ -297,7 +300,6 @@ export class SessionController extends Context.Service<SessionController>()(
         listSessionsWaitingOnUserForSessionsView: listSessionsWaitingOnUserForSessionsView(),
         moveChosenSessionDown,
         moveChosenSessionUp,
-        newSessionInChosenProject,
         openChosenSession,
         removeChosenSession,
         renameChosenSession,

@@ -30,7 +30,6 @@ export class RegisterCommandMiddleware extends Context.Service<RegisterCommandMi
         yield* vscodeUtils.showErrorNotificationWithoutWaiting(commandErrorMessage.message, commandErrorMessage);
       });
 
-      // Arguments that do not decode point at a broken menu entry.
       const showInvalidArguments = Effect.fn("showInvalidArguments")(function* (
         commandId: string,
         invalidArgument: unknown

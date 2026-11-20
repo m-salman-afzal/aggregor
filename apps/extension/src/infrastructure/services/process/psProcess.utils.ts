@@ -13,7 +13,6 @@ export class PsProcessUtils extends Context.Service<PsProcessUtils>()(
     make: Effect.fn("make")(function* () {
       const childProcessSpawner = yield* ChildProcessSpawner;
 
-      // A process is named by its program's file, as top names it.
       const parsePsLine = Effect.fn("parsePsLine")(function* (psLine: string) {
         const psFields = Result.fromOption(String.match(PROCESS_LISTING.LINE)(psLine), () => undefined);
         if (Result.isFailure(psFields) || psFields.success.groups === undefined) return [];
@@ -30,7 +29,6 @@ export class PsProcessUtils extends Context.Service<PsProcessUtils>()(
         return [runningProcess];
       });
 
-      // No ps lists no process, so the group shows none.
       const listRunningProcesses = Effect.fn("listRunningProcesses")(function* () {
         const psLines = yield* Effect.orElseSucceed(
           childProcessSpawner.lines(ChildProcess.make(PROCESS_LISTING.COMMAND, PROCESS_LISTING.ARGUMENTS)),

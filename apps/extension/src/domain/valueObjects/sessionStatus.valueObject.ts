@@ -2,7 +2,6 @@ import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
 import {SESSION_RUN_STATES} from "@valueObjects/sessionRunState.valueObject.ts";
 import {Schema} from "effect";
 
-// The agent's status, except that done means a finished turn the user has not seen yet, and interrupted an agent cut off.
 export const SessionStatusValueObjectSchema = Schema.Enum({
   BLOCKED: AGENT_STATUSES.BLOCKED,
   DONE: AGENT_STATUSES.DONE,

@@ -15,10 +15,8 @@ import {Clock, Context, Duration, Effect, FiberMap, Layer, Result, Stream, Subsc
 import type {SessionAlertDto} from "@dtos/sessionAlert.dto.ts";
 import type {Uri} from "vscode";
 
-// When this window last came into focus from another app or window, in milliseconds; 0 once a click has used it.
 type WindowFocusedAt = SubscriptionRef.SubscriptionRef<number>;
 
-// The fiber showing each session's latest alert, by session id.
 type ShownAlerts = FiberMap.FiberMap<string>;
 
 export class SessionAlertsView extends Context.Service<SessionAlertsView>()(
@@ -32,7 +30,6 @@ export class SessionAlertsView extends Context.Service<SessionAlertsView>()(
       const shownAlerts: ShownAlerts = yield* FiberMap.make<string>();
 
       const getSessionAlertHeadline = Effect.fn("getSessionAlertHeadline")(function* (sessionAlert: SessionAlertDto) {
-        // Only a blocked session's alert carries the kind of wait.
         if (sessionAlert.statusKind !== undefined)
           return SESSION_ALERT_BLOCKED_HEADLINES[sessionAlert.statusKind](sessionAlert.displayName);
 
@@ -97,7 +94,6 @@ export class SessionAlertsView extends Context.Service<SessionAlertsView>()(
         if (yield* wasDesktopNotificationOpened()) yield* openAlertedSession(sessionAlert.sessionId);
       });
 
-      // In the background, so a notification waiting for a click holds back no other; a session's newer alert replaces its older.
       const showSessionAlert = Effect.fn("showSessionAlert")(function* (sessionAlert: SessionAlertDto) {
         const headline = yield* getSessionAlertHeadline(sessionAlert);
         const shownAlert = vsCodeApi.window.state.focused
@@ -111,7 +107,6 @@ export class SessionAlertsView extends Context.Service<SessionAlertsView>()(
         );
       });
 
-      // A WSL toast's click lands here, in the window that sent it.
       const openLinkedSession = Effect.fn("openLinkedSession")(function* (sessionLink: Uri) {
         const sessionId = new URLSearchParams(sessionLink.query).get(SESSION_LINK.SESSION_ID_PARAMETER);
         if (sessionLink.path === SESSION_LINK.OPEN_SESSION_PATH && sessionId !== null)

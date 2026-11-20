@@ -40,7 +40,6 @@ export class SessionProcessService extends Context.Service<SessionProcessService
         return TerminalProcessesDtoSchema.make({processes: groupProcesses});
       });
 
-      // The sessions in the folder that the Sessions list shows, and this one, since an archived session opens it too.
       const countFolderShellSessions = Effect.fn("countFolderShellSessions")(function* (session: SessionEntity) {
         const projectSessions = yield* sessionBaseService.findEntities({projectId: session.projectId});
 
@@ -64,7 +63,6 @@ export class SessionProcessService extends Context.Service<SessionProcessService
         });
       });
 
-      // A folder shell that isn't running, or a project no longer listed, leaves the shell out.
       const readSessionProcesses = Effect.fn("readSessionProcesses")(function* (sessionId: EntityIdValueObject) {
         const session = yield* sessionService.findSession(sessionId);
         const agentPanes = yield* tmuxInfraService.readSessionAgentPanes(sessionId);
@@ -78,7 +76,6 @@ export class SessionProcessService extends Context.Service<SessionProcessService
         });
       });
 
-      // A session whose agent has ended has nothing to read; its dropdown closes with the agent.
       const readWatchedSessionProcesses = Effect.fn("readWatchedSessionProcesses")(function* (
         watchRequest: WatchSessionProcessesRequestDto
       ) {
@@ -89,7 +86,6 @@ export class SessionProcessService extends Context.Service<SessionProcessService
         return Array.getSuccesses(sessionProcessResults);
       });
 
-      // Each request replaces the last, and the readings run untraced, as the database poll does.
       const watchSessionProcesses = Effect.fn("watchSessionProcesses")(function* (
         watchRequests: Stream.Stream<WatchSessionProcessesRequestDto>
       ) {

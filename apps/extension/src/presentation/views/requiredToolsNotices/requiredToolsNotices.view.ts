@@ -28,7 +28,6 @@ export class RequiredToolsNoticesView extends Context.Service<RequiredToolsNotic
           : REQUIRED_TOOL_NEEDS.tmuxTooOld(missingTool.foundVersion);
       });
 
-      // With no package manager, each missing tool's button opens its install page.
       const offerInstallPages = Effect.fn("offerInstallPages")(function* (
         missingToolsDto: MissingToolsDto,
         toolNeeds: string

@@ -27,13 +27,10 @@ export interface ListedPullRequest {
 
 export class IGitHubCliInfraServiceErrors extends TaggedErrors({
   GitHubCliSignedOutError: {},
-  // gh is missing, the folder has no GitHub repository, or gh gave up; the listing's span says which.
   PullRequestListFailedError: {},
-  // None was found, it isn't looked up yet, or gh couldn't look or isn't installed; the lookup's span says which.
   PullRequestNotFoundError: {}
 }) {}
 
-// gh from PATH, never one of Aggregor's own; lookups are cached and run in the background.
 export class IGitHubCliInfraService extends Context.Service<
   IGitHubCliInfraService,
   {
@@ -41,9 +38,7 @@ export class IGitHubCliInfraService extends Context.Service<
     readonly findPullRequest: (
       pullRequestLookup: PullRequestLookup
     ) => Effect.Effect<BranchPullRequest, IGitHubCliInfraServiceErrors["PullRequestNotFoundError"]>;
-    // Once per window, the first time a lookup meets it, and again after the setup terminal closes.
     readonly gitHubCliSignedOutProblems: Stream.Stream<IGitHubCliInfraServiceErrors["GitHubCliSignedOutError"]>;
-    // The repository's newest pull requests, any state, read from GitHub each time.
     readonly listPullRequests: (
       folderPath: ProjectPathValueObject
     ) => Effect.Effect<

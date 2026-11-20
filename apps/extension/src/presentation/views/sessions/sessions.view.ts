@@ -113,7 +113,6 @@ export class SessionsView extends Context.Service<SessionsView>()(
         Effect.catch((drawError) => Effect.logWarning("Could not redraw the Sessions view's agents", drawError))
       );
 
-      // The webview asks once its script listens, which is again each time VS Code shows the view after hiding it.
       const handleWebviewMessage = Effect.fn("handleWebviewMessage", {root: true})(
         function* (webviewMessage: unknown) {
           const sessionsWebviewMessage = yield* vscodeUtils.decodeVsCodeArgument(
@@ -152,7 +151,6 @@ export class SessionsView extends Context.Service<SessionsView>()(
         yield* updateWaitingCounts();
       });
 
-      // A hidden view reads no processes; the webview asks again for its open dropdowns once it is shown.
       const detachWebviewView = Effect.fn("detachWebviewView")(function* () {
         yield* sessionsDrawingUtils.clearShownWebviewView;
         yield* SubscriptionRef.set(openDropdownSessionIds, []);
@@ -193,7 +191,7 @@ export class SessionsView extends Context.Service<SessionsView>()(
         );
       });
 
-      // Each open dropdown's processes, read while the webview shows it; every 2 seconds, so its redraws go untraced.
+      // Polled every 2 seconds, so its redraws go untraced.
       const startSessionProcessRedraws = Effect.fn("startSessionProcessRedraws")(function* () {
         const sessionProcessReadings = yield* sessionProcessController.watchSessionProcessesForSessionsView(
           SubscriptionRef.changes(openDropdownSessionIds)

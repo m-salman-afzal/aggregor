@@ -37,10 +37,10 @@ export class CodexHistoryUtils extends Context.Service<CodexHistoryUtils>()(
         return path.join(sqliteHomePath === "" ? codexHomePath : sqliteHomePath, CODEX_HISTORY.DATABASE_FILE_NAME);
       });
 
-      const toCodexConversation = Effect.fn("toCodexConversation")(function* (codexThreadRow: CodexThreadRow) {
+      const decodeCodexConversation = Effect.fn("decodeCodexConversation")(function* (codexThreadRow: CodexThreadRow) {
         const agentConversation: AgentConversation = {
           agentSessionId: codexThreadRow.id,
-          title: yield* agentHistoryUtils.toOneLineTitle(
+          title: yield* agentHistoryUtils.formatTextAsOneLineTitle(
             codexThreadRow.name === null || codexThreadRow.name === ""
               ? codexThreadRow.firstUserMessage
               : codexThreadRow.name
@@ -66,7 +66,7 @@ export class CodexHistoryUtils extends Context.Service<CodexHistoryUtils>()(
               AND source IN ('cli', 'vscode')
               AND id NOT IN (SELECT child_thread_id FROM thread_spawn_edges)`;
 
-          return yield* Effect.forEach(codexThreadRows, toCodexConversation);
+          return yield* Effect.forEach(codexThreadRows, decodeCodexConversation);
         },
         Effect.scoped,
         Effect.provideServiceEffect(Reactivity, makeReactivity)

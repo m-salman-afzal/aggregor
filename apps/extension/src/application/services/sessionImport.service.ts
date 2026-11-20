@@ -1,3 +1,4 @@
+import {WorktreeListItemDtoSchema} from "@dtos/session.dto.ts";
 import {
   AgentImportableSessionsDtoSchema,
   ImportableSessionDtoSchema,
@@ -6,6 +7,7 @@ import {
 import {IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {IAgentHistoryInfraService} from "@interfaces/agentHistory.infraService.interface.ts";
+import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
 import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {BaseService} from "@services/base.service.ts";
 import {ProjectService} from "@services/project.service.ts";
@@ -19,8 +21,19 @@ import type {
 } from "@dtos/sessionImport.dto.ts";
 import type {AgentEntity} from "@entities/agent/agent.entity.ts";
 import type {AgentConversation} from "@interfaces/agentHistory.infraService.interface.ts";
+import type {GitWorktree} from "@interfaces/worktree.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+
+interface ProjectFolder {
+  readonly folderPath: ProjectPathValueObject;
+  readonly worktree: GitWorktree | undefined;
+}
+
+interface FolderConversation {
+  readonly agentConversation: AgentConversation;
+  readonly worktree: GitWorktree | undefined;
+}
 
 export class SessionImportService extends Context.Service<SessionImportService>()(
   "aggregor-app/application/services/sessionImport.service/SessionImportService",
@@ -29,11 +42,12 @@ export class SessionImportService extends Context.Service<SessionImportService>(
       const agentRepository = yield* IAgentRepository;
       const sessionRepository = yield* ISessionRepository;
       const agentHistoryInfraService = yield* IAgentHistoryInfraService;
+      const worktreeInfraService = yield* IWorktreeInfraService;
       const projectService = yield* ProjectService;
       const baseService = yield* BaseService;
       const sessionBaseService = yield* baseService.makeFor(sessionRepository);
 
-      // A session Aggregor started gave the agent its own id, and an imported one keeps the agent's; removed ones are gone.
+      // A session Aggregor started gave the agent its own id.
       const findKnownAgentSessionIds = Effect.fn("findKnownAgentSessionIds")(function* () {
         const storedSessions = yield* sessionBaseService.findEntities({});
         const knownAgentSessionIds: ReadonlySet<string> = new Set(
@@ -48,53 +62,109 @@ export class SessionImportService extends Context.Service<SessionImportService>(
         return knownAgentSessionIds;
       });
 
-      const toImportableSession = Effect.fn("toImportableSession")(function* (agentConversation: AgentConversation) {
+      const listProjectWorktrees = Effect.fn("listProjectWorktrees")(
+        function* (projectPath: ProjectPathValueObject) {
+          const gitWorktrees = yield* worktreeInfraService.listWorktrees(projectPath);
+
+          // git lists a project that is itself a linked worktree among its own worktrees.
+          return Array.filter(gitWorktrees, (gitWorktree) => gitWorktree.worktreePath !== projectPath);
+        },
+        Effect.catchTag("NotGitRepositoryError", () => Effect.succeed(Array.empty<GitWorktree>()))
+      );
+
+      const listProjectFolders = Effect.fn("listProjectFolders")(function* (projectPath: ProjectPathValueObject) {
+        const projectWorktrees = yield* listProjectWorktrees(projectPath);
+        const projectFolders: readonly ProjectFolder[] = [
+          {folderPath: projectPath, worktree: undefined},
+          ...Array.map(projectWorktrees, (projectWorktree) => ({
+            folderPath: projectWorktree.worktreePath,
+            worktree: projectWorktree
+          }))
+        ];
+
+        return projectFolders;
+      });
+
+      const makeImportableSession = Effect.fn("makeImportableSession")(function* (
+        folderConversation: FolderConversation
+      ) {
+        const worktree = folderConversation.worktree;
+
         return ImportableSessionDtoSchema.make({
-          agentSessionId: agentConversation.agentSessionId,
-          title: agentConversation.title,
-          updatedAt: DateTime.formatIso(DateTime.makeUnsafe(agentConversation.updatedAtMillis))
+          agentSessionId: folderConversation.agentConversation.agentSessionId,
+          title: folderConversation.agentConversation.title,
+          updatedAt: DateTime.formatIso(DateTime.makeUnsafe(folderConversation.agentConversation.updatedAtMillis)),
+          worktree:
+            worktree === undefined
+              ? undefined
+              : WorktreeListItemDtoSchema.make({
+                  branchName: worktree.branchName,
+                  worktreePath: worktree.worktreePath
+                })
         });
+      });
+
+      const listFolderConversations = Effect.fn("listFolderConversations")(function* (
+        agent: AgentEntity,
+        projectFolder: ProjectFolder
+      ) {
+        const agentConversations = yield* agentHistoryInfraService.listAgentConversations(
+          agent.id,
+          projectFolder.folderPath
+        );
+
+        return Array.map(agentConversations, (agentConversation): FolderConversation => ({
+          agentConversation,
+          worktree: projectFolder.worktree
+        }));
       });
 
       const listAgentImportableSessions = Effect.fn("listAgentImportableSessions")(function* (
         agent: AgentEntity,
-        folderPath: ProjectPathValueObject,
+        projectFolders: readonly ProjectFolder[],
         knownAgentSessionIds: ReadonlySet<string>
       ) {
-        const agentConversations = yield* agentHistoryInfraService.listAgentConversations(agent.id, folderPath);
+        const folderResults = yield* Effect.forEach(
+          projectFolders,
+          (projectFolder) => Effect.result(listFolderConversations(agent, projectFolder)),
+          {concurrency: "unbounded"}
+        );
         const newestFirst = Array.sort(
           Array.filter(
-            agentConversations,
-            (agentConversation) => !knownAgentSessionIds.has(agentConversation.agentSessionId)
+            Array.flatten(Array.getSuccesses(folderResults)),
+            (folderConversation) => !knownAgentSessionIds.has(folderConversation.agentConversation.agentSessionId)
           ),
           Order.flip(
-            Order.mapInput(Order.Number, (agentConversation: AgentConversation) => agentConversation.updatedAtMillis)
+            Order.mapInput(
+              Order.Number,
+              (folderConversation: FolderConversation) => folderConversation.agentConversation.updatedAtMillis
+            )
           )
         );
 
         return AgentImportableSessionsDtoSchema.make({
           agentId: agent.id,
           agentName: agent.name,
-          importableSessions: yield* Effect.forEach(newestFirst, toImportableSession)
+          importableSessions: yield* Effect.forEach(newestFirst, makeImportableSession)
         });
       });
 
-      // An agent whose history isn't read, or can't be, offers nothing; its span says why.
       const listImportableSessions = Effect.fn("listImportableSessions")(function* (
         request: ListImportableSessionsRequestDto
       ) {
         const projectListItem = yield* projectService.findProjectListItem(request.projectPath);
         const agents = yield* agentRepository.findAll;
         const knownAgentSessionIds = yield* findKnownAgentSessionIds();
-        const agentResults = yield* Effect.forEach(
+        const projectFolders = yield* listProjectFolders(projectListItem.path);
+        const agentGroups = yield* Effect.forEach(
           agents,
-          (agent) => Effect.result(listAgentImportableSessions(agent, projectListItem.path, knownAgentSessionIds)),
+          (agent) => listAgentImportableSessions(agent, projectFolders, knownAgentSessionIds),
           {concurrency: "unbounded"}
         );
 
         return ImportableSessionsDtoSchema.make({
           agentGroups: Array.filter(
-            Array.getSuccesses(agentResults),
+            agentGroups,
             (agentImportableSessions) => agentImportableSessions.importableSessions.length > 0
           ),
           projectPath: projectListItem.path
@@ -112,26 +182,36 @@ export class SessionImportService extends Context.Service<SessionImportService>(
           importedAgentSessionId: importedSession.agentSessionId,
           lifecycle: SESSION_LIFECYCLES.ONGOING,
           name: importedSession.title,
-          projectId
+          projectId,
+          worktreePath: importedSession.worktreePath
         });
       });
 
-      // A conversation already a session, as from a second Import, isn't added twice; a project no longer listed gets none.
       const importSessions = Effect.fn("importSessions")(
         function* (request: ImportSessionsRequestDto) {
           const projectListItem = yield* projectService.findProjectListItem(request.projectPath);
           const project = yield* projectService.findOrAddProject(projectListItem.path);
           const knownAgentSessionIds = yield* findKnownAgentSessionIds();
+          const projectWorktrees = yield* listProjectWorktrees(projectListItem.path);
+          const projectWorktreePaths = new Set<string>(
+            Array.map(projectWorktrees, (projectWorktree) => projectWorktree.worktreePath)
+          );
           const newImportedSessions = Array.filter(
             request.importedSessions,
             (importedSession) => !knownAgentSessionIds.has(importedSession.agentSessionId)
           );
+          const resumableImportedSessions = Array.filter(
+            newImportedSessions,
+            (importedSession) =>
+              importedSession.worktreePath === undefined || projectWorktreePaths.has(importedSession.worktreePath)
+          );
           yield* Effect.annotateCurrentSpan({
             alreadyImportedCount: request.importedSessions.length - newImportedSessions.length,
-            importedCount: newImportedSessions.length
+            importedCount: resumableImportedSessions.length,
+            worktreeGoneCount: newImportedSessions.length - resumableImportedSessions.length
           });
 
-          yield* Effect.forEach(newImportedSessions, (importedSession) =>
+          yield* Effect.forEach(resumableImportedSessions, (importedSession) =>
             addImportedSession(project.id, importedSession)
           );
         },

@@ -350,7 +350,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         )
       );
 
-      const toWorktreeBranch = Effect.fn("toWorktreeBranch")(function* (referenceLine: string) {
+      const parseWorktreeBranch = Effect.fn("parseWorktreeBranch")(function* (referenceLine: string) {
         const [branchName, upstreamTrack = "", worktreePath = ""] = String.split("\t")(referenceLine);
         const worktreeBranch: WorktreeBranch = {
           branchName,
@@ -370,7 +370,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
           ]);
           const referenceLines = Array.filter(String.split("\n")(referenceOutput), String.isNonEmpty);
 
-          return yield* Effect.forEach(referenceLines, (referenceLine) => toWorktreeBranch(referenceLine));
+          return yield* Effect.forEach(referenceLines, (referenceLine) => parseWorktreeBranch(referenceLine));
         },
         Effect.mapError(() => IWorktreeInfraServiceErrors.NotGitRepositoryError.make())
       );
@@ -439,7 +439,6 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         Effect.ignore({log: "Debug", message: "Could not prune origin's branches"})
       );
 
-      // --prune, so a branch deleted on origin leaves the Remote tab too.
       const fetchRemote = Effect.fn("fetchRemote")(
         function* (projectPath: ProjectPathValueObject) {
           yield* runGitCommand(projectPath, ["fetch", "--prune", "origin"]);

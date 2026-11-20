@@ -39,7 +39,9 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
       const pullRequestChanges = yield* PubSub.unbounded<ProjectPathValueObject>();
       const pullRequestLookups = yield* Queue.unbounded<PullRequestLookup>();
 
-      const toLookupKey = Effect.fn("toLookupKey")(function* (pullRequestLookup: PullRequestLookup) {
+      const makePullRequestLookupKey = Effect.fn("makePullRequestLookupKey")(function* (
+        pullRequestLookup: PullRequestLookup
+      ) {
         return `${pullRequestLookup.folderPath}\n${pullRequestLookup.pullRequestReference}`;
       });
 
@@ -62,7 +64,7 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         return {exitCode, stderr, stdout};
       }, Effect.scoped);
 
-      // Exit code 1 covers no pull request, no GitHub remote and no repository; stderr says which. A hung gh is killed.
+      // Exit code 1 covers no pull request, no GitHub remote and no repository; stderr says which.
       const lookUpPullRequest = Effect.fn("lookUpPullRequest")(
         function* (pullRequestLookup: PullRequestLookup) {
           yield* Effect.annotateCurrentSpan({
@@ -79,7 +81,7 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
           if (gitHubCliOutput.exitCode !== EXIT_CODES.SUCCESSFUL)
             return yield* IGitHubCliInfraServiceErrors.PullRequestNotFoundError.make();
 
-          return yield* gitHubCliTransformer.toBranchPullRequest(gitHubCliOutput.stdout);
+          return yield* gitHubCliTransformer.decodeBranchPullRequest(gitHubCliOutput.stdout);
         },
         Effect.timeout(GITHUB_CLI.LOOKUP_TIMEOUT),
         Effect.catchTags({
@@ -111,7 +113,7 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
           if (gitHubCliOutput.exitCode !== EXIT_CODES.SUCCESSFUL)
             return yield* IGitHubCliInfraServiceErrors.PullRequestListFailedError.make();
 
-          return yield* gitHubCliTransformer.toListedPullRequests(gitHubCliOutput.stdout);
+          return yield* gitHubCliTransformer.decodeListedPullRequests(gitHubCliOutput.stdout);
         },
         Effect.timeout(GITHUB_CLI.LOOKUP_TIMEOUT),
         Effect.catchTags({
@@ -129,7 +131,7 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         yield* PubSub.publish(gitHubCliSignedOutProblems, gitHubCliSignedOutError);
       });
 
-      const toComparablePullRequest = Effect.fn("toComparablePullRequest")(function* (
+      const makeComparablePullRequestText = Effect.fn("makeComparablePullRequestText")(function* (
         cachedPullRequest: CachedPullRequest | undefined
       ) {
         if (cachedPullRequest === undefined) return "";
@@ -141,12 +143,11 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         });
       });
 
-      // Only a change redraws: a branch with no pull request before or after leaves its rows alone.
       const storePullRequest = Effect.fn("storePullRequest")(function* (cachedPullRequest: CachedPullRequest) {
-        const lookupKey = yield* toLookupKey(cachedPullRequest.pullRequestLookup);
+        const lookupKey = yield* makePullRequestLookupKey(cachedPullRequest.pullRequestLookup);
         const cachedPullRequestsByLookupKey = yield* Ref.get(cachedPullRequests);
-        const previousComparable = yield* toComparablePullRequest(cachedPullRequestsByLookupKey.get(lookupKey));
-        const nextComparable = yield* toComparablePullRequest(cachedPullRequest);
+        const previousComparable = yield* makeComparablePullRequestText(cachedPullRequestsByLookupKey.get(lookupKey));
+        const nextComparable = yield* makeComparablePullRequestText(cachedPullRequest);
         yield* Ref.set(cachedPullRequests, new Map(cachedPullRequestsByLookupKey).set(lookupKey, cachedPullRequest));
         yield* Ref.update(
           pendingLookupKeys,
@@ -174,9 +175,8 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         });
       });
 
-      // A branch already waiting for its lookup isn't queued twice.
       const refreshPullRequest = Effect.fn("refreshPullRequest")(function* (pullRequestLookup: PullRequestLookup) {
-        const lookupKey = yield* toLookupKey(pullRequestLookup);
+        const lookupKey = yield* makePullRequestLookupKey(pullRequestLookup);
         const isPending = yield* Ref.modify(pendingLookupKeys, (currentPendingLookupKeys) => [
           currentPendingLookupKeys.has(lookupKey),
           new Set([...currentPendingLookupKeys, lookupKey])
@@ -188,7 +188,7 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
 
       const findPullRequest = Effect.fn("findPullRequest")(function* (pullRequestLookup: PullRequestLookup) {
         const cachedPullRequestsByLookupKey = yield* Ref.get(cachedPullRequests);
-        const lookupKey = yield* toLookupKey(pullRequestLookup);
+        const lookupKey = yield* makePullRequestLookupKey(pullRequestLookup);
         const cachedPullRequest = cachedPullRequestsByLookupKey.get(lookupKey);
         if (cachedPullRequest !== undefined) return yield* Effect.fromResult(cachedPullRequest.pullRequestResult);
         yield* refreshPullRequest(pullRequestLookup);
@@ -196,7 +196,6 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         return yield* IGitHubCliInfraServiceErrors.PullRequestNotFoundError.make();
       });
 
-      // Every branch looked up so far, at most once in GITHUB_CLI.REFRESH_INTERVAL_MS unless forced.
       const refreshAllPullRequests = Effect.fn("refreshAllPullRequests")(function* (isForced: boolean) {
         const refreshStartedAt = yield* Clock.currentTimeMillis;
         const previousRefreshedAt = yield* Ref.get(lastRefreshedAt);
@@ -232,7 +231,6 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         return yield* Effect.promise(() => vsCodeApi.env.openExternal(pullRequestLink));
       });
 
-      // A focus back from the browser, where a pull request may have opened or merged, or the setup terminal closing.
       const watchRefreshHints = Effect.fn("watchRefreshHints")(function* () {
         const windowStateChanges = yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.window.onDidChangeWindowState);
         const closedTerminals = yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.window.onDidCloseTerminal);
@@ -250,7 +248,6 @@ export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService
         yield* Stream.runForEach(refreshHints, (isForced) => refreshAllPullRequests(isForced));
       });
 
-      // In the layer's own fiber, a few at a time, so reading the list never waits on the network.
       const runPullRequestLookups = Effect.fn("runPullRequestLookups")(function* () {
         yield* Stream.runDrain(
           Stream.mapEffect(

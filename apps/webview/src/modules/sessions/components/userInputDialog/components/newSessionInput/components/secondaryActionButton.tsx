@@ -9,7 +9,6 @@ interface SecondaryActionButtonProps {
   readonly onClick: (clickEvent: MouseEvent) => void;
 }
 
-// An icon button when the action has an icon, so the choice's name keeps its room in a narrow view.
 export const SecondaryActionButton = (props: SecondaryActionButtonProps) => {
   if (props.Icon === undefined)
     return (

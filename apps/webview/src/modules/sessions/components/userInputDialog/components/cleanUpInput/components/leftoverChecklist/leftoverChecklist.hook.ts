@@ -1,8 +1,8 @@
 import {toggleRowKey} from "@/modules/sessions/components/userInputDialog/components/checklistSection/checklistSection.utils.ts";
 import {
-  takeChosenLeftovers,
-  toBranchRows,
-  toWorktreeRows
+  makeLeftoverBranchRows,
+  makeLeftoverWorktreeRows,
+  takeChosenLeftovers
 } from "@/modules/sessions/components/userInputDialog/components/cleanUpInput/components/leftoverChecklist/leftoverChecklist.utils.ts";
 import {useState} from "react";
 
@@ -14,10 +14,9 @@ interface UseLeftoverChecklistProps {
   readonly onDelete: (chosenLeftovers: ChosenLeftovers) => void;
 }
 
-// Only what is merged starts ticked, so a branch whose work never landed goes only when the user picks it.
 export const useLeftoverChecklist = (props: UseLeftoverChecklistProps) => {
-  const worktreeRows = toWorktreeRows(props.leftovers);
-  const branchRows = toBranchRows(props.leftovers);
+  const worktreeRows = makeLeftoverWorktreeRows(props.leftovers);
+  const branchRows = makeLeftoverBranchRows(props.leftovers);
   const selectableRows = [...worktreeRows, ...branchRows].filter((leftoverRow) => !leftoverRow.isDisabled);
   const [tickedRowKeys, setTickedRowKeys] = useState<ReadonlySet<string>>(
     () => new Set(selectableRows.filter((leftoverRow) => leftoverRow.isMerged).map((leftoverRow) => leftoverRow.rowKey))

@@ -1,6 +1,5 @@
 import {Schema} from "effect";
 
-// GitHub's open, merged and closed, with a draft told apart from an open pull request ready for review.
 export const PullRequestStateValueObjectSchema = Schema.Enum({
   CLOSED: "closed",
   DRAFT: "draft",

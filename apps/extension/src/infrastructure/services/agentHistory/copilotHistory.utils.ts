@@ -61,7 +61,7 @@ export class CopilotHistoryUtils extends Context.Service<CopilotHistoryUtils>()(
         return firstUserMessage;
       });
 
-      // A folder without workspace.yaml is only a lock left behind; one with no name and no message never got a prompt.
+      // A folder without workspace.yaml is only a lock left behind.
       const readCopilotConversation = Effect.fn("readCopilotConversation")(function* (
         conversationFolderPath: string,
         folderPath: string
@@ -77,7 +77,7 @@ export class CopilotHistoryUtils extends Context.Service<CopilotHistoryUtils>()(
         if (titleText === "") return Result.failVoid;
         const agentConversation: AgentConversation = {
           agentSessionId: workspaceFields.id === undefined ? path.basename(conversationFolderPath) : workspaceFields.id,
-          title: yield* agentHistoryUtils.toOneLineTitle(titleText),
+          title: yield* agentHistoryUtils.formatTextAsOneLineTitle(titleText),
           updatedAtMillis: workspaceFields.updated_at === undefined ? 0 : Date.parse(workspaceFields.updated_at)
         };
 

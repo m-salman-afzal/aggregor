@@ -33,12 +33,12 @@ The SQLite tables, their rows and how they are read.
 ## Rows are read through the entity's factory; entities don't know how they're stored
 
 - **Problem:** stored rows carry NULLs and timestamps as text, not what the domain uses.
-- **Decision:** entities are plain `Schema.Class`es with domain types. `BaseEntity.fromRow` turns NULL into an absent
-  field and the ISO text of `updatedAt` and `deletedAt` into a `DateTime`, then decodes the row into the entity; the
-  base repository passes every row it returns through it, and writes plain columns. The domain stays storage-agnostic,
-  services only ever receive entities, and the cleanup lives in one place. A `Model.Class` earns its place where the
-  stored or wire shape is its own thing: a row model in infrastructure once a table's columns differ a lot from its
-  entity, or the messages of an HTTP or socket API through its `json` variants.
+- **Decision:** entities are plain `Schema.Class`es with domain types. `BaseEntity.decodeStoredRow` turns NULL into an
+  absent field and the ISO text of `updatedAt` and `deletedAt` into a `DateTime`, then decodes the row into the entity;
+  the base repository passes every row it returns through it, and writes plain columns. The domain stays
+  storage-agnostic, services only ever receive entities, and the cleanup lives in one place. A `Model.Class` earns its
+  place where the stored or wire shape is its own thing: a row model in infrastructure once a table's columns differ a
+  lot from its entity, or the messages of an HTTP or socket API through its `json` variants.
 - **Alternatives considered:** entities as Effect `Model.Class`es (tried and reverted the same day): one schema per
   table with insert and update variants, but the domain entity then knows how it is stored, such as which columns the
   database generates and that timestamps are text. A `Model.Class` row model per table in infrastructure beside each
@@ -63,8 +63,8 @@ The SQLite tables, their rows and how they are read.
   and a person reading the database all agree on.
 - **Decision:** text such as `2026-11-07T22:13:46.836Z`: `DateTime.formatIso` in the extension, and SQLite's
   `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')` in `aggregor-pty`, which give the same shape. Entities hold `DateTime.Utc`,
-  parsed in `BaseEntity.fromRow`. Readable in the database, sorts in time order as text, and SQLite's date functions
-  read it.
+  parsed in `BaseEntity.decodeStoredRow`. Readable in the database, sorts in time order as text, and SQLite's date
+  functions read it.
 - **Alternatives considered:** milliseconds since the epoch as an integer: smaller, but unreadable in `sqlite3`.
 
 ## One UUID v7 id per row

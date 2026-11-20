@@ -1,10 +1,10 @@
 import {
   FILE_ROLES,
   findSourceRoot,
+  formatNameAsCamelCase,
+  formatNameAsPascalCase,
   isAppEntry,
-  parseFileName,
-  toCamelCaseName,
-  toPascalCaseName
+  parseFileName
 } from "@pkg/eslint/src/folderStructure/folderStructure.utils.ts";
 import {basename} from "node:path";
 
@@ -59,14 +59,13 @@ const findBlockFile = (filePath: string): BlockFile | undefined => {
   const roleInfo = parsedFileName.role === undefined ? undefined : FILE_ROLES[parsedFileName.role];
   if (parsedFileName.role === undefined || roleInfo === undefined || roleInfo.makeBlockName === undefined)
     return undefined;
-  // A stem that isn't camelCase is aggregor/file-role's to report; the block's name follows the stem it suggests.
-  const camelCaseStem = toCamelCaseName(parsedFileName.stem);
-  const expectedName = roleInfo.makeBlockName(toPascalCaseName(camelCaseStem));
+  const camelCaseStem = formatNameAsCamelCase(parsedFileName.stem);
+  const expectedName = roleInfo.makeBlockName(formatNameAsPascalCase(camelCaseStem));
 
   return {
     expectedName,
     fileName,
-    propsTypeName: `${toPascalCaseName(expectedName)}Props`,
+    propsTypeName: `${formatNameAsPascalCase(expectedName)}Props`,
     role: parsedFileName.role,
     roleTitle: roleInfo.title,
     stem: camelCaseStem
@@ -161,7 +160,6 @@ const findExportReports = (statements: readonly TopLevelNode[], blockFile: Block
   return [...blockReports, ...extraReports, ...defaultReports];
 };
 
-// An exported block is findExportReports' to report.
 const findSecondBlockReports = (statements: readonly TopLevelNode[], blockFile: BlockFile): BlockReport[] =>
   statements
     .filter((statement) => statement.type !== "ExportNamedDeclaration")

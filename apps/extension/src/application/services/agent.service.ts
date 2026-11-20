@@ -56,7 +56,6 @@ export class AgentService extends Context.Service<AgentService>()(
         return Result.getOrElse(defaultAgentResult, () => Array.headNonEmpty(installedAgents));
       });
 
-      // The default agent first; none installed is an empty list, which New Session reports when it runs.
       const listAgents = Effect.fn("listAgents")(
         function* () {
           const sessionSettings = yield* settingsConfig.readSessionSettings;
