@@ -1,208 +1,211 @@
-import {
-  checkTmuxVersion,
-  escapeTmuxFormat,
-  killTmuxSession,
-  listTmuxClients,
-  listTmuxSessionNames,
-  prepareOwnScopeArguments,
-  prepareTerminalCommand,
-  switchTmuxClient
-} from "@infraServices/tmux/tmuxServer.utils.ts";
-import {PtyBinaryNotFoundError, SessionTabSwitchFailedError} from "@interfaces/tmux.infraService.interface.ts";
+import {NodeServices} from "@effect/platform-node";
+import {TmuxServerUtils} from "@infraServices/tmux/tmuxServer.utils.ts";
+import {DatabaseUtils} from "@infraUtils/database.utils.ts";
+import {ITmuxInfraServiceErrors} from "@interfaces/tmux.infraService.interface.ts";
 import {PLATFORMS} from "@pkg/constants/src/process.constant.ts";
+import {PTY_BINARY} from "@pkg/constants/src/terminal.constant.ts";
 import {AGENT_START_WAIT, TMUX} from "@pkg/constants/src/tmux.constant.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {decodeEntityId} from "@valueObjects/entityId.valueObject.ts";
-import {Array, Effect, Record, Result, Schedule, Schema, Stream, String, SubscriptionRef} from "effect";
+import {Array, Context, Effect, Layer, Record, Result, Schedule, Stream, String, SubscriptionRef} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {platform} from "node:os";
 
-import type {TmuxDependencies, TmuxServer} from "@infraServices/tmux/tmux.infraService.type.ts";
 import type {SessionTabCommandRequest} from "@interfaces/tmux.infraService.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 
-class SessionAgentNotListedError extends Schema.TaggedError<
-  SessionAgentNotListedError,
-  {readonly brand: unique symbol}
->()("SessionAgentNotListedError", {}) {}
+class SessionAgentUtilsErrors extends TaggedErrors({
+  SessionAgentNotListedError: {}
+}) {}
 
-// An agent's tmux session is named by its session's id; a folder's shell, whose name is no id, is none.
-export const readRunningSessionIds = Effect.fn("TmuxInfraService.readRunningSessionIds")(function* (
-  tmuxServer: TmuxServer
-) {
-  const sessionNames = yield* listTmuxSessionNames(tmuxServer);
-  const runningSessionIds: ReadonlySet<EntityIdValueObject> = new Set(
-    Array.getSuccesses(Array.map(sessionNames, (sessionName) => decodeEntityId(sessionName)))
-  );
+export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
+  "aggregor-app/infrastructure/services/tmux/sessionAgent.utils/SessionAgentUtils",
+  {
+    make: Effect.fn("make")(function* () {
+      const fileSystem = yield* FileSystem;
+      const vsCodeApi = yield* VsCodeApi;
+      const databaseUtils = yield* DatabaseUtils;
+      const tmuxServerUtils = yield* TmuxServerUtils;
 
-  return runningSessionIds;
-});
+      // An agent's tmux session is named by its session's id; a folder's shell, whose name is no id, is none.
+      const readRunningSessionIds = Effect.fn("readRunningSessionIds")(function* () {
+        const sessionNames = yield* tmuxServerUtils.listTmuxSessionNames;
+        const runningSessionIds: ReadonlySet<EntityIdValueObject> = new Set(
+          Array.getSuccesses(Array.map(sessionNames, (sessionName) => decodeEntityId(sessionName)))
+        );
 
-export const refreshRunningSessionIds = Effect.fn("TmuxInfraService.refreshRunningSessionIds")(function* (
-  tmuxDependencies: TmuxDependencies
-) {
-  return yield* SubscriptionRef.modifyEffect(tmuxDependencies.runningSessionIds, () =>
-    Effect.map(
-      readRunningSessionIds(tmuxDependencies),
-      (runningSessionIds) => [runningSessionIds, runningSessionIds] as const
-    )
-  );
-});
+        return runningSessionIds;
+      });
 
-export const readShownSessionIdsByTabProcessId = Effect.fn("TmuxInfraService.readShownSessionIdsByTabProcessId")(
-  function* (tmuxServer: TmuxServer) {
-    const tmuxClients = yield* listTmuxClients(tmuxServer);
-    const shownSessionIdsByTabProcessId: ReadonlyMap<number, EntityIdValueObject> = new Map(
-      Array.getSuccesses(
-        Array.map(tmuxClients, (tmuxClient) =>
-          Result.map(
-            decodeEntityId(tmuxClient.sessionName),
-            (sessionId) => [tmuxClient.terminalProcessId, sessionId] as const
+      // Windows VSIXs carry no aggregor-pty; a failed check counts as missing, so the user hears why no session starts.
+      const findPtyBinaryPath = Effect.fn("findPtyBinaryPath")(function* (ptyBinaryPath: string) {
+        const isPtyBinaryFound = yield* Effect.orElseSucceed(fileSystem.exists(ptyBinaryPath), () => false);
+        if (!isPtyBinaryFound)
+          return yield* ITmuxInfraServiceErrors.PtyBinaryNotFoundError.make({
+            isWindows: platform() === PLATFORMS.WINDOWS
+          });
+
+        return ptyBinaryPath;
+      });
+
+      const initialSessionIds = yield* readRunningSessionIds();
+      const runningSessionIds = yield* SubscriptionRef.make(initialSessionIds);
+      const databaseFilePath = yield* databaseUtils.getDatabaseFilePath;
+      const foundPtyBinaryPath = yield* Effect.result(
+        findPtyBinaryPath(vsCodeApi.Uri.joinPath(vsCodeApi.extensionUri, PTY_BINARY).fsPath)
+      );
+
+      const refreshRunningSessionIds = Effect.fn("refreshRunningSessionIds")(function* () {
+        return yield* SubscriptionRef.modifyEffect(runningSessionIds, () =>
+          Effect.map(readRunningSessionIds(), (listedSessionIds) => [listedSessionIds, listedSessionIds] as const)
+        );
+      });
+
+      const readShownSessionIdsByTabProcessId = Effect.fn("readShownSessionIdsByTabProcessId")(function* () {
+        const tmuxClients = yield* tmuxServerUtils.listTmuxClients;
+        const shownSessionIdsByTabProcessId: ReadonlyMap<number, EntityIdValueObject> = new Map(
+          Array.getSuccesses(
+            Array.map(tmuxClients, (tmuxClient) =>
+              Result.map(
+                decodeEntityId(tmuxClient.sessionName),
+                (sessionId) => [tmuxClient.terminalProcessId, sessionId] as const
+              )
+            )
           )
-        )
-      )
-    );
+        );
 
-    return shownSessionIdsByTabProcessId;
+        return shownSessionIdsByTabProcessId;
+      });
+
+      const showSessionInTab = Effect.fn("showSessionInTab")(function* (
+        tabProcessId: number,
+        sessionId: EntityIdValueObject
+      ) {
+        yield* Effect.mapError(tmuxServerUtils.switchTmuxClient(tabProcessId, sessionId), () =>
+          ITmuxInfraServiceErrors.SessionTabSwitchFailedError.make({sessionId})
+        );
+      });
+
+      // -A attaches to the session's tmux session when it runs, and otherwise starts it.
+      const prepareSessionTmuxArguments = Effect.fn("prepareSessionTmuxArguments")(function* (
+        sessionTabCommandRequest: SessionTabCommandRequest
+      ) {
+        const environmentFlags = Array.flatMap(
+          Record.toEntries(sessionTabCommandRequest.launchPlan.environmentVariables),
+          ([name, value]) => ["-e", `${name}=${value}`]
+        );
+
+        return [
+          ...["new-session", "-A", "-s", sessionTabCommandRequest.sessionId],
+          ...environmentFlags,
+          ...["-c", yield* tmuxServerUtils.escapeTmuxFormat(sessionTabCommandRequest.workingFolderPath)]
+        ];
+      });
+
+      const preparePtyArguments = Effect.fn("preparePtyArguments")(function* (
+        ptyBinaryPath: string,
+        sessionTabCommandRequest: SessionTabCommandRequest
+      ) {
+        return [
+          ...[ptyBinaryPath, "--database", databaseFilePath, "--session", sessionTabCommandRequest.sessionId, "--"],
+          ...[sessionTabCommandRequest.launchPlan.command, ...sessionTabCommandRequest.launchPlan.commandArguments]
+        ];
+      });
+
+      // The script's output stays in the tab above the agent's, and the agent starts whether or not the script succeeds.
+      const prepareSetupArguments = Effect.fn("prepareSetupArguments")(function* (
+        sessionTabCommandRequest: SessionTabCommandRequest
+      ) {
+        const setupScript = sessionTabCommandRequest.setupScript;
+        if (setupScript === undefined || String.trim(setupScript) === "") return [];
+
+        return [TMUX.SETUP_SHELL, "-c", `${setupScript}\nexec "$@"`, TMUX.SETUP_SHELL];
+      });
+
+      // The tab runs tmux itself: tmux answers an agent's query about the terminal's colours only through an attached client.
+      const prepareSessionTabCommand = Effect.fn("prepareSessionTabCommand")(function* (
+        sessionTabCommandRequest: SessionTabCommandRequest
+      ) {
+        yield* tmuxServerUtils.checkTmuxVersion;
+        const ptyBinaryPath = yield* Effect.fromResult(foundPtyBinaryPath);
+
+        // The setup script runs inside the agent's scope too, since it can start memory-hungry installs.
+        return yield* tmuxServerUtils.prepareTerminalCommand([
+          ...(yield* prepareSessionTmuxArguments(sessionTabCommandRequest)),
+          "--",
+          ...(yield* tmuxServerUtils.prepareOwnScopeArguments(sessionTabCommandRequest.sessionMemoryLimit)),
+          ...(yield* prepareSetupArguments(sessionTabCommandRequest)),
+          ...(yield* preparePtyArguments(ptyBinaryPath, sessionTabCommandRequest))
+        ]);
+      });
+
+      const confirmSessionAgentListed = Effect.fn("confirmSessionAgentListed")(function* (
+        sessionId: EntityIdValueObject
+      ) {
+        const refreshedSessionIds = yield* refreshRunningSessionIds();
+        if (!refreshedSessionIds.has(sessionId))
+          return yield* SessionAgentUtilsErrors.SessionAgentNotListedError.make();
+
+        return refreshedSessionIds;
+      });
+
+      // The tab starts the session's tmux session a moment after it opens.
+      const waitForSessionAgentStart = Effect.fn("waitForSessionAgentStart")(
+        function* (sessionId: EntityIdValueObject) {
+          yield* Effect.retry(confirmSessionAgentListed(sessionId), {
+            schedule: Schedule.spaced(AGENT_START_WAIT.POLL_INTERVAL_MS),
+            times: AGENT_START_WAIT.TIMEOUT_MS / AGENT_START_WAIT.POLL_INTERVAL_MS
+          });
+        },
+        Effect.catchTag("SessionAgentNotListedError", () => Effect.void)
+      );
+
+      const killSessionAgent = Effect.fn("killSessionAgent")(function* (sessionId: EntityIdValueObject) {
+        yield* tmuxServerUtils.killTmuxSession(sessionId);
+
+        return yield* readRunningSessionIds();
+      });
+
+      const stopSessionAgent = Effect.fn("stopSessionAgent")(function* (sessionId: EntityIdValueObject) {
+        yield* SubscriptionRef.modifyEffect(runningSessionIds, () =>
+          Effect.map(killSessionAgent(sessionId), (remainingSessionIds) => [undefined, remainingSessionIds] as const)
+        );
+      });
+
+      // The first set counts every agent as started.
+      const watchStartedOrStoppedSessionIds = Effect.fn("watchStartedOrStoppedSessionIds")(function* () {
+        return Stream.mapAccum(
+          SubscriptionRef.changes(runningSessionIds),
+          (): ReadonlySet<EntityIdValueObject> => new Set(),
+          (previousSessionIds, currentSessionIds) => {
+            const changedSessionIds = [
+              ...Array.filter([...currentSessionIds], (sessionId) => !previousSessionIds.has(sessionId)),
+              ...Array.filter([...previousSessionIds], (sessionId) => !currentSessionIds.has(sessionId))
+            ];
+
+            return [currentSessionIds, changedSessionIds] as const;
+          }
+        );
+      });
+
+      return {
+        findPtyBinaryPath,
+        prepareSessionTabCommand,
+        readRunningSessionIds: readRunningSessionIds(),
+        readShownSessionIdsByTabProcessId: readShownSessionIdsByTabProcessId(),
+        refreshRunningSessionIds: refreshRunningSessionIds(),
+        runningSessionIds,
+        showSessionInTab,
+        stopSessionAgent,
+        waitForSessionAgentStart,
+        watchStartedOrStoppedSessionIds: watchStartedOrStoppedSessionIds()
+      };
+    })
   }
-);
-
-export const showSessionInTab = Effect.fn("TmuxInfraService.showSessionInTab")(function* (
-  tmuxServer: TmuxServer,
-  tabProcessId: number,
-  sessionId: EntityIdValueObject
 ) {
-  yield* Effect.mapError(switchTmuxClient(tmuxServer, tabProcessId, sessionId), () =>
-    SessionTabSwitchFailedError.make({sessionId})
+  public static readonly layer = Layer.effect(this, ownSpans("SessionAgentUtils", this.make())).pipe(
+    Layer.provide([DatabaseUtils.layer, TmuxServerUtils.layer, NodeServices.layer])
   );
-});
-
-// -A attaches to the session's tmux session when it runs, and otherwise starts it.
-const prepareSessionTmuxArguments = Effect.fn("TmuxInfraService.prepareSessionTmuxArguments")(function* (
-  sessionTabCommandRequest: SessionTabCommandRequest
-) {
-  const environmentFlags = Array.flatMap(
-    Record.toEntries(sessionTabCommandRequest.launchPlan.environmentVariables),
-    ([name, value]) => ["-e", `${name}=${value}`]
-  );
-
-  return [
-    ...["new-session", "-A", "-s", sessionTabCommandRequest.sessionId],
-    ...environmentFlags,
-    ...["-c", yield* escapeTmuxFormat(sessionTabCommandRequest.workingFolderPath)]
-  ];
-});
-
-const preparePtyArguments = Effect.fn("TmuxInfraService.preparePtyArguments")(function* (
-  tmuxDependencies: TmuxDependencies,
-  ptyBinaryPath: string,
-  sessionTabCommandRequest: SessionTabCommandRequest
-) {
-  return [
-    ...[
-      ptyBinaryPath,
-      "--database",
-      tmuxDependencies.databaseFilePath,
-      "--session",
-      sessionTabCommandRequest.sessionId,
-      "--"
-    ],
-    ...[sessionTabCommandRequest.launchPlan.command, ...sessionTabCommandRequest.launchPlan.commandArguments]
-  ];
-});
-
-// The script's output stays in the tab above the agent's, and the agent starts whether or not the script succeeds.
-const prepareSetupArguments = Effect.fn("TmuxInfraService.prepareSetupArguments")(function* (
-  sessionTabCommandRequest: SessionTabCommandRequest
-) {
-  const setupScript = sessionTabCommandRequest.setupScript;
-  if (setupScript === undefined || String.trim(setupScript) === "") return [];
-
-  return [TMUX.SETUP_SHELL, "-c", `${setupScript}\nexec "$@"`, TMUX.SETUP_SHELL];
-});
-
-// The tab runs tmux itself: tmux answers an agent's query about the terminal's colours only through an attached client.
-export const prepareSessionTabCommand = Effect.fn("TmuxInfraService.prepareSessionTabCommand")(function* (
-  tmuxDependencies: TmuxDependencies,
-  sessionTabCommandRequest: SessionTabCommandRequest
-) {
-  yield* checkTmuxVersion(tmuxDependencies.childProcessSpawner);
-  const ptyBinaryPath = yield* Effect.fromResult(tmuxDependencies.ptyBinaryPath);
-
-  // The setup script runs inside the agent's scope too, since it can start memory-hungry installs.
-  return yield* prepareTerminalCommand(tmuxDependencies, [
-    ...(yield* prepareSessionTmuxArguments(sessionTabCommandRequest)),
-    "--",
-    ...(yield* prepareOwnScopeArguments(tmuxDependencies, sessionTabCommandRequest.sessionMemoryLimit)),
-    ...(yield* prepareSetupArguments(sessionTabCommandRequest)),
-    ...(yield* preparePtyArguments(tmuxDependencies, ptyBinaryPath, sessionTabCommandRequest))
-  ]);
-});
-
-const confirmSessionAgentListed = Effect.fn("TmuxInfraService.confirmSessionAgentListed")(function* (
-  tmuxDependencies: TmuxDependencies,
-  sessionId: EntityIdValueObject
-) {
-  const runningSessionIds = yield* refreshRunningSessionIds(tmuxDependencies);
-  if (!runningSessionIds.has(sessionId)) return yield* SessionAgentNotListedError.make();
-
-  return runningSessionIds;
-});
-
-// The tab starts the session's tmux session a moment after it opens.
-export const waitForSessionAgentStart = Effect.fn("TmuxInfraService.waitForSessionAgentStart")(
-  function* (tmuxDependencies: TmuxDependencies, sessionId: EntityIdValueObject) {
-    yield* Effect.retry(confirmSessionAgentListed(tmuxDependencies, sessionId), {
-      schedule: Schedule.spaced(AGENT_START_WAIT.POLL_INTERVAL_MS),
-      times: AGENT_START_WAIT.TIMEOUT_MS / AGENT_START_WAIT.POLL_INTERVAL_MS
-    });
-  },
-  Effect.catchTag("SessionAgentNotListedError", () => Effect.void)
-);
-
-const killSessionAgent = Effect.fn("TmuxInfraService.killSessionAgent")(function* (
-  tmuxServer: TmuxServer,
-  sessionId: EntityIdValueObject
-) {
-  yield* killTmuxSession(tmuxServer, sessionId);
-
-  return yield* readRunningSessionIds(tmuxServer);
-});
-
-export const stopSessionAgent = Effect.fn("TmuxInfraService.stopSessionAgent")(function* (
-  tmuxDependencies: TmuxDependencies,
-  sessionId: EntityIdValueObject
-) {
-  yield* SubscriptionRef.modifyEffect(tmuxDependencies.runningSessionIds, () =>
-    Effect.map(
-      killSessionAgent(tmuxDependencies, sessionId),
-      (remainingSessionIds) => [undefined, remainingSessionIds] as const
-    )
-  );
-});
-
-// The first set counts every agent as started.
-export const watchStartedOrStoppedSessionIds = Effect.fn("TmuxInfraService.watchStartedOrStoppedSessionIds")(function* (
-  runningSessionIds: TmuxDependencies["runningSessionIds"]
-) {
-  return Stream.mapAccum(
-    SubscriptionRef.changes(runningSessionIds),
-    (): ReadonlySet<EntityIdValueObject> => new Set(),
-    (previousSessionIds, currentSessionIds) => {
-      const changedSessionIds = [
-        ...Array.filter([...currentSessionIds], (sessionId) => !previousSessionIds.has(sessionId)),
-        ...Array.filter([...previousSessionIds], (sessionId) => !currentSessionIds.has(sessionId))
-      ];
-
-      return [currentSessionIds, changedSessionIds] as const;
-    }
-  );
-});
-
-// Windows VSIXs carry no aggregor-pty; a failed check counts as missing, so the user hears why no session starts.
-export const findPtyBinaryPath = Effect.fn("TmuxInfraService.findPtyBinaryPath")(function* (ptyBinaryPath: string) {
-  const fileSystem = yield* FileSystem;
-  const isPtyBinaryFound = yield* Effect.orElseSucceed(fileSystem.exists(ptyBinaryPath), () => false);
-  if (!isPtyBinaryFound) return yield* PtyBinaryNotFoundError.make({isWindows: platform() === PLATFORMS.WINDOWS});
-
-  return ptyBinaryPath;
-});
+}

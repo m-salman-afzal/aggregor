@@ -1,4 +1,5 @@
-import {Context, Schema} from "effect";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+import {Context} from "effect";
 
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 import type {PullRequestStateValueObject} from "@valueObjects/pullRequestState.valueObject.ts";
@@ -24,21 +25,13 @@ export interface ListedPullRequest {
   readonly title: string;
 }
 
-export class GitHubCliSignedOutError extends Schema.TaggedError<
-  GitHubCliSignedOutError,
-  {readonly brand: unique symbol}
->()("GitHubCliSignedOutError", {}) {}
-// None was found, it isn't looked up yet, or gh couldn't look or isn't installed; the lookup's span says which.
-export class PullRequestNotFoundError extends Schema.TaggedError<
-  PullRequestNotFoundError,
-  {readonly brand: unique symbol}
->()("PullRequestNotFoundError", {}) {}
-
-// gh is missing, the folder has no GitHub repository, or gh gave up; the listing's span says which.
-export class PullRequestListFailedError extends Schema.TaggedError<
-  PullRequestListFailedError,
-  {readonly brand: unique symbol}
->()("PullRequestListFailedError", {}) {}
+export class IGitHubCliInfraServiceErrors extends TaggedErrors({
+  GitHubCliSignedOutError: {},
+  // gh is missing, the folder has no GitHub repository, or gh gave up; the listing's span says which.
+  PullRequestListFailedError: {},
+  // None was found, it isn't looked up yet, or gh couldn't look or isn't installed; the lookup's span says which.
+  PullRequestNotFoundError: {}
+}) {}
 
 // gh from PATH, never one of Aggregor's own; lookups are cached and run in the background.
 export class IGitHubCliInfraService extends Context.Service<
@@ -47,13 +40,16 @@ export class IGitHubCliInfraService extends Context.Service<
     // The last lookup's answer; one not looked up yet is looked up, and pullRequestChangedFolderPaths tells when.
     readonly findPullRequest: (
       pullRequestLookup: PullRequestLookup
-    ) => Effect.Effect<BranchPullRequest, PullRequestNotFoundError>;
+    ) => Effect.Effect<BranchPullRequest, IGitHubCliInfraServiceErrors["PullRequestNotFoundError"]>;
     // Once per window, the first time a lookup meets it, and again after the setup terminal closes.
-    readonly gitHubCliSignedOutProblems: Stream.Stream<GitHubCliSignedOutError>;
+    readonly gitHubCliSignedOutProblems: Stream.Stream<IGitHubCliInfraServiceErrors["GitHubCliSignedOutError"]>;
     // The repository's newest pull requests, any state, read from GitHub each time.
     readonly listPullRequests: (
       folderPath: ProjectPathValueObject
-    ) => Effect.Effect<readonly ListedPullRequest[], GitHubCliSignedOutError | PullRequestListFailedError>;
+    ) => Effect.Effect<
+      readonly ListedPullRequest[],
+      IGitHubCliInfraServiceErrors["GitHubCliSignedOutError" | "PullRequestListFailedError"]
+    >;
     readonly openPullRequestInBrowser: (pullRequest: BranchPullRequest) => Effect.Effect<void>;
     // Falls back to the browser without the GitHub Pull Requests extension.
     readonly openPullRequestInVsCode: (pullRequest: BranchPullRequest) => Effect.Effect<void>;

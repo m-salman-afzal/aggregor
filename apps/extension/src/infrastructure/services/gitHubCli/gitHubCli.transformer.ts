@@ -1,5 +1,6 @@
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {PULL_REQUEST_STATES, PullRequestStateValueObjectSchema} from "@valueObjects/pullRequestState.valueObject.ts";
-import {Effect, Schema, String} from "effect";
+import {Context, Effect, Layer, Schema, String} from "effect";
 
 import type {BranchPullRequest, ListedPullRequest} from "@interfaces/gitHubCli.infraService.interface.ts";
 
@@ -27,46 +28,50 @@ const GitHubCliPullRequestListJson = Schema.fromJsonString(
   )
 );
 
-const toPullRequestState = Effect.fn("GitHubCliInfraService.toPullRequestState")(function* (
-  gitHubCliState: string,
-  isDraft: boolean
-) {
-  const pullRequestState = yield* Schema.decodeUnknownEffect(PullRequestStateValueObjectSchema)(
-    String.toLowerCase(gitHubCliState)
-  );
+export class GitHubCliTransformer extends Context.Service<GitHubCliTransformer>()(
+  "aggregor-app/infrastructure/services/gitHubCli/gitHubCli.transformer/GitHubCliTransformer",
+  {
+    make: Effect.fn("make")(function* () {
+      const toPullRequestState = Effect.fn("toPullRequestState")(function* (gitHubCliState: string, isDraft: boolean) {
+        const pullRequestState = yield* Schema.decodeUnknownEffect(PullRequestStateValueObjectSchema)(
+          String.toLowerCase(gitHubCliState)
+        );
 
-  return isDraft && pullRequestState === PULL_REQUEST_STATES.OPEN ? PULL_REQUEST_STATES.DRAFT : pullRequestState;
-});
+        return isDraft && pullRequestState === PULL_REQUEST_STATES.OPEN ? PULL_REQUEST_STATES.DRAFT : pullRequestState;
+      });
 
-export const toBranchPullRequest = Effect.fn("GitHubCliInfraService.toBranchPullRequest")(function* (
-  gitHubCliOutput: string
-) {
-  const gitHubCliPullRequest = yield* Schema.decodeEffect(GitHubCliPullRequestJson)(gitHubCliOutput);
-  const branchPullRequest: BranchPullRequest = {
-    number: gitHubCliPullRequest.number,
-    state: yield* toPullRequestState(gitHubCliPullRequest.state, gitHubCliPullRequest.isDraft),
-    title: gitHubCliPullRequest.title,
-    url: gitHubCliPullRequest.url
-  };
+      const toBranchPullRequest = Effect.fn("toBranchPullRequest")(function* (gitHubCliOutput: string) {
+        const gitHubCliPullRequest = yield* Schema.decodeEffect(GitHubCliPullRequestJson)(gitHubCliOutput);
+        const branchPullRequest: BranchPullRequest = {
+          number: gitHubCliPullRequest.number,
+          state: yield* toPullRequestState(gitHubCliPullRequest.state, gitHubCliPullRequest.isDraft),
+          title: gitHubCliPullRequest.title,
+          url: gitHubCliPullRequest.url
+        };
 
-  return branchPullRequest;
-});
+        return branchPullRequest;
+      });
 
-export const toListedPullRequests = Effect.fn("GitHubCliInfraService.toListedPullRequests")(function* (
-  gitHubCliOutput: string
-) {
-  const gitHubCliPullRequests = yield* Schema.decodeEffect(GitHubCliPullRequestListJson)(gitHubCliOutput);
+      const toListedPullRequests = Effect.fn("toListedPullRequests")(function* (gitHubCliOutput: string) {
+        const gitHubCliPullRequests = yield* Schema.decodeEffect(GitHubCliPullRequestListJson)(gitHubCliOutput);
 
-  return yield* Effect.forEach(gitHubCliPullRequests, (gitHubCliPullRequest) =>
-    Effect.map(toPullRequestState(gitHubCliPullRequest.state, gitHubCliPullRequest.isDraft), (state) => {
-      const listedPullRequest: ListedPullRequest = {
-        branchName: gitHubCliPullRequest.headRefName,
-        number: gitHubCliPullRequest.number,
-        state,
-        title: gitHubCliPullRequest.title
-      };
+        return yield* Effect.forEach(gitHubCliPullRequests, (gitHubCliPullRequest) =>
+          Effect.map(toPullRequestState(gitHubCliPullRequest.state, gitHubCliPullRequest.isDraft), (state) => {
+            const listedPullRequest: ListedPullRequest = {
+              branchName: gitHubCliPullRequest.headRefName,
+              number: gitHubCliPullRequest.number,
+              state,
+              title: gitHubCliPullRequest.title
+            };
 
-      return listedPullRequest;
+            return listedPullRequest;
+          })
+        );
+      });
+
+      return {toBranchPullRequest, toListedPullRequests};
     })
-  );
-});
+  }
+) {
+  public static readonly layer = Layer.effect(this, ownSpans("GitHubCliTransformer", this.make()));
+}

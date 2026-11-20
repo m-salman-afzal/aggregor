@@ -19,7 +19,7 @@ The SQLite tables, their rows and how they are read.
 - **Problem:** with related tables, every repository would repeat the same reads, writes and soft deletes, and every
   entity the same id and timestamps.
 - **Decision:** `BaseEntity` holds `id`, `sortId`, `updatedAt` and `deletedAt`, and every entity stored in the database
-  extends it (`AgentEntity`, which lives in the settings, does not). `IBaseRepository` and `makeBaseRepository` give
+  extends it (`AgentEntity`, which lives in the settings, does not). `IBaseRepository` and `BaseRepository.makeFor` give
   `add`, `findById`, `findMany`, `update`, `upsert` and `softDelete`. Reads skip soft-deleted rows and follow `sortId`;
   `upsert` brings a soft-deleted row back; `update` writes only the columns it is given, so the extension and
   `aggregor-pty` never overwrite each other's. `base.service.ts` has the same six calls for any repository, which the

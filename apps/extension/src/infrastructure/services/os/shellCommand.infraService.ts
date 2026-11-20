@@ -1,6 +1,8 @@
+import {NodeServices} from "@effect/platform-node";
 import {IShellCommandInfraService} from "@interfaces/shellCommand.infraService.interface.ts";
 import {COMMAND_SEARCH, PLATFORMS} from "@pkg/constants/src/process.constant.ts";
-import {Array, Config, Effect, Layer, String} from "effect";
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
+import {Array, Config, Context, Effect, Layer, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 import {platform} from "node:os";
@@ -10,79 +12,80 @@ interface CommandSearch {
   readonly searchFolders: readonly string[];
 }
 
-// Windows runs a bare name through PATHEXT's endings; elsewhere the name is the file.
-const readCommandSearch = Effect.fn("ShellCommandInfraService.readCommandSearch")(function* () {
-  const searchPath = yield* Config.withDefault(Config.String(COMMAND_SEARCH.PATH_ENV), "");
-  const pathExtensions = yield* Config.withDefault(
-    Config.String(COMMAND_SEARCH.PATH_EXTENSIONS_ENV),
-    COMMAND_SEARCH.DEFAULT_PATH_EXTENSIONS
-  );
-  const isWindows = platform() === PLATFORMS.WINDOWS;
-  const pathSeparator = isWindows ? COMMAND_SEARCH.WINDOWS_PATH_SEPARATOR : COMMAND_SEARCH.POSIX_PATH_SEPARATOR;
-  const windowsExtensions = Array.map(
-    String.split(COMMAND_SEARCH.WINDOWS_PATH_SEPARATOR)(pathExtensions),
-    String.toLowerCase
-  );
-  const commandSearch: CommandSearch = {
-    commandExtensions: isWindows ? ["", ...windowsExtensions] : [""],
-    searchFolders: Array.filter(String.split(pathSeparator)(searchPath), (searchFolder) => searchFolder !== "")
-  };
+export class ShellCommandInfraService extends Context.Service<ShellCommandInfraService>()(
+  "aggregor-app/infrastructure/services/os/shellCommand.infraService/ShellCommandInfraService",
+  {
+    make: Effect.fn("make")(function* () {
+      const fileSystem = yield* FileSystem;
+      const path = yield* Path;
 
-  return commandSearch;
-}, Effect.orDie);
+      // Windows runs a bare name through PATHEXT's endings; elsewhere the name is the file.
+      const readCommandSearch = Effect.fn("readCommandSearch")(function* () {
+        const searchPath = yield* Config.withDefault(Config.String(COMMAND_SEARCH.PATH_ENV), "");
+        const pathExtensions = yield* Config.withDefault(
+          Config.String(COMMAND_SEARCH.PATH_EXTENSIONS_ENV),
+          COMMAND_SEARCH.DEFAULT_PATH_EXTENSIONS
+        );
+        const isWindows = platform() === PLATFORMS.WINDOWS;
+        const pathSeparator = isWindows ? COMMAND_SEARCH.WINDOWS_PATH_SEPARATOR : COMMAND_SEARCH.POSIX_PATH_SEPARATOR;
+        const windowsExtensions = Array.map(
+          String.split(COMMAND_SEARCH.WINDOWS_PATH_SEPARATOR)(pathExtensions),
+          String.toLowerCase
+        );
+        const commandSearch: CommandSearch = {
+          commandExtensions: isWindows ? ["", ...windowsExtensions] : [""],
+          searchFolders: Array.filter(String.split(pathSeparator)(searchPath), (searchFolder) => searchFolder !== "")
+        };
 
-// A file the user may run: on Windows any file, elsewhere one with an execute bit.
-const isRunnableFile = Effect.fn("ShellCommandInfraService.isRunnableFile")(
-  function* (filePath: string) {
-    const fileSystem = yield* FileSystem;
-    const fileInfo = yield* fileSystem.stat(filePath);
+        return commandSearch;
+      }, Effect.orDie);
 
-    const hasExecuteBit = Array.some(
-      COMMAND_SEARCH.EXECUTE_BITS,
-      (executeBit) => Math.floor(fileInfo.mode / executeBit) % 2 === 1
-    );
+      // A file the user may run: on Windows any file, elsewhere one with an execute bit.
+      const isRunnableFile = Effect.fn("isRunnableFile")(
+        function* (filePath: string) {
+          const fileInfo = yield* fileSystem.stat(filePath);
 
-    return fileInfo.type === "File" && (platform() === PLATFORMS.WINDOWS || hasExecuteBit);
-  },
-  Effect.orElseSucceed(() => false)
-);
+          const hasExecuteBit = Array.some(
+            COMMAND_SEARCH.EXECUTE_BITS,
+            (executeBit) => Math.floor(fileInfo.mode / executeBit) % 2 === 1
+          );
 
-const isCommandInstalled = Effect.fn("ShellCommandInfraService.isCommandInstalled")(function* (
-  command: string,
-  commandSearch: CommandSearch
-) {
-  const path = yield* Path;
-  const candidatePaths = String.includes(path.sep)(command)
-    ? [command]
-    : Array.flatMap(commandSearch.searchFolders, (searchFolder) =>
-        Array.map(commandSearch.commandExtensions, (commandExtension) =>
-          path.join(searchFolder, `${command}${commandExtension}`)
-        )
+          return fileInfo.type === "File" && (platform() === PLATFORMS.WINDOWS || hasExecuteBit);
+        },
+        Effect.orElseSucceed(() => false)
       );
-  const runnableResults = yield* Effect.forEach(candidatePaths, isRunnableFile);
 
-  return runnableResults.includes(true);
-});
+      const isCommandInstalled = Effect.fn("isCommandInstalled")(function* (
+        command: string,
+        commandSearch: CommandSearch
+      ) {
+        const candidatePaths = String.includes(path.sep)(command)
+          ? [command]
+          : Array.flatMap(commandSearch.searchFolders, (searchFolder) =>
+              Array.map(commandSearch.commandExtensions, (commandExtension) =>
+                path.join(searchFolder, `${command}${commandExtension}`)
+              )
+            );
+        const runnableResults = yield* Effect.forEach(candidatePaths, isRunnableFile);
 
-const listInstalledCommands = Effect.fn("ShellCommandInfraService.listInstalledCommands")(function* (
-  commands: readonly string[]
+        return runnableResults.includes(true);
+      });
+
+      const listInstalledCommands = Effect.fn("listInstalledCommands")(function* (commands: readonly string[]) {
+        const commandSearch = yield* readCommandSearch();
+        const installedCommands = yield* Effect.filter(Array.dedupe(commands), (command) =>
+          isCommandInstalled(command, commandSearch)
+        );
+
+        return new Set(installedCommands);
+      });
+
+      return {listInstalledCommands};
+    })
+  }
 ) {
-  const commandSearch = yield* readCommandSearch();
-  const installedCommands = yield* Effect.filter(Array.dedupe(commands), (command) =>
-    isCommandInstalled(command, commandSearch)
-  );
-
-  return new Set(installedCommands);
-});
-
-const makeShellCommandInfraService = Effect.fn("ShellCommandInfraService.make")(function* () {
-  const fileSystem = yield* FileSystem;
-  const path = yield* Path;
-
-  return {
-    listInstalledCommands: (commands: readonly string[]) =>
-      Effect.provideService(Effect.provideService(listInstalledCommands(commands), FileSystem, fileSystem), Path, path)
-  };
-});
-
-export const ShellCommandInfraService = Layer.effect(IShellCommandInfraService, makeShellCommandInfraService());
+  public static readonly layer = Layer.effect(
+    IShellCommandInfraService,
+    ownSpans("ShellCommandInfraService", this.make())
+  ).pipe(Layer.provide(NodeServices.layer));
+}

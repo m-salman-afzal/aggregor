@@ -1,15 +1,41 @@
 import {SetDefaultAgentRequestDtoSchema} from "@dtos/agent.dto.ts";
-import {decodeVsCodeArgument} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
-import {listAgents, setDefaultAgent} from "@services/agent.service.ts";
-import {Effect} from "effect";
+import {AppErrorMessage} from "@errorMessages/app.errorMessage.ts";
+import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
+import {AGENT_COMMANDS} from "@pkg/constants/src/agent.constant.ts";
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
+import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
+import {AgentService} from "@services/agent.service.ts";
+import {Context, Effect, Layer} from "effect";
 
-export const setChosenAgentAsDefault = Effect.fn("AgentController.setChosenAgentAsDefault")(function* (
-  chosenAgent: unknown
+export class AgentController extends Context.Service<AgentController>()(
+  "aggregor-app/presentation/controllers/agent.controller/AgentController",
+  {
+    make: Effect.fn("make")(function* () {
+      const registerCommandMiddleware = yield* RegisterCommandMiddleware;
+      const agentService = yield* AgentService;
+      const appErrorMessage = yield* AppErrorMessage;
+      const vscodeUtils = yield* VscodeUtils;
+
+      const setChosenAgentAsDefault = Effect.fn("setChosenAgentAsDefault")(function* (chosenAgent: unknown) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(SetDefaultAgentRequestDtoSchema, chosenAgent);
+        yield* agentService.setDefaultAgent(request);
+      });
+
+      const listAgentsForSessionsView = Effect.fn("listAgentsForSessionsView")(function* () {
+        return yield* agentService.listAgents;
+      });
+
+      yield* registerCommandMiddleware.registerCommand(
+        AGENT_COMMANDS.SET_DEFAULT,
+        setChosenAgentAsDefault,
+        appErrorMessage.getAppCommandErrorMessage
+      );
+
+      return {listAgentsForSessionsView: listAgentsForSessionsView(), setChosenAgentAsDefault};
+    })
+  }
 ) {
-  const request = yield* decodeVsCodeArgument(SetDefaultAgentRequestDtoSchema, chosenAgent);
-  yield* setDefaultAgent(request);
-});
-
-export const listAgentsForSessionsView = Effect.fn("AgentController.listAgentsForSessionsView")(function* () {
-  return yield* listAgents();
-});
+  public static readonly layer = Layer.effect(this, ownSpans("AgentController", this.make())).pipe(
+    Layer.provide([AppErrorMessage.layer, RegisterCommandMiddleware.layer])
+  );
+}

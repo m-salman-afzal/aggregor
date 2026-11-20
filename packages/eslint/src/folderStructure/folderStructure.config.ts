@@ -56,6 +56,7 @@ const WEBVIEW_IMPORT_PATTERNS = [
       "@di/*",
       "@domainServices/*",
       "@entities/*",
+      "@errorMessages/*",
       "@infraServices/*",
       "@infraUtils/*",
       "@interfaces/*",
@@ -63,7 +64,6 @@ const WEBVIEW_IMPORT_PATTERNS = [
       "@middlewares/*",
       "@models/*",
       "@pkg/vscode/*",
-      "@presenters/*",
       "@repositories/*",
       "@services/*"
     ],

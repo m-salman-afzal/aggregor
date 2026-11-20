@@ -3,6 +3,7 @@ import javascript from "@eslint/js";
 import {SHADCN_COMPONENT_FILES} from "@pkg/eslint/src/base/ignores.config.ts";
 import {IMPORT_BANS} from "@pkg/eslint/src/layers/importRules.ts";
 import {SYNTAX_BANS} from "@pkg/eslint/src/layers/syntaxBans.ts";
+import {AGGREGOR_PLUGIN} from "@pkg/eslint/src/rules/aggregor.plugin.ts";
 import importX from "eslint-plugin-import-x";
 import perfectionist from "eslint-plugin-perfectionist";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
@@ -36,7 +37,7 @@ export const TYPESCRIPT_CONFIGS: Config[] = defineConfig([
         tsconfigRootDir: REPO_ROOT_PATH
       }
     },
-    plugins: {"import-x": importX, js: javascript, unicorn},
+    plugins: {aggregor: AGGREGOR_PLUGIN, "import-x": importX, js: javascript, unicorn},
     rules: {
       "@typescript-eslint/consistent-type-assertions": ["error", {assertionStyle: "never"}],
       "@typescript-eslint/consistent-type-imports": [
@@ -67,13 +68,8 @@ export const TYPESCRIPT_CONFIGS: Config[] = defineConfig([
       "@typescript-eslint/prefer-readonly-parameter-types": "off",
       // Effect's asyncFunction rule bans the async keyword, so a function that returns a promise is a plain function.
       "@typescript-eslint/promise-function-async": "off",
-      "capitalized-comments": "off",
-      "func-names": ["error", "always", {generators: "never"}],
-      "id-length": ["error", {min: 3, properties: "never"}],
-      "import-x/consistent-type-specifier-style": ["error", "prefer-top-level"],
-      // Files grow as long as their use cases need; functions stay small.
-      "max-lines": "off",
-      "max-lines-per-function": [
+      // The core max-lines-per-function with a unit's make exempt, since that make holds the unit's functions.
+      "aggregor/max-lines-per-function": [
         "error",
         {
           IIFEs: true,
@@ -82,6 +78,13 @@ export const TYPESCRIPT_CONFIGS: Config[] = defineConfig([
           skipComments: true
         }
       ],
+      "capitalized-comments": "off",
+      "func-names": ["error", "always", {generators: "never"}],
+      "id-length": ["error", {min: 3, properties: "never"}],
+      "import-x/consistent-type-specifier-style": ["error", "prefer-top-level"],
+      // Files grow as long as their use cases need; functions stay small.
+      "max-lines": "off",
+      "max-lines-per-function": "off",
       "max-statements": ["off", {max: 20}, {ignoreTopLevelFunctions: true}],
       "new-cap": "off",
       "newline-before-return": ["error"],
@@ -128,9 +131,18 @@ export const TYPESCRIPT_CONFIGS: Config[] = defineConfig([
         "error",
         {case: "camelCase", ignore: [String.raw`^\.claude$`], multipleFileExtensions: false}
       ],
+      // Application names a DDD layer and App the whole backend (AppLayer); a utils file's class ends in Utils.
       "unicorn/name-replacements": [
         "error",
-        {checkFilenames: false, replacements: {clicked: {chosen: true}, repo: {project: true, repository: false}}}
+        {
+          checkFilenames: false,
+          replacements: {
+            application: false,
+            clicked: {chosen: true},
+            repo: {project: true, repository: false},
+            utils: false
+          }
+        }
       ]
     }
   }

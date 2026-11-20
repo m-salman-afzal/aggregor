@@ -1,7 +1,9 @@
 import {APP_LABELS, APP_NAME} from "@pkg/constants/src/app.constant.ts";
 import {SETTINGS_EDITOR_EXTENSION_FILTER, VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {Effect, Queue, Stream} from "effect";
+import {Context, Effect, Layer, Queue, Schema, Stream} from "effect";
 
 import type {Disposable, Event, ProgressOptions} from "vscode";
 
@@ -11,96 +13,123 @@ interface ErrorButtons {
   readonly settingToOpen?: string | undefined;
 }
 
-export const acquireScopedDisposable = Effect.fn("acquireScopedDisposable")(function* <
-  VsCodeDisposable extends Disposable
->(createVsCodeDisposable: () => VsCodeDisposable) {
-  return yield* Effect.acquireRelease(Effect.sync(createVsCodeDisposable), (vsCodeDisposable) =>
-    Effect.sync(() => {
-      vsCodeDisposable.dispose();
-    })
-  );
-});
+export class VscodeUtilsErrors extends TaggedErrors({
+  InvalidVsCodeArgumentError: {cause: Schema.Unknown}
+}) {}
 
-// The listener is disposed when whoever runs the stream closes its scope.
-export const streamVsCodeEvent = Effect.fn("streamVsCodeEvent")(function* <EventValue>(vsCodeEvent: Event<EventValue>) {
-  return Stream.callback<EventValue>((eventQueue) =>
-    acquireScopedDisposable(() => vsCodeEvent((eventValue) => Queue.offerUnsafe(eventQueue, eventValue)))
-  );
-});
+export class VscodeUtils extends Context.Service<VscodeUtils>()("@pkg/vscode/vscode.utils/VscodeUtils", {
+  make: Effect.fn("make")(function* () {
+    const vsCodeApi = yield* VsCodeApi;
 
-export const setWhenClauseContextKey = Effect.fn("setWhenClauseContextKey")(function* (
-  contextKey: string,
-  contextValue: unknown
-) {
-  const vsCodeApi = yield* VsCodeApi;
+    const acquireScopedDisposable = Effect.fn("acquireScopedDisposable")(function* <
+      VsCodeDisposable extends Disposable
+    >(createVsCodeDisposable: () => VsCodeDisposable) {
+      return yield* Effect.acquireRelease(Effect.sync(createVsCodeDisposable), (vsCodeDisposable) =>
+        Effect.sync(() => {
+          vsCodeDisposable.dispose();
+        })
+      );
+    });
 
-  yield* Effect.promise(() =>
-    vsCodeApi.commands.executeCommand(VS_CODE_COMMANDS.SET_CONTEXT, contextKey, contextValue)
-  );
-});
+    // The listener is disposed when whoever runs the stream closes its scope.
+    const streamVsCodeEvent = Effect.fn("streamVsCodeEvent")(function* <EventValue>(vsCodeEvent: Event<EventValue>) {
+      return Stream.callback<EventValue>((eventQueue) =>
+        acquireScopedDisposable(() => vsCodeEvent((eventValue) => Queue.offerUnsafe(eventQueue, eventValue)))
+      );
+    });
 
-// The effect's failure comes back out once the progress ends.
-export const runWithProgressIndicator = Effect.fn("runWithProgressIndicator")(function* <A, E, R>(
-  progressOptions: ProgressOptions,
-  effectToRun: Effect.Effect<A, E, R>
-) {
-  const vsCodeApi = yield* VsCodeApi;
-  const effectContext = yield* Effect.context<R>();
-  const runPromise = Effect.runPromiseWith(effectContext);
-  const effectResult = yield* Effect.promise(() =>
-    vsCodeApi.window.withProgress(progressOptions, () => runPromise(Effect.result(effectToRun)))
-  );
+    const setWhenClauseContextKey = Effect.fn("setWhenClauseContextKey")(function* (
+      contextKey: string,
+      contextValue: unknown
+    ) {
+      yield* Effect.promise(() =>
+        vsCodeApi.commands.executeCommand(VS_CODE_COMMANDS.SET_CONTEXT, contextKey, contextValue)
+      );
+    });
 
-  return yield* Effect.fromResult(effectResult);
-});
+    // The effect's failure comes back out once the progress ends.
+    const runWithProgressIndicator = Effect.fn("runWithProgressIndicator")(function* <A, E, R>(
+      progressOptions: ProgressOptions,
+      effectToRun: Effect.Effect<A, E, R>
+    ) {
+      const effectContext = yield* Effect.context<R>();
+      const runPromise = Effect.runPromiseWith(effectContext);
+      const effectResult = yield* Effect.promise(() =>
+        vsCodeApi.window.withProgress(progressOptions, () => runPromise(Effect.result(effectToRun)))
+      );
 
-export const openAggregorSettingsInSettingsEditor = Effect.fn("openAggregorSettingsInSettingsEditor")(function* () {
-  const vsCodeApi = yield* VsCodeApi;
+      return yield* Effect.fromResult(effectResult);
+    });
 
-  yield* Effect.promise(() =>
-    vsCodeApi.commands.executeCommand(
-      VS_CODE_COMMANDS.OPEN_SETTINGS,
-      `${SETTINGS_EDITOR_EXTENSION_FILTER}${vsCodeApi.extensionId}`
-    )
-  );
-});
+    const openAggregorSettingsInSettingsEditor = Effect.fn("openAggregorSettingsInSettingsEditor")(function* () {
+      yield* Effect.promise(() =>
+        vsCodeApi.commands.executeCommand(
+          VS_CODE_COMMANDS.OPEN_SETTINGS,
+          `${SETTINGS_EDITOR_EXTENSION_FILTER}${vsCodeApi.extensionId}`
+        )
+      );
+    });
 
-const runChosenErrorButton = Effect.fn("runChosenErrorButton")(function* (
-  errorButtons: ErrorButtons,
-  chosenButton: string | undefined
-) {
-  const vsCodeApi = yield* VsCodeApi;
-  const pageToOpen = errorButtons.pageToOpen;
-  const commandToRun = errorButtons.commandToRun;
-  if (chosenButton === APP_LABELS.OPEN_SETTINGS && errorButtons.settingToOpen !== undefined)
-    yield* Effect.promise(() =>
-      vsCodeApi.commands.executeCommand(VS_CODE_COMMANDS.OPEN_SETTINGS, errorButtons.settingToOpen)
-    );
-  if (pageToOpen !== undefined && chosenButton === pageToOpen.label)
-    yield* Effect.promise(() => vsCodeApi.env.openExternal(vsCodeApi.Uri.parse(pageToOpen.url)));
-  if (commandToRun !== undefined && chosenButton === commandToRun.label)
-    yield* Effect.promise(() => vsCodeApi.commands.executeCommand(commandToRun.commandId));
-});
+    const runChosenErrorButton = Effect.fn("runChosenErrorButton")(function* (
+      errorButtons: ErrorButtons,
+      chosenButton: string | undefined
+    ) {
+      const pageToOpen = errorButtons.pageToOpen;
+      const commandToRun = errorButtons.commandToRun;
+      if (chosenButton === APP_LABELS.OPEN_SETTINGS && errorButtons.settingToOpen !== undefined)
+        yield* Effect.promise(() =>
+          vsCodeApi.commands.executeCommand(VS_CODE_COMMANDS.OPEN_SETTINGS, errorButtons.settingToOpen)
+        );
+      if (pageToOpen !== undefined && chosenButton === pageToOpen.label)
+        yield* Effect.promise(() => vsCodeApi.env.openExternal(vsCodeApi.Uri.parse(pageToOpen.url)));
+      if (commandToRun !== undefined && chosenButton === commandToRun.label)
+        yield* Effect.promise(() => vsCodeApi.commands.executeCommand(commandToRun.commandId));
+    });
 
-// Without waiting for the user to dismiss it, so whatever failed can finish now.
-export const showErrorNotificationWithoutWaiting = Effect.fn("showErrorNotificationWithoutWaiting")(function* (
-  errorMessage: string,
-  errorButtons: ErrorButtons = {}
-) {
-  const vsCodeApi = yield* VsCodeApi;
-  const settingButtons = errorButtons.settingToOpen === undefined ? [] : [APP_LABELS.OPEN_SETTINGS];
-  const pageButtons = errorButtons.pageToOpen === undefined ? [] : [errorButtons.pageToOpen.label];
-  const commandButtons = errorButtons.commandToRun === undefined ? [] : [errorButtons.commandToRun.label];
-  const showErrorMessageAndWaitForButton = Effect.promise(() =>
-    vsCodeApi.window.showErrorMessage(
-      `${APP_NAME}: ${errorMessage}`,
-      ...settingButtons,
-      ...pageButtons,
-      ...commandButtons
-    )
-  );
+    // Without waiting for the user to dismiss it, so whatever failed can finish now.
+    const showErrorNotificationWithoutWaiting = Effect.fn("showErrorNotificationWithoutWaiting")(function* (
+      errorMessage: string,
+      errorButtons: ErrorButtons = {}
+    ) {
+      const settingButtons = errorButtons.settingToOpen === undefined ? [] : [APP_LABELS.OPEN_SETTINGS];
+      const pageButtons = errorButtons.pageToOpen === undefined ? [] : [errorButtons.pageToOpen.label];
+      const commandButtons = errorButtons.commandToRun === undefined ? [] : [errorButtons.commandToRun.label];
+      const showErrorMessageAndWaitForButton = Effect.promise(() =>
+        vsCodeApi.window.showErrorMessage(
+          `${APP_NAME}: ${errorMessage}`,
+          ...settingButtons,
+          ...pageButtons,
+          ...commandButtons
+        )
+      );
 
-  yield* Effect.forkDetach(
-    Effect.flatMap(showErrorMessageAndWaitForButton, (chosenButton) => runChosenErrorButton(errorButtons, chosenButton))
-  );
-});
+      yield* Effect.forkDetach(
+        Effect.flatMap(showErrorMessageAndWaitForButton, (chosenButton) =>
+          runChosenErrorButton(errorButtons, chosenButton)
+        )
+      );
+    });
+
+    // VS Code passes arguments untyped; each caller decodes the ones its menu entry or view sends.
+    const decodeVsCodeArgument = Effect.fn("decodeVsCodeArgument")(function* <ArgumentSchema extends Schema.Constraint>(
+      argumentSchema: ArgumentSchema,
+      vsCodeArgument: unknown
+    ) {
+      return yield* Effect.mapError(Schema.decodeUnknownEffect(argumentSchema)(vsCodeArgument), (cause) =>
+        VscodeUtilsErrors.InvalidVsCodeArgumentError.make({cause})
+      );
+    });
+
+    return {
+      acquireScopedDisposable,
+      decodeVsCodeArgument,
+      openAggregorSettingsInSettingsEditor: openAggregorSettingsInSettingsEditor(),
+      runWithProgressIndicator,
+      setWhenClauseContextKey,
+      showErrorNotificationWithoutWaiting,
+      streamVsCodeEvent
+    };
+  })
+}) {
+  public static readonly layer = Layer.effect(this, ownSpans("VscodeUtils", this.make()));
+}

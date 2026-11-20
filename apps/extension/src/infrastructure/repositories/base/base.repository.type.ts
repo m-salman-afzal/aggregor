@@ -1,5 +1,4 @@
 import type {SQL} from "drizzle-orm";
-import type {EffectSQLiteNodeDatabase} from "drizzle-orm/effect-sqlite-node";
 import type {SQLiteColumn, SQLiteTable} from "drizzle-orm/sqlite-core";
 import type {Schema} from "effect";
 
@@ -9,10 +8,6 @@ export interface EntityTable<Entity> {
   readonly entitySchema: Schema.Decoder<Entity>;
   readonly join?: TableJoin;
   readonly tableModel: BaseTableModel;
-}
-
-export interface RepositoryTable<Entity> extends EntityTable<Entity> {
-  readonly database: EffectSQLiteNodeDatabase;
 }
 
 export type StoredColumns = Readonly<Record<string, unknown>>;

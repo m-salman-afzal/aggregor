@@ -1,79 +1,74 @@
-import {Effect} from "effect";
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
+import {Context, Effect, Layer} from "effect";
 
 import type {IBaseRepository, PageRequest} from "@entities/base/base.repository.interface.ts";
 import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {Context} from "effect";
 
-type RepositoryKey<Identifier, Entity, AddRequest> = Context.Key<Identifier, IBaseRepository<Entity, AddRequest>>;
+export class BaseService extends Context.Service<BaseService>()(
+  "aggregor-app/application/services/base.service/BaseService",
+  {
+    make: Effect.fn("make")(function* () {
+      const makeFor = Effect.fn("makeFor")(function* <Entity, AddRequest>(
+        repository: IBaseRepository<Entity, AddRequest>
+      ) {
+        const addEntity = Effect.fn("addEntity")(function* (addRequest: AddRequest) {
+          return yield* repository.add(addRequest);
+        });
 
-export const addEntity = Effect.fn("BaseService.addEntity")(function* <Identifier, Entity, AddRequest>(
-  repositoryKey: RepositoryKey<Identifier, Entity, AddRequest>,
-  addRequest: AddRequest
+        const findEntityById = Effect.fn("findEntityById")(function* (entityId: EntityIdValueObject) {
+          return yield* repository.findById(entityId);
+        });
+
+        const findEntities = Effect.fn("findEntities")(function* (filter: Partial<AddRequest>) {
+          return yield* repository.findMany(filter);
+        });
+
+        const findEntityPage = Effect.fn("findEntityPage")(function* (
+          filter: Partial<AddRequest>,
+          pageRequest: PageRequest
+        ) {
+          return yield* repository.findPage(filter, pageRequest);
+        });
+
+        const updateEntity = Effect.fn("updateEntity")(function* (
+          entityId: EntityIdValueObject,
+          changes: Partial<AddRequest>
+        ) {
+          yield* repository.update(entityId, changes);
+        });
+
+        const upsertEntity = Effect.fn("upsertEntity")(function* (addRequest: AddRequest) {
+          return yield* repository.upsert(addRequest);
+        });
+
+        const removeEntity = Effect.fn("removeEntity")(function* (entityId: EntityIdValueObject) {
+          yield* repository.softDelete(entityId);
+        });
+
+        const placeEntitiesAtEnd = Effect.fn("placeEntitiesAtEnd")(function* (
+          entityIds: readonly EntityIdValueObject[]
+        ) {
+          yield* repository.placeAtEnd(entityIds);
+        });
+
+        return yield* ownSpans(
+          "BaseService",
+          Effect.succeed({
+            addEntity,
+            findEntities,
+            findEntityById,
+            findEntityPage,
+            placeEntitiesAtEnd,
+            removeEntity,
+            updateEntity,
+            upsertEntity
+          })
+        );
+      });
+
+      return {makeFor};
+    })
+  }
 ) {
-  const repository = yield* repositoryKey;
-
-  return yield* repository.add(addRequest);
-});
-
-export const findEntityById = Effect.fn("BaseService.findEntityById")(function* <Identifier, Entity, AddRequest>(
-  repositoryKey: RepositoryKey<Identifier, Entity, AddRequest>,
-  entityId: EntityIdValueObject
-) {
-  const repository = yield* repositoryKey;
-
-  return yield* repository.findById(entityId);
-});
-
-export const findEntities = Effect.fn("BaseService.findEntities")(function* <Identifier, Entity, AddRequest>(
-  repositoryKey: RepositoryKey<Identifier, Entity, AddRequest>,
-  filter: Partial<AddRequest>
-) {
-  const repository = yield* repositoryKey;
-
-  return yield* repository.findMany(filter);
-});
-
-export const findEntityPage = Effect.fn("BaseService.findEntityPage")(function* <Identifier, Entity, AddRequest>(
-  repositoryKey: RepositoryKey<Identifier, Entity, AddRequest>,
-  filter: Partial<AddRequest>,
-  pageRequest: PageRequest
-) {
-  const repository = yield* repositoryKey;
-
-  return yield* repository.findPage(filter, pageRequest);
-});
-
-export const updateEntity = Effect.fn("BaseService.updateEntity")(function* <Identifier, Entity, AddRequest>(
-  repositoryKey: RepositoryKey<Identifier, Entity, AddRequest>,
-  entityId: EntityIdValueObject,
-  changes: Partial<AddRequest>
-) {
-  const repository = yield* repositoryKey;
-  yield* repository.update(entityId, changes);
-});
-
-export const upsertEntity = Effect.fn("BaseService.upsertEntity")(function* <Identifier, Entity, AddRequest>(
-  repositoryKey: RepositoryKey<Identifier, Entity, AddRequest>,
-  addRequest: AddRequest
-) {
-  const repository = yield* repositoryKey;
-
-  return yield* repository.upsert(addRequest);
-});
-
-export const removeEntity = Effect.fn("BaseService.removeEntity")(function* <Identifier, Entity, AddRequest>(
-  repositoryKey: RepositoryKey<Identifier, Entity, AddRequest>,
-  entityId: EntityIdValueObject
-) {
-  const repository = yield* repositoryKey;
-  yield* repository.softDelete(entityId);
-});
-
-export const placeEntitiesAtEnd = Effect.fn("BaseService.placeEntitiesAtEnd")(function* <
-  Identifier,
-  Entity,
-  AddRequest
->(repositoryKey: RepositoryKey<Identifier, Entity, AddRequest>, entityIds: readonly EntityIdValueObject[]) {
-  const repository = yield* repositoryKey;
-  yield* repository.placeAtEnd(entityIds);
-});
+  public static readonly layer = Layer.effect(this, ownSpans("BaseService", this.make()));
+}

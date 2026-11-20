@@ -18,204 +18,304 @@ import {
   UnarchiveSessionRequestDtoSchema,
   UnlinkSessionWorktreeRequestDtoSchema
 } from "@dtos/session.dto.ts";
-import {decodeVsCodeArgument} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
-import {
-  archiveOngoingSessions,
-  archiveProjectSessions,
-  archiveSession,
-  changeSessionWorkingTree,
-  findViewedSessionId,
-  getProjectSessions,
-  getSessionListItem,
-  listProjectsWithArchivedSessions,
-  listProjectsWithSessions,
-  listSessionsWaitingOnUser,
-  moveSessionDown,
-  moveSessionUp,
-  newSession,
-  openSession,
-  removeSession,
-  renameSession,
-  renameSessionBranch,
-  stopArchivedProjectSessionAgents,
-  stopArchivedSessionAgents,
-  stopOngoingSessionAgents,
-  stopProjectSessionAgents,
-  stopSessionAgent,
-  unarchiveSession,
-  unlinkSessionWorktree,
-  watchSessionListChanges,
-  watchViewedSessionIds
-} from "@services/session.service.ts";
-import {Effect} from "effect";
+import {SessionErrorMessage} from "@errorMessages/session.errorMessage.ts";
+import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
+import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
+import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
+import {SessionService} from "@services/session.service.ts";
+import {Context, Effect, Layer} from "effect";
 
-export const newSessionInChosenProject = Effect.fn("SessionController.newSessionInChosenProject")(function* (
-  chosenProject: unknown
-) {
-  const request = yield* decodeVsCodeArgument(NewSessionRequestDtoSchema, chosenProject);
-  yield* newSession(request);
-});
+export class SessionController extends Context.Service<SessionController>()(
+  "aggregor-app/presentation/controllers/session.controller/SessionController",
+  {
+    make: Effect.fn("make")(function* () {
+      const registerCommandMiddleware = yield* RegisterCommandMiddleware;
+      const sessionService = yield* SessionService;
+      const sessionErrorMessage = yield* SessionErrorMessage;
+      const vscodeUtils = yield* VscodeUtils;
 
-export const openChosenSession = Effect.fn("SessionController.openChosenSession")(function* (chosenSession: unknown) {
-  const request = yield* decodeVsCodeArgument(OpenSessionRequestDtoSchema, chosenSession);
-  yield* openSession(request);
-});
+      const newSessionInChosenProject = Effect.fn("newSessionInChosenProject")(function* (chosenProject: unknown) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(NewSessionRequestDtoSchema, chosenProject);
+        yield* sessionService.newSession(request);
+      });
 
-export const removeChosenSession = Effect.fn("SessionController.removeChosenSession")(function* (
-  chosenSession: unknown
-) {
-  const request = yield* decodeVsCodeArgument(RemoveSessionRequestDtoSchema, chosenSession);
-  yield* removeSession(request);
-});
+      const openChosenSession = Effect.fn("openChosenSession")(function* (chosenSession: unknown) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(OpenSessionRequestDtoSchema, chosenSession);
+        yield* sessionService.openSession(request);
+      });
 
-export const archiveChosenSession = Effect.fn("SessionController.archiveChosenSession")(function* (
-  chosenSession: unknown
-) {
-  const request = yield* decodeVsCodeArgument(ArchiveSessionRequestDtoSchema, chosenSession);
-  yield* archiveSession(request);
-});
+      const removeChosenSession = Effect.fn("removeChosenSession")(function* (chosenSession: unknown) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(RemoveSessionRequestDtoSchema, chosenSession);
+        yield* sessionService.removeSession(request);
+      });
 
-export const unarchiveChosenSession = Effect.fn("SessionController.unarchiveChosenSession")(function* (
-  chosenSession: unknown
-) {
-  const request = yield* decodeVsCodeArgument(UnarchiveSessionRequestDtoSchema, chosenSession);
-  yield* unarchiveSession(request);
-});
+      const archiveChosenSession = Effect.fn("archiveChosenSession")(function* (chosenSession: unknown) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(ArchiveSessionRequestDtoSchema, chosenSession);
+        yield* sessionService.archiveSession(request);
+      });
 
-export const stopChosenSessionAgent = Effect.fn("SessionController.stopChosenSessionAgent")(function* (
-  chosenSession: unknown
-) {
-  const request = yield* decodeVsCodeArgument(StopSessionAgentRequestDtoSchema, chosenSession);
-  yield* stopSessionAgent(request);
-});
+      const unarchiveChosenSession = Effect.fn("unarchiveChosenSession")(function* (chosenSession: unknown) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(UnarchiveSessionRequestDtoSchema, chosenSession);
+        yield* sessionService.unarchiveSession(request);
+      });
 
-export const stopChosenProjectSessionAgents = Effect.fn("SessionController.stopChosenProjectSessionAgents")(function* (
-  chosenProject: unknown
-) {
-  const request = yield* decodeVsCodeArgument(StopProjectSessionAgentsRequestDtoSchema, chosenProject);
-  yield* stopProjectSessionAgents(request);
-});
+      const stopChosenSessionAgent = Effect.fn("stopChosenSessionAgent")(function* (chosenSession: unknown) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(StopSessionAgentRequestDtoSchema, chosenSession);
+        yield* sessionService.stopSessionAgent(request);
+      });
 
-export const stopChosenArchivedProjectSessionAgents = Effect.fn(
-  "SessionController.stopChosenArchivedProjectSessionAgents"
-)(function* (chosenProject: unknown) {
-  const request = yield* decodeVsCodeArgument(StopArchivedProjectSessionAgentsRequestDtoSchema, chosenProject);
-  yield* stopArchivedProjectSessionAgents(request);
-});
+      const stopChosenProjectSessionAgents = Effect.fn("stopChosenProjectSessionAgents")(function* (
+        chosenProject: unknown
+      ) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(
+          StopProjectSessionAgentsRequestDtoSchema,
+          chosenProject
+        );
+        yield* sessionService.stopProjectSessionAgents(request);
+      });
 
-export const archiveChosenProjectSessions = Effect.fn("SessionController.archiveChosenProjectSessions")(function* (
-  chosenProject: unknown
-) {
-  const request = yield* decodeVsCodeArgument(ArchiveProjectSessionsRequestDtoSchema, chosenProject);
-  yield* archiveProjectSessions(request);
-});
+      const stopChosenArchivedProjectSessionAgents = Effect.fn("stopChosenArchivedProjectSessionAgents")(function* (
+        chosenProject: unknown
+      ) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(
+          StopArchivedProjectSessionAgentsRequestDtoSchema,
+          chosenProject
+        );
+        yield* sessionService.stopArchivedProjectSessionAgents(request);
+      });
 
-export const archiveAllOngoingSessions = Effect.fn("SessionController.archiveAllOngoingSessions")(function* () {
-  yield* archiveOngoingSessions();
-});
+      const archiveChosenProjectSessions = Effect.fn("archiveChosenProjectSessions")(function* (
+        chosenProject: unknown
+      ) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(ArchiveProjectSessionsRequestDtoSchema, chosenProject);
+        yield* sessionService.archiveProjectSessions(request);
+      });
 
-export const stopAllOngoingSessionAgents = Effect.fn("SessionController.stopAllOngoingSessionAgents")(function* () {
-  yield* stopOngoingSessionAgents();
-});
+      const archiveAllOngoingSessions = Effect.fn("archiveAllOngoingSessions")(function* () {
+        yield* sessionService.archiveOngoingSessions;
+      });
 
-export const stopAllArchivedSessionAgents = Effect.fn("SessionController.stopAllArchivedSessionAgents")(function* () {
-  yield* stopArchivedSessionAgents();
-});
+      const stopAllOngoingSessionAgents = Effect.fn("stopAllOngoingSessionAgents")(function* () {
+        yield* sessionService.stopOngoingSessionAgents;
+      });
 
-export const renameChosenSession = Effect.fn("SessionController.renameChosenSession")(function* (
-  chosenSession: unknown
-) {
-  const request = yield* decodeVsCodeArgument(RenameSessionRequestDtoSchema, chosenSession);
-  yield* renameSession(request);
-});
+      const stopAllArchivedSessionAgents = Effect.fn("stopAllArchivedSessionAgents")(function* () {
+        yield* sessionService.stopArchivedSessionAgents;
+      });
 
-export const renameChosenSessionBranch = Effect.fn("SessionController.renameChosenSessionBranch")(function* (
-  chosenSession: unknown
-) {
-  const request = yield* decodeVsCodeArgument(RenameSessionBranchRequestDtoSchema, chosenSession);
-  yield* renameSessionBranch(request);
-});
+      const renameChosenSession = Effect.fn("renameChosenSession")(function* (chosenSession: unknown) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(RenameSessionRequestDtoSchema, chosenSession);
+        yield* sessionService.renameSession(request);
+      });
 
-export const changeChosenSessionWorkingTree = Effect.fn("SessionController.changeChosenSessionWorkingTree")(function* (
-  chosenSession: unknown
-) {
-  const request = yield* decodeVsCodeArgument(ChangeSessionWorkingTreeRequestDtoSchema, chosenSession);
-  yield* changeSessionWorkingTree(request);
-});
+      const renameChosenSessionBranch = Effect.fn("renameChosenSessionBranch")(function* (chosenSession: unknown) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(RenameSessionBranchRequestDtoSchema, chosenSession);
+        yield* sessionService.renameSessionBranch(request);
+      });
 
-export const unlinkChosenSessionWorktree = Effect.fn("SessionController.unlinkChosenSessionWorktree")(function* (
-  chosenSession: unknown
-) {
-  const request = yield* decodeVsCodeArgument(UnlinkSessionWorktreeRequestDtoSchema, chosenSession);
-  yield* unlinkSessionWorktree(request);
-});
+      const changeChosenSessionWorkingTree = Effect.fn("changeChosenSessionWorkingTree")(function* (
+        chosenSession: unknown
+      ) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(
+          ChangeSessionWorkingTreeRequestDtoSchema,
+          chosenSession
+        );
+        yield* sessionService.changeSessionWorkingTree(request);
+      });
 
-export const moveChosenSessionUp = Effect.fn("SessionController.moveChosenSessionUp")(function* (
-  chosenSession: unknown
-) {
-  const request = yield* decodeVsCodeArgument(MoveSessionUpRequestDtoSchema, chosenSession);
-  yield* moveSessionUp(request);
-});
+      const unlinkChosenSessionWorktree = Effect.fn("unlinkChosenSessionWorktree")(function* (chosenSession: unknown) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(UnlinkSessionWorktreeRequestDtoSchema, chosenSession);
+        yield* sessionService.unlinkSessionWorktree(request);
+      });
 
-export const moveChosenSessionDown = Effect.fn("SessionController.moveChosenSessionDown")(function* (
-  chosenSession: unknown
-) {
-  const request = yield* decodeVsCodeArgument(MoveSessionDownRequestDtoSchema, chosenSession);
-  yield* moveSessionDown(request);
-});
+      const moveChosenSessionUp = Effect.fn("moveChosenSessionUp")(function* (chosenSession: unknown) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(MoveSessionUpRequestDtoSchema, chosenSession);
+        yield* sessionService.moveSessionUp(request);
+      });
 
-export const getSessionListItemForSessionsView = Effect.fn("SessionController.getSessionListItemForSessionsView")(
-  function* (sessionId: string) {
-    const request = yield* decodeVsCodeArgument(GetSessionListItemRequestDtoSchema, {sessionId});
+      const moveChosenSessionDown = Effect.fn("moveChosenSessionDown")(function* (chosenSession: unknown) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(MoveSessionDownRequestDtoSchema, chosenSession);
+        yield* sessionService.moveSessionDown(request);
+      });
 
-    return yield* getSessionListItem(request);
+      const getSessionListItemForSessionsView = Effect.fn("getSessionListItemForSessionsView")(function* (
+        sessionId: string
+      ) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(GetSessionListItemRequestDtoSchema, {sessionId});
+
+        return yield* sessionService.getSessionListItem(request);
+      });
+
+      const getProjectSessionsForSessionsView = Effect.fn("getProjectSessionsForSessionsView")(function* (
+        projectPath: string,
+        shownPageCount: number
+      ) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(GetProjectSessionsRequestDtoSchema, {
+          projectPath,
+          shownPageCount
+        });
+
+        return yield* sessionService.getProjectSessions(request);
+      });
+
+      const listProjectsWithSessionsForSessionsView = Effect.fn("listProjectsWithSessionsForSessionsView")(function* (
+        shownPageCounts: Readonly<Record<string, number>>
+      ) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(ListProjectSessionsRequestDtoSchema, {shownPageCounts});
+
+        return yield* sessionService.listProjectsWithSessions(request);
+      });
+
+      const listProjectsWithArchivedSessionsForSessionsView = Effect.fn(
+        "listProjectsWithArchivedSessionsForSessionsView"
+      )(function* (shownPageCounts: Readonly<Record<string, number>>) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(ListProjectSessionsRequestDtoSchema, {shownPageCounts});
+
+        return yield* sessionService.listProjectsWithArchivedSessions(request);
+      });
+
+      const listSessionsWaitingOnUserForSessionsView = Effect.fn("listSessionsWaitingOnUserForSessionsView")(
+        function* () {
+          return yield* sessionService.listSessionsWaitingOnUser;
+        }
+      );
+
+      const watchSessionListChangesForSessionsView = Effect.fn("watchSessionListChangesForSessionsView")(function* () {
+        return yield* sessionService.watchSessionListChanges;
+      });
+
+      const watchViewedSessionIdsForSessionsView = Effect.fn("watchViewedSessionIdsForSessionsView")(function* () {
+        return yield* sessionService.watchViewedSessionIds;
+      });
+
+      const findViewedSessionIdForSessionsView = Effect.fn("findViewedSessionIdForSessionsView")(function* () {
+        return yield* sessionService.findViewedSessionId;
+      });
+
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.ARCHIVE,
+        archiveChosenSession,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.ARCHIVE_ONGOING,
+        archiveAllOngoingSessions,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.ARCHIVE_PROJECT_SESSIONS,
+        archiveChosenProjectSessions,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.CHANGE_WORKING_TREE,
+        changeChosenSessionWorkingTree,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.MOVE_DOWN,
+        moveChosenSessionDown,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.MOVE_UP,
+        moveChosenSessionUp,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT,
+        newSessionInChosenProject,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.OPEN,
+        openChosenSession,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.REMOVE,
+        removeChosenSession,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.RENAME,
+        renameChosenSession,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.RENAME_BRANCH,
+        renameChosenSessionBranch,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.STOP_AGENT,
+        stopChosenSessionAgent,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.STOP_ARCHIVED_AGENTS,
+        stopAllArchivedSessionAgents,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.STOP_ARCHIVED_PROJECT_AGENTS,
+        stopChosenArchivedProjectSessionAgents,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.STOP_ONGOING_AGENTS,
+        stopAllOngoingSessionAgents,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.STOP_PROJECT_AGENTS,
+        stopChosenProjectSessionAgents,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.UNARCHIVE,
+        unarchiveChosenSession,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        SESSION_COMMANDS.UNLINK_WORKTREE,
+        unlinkChosenSessionWorktree,
+        sessionErrorMessage.getSessionCommandErrorMessage
+      );
+
+      return {
+        archiveAllOngoingSessions: archiveAllOngoingSessions(),
+        archiveChosenProjectSessions,
+        archiveChosenSession,
+        changeChosenSessionWorkingTree,
+        findViewedSessionIdForSessionsView: findViewedSessionIdForSessionsView(),
+        getProjectSessionsForSessionsView,
+        getSessionListItemForSessionsView,
+        listProjectsWithArchivedSessionsForSessionsView,
+        listProjectsWithSessionsForSessionsView,
+        listSessionsWaitingOnUserForSessionsView: listSessionsWaitingOnUserForSessionsView(),
+        moveChosenSessionDown,
+        moveChosenSessionUp,
+        newSessionInChosenProject,
+        openChosenSession,
+        removeChosenSession,
+        renameChosenSession,
+        renameChosenSessionBranch,
+        stopAllArchivedSessionAgents: stopAllArchivedSessionAgents(),
+        stopAllOngoingSessionAgents: stopAllOngoingSessionAgents(),
+        stopChosenArchivedProjectSessionAgents,
+        stopChosenProjectSessionAgents,
+        stopChosenSessionAgent,
+        unarchiveChosenSession,
+        unlinkChosenSessionWorktree,
+        watchSessionListChangesForSessionsView: watchSessionListChangesForSessionsView(),
+        watchViewedSessionIdsForSessionsView: watchViewedSessionIdsForSessionsView()
+      };
+    })
   }
-);
-
-export const getProjectSessionsForSessionsView = Effect.fn("SessionController.getProjectSessionsForSessionsView")(
-  function* (projectPath: string, shownPageCount: number) {
-    const request = yield* decodeVsCodeArgument(GetProjectSessionsRequestDtoSchema, {projectPath, shownPageCount});
-
-    return yield* getProjectSessions(request);
-  }
-);
-
-export const listProjectsWithSessionsForSessionsView = Effect.fn(
-  "SessionController.listProjectsWithSessionsForSessionsView"
-)(function* (shownPageCounts: Readonly<Record<string, number>>) {
-  const request = yield* decodeVsCodeArgument(ListProjectSessionsRequestDtoSchema, {shownPageCounts});
-
-  return yield* listProjectsWithSessions(request);
-});
-
-export const listProjectsWithArchivedSessionsForSessionsView = Effect.fn(
-  "SessionController.listProjectsWithArchivedSessionsForSessionsView"
-)(function* (shownPageCounts: Readonly<Record<string, number>>) {
-  const request = yield* decodeVsCodeArgument(ListProjectSessionsRequestDtoSchema, {shownPageCounts});
-
-  return yield* listProjectsWithArchivedSessions(request);
-});
-
-export const listSessionsWaitingOnUserForSessionsView = Effect.fn(
-  "SessionController.listSessionsWaitingOnUserForSessionsView"
-)(function* () {
-  return yield* listSessionsWaitingOnUser();
-});
-
-export const watchSessionListChangesForSessionsView = Effect.fn(
-  "SessionController.watchSessionListChangesForSessionsView"
-)(function* () {
-  return yield* watchSessionListChanges();
-});
-
-export const watchViewedSessionIdsForSessionsView = Effect.fn("SessionController.watchViewedSessionIdsForSessionsView")(
-  function* () {
-    return yield* watchViewedSessionIds();
-  }
-);
-
-export const findViewedSessionIdForSessionsView = Effect.fn("SessionController.findViewedSessionIdForSessionsView")(
-  function* () {
-    return yield* findViewedSessionId();
-  }
-);
+) {
+  public static readonly layer = Layer.effect(this, ownSpans("SessionController", this.make())).pipe(
+    Layer.provide([SessionErrorMessage.layer, RegisterCommandMiddleware.layer])
+  );
+}

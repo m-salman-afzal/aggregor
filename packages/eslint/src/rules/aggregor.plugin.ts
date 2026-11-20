@@ -4,6 +4,7 @@ import {constantPlacementRule} from "@pkg/eslint/src/rules/constantPlacement.rul
 import {declaringFileRule} from "@pkg/eslint/src/rules/declaringFile.rule.ts";
 import {fileRoleRule} from "@pkg/eslint/src/rules/fileRole.rule.ts";
 import {kindFolderRule} from "@pkg/eslint/src/rules/kindFolder.rule.ts";
+import {maxLinesPerFunctionRule} from "@pkg/eslint/src/rules/maxLinesPerFunction.rule.ts";
 import {minimalScrollbarRule} from "@pkg/eslint/src/rules/minimalScrollbar.rule.ts";
 import {moduleBoundaryRule} from "@pkg/eslint/src/rules/moduleBoundary.rule.ts";
 import {noPassThroughRule} from "@pkg/eslint/src/rules/noPassThrough.rule.ts";
@@ -22,6 +23,7 @@ export const AGGREGOR_PLUGIN = {
     "declaring-file": declaringFileRule,
     "file-role": fileRoleRule,
     "kind-folder": kindFolderRule,
+    "max-lines-per-function": maxLinesPerFunctionRule,
     "minimal-scrollbar": minimalScrollbarRule,
     "module-boundary": moduleBoundaryRule,
     "no-pass-through": noPassThroughRule,
@@ -39,9 +41,19 @@ export const AGGREGOR_PLUGIN_CONFIGS: Config[] = [
     plugins: {aggregor: AGGREGOR_PLUGIN},
     rules: {"aggregor/declaring-file": "error", "aggregor/span-name": "error", "aggregor/stem-folder": "error"}
   },
+  {
+    files: ["packages/vscode/src/**/*.ts", "packages/trace/src/**/*.ts", "packages/errors/src/**/*.ts"],
+    plugins: {aggregor: AGGREGOR_PLUGIN},
+    rules: {"aggregor/span-name": "error"}
+  },
   // The domain can't import @pkg/constants, so its constants stay beside their rules; a model's shared columns are code.
   {
-    files: ["apps/extension/src/**/*.ts", "packages/vscode/src/**/*.ts"],
+    files: [
+      "apps/extension/src/**/*.ts",
+      "packages/vscode/src/**/*.ts",
+      "packages/trace/src/**/*.ts",
+      "packages/errors/src/**/*.ts"
+    ],
     ignores: ["apps/extension/src/domain/**", "**/*.model.ts"],
     plugins: {aggregor: AGGREGOR_PLUGIN},
     rules: {"aggregor/constant-placement": "error"}

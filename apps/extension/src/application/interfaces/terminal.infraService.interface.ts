@@ -1,3 +1,4 @@
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {Context, Schema} from "effect";
 
@@ -34,28 +35,14 @@ export interface SessionTabRequest {
   readonly tabName: string;
 }
 
-export class NoFolderShellTerminalOpenError extends Schema.TaggedError<
-  NoFolderShellTerminalOpenError,
-  {readonly brand: unique symbol}
->()("NoFolderShellTerminalOpenError", {}) {}
-export class NoSessionTabOpenError extends Schema.TaggedError<NoSessionTabOpenError, {readonly brand: unique symbol}>()(
-  "NoSessionTabOpenError",
-  {}
-) {}
-// No session's tab is in front of the user; TerminalInfraService's trace says why.
-export class NoViewedSessionError extends Schema.TaggedError<NoViewedSessionError, {readonly brand: unique symbol}>()(
-  "NoViewedSessionError",
-  {}
-) {}
-
-export class TerminalLaunchFailedError extends Schema.TaggedError<
-  TerminalLaunchFailedError,
-  {readonly brand: unique symbol}
->()("TerminalLaunchFailedError", {cause: Schema.Unknown}) {}
-export class TerminalNotFoundError extends Schema.TaggedError<TerminalNotFoundError, {readonly brand: unique symbol}>()(
-  "TerminalNotFoundError",
-  {sessionId: EntityIdValueObjectSchema}
-) {}
+export class ITerminalInfraServiceErrors extends TaggedErrors({
+  NoFolderShellTerminalOpenError: {},
+  NoSessionTabOpenError: {},
+  // No session's tab is in front of the user; TerminalInfraService's trace says why.
+  NoViewedSessionError: {},
+  TerminalLaunchFailedError: {cause: Schema.Unknown},
+  TerminalNotFoundError: {sessionId: EntityIdValueObjectSchema}
+}) {}
 
 // A tab is a tmux client attached to the session's agent, so closing it leaves the agent running.
 export class ITerminalInfraService extends Context.Service<
@@ -70,10 +57,20 @@ export class ITerminalInfraService extends Context.Service<
     ) => Effect.Effect<void>;
     readonly closedSetupTerminals: Stream.Stream<void>;
     readonly closeOtherSessionTerminals: (shownSessionId: EntityIdValueObject) => Effect.Effect<void>;
-    readonly closeSessionTerminal: (sessionId: EntityIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
-    readonly findFolderShellTerminalProcessId: Effect.Effect<number, NoFolderShellTerminalOpenError>;
-    readonly findOpenSessionTerminalProcessId: Effect.Effect<number, NoSessionTabOpenError>;
-    readonly focusSessionTerminal: (sessionId: EntityIdValueObject) => Effect.Effect<void, TerminalNotFoundError>;
+    readonly closeSessionTerminal: (
+      sessionId: EntityIdValueObject
+    ) => Effect.Effect<void, ITerminalInfraServiceErrors["TerminalNotFoundError"]>;
+    readonly findFolderShellTerminalProcessId: Effect.Effect<
+      number,
+      ITerminalInfraServiceErrors["NoFolderShellTerminalOpenError"]
+    >;
+    readonly findOpenSessionTerminalProcessId: Effect.Effect<
+      number,
+      ITerminalInfraServiceErrors["NoSessionTabOpenError"]
+    >;
+    readonly focusSessionTerminal: (
+      sessionId: EntityIdValueObject
+    ) => Effect.Effect<void, ITerminalInfraServiceErrors["TerminalNotFoundError"]>;
     // The folder whose shell the Aggregor terminal showed when the user closed it; a reload or a quit yields none.
     readonly folderShellPathsClosedByUser: Stream.Stream<ProjectPathValueObject>;
     // VS Code can rename only the active terminal.
@@ -81,17 +78,19 @@ export class ITerminalInfraService extends Context.Service<
     // A window has one Aggregor terminal: it opens the first time and comes to the front after that.
     readonly openFolderShellTerminal: (
       folderShellTerminalRequest: FolderShellTerminalRequest
-    ) => Effect.Effect<void, TerminalLaunchFailedError>;
+    ) => Effect.Effect<void, ITerminalInfraServiceErrors["TerminalLaunchFailedError"]>;
     readonly openSessionTerminal: (
       session: SessionEntity,
       sessionTabRequest: SessionTabRequest
-    ) => Effect.Effect<void, TerminalLaunchFailedError>;
+    ) => Effect.Effect<void, ITerminalInfraServiceErrors["TerminalLaunchFailedError"]>;
     // A command the user watches and answers, such as sudo's password; its output stays until they press Enter.
     readonly openSetupTerminal: (commandLine: string) => Effect.Effect<void>;
     // What VS Code launches for the Aggregor terminal profile, the same as Aggregor launches itself.
     readonly prepareFolderShellTerminalOptions: (
       terminalCommand: TerminalCommand
     ) => Effect.Effect<FolderShellTerminalOptions>;
-    readonly viewedSessionId: SubscriptionRef.SubscriptionRef<Result.Result<EntityIdValueObject, NoViewedSessionError>>;
+    readonly viewedSessionId: SubscriptionRef.SubscriptionRef<
+      Result.Result<EntityIdValueObject, ITerminalInfraServiceErrors["NoViewedSessionError"]>
+    >;
   }
 >()("aggregor-app/application/interfaces/terminal.infraService.interface/ITerminalInfraService") {}

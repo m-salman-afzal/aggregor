@@ -1,5 +1,12 @@
 import {SettingsConfig} from "@config/settings.config.ts";
-import {DatabaseLayer} from "@di/database.layer.ts";
+import {BackgroundJobs} from "@di/backgroundJobs.layer.ts";
+import {AgentTaskDomainService} from "@domainServices/agentTask.domainService.ts";
+import {EntityIdDomainService} from "@domainServices/entityId.domainService.ts";
+import {FolderShellDomainService} from "@domainServices/folderShell.domainService.ts";
+import {PaginationDomainService} from "@domainServices/pagination.domainService.ts";
+import {SessionDomainService} from "@domainServices/session.domainService.ts";
+import {SortOrderDomainService} from "@domainServices/sortOrder.domainService.ts";
+import {WorktreeDomainService} from "@domainServices/worktree.domainService.ts";
 import {NodeServices} from "@effect/platform-node";
 import {AgentHistoryInfraService} from "@infraServices/agentHistory/agentHistory.infraService.ts";
 import {CommitCliInfraService} from "@infraServices/commitCli/commitCli.infraService.ts";
@@ -14,65 +21,78 @@ import {ProgressInfraService} from "@infraServices/vscode/progress.infraService.
 import {TerminalInfraService} from "@infraServices/vscode/terminal/terminal.infraService.ts";
 import {UserInputPromptInfraService} from "@infraServices/vscode/userInputPrompt.infraService.ts";
 import {WorkspaceInfraService} from "@infraServices/vscode/workspace.infraService.ts";
+import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 import {AgentRepository} from "@repositories/agent.repository.ts";
 import {ProjectRepository} from "@repositories/project.repository.ts";
 import {SessionRepository} from "@repositories/session.repository.ts";
-import {
-  startFolderShellEndOnTerminalClose,
-  startFolderShellFollow,
-  syncFolderShellTerminalWithTmux
-} from "@services/folderShell.service.ts";
-import {startPullRequestRefreshOnTurnEnd} from "@services/pullRequest.service.ts";
-import {
-  startRunStateSync,
-  startSessionTabNameSync,
-  startSessionTitleSync,
-  startViewedAtSync,
-  syncSessionTabsWithTmux
-} from "@services/session.service.ts";
-import {startSessionReopenAfterReload, startShownProjectSync} from "@services/workspace.service.ts";
+import {AgentService} from "@services/agent.service.ts";
+import {CommitMessageService} from "@services/commitMessage.service.ts";
+import {FolderShellService} from "@services/folderShell.service.ts";
+import {ProjectService} from "@services/project.service.ts";
+import {PullRequestService} from "@services/pullRequest.service.ts";
+import {RequiredToolsService} from "@services/requiredTools.service.ts";
+import {SessionService} from "@services/session.service.ts";
+import {SessionAlertService} from "@services/sessionAlert.service.ts";
+import {SessionImportService} from "@services/sessionImport.service.ts";
+import {SessionProcessService} from "@services/sessionProcess.service.ts";
+import {WorkspaceService} from "@services/workspace.service.ts";
+import {WorktreeService} from "@services/worktree.service.ts";
 import {Layer} from "effect";
 import {SecureRandom} from "effect/crypto";
 
-const IndependentLayers = Layer.mergeAll(
-  GitInfraService,
-  NodeServices.layer,
-  ProgressInfraService,
-  UserInputPromptInfraService,
-  SecureRandom.layerWebCrypto,
-  SettingsConfig
-);
+import type {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 
-const BackgroundLayer = Layer.mergeAll(
-  Layer.effectDiscard(startSessionTitleSync()),
-  Layer.effectDiscard(startSessionTabNameSync()),
-  Layer.effectDiscard(startViewedAtSync()),
-  Layer.effectDiscard(startRunStateSync()),
-  Layer.effectDiscard(startPullRequestRefreshOnTurnEnd()),
-  Layer.effectDiscard(startShownProjectSync()),
-  Layer.effectDiscard(syncFolderShellTerminalWithTmux()),
-  Layer.effectDiscard(startFolderShellFollow()),
-  Layer.effectDiscard(startFolderShellEndOnTerminalClose()),
-  Layer.effectDiscard(startSessionReopenAfterReload())
-);
+const DomainLayer = Layer.mergeAll(
+  AgentTaskDomainService.layer,
+  EntityIdDomainService.layer,
+  FolderShellDomainService.layer,
+  PaginationDomainService.layer,
+  SessionDomainService.layer,
+  SortOrderDomainService.layer,
+  WorktreeDomainService.layer
+).pipe(Layer.withSpan("Domain"), Layer.provide(SecureRandom.layerWebCrypto));
 
-// It still needs VsCodeApi, and the trace log underneath.
-export const AppLayer = BackgroundLayer.pipe(
-  // Before the background jobs, which read the session in view as they start.
-  Layer.provideMerge(Layer.effectDiscard(syncSessionTabsWithTmux())),
-  Layer.provideMerge(TerminalInfraService),
-  Layer.provideMerge(TmuxInfraService),
-  Layer.provideMerge(GitHubCliInfraService),
-  Layer.provideMerge(AgentRepository),
-  Layer.provideMerge(SessionRepository),
-  Layer.provideMerge(ProjectRepository),
-  Layer.provideMerge(DatabaseLayer),
-  Layer.provideMerge(AgentHistoryInfraService),
-  Layer.provideMerge(CommitCliInfraService),
-  Layer.provideMerge(DesktopNotificationInfraService),
-  Layer.provideMerge(ShellCommandInfraService),
-  Layer.provideMerge(ProcessInfraService),
-  Layer.provideMerge(WorkspaceInfraService),
-  Layer.provideMerge(WorktreeInfraService),
-  Layer.provideMerge(IndependentLayers)
+// Fails to compile when a port's implementation leaves more than VsCodeApi for extension.ts to provide.
+const InfrastructureLayer = Layer.mergeAll(
+  AgentHistoryInfraService.layer,
+  AgentRepository.layer,
+  CommitCliInfraService.layer,
+  DesktopNotificationInfraService.layer,
+  GitHubCliInfraService.layer,
+  GitInfraService.layer,
+  ProcessInfraService.layer,
+  ProgressInfraService.layer,
+  ProjectRepository.layer,
+  SessionRepository.layer,
+  SettingsConfig.layer,
+  ShellCommandInfraService.layer,
+  TerminalInfraService.layer,
+  TmuxInfraService.layer,
+  UserInputPromptInfraService.layer,
+  WorkspaceInfraService.layer,
+  WorktreeInfraService.layer
+).pipe(Layer.withSpan("Infrastructure"), Layer.provide([DomainLayer, VscodeUtils.layer])) satisfies Layer.Layer<
+  never,
+  unknown,
+  VsCodeApi
+>;
+
+export const ApplicationLayer = Layer.mergeAll(
+  AgentService.layer,
+  CommitMessageService.layer,
+  FolderShellService.layer,
+  ProjectService.layer,
+  PullRequestService.layer,
+  RequiredToolsService.layer,
+  SessionService.layer,
+  SessionAlertService.layer,
+  SessionImportService.layer,
+  SessionProcessService.layer,
+  WorkspaceService.layer,
+  WorktreeService.layer,
+  BackgroundJobs.layer
+).pipe(
+  Layer.withSpan("Application"),
+  // NodeServices is for the application services, which read Path themselves.
+  Layer.provide([DomainLayer, InfrastructureLayer, NodeServices.layer])
 );

@@ -2,9 +2,10 @@ import {SessionEntity} from "@entities/session/session.entity.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {ProjectTableModel} from "@models/project.model.ts";
 import {SessionTableModel} from "@models/session.model.ts";
-import {makeBaseRepository} from "@repositories/base/base.repository.ts";
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
+import {BaseRepository} from "@repositories/base/base.repository.ts";
 import {eq} from "drizzle-orm";
-import {Effect, Layer} from "effect";
+import {Context, Effect, Layer} from "effect";
 
 import type {AddSessionRequest} from "@entities/session/session.repository.interface.ts";
 
@@ -14,12 +15,21 @@ const sessionProjectJoin = {
   joinedTable: ProjectTableModel
 };
 
-const makeSessionRepository = Effect.fn("SessionRepository.make")(function* () {
-  return yield* makeBaseRepository<SessionEntity, AddSessionRequest>({
-    entitySchema: SessionEntity,
-    join: sessionProjectJoin,
-    tableModel: SessionTableModel
-  });
-});
+export class SessionRepository extends Context.Service<SessionRepository>()(
+  "aggregor-app/infrastructure/repositories/session.repository/SessionRepository",
+  {
+    make: Effect.fn("make")(function* () {
+      const baseRepository = yield* BaseRepository;
 
-export const SessionRepository = Layer.effect(ISessionRepository, makeSessionRepository());
+      return yield* baseRepository.makeFor<SessionEntity, AddSessionRequest>({
+        entitySchema: SessionEntity,
+        join: sessionProjectJoin,
+        tableModel: SessionTableModel
+      });
+    })
+  }
+) {
+  public static readonly layer = Layer.effect(ISessionRepository, ownSpans("SessionRepository", this.make())).pipe(
+    Layer.provide(BaseRepository.layer)
+  );
+}

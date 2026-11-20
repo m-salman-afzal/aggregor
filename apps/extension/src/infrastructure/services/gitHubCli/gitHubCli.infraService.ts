@@ -1,16 +1,13 @@
-import {toBranchPullRequest, toListedPullRequests} from "@infraServices/gitHubCli/gitHubCli.transformer.ts";
-import {
-  GitHubCliSignedOutError,
-  IGitHubCliInfraService,
-  PullRequestListFailedError,
-  PullRequestNotFoundError
-} from "@interfaces/gitHubCli.infraService.interface.ts";
+import {NodeServices} from "@effect/platform-node";
+import {GitHubCliTransformer} from "@infraServices/gitHubCli/gitHubCli.transformer.ts";
+import {IGitHubCliInfraService, IGitHubCliInfraServiceErrors} from "@interfaces/gitHubCli.infraService.interface.ts";
 import {GITHUB_CLI, GITHUB_PULL_REQUESTS_EXTENSION} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {EXIT_CODES} from "@pkg/constants/src/process.constant.ts";
 import {SETUP_TERMINAL} from "@pkg/constants/src/requiredTools.constant.ts";
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {streamVsCodeEvent} from "@pkg/vscode/src/vscode.utils.ts";
-import {Array, Clock, Effect, Layer, Match, PubSub, Queue, Ref, Result, Stream} from "effect";
+import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
+import {Array, Clock, Context, Effect, Layer, Match, PubSub, Queue, Ref, Result, Stream} from "effect";
 import {ChildProcess} from "effect/process";
 import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 
@@ -19,304 +16,268 @@ import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject
 
 interface CachedPullRequest {
   readonly pullRequestLookup: PullRequestLookup;
-  readonly pullRequestResult: Result.Result<BranchPullRequest, PullRequestNotFoundError>;
+  readonly pullRequestResult: Result.Result<
+    BranchPullRequest,
+    IGitHubCliInfraServiceErrors["PullRequestNotFoundError"]
+  >;
 }
 
-interface GitHubCliDependencies {
-  readonly cachedPullRequests: Ref.Ref<ReadonlyMap<string, CachedPullRequest>>;
-  readonly childProcessSpawner: ChildProcessSpawner["Service"];
-  readonly gitHubCliSignedOutProblems: PubSub.PubSub<GitHubCliSignedOutError>;
-  readonly isSignedOutReported: Ref.Ref<boolean>;
-  readonly lastRefreshedAt: Ref.Ref<number>;
-  readonly pendingLookupKeys: Ref.Ref<ReadonlySet<string>>;
-  readonly pullRequestChanges: PubSub.PubSub<ProjectPathValueObject>;
-  readonly pullRequestLookups: Queue.Queue<PullRequestLookup>;
-  readonly vsCodeApi: VsCodeApi["Service"];
+export class GitHubCliInfraService extends Context.Service<GitHubCliInfraService>()(
+  "aggregor-app/infrastructure/services/gitHubCli/gitHubCli.infraService/GitHubCliInfraService",
+  {
+    make: Effect.fn("make")(function* () {
+      const childProcessSpawner = yield* ChildProcessSpawner;
+      const vsCodeApi = yield* VsCodeApi;
+      const vscodeUtils = yield* VscodeUtils;
+      const gitHubCliTransformer = yield* GitHubCliTransformer;
+      const cachedPullRequests = yield* Ref.make<ReadonlyMap<string, CachedPullRequest>>(new Map());
+      const gitHubCliSignedOutProblems =
+        yield* PubSub.unbounded<IGitHubCliInfraServiceErrors["GitHubCliSignedOutError"]>();
+      const isSignedOutReported = yield* Ref.make(false);
+      const lastRefreshedAt = yield* Ref.make(0);
+      const pendingLookupKeys = yield* Ref.make<ReadonlySet<string>>(new Set());
+      const pullRequestChanges = yield* PubSub.unbounded<ProjectPathValueObject>();
+      const pullRequestLookups = yield* Queue.unbounded<PullRequestLookup>();
+
+      const toLookupKey = Effect.fn("toLookupKey")(function* (pullRequestLookup: PullRequestLookup) {
+        return `${pullRequestLookup.folderPath}\n${pullRequestLookup.pullRequestReference}`;
+      });
+
+      const runGitHubCli = Effect.fn("runGitHubCli")(function* (
+        gitHubCliArguments: readonly string[],
+        folderPath: ProjectPathValueObject
+      ) {
+        const gitHubCliProcess = yield* childProcessSpawner.spawn(
+          ChildProcess.make(GITHUB_CLI.COMMAND, gitHubCliArguments, {cwd: folderPath})
+        );
+        const [stdout, stderr, exitCode] = yield* Effect.all(
+          [
+            Stream.mkString(Stream.decodeText(gitHubCliProcess.stdout)),
+            Stream.mkString(Stream.decodeText(gitHubCliProcess.stderr)),
+            gitHubCliProcess.exitCode
+          ],
+          {concurrency: "unbounded"}
+        );
+
+        return {exitCode, stderr, stdout};
+      }, Effect.scoped);
+
+      // Exit code 1 covers no pull request, no GitHub remote and no repository; stderr says which. A hung gh is killed.
+      const lookUpPullRequest = Effect.fn("lookUpPullRequest")(
+        function* (pullRequestLookup: PullRequestLookup) {
+          yield* Effect.annotateCurrentSpan({
+            folderPath: pullRequestLookup.folderPath,
+            pullRequestReference: pullRequestLookup.pullRequestReference
+          });
+          const gitHubCliOutput = yield* runGitHubCli(
+            ["pr", "view", pullRequestLookup.pullRequestReference, "--json", GITHUB_CLI.PULL_REQUEST_FIELDS],
+            pullRequestLookup.folderPath
+          );
+          yield* Effect.annotateCurrentSpan({exitCode: gitHubCliOutput.exitCode, stderr: gitHubCliOutput.stderr});
+          if (gitHubCliOutput.exitCode === GITHUB_CLI.SIGNED_OUT_EXIT_CODE)
+            return yield* IGitHubCliInfraServiceErrors.GitHubCliSignedOutError.make();
+          if (gitHubCliOutput.exitCode !== EXIT_CODES.SUCCESSFUL)
+            return yield* IGitHubCliInfraServiceErrors.PullRequestNotFoundError.make();
+
+          return yield* gitHubCliTransformer.toBranchPullRequest(gitHubCliOutput.stdout);
+        },
+        Effect.timeout(GITHUB_CLI.LOOKUP_TIMEOUT),
+        Effect.catchTags({
+          PlatformError: () => Effect.fail(IGitHubCliInfraServiceErrors.PullRequestNotFoundError.make()),
+          SchemaError: () => Effect.fail(IGitHubCliInfraServiceErrors.PullRequestNotFoundError.make()),
+          TimeoutError: () => Effect.fail(IGitHubCliInfraServiceErrors.PullRequestNotFoundError.make())
+        })
+      );
+
+      const listPullRequests = Effect.fn("listPullRequests")(
+        function* (folderPath: ProjectPathValueObject) {
+          yield* Effect.annotateCurrentSpan({folderPath});
+          const gitHubCliOutput = yield* runGitHubCli(
+            [
+              "pr",
+              "list",
+              "--state",
+              "all",
+              "--limit",
+              GITHUB_CLI.LISTED_PULL_REQUEST_LIMIT,
+              "--json",
+              GITHUB_CLI.LISTED_PULL_REQUEST_FIELDS
+            ],
+            folderPath
+          );
+          yield* Effect.annotateCurrentSpan({exitCode: gitHubCliOutput.exitCode, stderr: gitHubCliOutput.stderr});
+          if (gitHubCliOutput.exitCode === GITHUB_CLI.SIGNED_OUT_EXIT_CODE)
+            return yield* IGitHubCliInfraServiceErrors.GitHubCliSignedOutError.make();
+          if (gitHubCliOutput.exitCode !== EXIT_CODES.SUCCESSFUL)
+            return yield* IGitHubCliInfraServiceErrors.PullRequestListFailedError.make();
+
+          return yield* gitHubCliTransformer.toListedPullRequests(gitHubCliOutput.stdout);
+        },
+        Effect.timeout(GITHUB_CLI.LOOKUP_TIMEOUT),
+        Effect.catchTags({
+          PlatformError: () => Effect.fail(IGitHubCliInfraServiceErrors.PullRequestListFailedError.make()),
+          SchemaError: () => Effect.fail(IGitHubCliInfraServiceErrors.PullRequestListFailedError.make()),
+          TimeoutError: () => Effect.fail(IGitHubCliInfraServiceErrors.PullRequestListFailedError.make())
+        })
+      );
+
+      const reportSignedOut = Effect.fn("reportSignedOut")(function* (
+        gitHubCliSignedOutError: IGitHubCliInfraServiceErrors["GitHubCliSignedOutError"]
+      ) {
+        const wasReported = yield* Ref.getAndSet(isSignedOutReported, true);
+        if (wasReported) return;
+        yield* PubSub.publish(gitHubCliSignedOutProblems, gitHubCliSignedOutError);
+      });
+
+      const toComparablePullRequest = Effect.fn("toComparablePullRequest")(function* (
+        cachedPullRequest: CachedPullRequest | undefined
+      ) {
+        if (cachedPullRequest === undefined) return "";
+
+        return Result.match(cachedPullRequest.pullRequestResult, {
+          onFailure: () => "",
+          onSuccess: (pullRequest) =>
+            `${pullRequest.number}\n${pullRequest.state}\n${pullRequest.title}\n${pullRequest.url}`
+        });
+      });
+
+      // Only a change redraws: a branch with no pull request before or after leaves its rows alone.
+      const storePullRequest = Effect.fn("storePullRequest")(function* (cachedPullRequest: CachedPullRequest) {
+        const lookupKey = yield* toLookupKey(cachedPullRequest.pullRequestLookup);
+        const cachedPullRequestsByLookupKey = yield* Ref.get(cachedPullRequests);
+        const previousComparable = yield* toComparablePullRequest(cachedPullRequestsByLookupKey.get(lookupKey));
+        const nextComparable = yield* toComparablePullRequest(cachedPullRequest);
+        yield* Ref.set(cachedPullRequests, new Map(cachedPullRequestsByLookupKey).set(lookupKey, cachedPullRequest));
+        yield* Ref.update(
+          pendingLookupKeys,
+          (currentPendingLookupKeys) =>
+            new Set(Array.filter([...currentPendingLookupKeys], (pendingLookupKey) => pendingLookupKey !== lookupKey))
+        );
+        if (previousComparable === nextComparable) return;
+
+        yield* PubSub.publish(pullRequestChanges, cachedPullRequest.pullRequestLookup.folderPath);
+      });
+
+      const fetchPullRequest = Effect.fn("fetchPullRequest")(function* (pullRequestLookup: PullRequestLookup) {
+        const lookupResult = yield* Effect.result(lookUpPullRequest(pullRequestLookup));
+        if (Result.isFailure(lookupResult))
+          yield* Match.valueTags(lookupResult.failure, {
+            GitHubCliSignedOutError: (gitHubCliSignedOutError) => reportSignedOut(gitHubCliSignedOutError),
+            PullRequestNotFoundError: () => Effect.void
+          });
+
+        yield* storePullRequest({
+          pullRequestLookup,
+          pullRequestResult: Result.mapError(lookupResult, () =>
+            IGitHubCliInfraServiceErrors.PullRequestNotFoundError.make()
+          )
+        });
+      });
+
+      // A branch already waiting for its lookup isn't queued twice.
+      const refreshPullRequest = Effect.fn("refreshPullRequest")(function* (pullRequestLookup: PullRequestLookup) {
+        const lookupKey = yield* toLookupKey(pullRequestLookup);
+        const isPending = yield* Ref.modify(pendingLookupKeys, (currentPendingLookupKeys) => [
+          currentPendingLookupKeys.has(lookupKey),
+          new Set([...currentPendingLookupKeys, lookupKey])
+        ]);
+        if (isPending) return;
+
+        yield* Queue.offer(pullRequestLookups, pullRequestLookup);
+      });
+
+      const findPullRequest = Effect.fn("findPullRequest")(function* (pullRequestLookup: PullRequestLookup) {
+        const cachedPullRequestsByLookupKey = yield* Ref.get(cachedPullRequests);
+        const lookupKey = yield* toLookupKey(pullRequestLookup);
+        const cachedPullRequest = cachedPullRequestsByLookupKey.get(lookupKey);
+        if (cachedPullRequest !== undefined) return yield* Effect.fromResult(cachedPullRequest.pullRequestResult);
+        yield* refreshPullRequest(pullRequestLookup);
+
+        return yield* IGitHubCliInfraServiceErrors.PullRequestNotFoundError.make();
+      });
+
+      // Every branch looked up so far, at most once in GITHUB_CLI.REFRESH_INTERVAL_MS unless forced.
+      const refreshAllPullRequests = Effect.fn("refreshAllPullRequests")(function* (isForced: boolean) {
+        const refreshStartedAt = yield* Clock.currentTimeMillis;
+        const previousRefreshedAt = yield* Ref.get(lastRefreshedAt);
+        if (!isForced && refreshStartedAt - previousRefreshedAt < GITHUB_CLI.REFRESH_INTERVAL_MS) return;
+        yield* Ref.set(lastRefreshedAt, refreshStartedAt);
+        if (isForced) yield* Ref.set(isSignedOutReported, false);
+        const cachedPullRequestsByLookupKey = yield* Ref.get(cachedPullRequests);
+
+        yield* Effect.forEach(cachedPullRequestsByLookupKey.values(), (cachedPullRequest) =>
+          refreshPullRequest(cachedPullRequest.pullRequestLookup)
+        );
+      });
+
+      const openPullRequestInBrowser = Effect.fn("openPullRequestInBrowser")(function* (
+        pullRequest: BranchPullRequest
+      ) {
+        yield* Effect.promise(() => vsCodeApi.env.openExternal(vsCodeApi.Uri.parse(pullRequest.url)));
+      });
+
+      const openPullRequestInVsCode = Effect.fn("openPullRequestInVsCode")(function* (pullRequest: BranchPullRequest) {
+        const pullRequestsExtension = vsCodeApi.extensions.getExtension(GITHUB_PULL_REQUESTS_EXTENSION.ID);
+        yield* Effect.annotateCurrentSpan({hasPullRequestsExtension: pullRequestsExtension !== undefined});
+        if (pullRequestsExtension === undefined) return yield* openPullRequestInBrowser(pullRequest);
+        const pullRequestLink = vsCodeApi.Uri.from({
+          authority: GITHUB_PULL_REQUESTS_EXTENSION.ID,
+          path: GITHUB_PULL_REQUESTS_EXTENSION.OPEN_PULL_REQUEST_PATH,
+          query: new URLSearchParams({
+            [GITHUB_PULL_REQUESTS_EXTENSION.PULL_REQUEST_URL_PARAMETER]: pullRequest.url
+          }).toString(),
+          scheme: vsCodeApi.env.uriScheme
+        });
+
+        return yield* Effect.promise(() => vsCodeApi.env.openExternal(pullRequestLink));
+      });
+
+      // A focus back from the browser, where a pull request may have opened or merged, or the setup terminal closing.
+      const watchRefreshHints = Effect.fn("watchRefreshHints")(function* () {
+        const windowStateChanges = yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.window.onDidChangeWindowState);
+        const closedTerminals = yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.window.onDidCloseTerminal);
+        const refreshHints = Stream.merge(
+          Stream.as(
+            Stream.filter(windowStateChanges, (windowState) => windowState.focused),
+            false
+          ),
+          Stream.as(
+            Stream.filter(closedTerminals, (closedTerminal) => closedTerminal.name === SETUP_TERMINAL.NAME),
+            true
+          )
+        );
+
+        yield* Stream.runForEach(refreshHints, (isForced) => refreshAllPullRequests(isForced));
+      });
+
+      // In the layer's own fiber, a few at a time, so reading the list never waits on the network.
+      const runPullRequestLookups = Effect.fn("runPullRequestLookups")(function* () {
+        yield* Stream.runDrain(
+          Stream.mapEffect(
+            Stream.fromQueue(pullRequestLookups),
+            (pullRequestLookup) => fetchPullRequest(pullRequestLookup),
+            {concurrency: GITHUB_CLI.LOOKUP_CONCURRENCY}
+          )
+        );
+      });
+
+      yield* Effect.forkScoped(runPullRequestLookups());
+      yield* Effect.forkScoped(watchRefreshHints());
+
+      return {
+        findPullRequest,
+        gitHubCliSignedOutProblems: Stream.fromPubSub(gitHubCliSignedOutProblems),
+        listPullRequests,
+        openPullRequestInBrowser,
+        openPullRequestInVsCode,
+        pullRequestChangedFolderPaths: Stream.fromPubSub(pullRequestChanges),
+        refreshPullRequest
+      };
+    })
+  }
+) {
+  public static readonly layer = Layer.effect(
+    IGitHubCliInfraService,
+    ownSpans("GitHubCliInfraService", this.make())
+  ).pipe(Layer.provide([GitHubCliTransformer.layer, NodeServices.layer]));
 }
-
-const toLookupKey = Effect.fn("GitHubCliInfraService.toLookupKey")(function* (pullRequestLookup: PullRequestLookup) {
-  return `${pullRequestLookup.folderPath}\n${pullRequestLookup.pullRequestReference}`;
-});
-
-const runGitHubCli = Effect.fn("GitHubCliInfraService.runGitHubCli")(function* (
-  childProcessSpawner: ChildProcessSpawner["Service"],
-  gitHubCliArguments: readonly string[],
-  folderPath: ProjectPathValueObject
-) {
-  const gitHubCliProcess = yield* childProcessSpawner.spawn(
-    ChildProcess.make(GITHUB_CLI.COMMAND, gitHubCliArguments, {cwd: folderPath})
-  );
-  const [stdout, stderr, exitCode] = yield* Effect.all(
-    [
-      Stream.mkString(Stream.decodeText(gitHubCliProcess.stdout)),
-      Stream.mkString(Stream.decodeText(gitHubCliProcess.stderr)),
-      gitHubCliProcess.exitCode
-    ],
-    {concurrency: "unbounded"}
-  );
-
-  return {exitCode, stderr, stdout};
-}, Effect.scoped);
-
-// Exit code 1 covers no pull request, no GitHub remote and no repository; stderr says which. A hung gh is killed.
-const lookUpPullRequest = Effect.fn("GitHubCliInfraService.lookUpPullRequest")(
-  function* (childProcessSpawner: ChildProcessSpawner["Service"], pullRequestLookup: PullRequestLookup) {
-    yield* Effect.annotateCurrentSpan({
-      folderPath: pullRequestLookup.folderPath,
-      pullRequestReference: pullRequestLookup.pullRequestReference
-    });
-    const gitHubCliOutput = yield* runGitHubCli(
-      childProcessSpawner,
-      ["pr", "view", pullRequestLookup.pullRequestReference, "--json", GITHUB_CLI.PULL_REQUEST_FIELDS],
-      pullRequestLookup.folderPath
-    );
-    yield* Effect.annotateCurrentSpan({exitCode: gitHubCliOutput.exitCode, stderr: gitHubCliOutput.stderr});
-    if (gitHubCliOutput.exitCode === GITHUB_CLI.SIGNED_OUT_EXIT_CODE) return yield* GitHubCliSignedOutError.make();
-    if (gitHubCliOutput.exitCode !== EXIT_CODES.SUCCESSFUL) return yield* PullRequestNotFoundError.make();
-
-    return yield* toBranchPullRequest(gitHubCliOutput.stdout);
-  },
-  Effect.timeout(GITHUB_CLI.LOOKUP_TIMEOUT),
-  Effect.catchTags({
-    PlatformError: () => Effect.fail(PullRequestNotFoundError.make()),
-    SchemaError: () => Effect.fail(PullRequestNotFoundError.make()),
-    TimeoutError: () => Effect.fail(PullRequestNotFoundError.make())
-  })
-);
-
-const listPullRequests = Effect.fn("GitHubCliInfraService.listPullRequests")(
-  function* (childProcessSpawner: ChildProcessSpawner["Service"], folderPath: ProjectPathValueObject) {
-    yield* Effect.annotateCurrentSpan({folderPath});
-    const gitHubCliOutput = yield* runGitHubCli(
-      childProcessSpawner,
-      [
-        "pr",
-        "list",
-        "--state",
-        "all",
-        "--limit",
-        GITHUB_CLI.LISTED_PULL_REQUEST_LIMIT,
-        "--json",
-        GITHUB_CLI.LISTED_PULL_REQUEST_FIELDS
-      ],
-      folderPath
-    );
-    yield* Effect.annotateCurrentSpan({exitCode: gitHubCliOutput.exitCode, stderr: gitHubCliOutput.stderr});
-    if (gitHubCliOutput.exitCode === GITHUB_CLI.SIGNED_OUT_EXIT_CODE) return yield* GitHubCliSignedOutError.make();
-    if (gitHubCliOutput.exitCode !== EXIT_CODES.SUCCESSFUL) return yield* PullRequestListFailedError.make();
-
-    return yield* toListedPullRequests(gitHubCliOutput.stdout);
-  },
-  Effect.timeout(GITHUB_CLI.LOOKUP_TIMEOUT),
-  Effect.catchTags({
-    PlatformError: () => Effect.fail(PullRequestListFailedError.make()),
-    SchemaError: () => Effect.fail(PullRequestListFailedError.make()),
-    TimeoutError: () => Effect.fail(PullRequestListFailedError.make())
-  })
-);
-
-const reportSignedOut = Effect.fn("GitHubCliInfraService.reportSignedOut")(function* (
-  gitHubCliDependencies: GitHubCliDependencies,
-  gitHubCliSignedOutError: GitHubCliSignedOutError
-) {
-  const wasReported = yield* Ref.getAndSet(gitHubCliDependencies.isSignedOutReported, true);
-  if (wasReported) return;
-  yield* PubSub.publish(gitHubCliDependencies.gitHubCliSignedOutProblems, gitHubCliSignedOutError);
-});
-
-const toComparablePullRequest = Effect.fn("GitHubCliInfraService.toComparablePullRequest")(function* (
-  cachedPullRequest: CachedPullRequest | undefined
-) {
-  if (cachedPullRequest === undefined) return "";
-
-  return Result.match(cachedPullRequest.pullRequestResult, {
-    onFailure: () => "",
-    onSuccess: (pullRequest) => `${pullRequest.number}\n${pullRequest.state}\n${pullRequest.title}\n${pullRequest.url}`
-  });
-});
-
-// Only a change redraws: a branch with no pull request before or after leaves its rows alone.
-const storePullRequest = Effect.fn("GitHubCliInfraService.storePullRequest")(function* (
-  gitHubCliDependencies: GitHubCliDependencies,
-  cachedPullRequest: CachedPullRequest
-) {
-  const lookupKey = yield* toLookupKey(cachedPullRequest.pullRequestLookup);
-  const cachedPullRequests = yield* Ref.get(gitHubCliDependencies.cachedPullRequests);
-  const previousComparable = yield* toComparablePullRequest(cachedPullRequests.get(lookupKey));
-  const nextComparable = yield* toComparablePullRequest(cachedPullRequest);
-  yield* Ref.set(
-    gitHubCliDependencies.cachedPullRequests,
-    new Map(cachedPullRequests).set(lookupKey, cachedPullRequest)
-  );
-  yield* Ref.update(
-    gitHubCliDependencies.pendingLookupKeys,
-    (pendingLookupKeys) =>
-      new Set(Array.filter([...pendingLookupKeys], (pendingLookupKey) => pendingLookupKey !== lookupKey))
-  );
-  if (previousComparable === nextComparable) return;
-
-  yield* PubSub.publish(gitHubCliDependencies.pullRequestChanges, cachedPullRequest.pullRequestLookup.folderPath);
-});
-
-const fetchPullRequest = Effect.fn("GitHubCliInfraService.fetchPullRequest")(function* (
-  gitHubCliDependencies: GitHubCliDependencies,
-  pullRequestLookup: PullRequestLookup
-) {
-  const lookupResult = yield* Effect.result(
-    lookUpPullRequest(gitHubCliDependencies.childProcessSpawner, pullRequestLookup)
-  );
-  if (Result.isFailure(lookupResult))
-    yield* Match.valueTags(lookupResult.failure, {
-      GitHubCliSignedOutError: (gitHubCliSignedOutError) =>
-        reportSignedOut(gitHubCliDependencies, gitHubCliSignedOutError),
-      PullRequestNotFoundError: () => Effect.void
-    });
-
-  yield* storePullRequest(gitHubCliDependencies, {
-    pullRequestLookup,
-    pullRequestResult: Result.mapError(lookupResult, () => PullRequestNotFoundError.make())
-  });
-});
-
-// A branch already waiting for its lookup isn't queued twice.
-const refreshPullRequest = Effect.fn("GitHubCliInfraService.refreshPullRequest")(function* (
-  gitHubCliDependencies: GitHubCliDependencies,
-  pullRequestLookup: PullRequestLookup
-) {
-  const lookupKey = yield* toLookupKey(pullRequestLookup);
-  const isPending = yield* Ref.modify(gitHubCliDependencies.pendingLookupKeys, (pendingLookupKeys) => [
-    pendingLookupKeys.has(lookupKey),
-    new Set([...pendingLookupKeys, lookupKey])
-  ]);
-  if (isPending) return;
-
-  yield* Queue.offer(gitHubCliDependencies.pullRequestLookups, pullRequestLookup);
-});
-
-const findPullRequest = Effect.fn("GitHubCliInfraService.findPullRequest")(function* (
-  gitHubCliDependencies: GitHubCliDependencies,
-  pullRequestLookup: PullRequestLookup
-) {
-  const cachedPullRequests = yield* Ref.get(gitHubCliDependencies.cachedPullRequests);
-  const lookupKey = yield* toLookupKey(pullRequestLookup);
-  const cachedPullRequest = cachedPullRequests.get(lookupKey);
-  if (cachedPullRequest !== undefined) return yield* Effect.fromResult(cachedPullRequest.pullRequestResult);
-  yield* refreshPullRequest(gitHubCliDependencies, pullRequestLookup);
-
-  return yield* PullRequestNotFoundError.make();
-});
-
-// Every branch looked up so far, at most once in GITHUB_CLI.REFRESH_INTERVAL_MS unless forced.
-const refreshAllPullRequests = Effect.fn("GitHubCliInfraService.refreshAllPullRequests")(function* (
-  gitHubCliDependencies: GitHubCliDependencies,
-  isForced: boolean
-) {
-  const refreshStartedAt = yield* Clock.currentTimeMillis;
-  const lastRefreshedAt = yield* Ref.get(gitHubCliDependencies.lastRefreshedAt);
-  if (!isForced && refreshStartedAt - lastRefreshedAt < GITHUB_CLI.REFRESH_INTERVAL_MS) return;
-  yield* Ref.set(gitHubCliDependencies.lastRefreshedAt, refreshStartedAt);
-  if (isForced) yield* Ref.set(gitHubCliDependencies.isSignedOutReported, false);
-  const cachedPullRequests = yield* Ref.get(gitHubCliDependencies.cachedPullRequests);
-
-  yield* Effect.forEach(cachedPullRequests.values(), (cachedPullRequest) =>
-    refreshPullRequest(gitHubCliDependencies, cachedPullRequest.pullRequestLookup)
-  );
-});
-
-const openPullRequestInBrowser = Effect.fn("GitHubCliInfraService.openPullRequestInBrowser")(function* (
-  vsCodeApi: VsCodeApi["Service"],
-  pullRequest: BranchPullRequest
-) {
-  yield* Effect.promise(() => vsCodeApi.env.openExternal(vsCodeApi.Uri.parse(pullRequest.url)));
-});
-
-const openPullRequestInVsCode = Effect.fn("GitHubCliInfraService.openPullRequestInVsCode")(function* (
-  vsCodeApi: VsCodeApi["Service"],
-  pullRequest: BranchPullRequest
-) {
-  const pullRequestsExtension = vsCodeApi.extensions.getExtension(GITHUB_PULL_REQUESTS_EXTENSION.ID);
-  yield* Effect.annotateCurrentSpan({hasPullRequestsExtension: pullRequestsExtension !== undefined});
-  if (pullRequestsExtension === undefined) return yield* openPullRequestInBrowser(vsCodeApi, pullRequest);
-  const pullRequestLink = vsCodeApi.Uri.from({
-    authority: GITHUB_PULL_REQUESTS_EXTENSION.ID,
-    path: GITHUB_PULL_REQUESTS_EXTENSION.OPEN_PULL_REQUEST_PATH,
-    query: new URLSearchParams({
-      [GITHUB_PULL_REQUESTS_EXTENSION.PULL_REQUEST_URL_PARAMETER]: pullRequest.url
-    }).toString(),
-    scheme: vsCodeApi.env.uriScheme
-  });
-
-  return yield* Effect.promise(() => vsCodeApi.env.openExternal(pullRequestLink));
-});
-
-// A focus back from the browser, where a pull request may have opened or merged, or the setup terminal closing.
-const watchRefreshHints = Effect.fn("GitHubCliInfraService.watchRefreshHints")(function* (
-  gitHubCliDependencies: GitHubCliDependencies
-) {
-  const windowStateChanges = yield* streamVsCodeEvent(gitHubCliDependencies.vsCodeApi.window.onDidChangeWindowState);
-  const closedTerminals = yield* streamVsCodeEvent(gitHubCliDependencies.vsCodeApi.window.onDidCloseTerminal);
-  const refreshHints = Stream.merge(
-    Stream.as(
-      Stream.filter(windowStateChanges, (windowState) => windowState.focused),
-      false
-    ),
-    Stream.as(
-      Stream.filter(closedTerminals, (closedTerminal) => closedTerminal.name === SETUP_TERMINAL.NAME),
-      true
-    )
-  );
-
-  yield* Stream.runForEach(refreshHints, (isForced) => refreshAllPullRequests(gitHubCliDependencies, isForced));
-});
-
-// In the layer's own fiber, a few at a time, so reading the list never waits on the network.
-const runPullRequestLookups = Effect.fn("GitHubCliInfraService.runPullRequestLookups")(function* (
-  gitHubCliDependencies: GitHubCliDependencies
-) {
-  yield* Stream.runDrain(
-    Stream.mapEffect(
-      Stream.fromQueue(gitHubCliDependencies.pullRequestLookups),
-      (pullRequestLookup) => fetchPullRequest(gitHubCliDependencies, pullRequestLookup),
-      {concurrency: GITHUB_CLI.LOOKUP_CONCURRENCY}
-    )
-  );
-});
-
-const makeGitHubCliDependencies = Effect.fn("GitHubCliInfraService.makeGitHubCliDependencies")(function* () {
-  const gitHubCliDependencies: GitHubCliDependencies = {
-    cachedPullRequests: yield* Ref.make<ReadonlyMap<string, CachedPullRequest>>(new Map()),
-    childProcessSpawner: yield* ChildProcessSpawner,
-    gitHubCliSignedOutProblems: yield* PubSub.unbounded<GitHubCliSignedOutError>(),
-    isSignedOutReported: yield* Ref.make(false),
-    lastRefreshedAt: yield* Ref.make(0),
-    pendingLookupKeys: yield* Ref.make<ReadonlySet<string>>(new Set()),
-    pullRequestChanges: yield* PubSub.unbounded<ProjectPathValueObject>(),
-    pullRequestLookups: yield* Queue.unbounded<PullRequestLookup>(),
-    vsCodeApi: yield* VsCodeApi
-  };
-
-  return gitHubCliDependencies;
-});
-
-const makeGitHubCliInfraService = Effect.fn("GitHubCliInfraService.make")(function* () {
-  const gitHubCliDependencies = yield* makeGitHubCliDependencies();
-  yield* Effect.forkScoped(runPullRequestLookups(gitHubCliDependencies));
-  yield* Effect.forkScoped(watchRefreshHints(gitHubCliDependencies));
-
-  return {
-    findPullRequest: (pullRequestLookup: PullRequestLookup) =>
-      findPullRequest(gitHubCliDependencies, pullRequestLookup),
-    gitHubCliSignedOutProblems: Stream.fromPubSub(gitHubCliDependencies.gitHubCliSignedOutProblems),
-    listPullRequests: (folderPath: ProjectPathValueObject) =>
-      listPullRequests(gitHubCliDependencies.childProcessSpawner, folderPath),
-    openPullRequestInBrowser: (pullRequest: BranchPullRequest) =>
-      openPullRequestInBrowser(gitHubCliDependencies.vsCodeApi, pullRequest),
-    openPullRequestInVsCode: (pullRequest: BranchPullRequest) =>
-      openPullRequestInVsCode(gitHubCliDependencies.vsCodeApi, pullRequest),
-    pullRequestChangedFolderPaths: Stream.fromPubSub(gitHubCliDependencies.pullRequestChanges),
-    refreshPullRequest: (pullRequestLookup: PullRequestLookup) =>
-      refreshPullRequest(gitHubCliDependencies, pullRequestLookup)
-  };
-});
-
-export const GitHubCliInfraService = Layer.effect(IGitHubCliInfraService, makeGitHubCliInfraService());

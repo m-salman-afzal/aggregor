@@ -75,21 +75,36 @@ Effect rules below are the extension's. F5 draws it from Vite's dev server, so a
 
 ## Effect
 
-Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (`Either` is now `Result`,
+Effect here is `4.1.4`. Most Effect material online is v3 and the names differ (`Either` is now `Result`,
 `Effect.either` is `Effect.result`, `Effect.catchAll` is `Effect.catch`). Check `node_modules/effect/dist/*.d.ts` and
 `node_modules/effect/ai-docs/` before using an API.
 
 - **Every Effect rule is an error in the extension source.** `@effect/tsgo` checks them in `pnpm typecheck` and the
   editor; `packages/tsconfigs/tsconfig.base.json` lists each rule, and one turned off says why there.
 - **Every function is an `Effect.fn`**, which gives it its span, even one that only builds a stream, so the trace shows
-  it ran. Lint checks every top-level function in the extension source; one nested in an `Effect.fn` is its callback.
-  The exceptions carry an `eslint-disable` with the reason: the trace log's formatters, which run while a span ends, and
-  `activate`. Error handling and other combinators go in `Effect.fn`'s extra arguments after the body, not in a `.pipe`;
-  handling that only one caller needs gets its own small `Effect.fn`. A layer's body is a named `Effect.fn` such as
-  `makeTerminalInfraService`, passed to `Layer.effect`. A service member that takes no arguments is an `Effect`, not a
-  function: `make` calls its `Effect.fn` once (`readSettings: readSettings(getConfiguration)`), and every run still gets
-  its own span. `.pipe` is only for what is not a function: layers, streams and schedules. Lint bans `Effect.gen` and
-  `Effect.withSpan`.
+  it ran. Lint checks every function at the top of a file in the extension source; one nested in an `Effect.fn` is its
+  callback. The exceptions carry an `eslint-disable` with the reason: `activate` and `deactivate`, which VS Code calls,
+  `ownSpans`' combinators, which wrap every call into a unit, and `TaggedErrors`, which builds a file's errors class
+  when the file loads, outside any effect. Error handling and other combinators go in `Effect.fn`'s extra arguments
+  after the body, not in a `.pipe`; handling that only one caller needs gets its own small `Effect.fn`. A service member
+  that takes no arguments is an `Effect`, not a function: `make` calls its `Effect.fn` once
+  (`readSettings: readSettings()`), and every run still gets its own span. `.pipe` is only for what is not a function:
+  layers, streams and schedules. Lint bans `Effect.gen` and `Effect.withSpan`.
+- **A file that holds functions is a unit.** It exports one `Context.Service` class in the form Effect's docs use, whose
+  `make: Effect.fn("make")(…)` yields the unit's dependencies once at its top and holds each of its functions as a
+  const, and whose `static layer` is `Layer.effect(this, ownSpans("<Owner>", this.make()))`
+  (`application/services/commitMessage.service.ts`). A port's implementation is a class too, whose layer provides its
+  port: `Layer.effect(IPort, ownSpans("<Owner>", this.make()))` (`userInputPrompt.infraService.ts`). A function inside
+  `make` yields no service, and none takes a service, a ref or a `…Dependencies` object as a parameter: state lives in
+  the `make` of the unit that owns it. Lint bans a top-level `Effect.fn` everywhere in the extension and `@pkg/vscode`;
+  only `activate`, `deactivate`, `ownSpans` and `TaggedErrors` are plain functions. `BaseService` and `BaseRepository`
+  bind a repository or a table with `makeFor`, called at the top of a `make`. DDD.md's Dependency injection has the
+  rest, and the levels each layer is merged into.
+- **A file's errors are one class.** `<Owner>Errors extends TaggedErrors({...})` (`@pkg/errors`), above the file's other
+  classes, with each error's tag as a key: `ITmuxInfraServiceErrors.TmuxUnavailableError.make({})` makes one, and
+  `ITmuxInfraServiceErrors["TmuxUnavailableError"]` is its type. Each keeps its own tag and type, so `Effect.catchTag`
+  and `Match.valueTags` take each error on its own. Lint bans a `Schema.TaggedError` class; DDD.md's Errors has the
+  rest.
 - **No `?.` and no `??`.** Check the value explicitly, or take a default with `Result.getOrElse` or `UndefinedOr.match`.
   Lint bans both.
 - **Match on tags.** Branch on a tagged value with `Match.valueTags`, or `Match.value` and `Match.exhaustive` for a
@@ -98,18 +113,26 @@ Effect here is `4.1.0`. Most Effect material online is v3 and the names differ (
 - **`Result`, never `Option`.** A value that can be missing is a `Result`, or an effect that fails, whose tagged error
   says why it is missing. Turn an `Option` that an Effect API returns into a `Result` right there with
   `Result.fromOption`. Lint bans importing `Option`.
-- **Small functions.** Give each function one job, so each shows up as its own span; lint caps a function at 30 lines.
-  Functions sit at module level and take the state they share (refs, VS Code handles) as parameters. A layer's `make`
-  function only creates that state, starts its watchers and wires up the service.
+- **Small functions.** Give each function one job, so each shows up as its own span; lint caps a function at 30 lines. A
+  `make`, or a `make<Name>` const such as `makeFor`, that holds its unit's functions is exempt, and they read the state
+  they share (refs, VS Code handles, the unit's dependencies) from it; a long `make` is fine, and a class is divided
+  where its parts clearly belong apart.
 
 ## Traces
 
-Every command runs as a root span named by its command ID, and each `Effect.fn` it calls is a child span. A span is
-named `<owner>.<const>`: the owner comes from the file name (`session.service.ts` is `SessionService`'s), a helper file
-belongs to the one owner in its folder, a layer's `make<Owner>` is `<Owner>.make`, and a file with no owner gives the
-bare const name. `aggregor/span-name` (`packages/eslint/src/rules/`) checks every name, and `pnpm lint:fix` corrects it.
-Finished spans and Effect logs go to the **Aggregor App** output channel, one trace-level line per span, with each
-failure's fields and what the span was annotated with (`Effect.annotateCurrentSpan`):
+Every command runs as a root span named by its command ID, and each `Effect.fn` it calls is a child span. Every file
+with a role is its own owner, named by its file (`session.service.ts` is `SessionService`, `terminal.utils.ts`
+`TerminalUtils`, `backgroundJobs.layer.ts` `BackgroundJobs`). An `Effect.fn` inside a `make` takes its const's name
+alone, and a class's `make` is `make`: `ownSpans` marks each span with the unit, and the trace log prints it in front,
+so the line reads `<Owner>.<name>`. An effect, a stream or a callback handed to a unit as an argument keeps its caller's
+mark: `CommitMessageService.writeCommitMessage` prints under its own name although
+`VscodeUtils.runWithProgressIndicator` runs it, and a command handler's spans stay its controller's although
+`RegisterCommandMiddleware` runs it. A library's span with an undotted name takes the unit it ran in
+(`BaseRepository.sqlite`). `aggregor/span-name` (`packages/eslint/src/rules/`) checks every name and each `ownSpans`
+owner, and `pnpm lint:fix` corrects them. Startup nests under one span per level: `Domain`, `Infrastructure`
+(`Infrastructure > Database.make`), `Application` (the background jobs under `Application > BackgroundJobs.make`) and
+`Presentation`. Finished spans and Effect logs go to the **Aggregor App** output channel, one trace-level line per span,
+with each failure's fields and what the span was annotated with (`Effect.annotateCurrentSpan`):
 `aggregorApp.openSession > SessionController.openChosenSession > SessionService.openSession > TerminalInfraService.focusSessionTerminal 0.8ms failed: TerminalNotFoundError sessionId=…`.
 A failure a caller handles still shows on the span that failed, so annotate a span with what its outcome depends on
 rather than logging it. Work a layer starts in the background, such as a watcher, nests under that layer's `make` span.

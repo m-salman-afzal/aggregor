@@ -32,6 +32,7 @@ export const TRACE_LOGGING = {
   FORCED_LINE: (logMethod: string, logLine: string) => `[${logMethod}] ${logLine}`,
   LINE_BREAK_PATTERN: /\s*\n\s*/gu,
   SETTING: "traceLogging",
+  SPAN_OWNER_ATTRIBUTE: "owner",
   TYPE_MARKER_PREFIX: "~",
   VALUE_DEPTH: 3
 } as const;

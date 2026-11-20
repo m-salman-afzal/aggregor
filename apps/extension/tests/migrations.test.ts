@@ -1,6 +1,6 @@
 import {NodeServices} from "@effect/platform-node";
 import {SqliteClient} from "@effect/sql-sqlite-node";
-import {applyPendingMigrations} from "@infraUtils/database.utils.ts";
+import {DatabaseUtils} from "@infraUtils/database.utils.ts";
 import {DATABASE_BACKUP, DATABASE_FILE, MIGRATIONS} from "@pkg/constants/src/database.constant.ts";
 import {Array, Effect, Order, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
@@ -269,12 +269,13 @@ const checkUpgradeFrom = Effect.fn("checkUpgradeFrom")(function* (
   appliedMigrationCount: number
 ) {
   const fileSystem = yield* FileSystem;
-  yield* applyPendingMigrations(yield* copyEarlierMigrations(testFolderPath, appliedMigrationCount));
+  const databaseUtils = yield* DatabaseUtils;
+  yield* databaseUtils.applyPendingMigrations(yield* copyEarlierMigrations(testFolderPath, appliedMigrationCount));
   yield* seedEveryTable(yield* readStoredTables());
   yield* fileSystem.writeFileString(join(testFolderPath, OLDER_BACKUP_FILE_NAME), "");
   const snapshotsBefore = yield* readTableSnapshots();
 
-  yield* applyPendingMigrations(MIGRATIONS_FOLDER_PATH);
+  yield* databaseUtils.applyPendingMigrations(MIGRATIONS_FOLDER_PATH);
   const snapshotsAfter = yield* readTableSnapshots();
   yield* expectEveryRowKept(snapshotsBefore, snapshotsAfter);
   yield* expectNewColumnsAtDefault(snapshotsBefore, snapshotsAfter);
@@ -282,14 +283,15 @@ const checkUpgradeFrom = Effect.fn("checkUpgradeFrom")(function* (
   yield* expectBackupOfRowsBefore(testFolderPath, appliedMigrationCount, snapshotsBefore);
   const backupFileNames = yield* listBackupFileNames(testFolderPath);
 
-  yield* applyPendingMigrations(MIGRATIONS_FOLDER_PATH);
+  yield* databaseUtils.applyPendingMigrations(MIGRATIONS_FOLDER_PATH);
   expect(yield* readTableSnapshots()).toStrictEqual(snapshotsAfter);
   expect(yield* listBackupFileNames(testFolderPath)).toStrictEqual(backupFileNames);
 });
 
 // A new database holds nothing to back up.
 const checkNewDatabase = Effect.fn("checkNewDatabase")(function* (testFolderPath: string) {
-  yield* applyPendingMigrations(MIGRATIONS_FOLDER_PATH);
+  const databaseUtils = yield* DatabaseUtils;
+  yield* databaseUtils.applyPendingMigrations(MIGRATIONS_FOLDER_PATH);
   yield* expectDatabaseIntact();
   expect(yield* listBackupFileNames(testFolderPath)).toStrictEqual([]);
 });
@@ -298,7 +300,7 @@ const runInTestFolder = Effect.fn("runInTestFolder")(
   function* (
     check: (
       testFolderPath: string
-    ) => Effect.Effect<void, unknown, FileSystem | Path | SqlClient | SqliteClient.SqliteClient>
+    ) => Effect.Effect<void, unknown, DatabaseUtils | FileSystem | Path | SqlClient | SqliteClient.SqliteClient>
   ) {
     const fileSystem = yield* FileSystem;
     const testFolderPath = yield* fileSystem.makeTempDirectoryScoped();
@@ -307,7 +309,7 @@ const runInTestFolder = Effect.fn("runInTestFolder")(
     yield* Effect.provide(check(testFolderPath), databaseLayer);
   },
   Effect.scoped,
-  Effect.provide(NodeServices.layer)
+  Effect.provide([DatabaseUtils.layer, NodeServices.layer])
 );
 
 describe("migrations", () => {

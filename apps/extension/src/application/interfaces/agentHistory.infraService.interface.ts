@@ -1,3 +1,4 @@
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
 import {Context, Schema} from "effect";
 
@@ -12,16 +13,12 @@ export interface AgentConversation {
   readonly updatedAtMillis: number;
 }
 
-// Aggregor reads no history for this agent: Antigravity resumes only its latest conversation, and custom agents vary.
-export class AgentHistoryNotReadError extends Schema.TaggedError<
-  AgentHistoryNotReadError,
-  {readonly brand: unique symbol}
->()("AgentHistoryNotReadError", {agentId: AgentIdValueObjectSchema}) {}
-// The agent's store is missing, or isn't in the shape Aggregor reads; the span says which.
-export class AgentHistoryReadFailedError extends Schema.TaggedError<
-  AgentHistoryReadFailedError,
-  {readonly brand: unique symbol}
->()("AgentHistoryReadFailedError", {agentId: AgentIdValueObjectSchema, cause: Schema.Unknown}) {}
+export class IAgentHistoryInfraServiceErrors extends TaggedErrors({
+  // Aggregor reads no history for this agent: Antigravity resumes only its latest conversation, and custom agents vary.
+  AgentHistoryNotReadError: {agentId: AgentIdValueObjectSchema},
+  // The agent's store is missing, or isn't in the shape Aggregor reads; the span says which.
+  AgentHistoryReadFailedError: {agentId: AgentIdValueObjectSchema, cause: Schema.Unknown}
+}) {}
 
 // Read from each agent's own store when asked, so a conversation had since shows up.
 export class IAgentHistoryInfraService extends Context.Service<
@@ -30,6 +27,9 @@ export class IAgentHistoryInfraService extends Context.Service<
     readonly listAgentConversations: (
       agentId: AgentIdValueObject,
       folderPath: ProjectPathValueObject
-    ) => Effect.Effect<readonly AgentConversation[], AgentHistoryNotReadError | AgentHistoryReadFailedError>;
+    ) => Effect.Effect<
+      readonly AgentConversation[],
+      IAgentHistoryInfraServiceErrors["AgentHistoryNotReadError" | "AgentHistoryReadFailedError"]
+    >;
   }
 >()("aggregor-app/application/interfaces/agentHistory.infraService.interface/IAgentHistoryInfraService") {}

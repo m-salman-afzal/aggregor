@@ -1,16 +1,22 @@
+const UNIT_CLASS_NAME = (roleSuffix: string) => [
+  {filter: {match: false, regex: "Errors$"}, format: ["PascalCase"], selector: "class", suffix: [roleSuffix]}
+];
+
 export const ROLE_NAMES = {
+  "**/*.controller.ts": UNIT_CLASS_NAME("Controller"),
+  "**/*.domainService.ts": UNIT_CLASS_NAME("DomainService"),
   "**/*.dto.ts": [
     {format: ["PascalCase"], selector: ["typeAlias", "interface"], suffix: ["Dto"]},
     {format: ["PascalCase"], modifiers: ["exported"], selector: "variable", suffix: ["DtoSchema"]}
   ],
   "**/*.entity.ts": [{format: ["PascalCase"], selector: "class", suffix: ["Entity"]}],
-  "**/*.infraService.ts": [
-    {format: ["PascalCase"], modifiers: ["exported"], selector: "variable", suffix: ["InfraService"]}
-  ],
+  "**/*.errorMessage.ts": UNIT_CLASS_NAME("ErrorMessage"),
+  "**/*.infraService.ts": UNIT_CLASS_NAME("InfraService"),
   "**/*.interface.ts": [
-    {filter: {match: false, regex: "Error$"}, format: ["PascalCase"], prefix: ["I"], selector: "class"}
+    {filter: {match: false, regex: "Errors$"}, format: ["PascalCase"], prefix: ["I"], selector: "class"}
   ],
   "**/*.layer.ts": [{format: ["PascalCase"], modifiers: ["exported"], selector: "variable", suffix: ["Layer"]}],
+  "**/*.middleware.ts": UNIT_CLASS_NAME("Middleware"),
   "**/*.model.ts": [
     {
       filter: {match: false, regex: "^[A-Z0-9_]+$"},
@@ -20,6 +26,10 @@ export const ROLE_NAMES = {
       suffix: ["Model"]
     }
   ],
+  "**/*.repository.ts": UNIT_CLASS_NAME("Repository"),
+  "**/*.service.ts": UNIT_CLASS_NAME("Service"),
+  "**/*.transformer.ts": UNIT_CLASS_NAME("Transformer"),
+  "**/*.utils.ts": UNIT_CLASS_NAME("Utils"),
   // An enum value object's values go out as an UPPER_CASE constant beside its schema (AGENT_STATUSES).
   "**/*.valueObject.ts": [
     {format: ["PascalCase"], selector: ["typeAlias", "interface"], suffix: ["ValueObject"]},
@@ -31,17 +41,6 @@ export const ROLE_NAMES = {
       suffix: ["ValueObjectSchema"]
     }
   ],
-  "**/*.view.ts": [{format: ["PascalCase"], modifiers: ["exported"], selector: "variable", suffix: ["View"]}],
-  "infrastructure/config/*.config.ts": [
-    {format: ["PascalCase"], modifiers: ["exported"], selector: "variable", suffix: ["Config"]}
-  ],
-  // A repository's layer, or makeBaseRepository, which every repository builds on.
-  "infrastructure/repositories/**/*.repository.ts": [
-    {
-      custom: {match: true, regex: "^(make)?[A-Z]\\w*Repository$"},
-      format: null,
-      modifiers: ["exported"],
-      selector: "variable"
-    }
-  ]
+  "**/*.view.ts": UNIT_CLASS_NAME("View"),
+  "infrastructure/config/*.config.ts": UNIT_CLASS_NAME("Config")
 };

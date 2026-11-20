@@ -180,20 +180,20 @@ Where a session's agent runs, its tab, and resuming it.
 - **Decision:** inside `infrastructure/services/tmux/`, `tmuxServer.utils.ts` holds tmux in tmux's own terms and knows
   nothing of Aggregor: sessions by name, and clients by the process id of the terminal that runs them.
   `sessionAgent.utils.ts` and `folderShell.utils.ts` each say what one kind of tmux session is, on top of it: what it is
-  named, the command that starts it, when it ends. `tmux.infraService.ts` builds what they share and wires the port. The
-  port stays one, `ITmuxInfraService`, and its members stay named for what a use case asks (stop a session's agent, show
-  a folder's shell in a terminal), never for a tmux command. Each tmux command is written once, and a new kind of thing
-  in tmux is a file beside the two, not a longer one.
+  named, the command that starts it, when it ends. `tmux.infraService.ts` wires the port on them. The port stays one,
+  `ITmuxInfraService`, and its members stay named for what a use case asks (stop a session's agent, show a folder's
+  shell in a terminal), never for a tmux command. Each tmux command is written once, and a new kind of thing in tmux is
+  a file beside the two, not a longer one.
 - **Solution:**
   - `tmuxServer.utils.ts`: `runTmuxCommand` (a command's lines), `runCheckedTmuxCommand` (fails on tmux's exit code,
     since reading lines succeeds whatever tmux answers), `checkTmuxVersion`, `listTmuxSessionNames`, `listTmuxClients`
     and `findTmuxClient`, `switchTmuxClient` (`switch-client -E`), `killTmuxSession`, `prepareTerminalCommand` (the
     command a terminal runs: tmux on Aggregor's socket with its config, in a scope of its own),
     `prepareOwnScopeArguments` (the scope for what runs inside tmux), `probeOwnScope` and `escapeTmuxFormat`.
-  - `TmuxServer` (`tmux.infraService.type.ts`) is what every call needs: the socket, the config, the process spawner and
-    whether a scope can be made. `TmuxDependencies` adds what only agents need: the database's path, `aggregor-pty`'s
-    and the running sessions.
-  - Every span in the folder is `TmuxInfraService.‹const›`, since a helper file belongs to its folder's one owner.
+  - Each file is a unit. `TmuxServerUtils` holds what every call needs in its `make`: the socket, the config, the
+    process spawner and whether a scope can be made. `SessionAgentUtils` holds what only agents need in its own: the
+    database's path, `aggregor-pty`'s, and the running sessions.
+  - Each file's spans carry its own name (`TmuxServerUtils.runTmuxCommand`, `SessionAgentUtils.…`).
   - A window reads `tmux.conf` into a running server when the server has any session, a shell's or an agent's.
 - **Alternatives considered:** a second port, `IFolderShellInfraService`, with a layer of its own: the two layers would
   each probe the scope and hold the socket, or share them through a service only infrastructure uses, which `DDD.md` has

@@ -1,8 +1,10 @@
-const TAGGED_ERROR_CLASS =
+const SCHEMA_TAGGED_ERROR_CLASS =
   "ClassDeclaration[superClass.callee.callee.object.name='Schema'][superClass.callee.callee.property.name='TaggedError']";
-const EXPORTED_TAGGED_ERROR_CLASS =
-  "ExportNamedDeclaration[declaration.superClass.callee.callee.object.name='Schema']" +
-  "[declaration.superClass.callee.callee.property.name='TaggedError']";
+const ERRORS_CLASS = "ClassDeclaration[superClass.type='CallExpression'][superClass.callee.name='TaggedErrors']";
+const EXPORTED_ERRORS_CLASS = "ExportNamedDeclaration[declaration.superClass.callee.name='TaggedErrors']";
+const TOP_LEVEL_ERRORS_CLASS = `:matches(${ERRORS_CLASS}, ${EXPORTED_ERRORS_CLASS})`;
+const EXPORTED_CODE =
+  "ExportNamedDeclaration[declaration.type=/^(VariableDeclaration|FunctionDeclaration|ClassDeclaration)$/]";
 
 // A front end without Effect, apps/webview, leaves these out.
 export const EFFECT_SYNTAX_BANS = [
@@ -48,24 +50,57 @@ export const TAG_LITERAL_BAN = {
   selector: "Property[key.name='_tag'] > Literal.value, TSPropertySignature[key.name='_tag'] TSLiteralType"
 };
 
-export const GENERAL_SYNTAX_BANS = [
+export const ERRORS_CLASS_BANS = [
   {
-    message: "Declare errors at the top of the file, after the imports and types.",
+    message:
+      "Declare an error as a key of the file's …Errors class (`SessionServiceErrors extends TaggedErrors({...})`), " +
+      "not as a Schema.TaggedError class of its own, so every error the unit raises sits in one place.",
+    selector: SCHEMA_TAGGED_ERROR_CLASS
+  },
+  {
+    message:
+      "Name the class that extends TaggedErrors after the file's unit or port class plus Errors (`SessionServiceErrors`, " +
+      "`ITerminalInfraServiceErrors`), so a reader knows whose errors it holds.",
+    selector: `${ERRORS_CLASS}:not([id.name=/Errors$/])`
+  },
+  {
+    message:
+      "Leave the …Errors class's body empty: TaggedErrors builds every error from its object, and the class only " +
+      "names them. Put the behaviour in the unit that raises the error.",
+    selector: `${ERRORS_CLASS} > ClassBody > *`
+  },
+  {
+    message:
+      "Pass TaggedErrors one object literal whose keys are the errors' tags, each ending in Error " +
+      "(`TmuxUnavailableError: {foundVersion: Schema.String}`): the key is the tag that traces, catchTag and Match read.",
+    selector:
+      `${ERRORS_CLASS} > CallExpression.superClass > :not(ObjectExpression).arguments, ` +
+      `${ERRORS_CLASS} > CallExpression.superClass > ObjectExpression.arguments > :not(Property[key.name=/Error$/])`
+  },
+  {
+    message:
+      "A file holds one …Errors class: move this class's errors into the first one as keys, so every error the unit " +
+      "raises sits in one place.",
+    selector: `Program > ${TOP_LEVEL_ERRORS_CLASS} ~ ${TOP_LEVEL_ERRORS_CLASS}`
+  },
+  {
+    message:
+      "Declare the …Errors class at the top of the file, after the imports and types and above the file's other " +
+      "classes, so a reader sees how the unit fails before how it works.",
     selector:
       "Program > :matches(VariableDeclaration, FunctionDeclaration, ExpressionStatement, ExportDefaultDeclaration, " +
-      `ClassDeclaration:not(${TAGGED_ERROR_CLASS}), ` +
-      "ExportNamedDeclaration[declaration.type=/^(VariableDeclaration|FunctionDeclaration)$/], " +
-      `ExportNamedDeclaration[declaration.type='ClassDeclaration']:not(${EXPORTED_TAGGED_ERROR_CLASS})) ~ ` +
-      `:matches(${TAGGED_ERROR_CLASS}, ${EXPORTED_TAGGED_ERROR_CLASS})`
-  },
-  {message: "End an error class's name in Error.", selector: `${TAGGED_ERROR_CLASS}:not([id.name=/Error$/])`},
+      `ClassDeclaration:not(${ERRORS_CLASS}), ${EXPORTED_CODE}:not(${EXPORTED_ERRORS_CLASS})) ~ ${TOP_LEVEL_ERRORS_CLASS}`
+  }
+];
+
+export const GENERAL_SYNTAX_BANS = [
   {message: "Import by name: list what the file takes from the module.", selector: "ImportNamespaceSpecifier"},
   {message: "No else: return early from the if instead.", selector: "IfStatement[alternate]"},
   OBJECT_DESTRUCTURING_BAN,
   TAG_LITERAL_BAN
 ];
 
-export const SYNTAX_BANS = [...EFFECT_SYNTAX_BANS, ...GENERAL_SYNTAX_BANS];
+export const SYNTAX_BANS = [...EFFECT_SYNTAX_BANS, ...ERRORS_CLASS_BANS, ...GENERAL_SYNTAX_BANS];
 
 export const CONSTANT_BANS = [
   {
@@ -120,26 +155,84 @@ export const EXPORTED_TYPE_BAN = {
   message: "Export types from a .type.ts or .interface.ts file; only a value object's type stays in its own file.",
   selector: "ExportNamedDeclaration > :matches(TSTypeAliasDeclaration, TSInterfaceDeclaration)"
 };
+const SERVICE_CLASS =
+  "ClassDeclaration[superClass.callee.callee.object.name='Context'][superClass.callee.callee.property.name='Service']";
 export const SERVICE_CLASS_BAN = {
-  message: "A Context.Service is an interface: declare it in a .interface.ts file.",
+  message:
+    "A Context.Service class is either a port, declared in a .interface.ts file, or a unit whose make holds its " +
+    "functions, declared in the file of a role that holds functions: .service.ts, .controller.ts, .errorMessage.ts, " +
+    ".domainService.ts, .utils.ts, .transformer.ts, .view.ts, .infraService.ts, .repository.ts, .middleware.ts, " +
+    ".layer.ts or infrastructure/config's .config.ts. A file that holds only definitions (a value object, entity, " +
+    "DTO, model or type) declares no service class: move it to the file whose functions it holds.",
   selector:
     "ClassDeclaration > CallExpression.superClass > CallExpression.callee > MemberExpression[object.name='Context']"
 };
+export const SERVICE_LAYER_OWN_SPANS_BAN = {
+  message:
+    "Build a unit's layer with ownSpans: without it the unit's spans carry no owner in the trace log. Write " +
+    '`Layer.effect(this, ownSpans("<Owner>", this.make()))`, or `Layer.effect(IPort, ownSpans("<Owner>", ' +
+    "this.make()))` for a port's implementation.",
+  selector:
+    `${SERVICE_CLASS} > ClassBody > PropertyDefinition[static=true][key.name='layer']` +
+    ":not(:has(CallExpression[callee.name='ownSpans']))"
+};
+const TOP_LEVEL_CONST = (declarationHolder: string) =>
+  `${declarationHolder} > VariableDeclaration > VariableDeclarator > ` +
+  ":matches(CallExpression.init[callee.callee.object.name='Effect'][callee.callee.property.name='fn'], " +
+  "CallExpression.init[callee.object.name='Effect'][callee.property.name='fn'])";
+export const TOP_LEVEL_FUNCTION_BAN = {
+  message:
+    "A file that holds functions exports one Context.Service class, and every function is a const inside its make, " +
+    "where it reads the unit's dependencies once instead of yielding them on every call. Move this function into " +
+    "the class's make.",
+  selector: `${TOP_LEVEL_CONST("Program")}, ${TOP_LEVEL_CONST("Program > ExportNamedDeclaration")}`
+};
+export const DEPENDENCY_PARAMETER_BAN = {
+  message:
+    "A function reads services and shared state from the make it sits in; passing them along as a parameter hides " +
+    "who depends on what. Yield the service once at the top of make, keep shared state in the make of the unit that " +
+    "owns it, and use those values here.",
+  selector:
+    ":function > Identifier.params[name=/Dependencies$/], " +
+    ":function > Identifier.params:has(TSTypeReference[typeName.name=/Dependencies$/])"
+};
+export const PROVIDE_MERGE_BAN = {
+  message:
+    "Use Layer.provide, not Layer.provideMerge: each level is closed before the next gets it, so a level never " +
+    "hands on what it was given.",
+  selector: "MemberExpression[object.name='Layer'][property.name='provideMerge']"
+};
+const EFFECT_FUNCTION_BODY =
+  "CallExpression[callee.callee.object.name='Effect'][callee.callee.property.name='fn'] > :function.arguments:first-child";
+export const NESTED_SERVICE_YIELD_BAN = {
+  message:
+    "A function inside another Effect.fn yields no service class and calls no service's .use: that puts the " +
+    "service on every caller's requirements instead of on the layer once. Yield the service once at the top of make " +
+    "and use that value here.",
+  selector:
+    `${EFFECT_FUNCTION_BODY} :function YieldExpression[delegate=true] > Identifier.argument[name=/^[A-Z]/], ` +
+    `${EFFECT_FUNCTION_BODY} :function YieldExpression[delegate=true] > ` +
+    "CallExpression.argument[callee.property.name='use'][callee.object.type='Identifier'][callee.object.name=/^[A-Z]/]"
+};
+const LAYER_CALL = (layerFunctionName: string) =>
+  `CallExpression[callee.object.name='Layer'][callee.property.name='${layerFunctionName}']`;
+export const LAYER_MERGE_SPAN_BAN = {
+  message:
+    'Give each merge of layers a span: write `Layer.mergeAll(...).pipe(Layer.withSpan("<Level>"))`, so startup ' +
+    "nests under one span per merged level in the trace log and a slow or failing layer shows where it sits.",
+  selector:
+    `${LAYER_CALL("mergeAll")}:not(CallExpression[callee.property.name='pipe']` +
+    `:has(> ${LAYER_CALL("withSpan")}.arguments) > MemberExpression.callee > CallExpression.object)`
+};
 export const ERROR_FILE_BAN = {
   message:
-    "Declare errors at the top of the file that raises them, or of the interface whose signatures name them; " +
-    "there are no .error.ts files.",
+    "Declare errors as keys of the …Errors class in the file that raises them, or in the interface whose signatures " +
+    "name them; there are no .error.ts files.",
   selector: "Program"
 };
 export const ENTITY_EXPORT_BAN = {
   message: "Export only the entity class; a rule across entities goes in a .domainService.ts.",
   selector: "ExportNamedDeclaration:not([declaration.type='ClassDeclaration']), ExportDefaultDeclaration"
-};
-export const DOMAIN_SERVICE_EXPORT_BAN = {
-  message: "Export each domain service function as an Effect.fn, so it gets its span.",
-  selector:
-    "ExportNamedDeclaration > VariableDeclaration > VariableDeclarator:not([init.callee.callee.object.name='Effect']" +
-    "[init.callee.callee.property.name='fn']), ExportNamedDeclaration > FunctionDeclaration, ExportDefaultDeclaration"
 };
 export const PLAIN_FUNCTION_BAN = {
   message: "Declare each function as an Effect.fn, so it gets its span.",

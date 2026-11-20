@@ -32,6 +32,8 @@ Alternatives considered with why it was dropped. Leave a field out rather than g
   written down.
 - [architecture/constants.md](architecture/constants.md): Where constants live and what they may hold.
 - [architecture/layers.md](architecture/layers.md): DDD.md's layers: what each holds and how they talk.
+- [architecture/dependencyInjection.md](architecture/dependencyInjection.md): Which layer is given what, the units that
+  yield it, the levels they merge into, and the order they start.
 - [conventions/effect.md](conventions/effect.md): How the extension uses Effect.
 - [conventions/lint.md](conventions/lint.md): What lint checks, where its setup lives, and how its messages read.
 - [conventions/naming.md](conventions/naming.md): What things are called, and when a comment is worth it.

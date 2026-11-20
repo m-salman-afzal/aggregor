@@ -1,3 +1,4 @@
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {Context, Schema} from "effect";
 
 import type {PULL_REQUEST_OPEN_PLACES} from "@pkg/constants/src/gitHubCli.constant.ts";
@@ -27,19 +28,18 @@ export interface Settings {
   readonly commitCommand: string;
 }
 
-export class InvalidSettingsError extends Schema.TaggedError<InvalidSettingsError, {readonly brand: unique symbol}>()(
-  "InvalidSettingsError",
-  {reason: Schema.String}
-) {}
+export class ISettingsConfigErrors extends TaggedErrors({
+  InvalidSettingsError: {reason: Schema.String}
+}) {}
 
 // Read fresh on every call, so a change applies at once.
 export class ISettingsConfig extends Context.Service<
   ISettingsConfig,
   {
-    readonly readAlertSettings: Effect.Effect<AlertSettings, InvalidSettingsError>;
-    readonly readPullRequestSettings: Effect.Effect<PullRequestSettings, InvalidSettingsError>;
-    readonly readSessionSettings: Effect.Effect<SessionSettings, InvalidSettingsError>;
-    readonly readSettings: Effect.Effect<Settings, InvalidSettingsError>;
+    readonly readAlertSettings: Effect.Effect<AlertSettings, ISettingsConfigErrors["InvalidSettingsError"]>;
+    readonly readPullRequestSettings: Effect.Effect<PullRequestSettings, ISettingsConfigErrors["InvalidSettingsError"]>;
+    readonly readSessionSettings: Effect.Effect<SessionSettings, ISettingsConfigErrors["InvalidSettingsError"]>;
+    readonly readSettings: Effect.Effect<Settings, ISettingsConfigErrors["InvalidSettingsError"]>;
     readonly saveDefaultAgentId: (agentId: AgentIdValueObject) => Effect.Effect<void>;
   }
 >()("aggregor-app/application/interfaces/settings.config.interface/ISettingsConfig") {}
