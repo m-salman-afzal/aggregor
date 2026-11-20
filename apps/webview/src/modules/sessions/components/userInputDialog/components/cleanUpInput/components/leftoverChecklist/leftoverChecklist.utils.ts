@@ -6,8 +6,7 @@ import type {LeftoverRowData} from "@/modules/sessions/components/userInputDialo
 import type {ChosenLeftovers} from "@/modules/sessions/sessions.type.ts";
 import type {ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
 
-// A worktree counts as merged when its branch does; one with changes can't be removed, so it can't be ticked.
-export const toWorktreeRows = (leftovers: ProjectLeftoversDto): readonly LeftoverRowData[] => {
+export const makeLeftoverWorktreeRows = (leftovers: ProjectLeftoversDto): readonly LeftoverRowData[] => {
   const mergedBranchNames = new Set(
     leftovers.branches.filter((branch) => branch.isMerged).map((branch) => branch.branchName)
   );
@@ -26,8 +25,7 @@ export const toWorktreeRows = (leftovers: ProjectLeftoversDto): readonly Leftove
 const describeMerge = (isMerged: boolean, baseBranchName: string) =>
   isMerged ? LEFTOVER_LABELS.MERGED(baseBranchName) : LEFTOVER_LABELS.NOT_MERGED;
 
-// A branch checked out in a worktree with changes stays with that worktree.
-export const toBranchRows = (leftovers: ProjectLeftoversDto): readonly LeftoverRowData[] => {
+export const makeLeftoverBranchRows = (leftovers: ProjectLeftoversDto): readonly LeftoverRowData[] => {
   const keptBranchNames = new Set(
     leftovers.worktrees.filter((worktree) => worktree.hasChanges).map((worktree) => worktree.branchName)
   );

@@ -3,10 +3,8 @@ export const TERMINAL_COMMANDS = {
   OPEN_SESSION_FOLDER_TERMINAL: "aggregorApp.openSessionFolderTerminal"
 } as const;
 
-// Release VSIXs carry the one for their platform.
 export const PTY_BINARY = "bin/aggregor-pty";
 
-// Every session terminal carries its session id, so a restarted extension host can tell which tab is whose.
 export const SESSION_ID_ENV = "AGGREGOR_SESSION_ID";
 
 // The profile's title in package.json is the name, which the default-profile setting names it by.

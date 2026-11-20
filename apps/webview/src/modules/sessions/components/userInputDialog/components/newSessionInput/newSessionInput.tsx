@@ -14,7 +14,6 @@ interface NewSessionInputProps {
   readonly onStart: (newSessionRequest: CommandRequest) => void;
 }
 
-// Every choice shows at once, each with its default chosen, so Start alone starts the usual session.
 export const NewSessionInput = (props: NewSessionInputProps) => {
   const newSessionView = useNewSessionInput(props);
 

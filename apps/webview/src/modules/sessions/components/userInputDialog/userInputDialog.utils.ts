@@ -23,7 +23,6 @@ export const pickUserInputIcon = (userInput: UserInput) => {
   return isDestructiveUserInput(userInput) ? USER_INPUT_ICONS.DESTRUCTIVE_QUESTION : USER_INPUT_ICONS.QUESTION;
 };
 
-// Submitting the form is taken over here, so the page doesn't reload.
 export const takeProjectSettings = (formEvent: SubmitEvent<HTMLFormElement>): ProjectSettingsDto => {
   formEvent.preventDefault();
   const formData = new FormData(formEvent.currentTarget);
@@ -57,7 +56,6 @@ export const takeEnteredText = (formEvent: SubmitEvent<HTMLFormElement>) => {
 // Base UI returns focus once the dialog has faded out, by when a new session's tab may hold it.
 export const shouldReturnFocus = () => document.hasFocus();
 
-// The dialog closes before the answer runs, so an answer may open the next one.
 export const describeUserInput = (userInput: undefined | UserInput) => ({
   isDestructive: userInput !== undefined && isDestructiveUserInput(userInput),
   UserInputIcon: userInput === undefined ? undefined : pickUserInputIcon(userInput)

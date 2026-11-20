@@ -1,6 +1,6 @@
 import {
   findDefaultPullRequestId,
-  toPullRequestOptions
+  makePullRequestOptions
 } from "@/modules/sessions/components/userInputDialog/components/pullRequestInput/components/pullRequestPicker/pullRequestPicker.utils.ts";
 import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.store.ts";
 import {useState} from "react";
@@ -30,6 +30,6 @@ export const usePullRequestPicker = (props: UsePullRequestPickerProps) => {
     chooseOption: setChosenPullRequestId,
     chosenPullRequestId,
     link,
-    pullRequestOptions: toPullRequestOptions(props.pullRequests, props.linkedSession)
+    pullRequestOptions: makePullRequestOptions(props.pullRequests, props.linkedSession)
   };
 };

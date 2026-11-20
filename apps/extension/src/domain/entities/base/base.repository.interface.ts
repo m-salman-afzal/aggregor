@@ -1,3 +1,4 @@
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {Schema} from "effect";
 
@@ -18,35 +19,40 @@ export interface EntityPage<Entity> {
   readonly pagination: PaginationValueObject;
 }
 
-export class DatabaseReadError extends Schema.TaggedError<DatabaseReadError, {readonly brand: unique symbol}>()(
-  "DatabaseReadError",
-  {cause: Schema.Unknown}
-) {}
-export class DatabaseWriteError extends Schema.TaggedError<DatabaseWriteError, {readonly brand: unique symbol}>()(
-  "DatabaseWriteError",
-  {cause: Schema.Unknown}
-) {}
-export class EntityNotFoundError extends Schema.TaggedError<EntityNotFoundError, {readonly brand: unique symbol}>()(
-  "EntityNotFoundError",
-  {entityId: EntityIdValueObjectSchema}
-) {}
+export class IBaseRepositoryErrors extends TaggedErrors({
+  DatabaseReadError: {cause: Schema.Unknown},
+  DatabaseWriteError: {cause: Schema.Unknown},
+  EntityNotFoundError: {entityId: EntityIdValueObjectSchema}
+}) {}
 
 export interface IBaseRepository<Entity, AddRequest> {
-  readonly add: (addRequest: AddRequest) => Effect.Effect<Entity, DatabaseReadError | DatabaseWriteError>;
+  readonly add: (
+    addRequest: AddRequest
+  ) => Effect.Effect<Entity, IBaseRepositoryErrors["DatabaseReadError" | "DatabaseWriteError"]>;
   // From this window at once, and from aggregor-pty or another window within a poll.
   readonly entityChanges: Stream.Stream<EntityChange<Entity>>;
-  readonly findById: (entityId: EntityIdValueObject) => Effect.Effect<Entity, DatabaseReadError | EntityNotFoundError>;
-  readonly findMany: (filter: Partial<AddRequest>) => Effect.Effect<readonly Entity[], DatabaseReadError>;
+  readonly findById: (
+    entityId: EntityIdValueObject
+  ) => Effect.Effect<Entity, IBaseRepositoryErrors["DatabaseReadError" | "EntityNotFoundError"]>;
+  readonly findMany: (
+    filter: Partial<AddRequest>
+  ) => Effect.Effect<readonly Entity[], IBaseRepositoryErrors["DatabaseReadError"]>;
   // Newest first, the reverse of findMany's order: the highest sortId leads.
   readonly findPage: (
     filter: Partial<AddRequest>,
     pageRequest: PageRequest
-  ) => Effect.Effect<EntityPage<Entity>, DatabaseReadError>;
-  readonly placeAtEnd: (entityIds: readonly EntityIdValueObject[]) => Effect.Effect<void, DatabaseWriteError>;
-  readonly softDelete: (entityId: EntityIdValueObject) => Effect.Effect<void, DatabaseWriteError>;
+  ) => Effect.Effect<EntityPage<Entity>, IBaseRepositoryErrors["DatabaseReadError"]>;
+  readonly placeAtEnd: (
+    entityIds: readonly EntityIdValueObject[]
+  ) => Effect.Effect<void, IBaseRepositoryErrors["DatabaseWriteError"]>;
+  readonly softDelete: (
+    entityId: EntityIdValueObject
+  ) => Effect.Effect<void, IBaseRepositoryErrors["DatabaseWriteError"]>;
   readonly update: (
     entityId: EntityIdValueObject,
     changes: Partial<AddRequest>
-  ) => Effect.Effect<void, DatabaseWriteError | EntityNotFoundError>;
-  readonly upsert: (addRequest: AddRequest) => Effect.Effect<Entity, DatabaseReadError | DatabaseWriteError>;
+  ) => Effect.Effect<void, IBaseRepositoryErrors["DatabaseWriteError" | "EntityNotFoundError"]>;
+  readonly upsert: (
+    addRequest: AddRequest
+  ) => Effect.Effect<Entity, IBaseRepositoryErrors["DatabaseReadError" | "DatabaseWriteError"]>;
 }

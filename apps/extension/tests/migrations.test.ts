@@ -1,6 +1,6 @@
 import {NodeServices} from "@effect/platform-node";
 import {SqliteClient} from "@effect/sql-sqlite-node";
-import {applyPendingMigrations} from "@infraUtils/database.utils.ts";
+import {DatabaseUtils} from "@infraUtils/database.utils.ts";
 import {DATABASE_BACKUP, DATABASE_FILE, MIGRATIONS} from "@pkg/constants/src/database.constant.ts";
 import {Array, Effect, Order, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
@@ -46,10 +46,8 @@ interface TableSnapshot extends StoredTable {
 const MIGRATIONS_FOLDER_PATH = join(import.meta.dirname, "..", MIGRATIONS.FOLDER);
 const MIGRATION_NAMES = readdirSync(MIGRATIONS_FOLDER_PATH).toSorted();
 
-// A backup an earlier update left, which the next backup replaces.
 const OLDER_BACKUP_FILE_NAME = DATABASE_BACKUP.FILE_NAME("00000000000000_older");
 
-// Every table gets a row with every column set, and one with only the columns SQLite requires.
 const SEED_ROWS = {FULL: 1, REQUIRED_ONLY: 2} as const;
 
 // SQLite gives a column whose declared type contains INT integer affinity.
@@ -74,7 +72,6 @@ const findSeedSource = Effect.fn("findSeedSource")(function* (
   return referencedSource;
 });
 
-// A value no other row or column holds, so one that lands in another row or column shows.
 const makeSeedValue = Effect.fn("makeSeedValue")(function* (seedSource: SeedSource, rowNumber: number) {
   return INTEGER_AFFINITY.test(seedSource.column.type)
     ? rowNumber * 1000 + seedSource.column.cid
@@ -106,7 +103,6 @@ const insertSeedRow = Effect.fn("insertSeedRow")(function* (
   yield* sql`INSERT INTO ${sql(storedTable.name)} ${sql.insert(seedRow)}`;
 });
 
-// Foreign keys are off while seeding, so the tables fill in any order; expectDatabaseIntact checks every reference.
 const seedEveryTable = Effect.fn("seedEveryTable")(function* (storedTables: readonly StoredTable[]) {
   const sql = yield* SqlClient;
   yield* sql`PRAGMA foreign_keys = OFF`;
@@ -125,7 +121,6 @@ const readStoredTable = Effect.fn("readStoredTable")(function* (tableName: strin
   return storedTable;
 });
 
-// The app's tables: neither SQLite's own nor the migrator's record of the migrations it ran.
 const readStoredTables = Effect.fn("readStoredTables")(function* () {
   const sql = yield* SqlClient;
   const tableNames = yield* sql<{readonly name: string}>`
@@ -232,7 +227,6 @@ const copyEarlierMigrations = Effect.fn("copyEarlierMigrations")(function* (
   return earlierMigrationsFolderPath;
 });
 
-// A backup copied as files has its write-ahead log beside it.
 const listBackupFileNames = Effect.fn("listBackupFileNames")(function* (testFolderPath: string) {
   const fileSystem = yield* FileSystem;
   const testFolderFileNames = yield* fileSystem.readDirectory(testFolderPath);
@@ -269,12 +263,13 @@ const checkUpgradeFrom = Effect.fn("checkUpgradeFrom")(function* (
   appliedMigrationCount: number
 ) {
   const fileSystem = yield* FileSystem;
-  yield* applyPendingMigrations(yield* copyEarlierMigrations(testFolderPath, appliedMigrationCount));
+  const databaseUtils = yield* DatabaseUtils;
+  yield* databaseUtils.applyPendingMigrations(yield* copyEarlierMigrations(testFolderPath, appliedMigrationCount));
   yield* seedEveryTable(yield* readStoredTables());
   yield* fileSystem.writeFileString(join(testFolderPath, OLDER_BACKUP_FILE_NAME), "");
   const snapshotsBefore = yield* readTableSnapshots();
 
-  yield* applyPendingMigrations(MIGRATIONS_FOLDER_PATH);
+  yield* databaseUtils.applyPendingMigrations(MIGRATIONS_FOLDER_PATH);
   const snapshotsAfter = yield* readTableSnapshots();
   yield* expectEveryRowKept(snapshotsBefore, snapshotsAfter);
   yield* expectNewColumnsAtDefault(snapshotsBefore, snapshotsAfter);
@@ -282,14 +277,14 @@ const checkUpgradeFrom = Effect.fn("checkUpgradeFrom")(function* (
   yield* expectBackupOfRowsBefore(testFolderPath, appliedMigrationCount, snapshotsBefore);
   const backupFileNames = yield* listBackupFileNames(testFolderPath);
 
-  yield* applyPendingMigrations(MIGRATIONS_FOLDER_PATH);
+  yield* databaseUtils.applyPendingMigrations(MIGRATIONS_FOLDER_PATH);
   expect(yield* readTableSnapshots()).toStrictEqual(snapshotsAfter);
   expect(yield* listBackupFileNames(testFolderPath)).toStrictEqual(backupFileNames);
 });
 
-// A new database holds nothing to back up.
 const checkNewDatabase = Effect.fn("checkNewDatabase")(function* (testFolderPath: string) {
-  yield* applyPendingMigrations(MIGRATIONS_FOLDER_PATH);
+  const databaseUtils = yield* DatabaseUtils;
+  yield* databaseUtils.applyPendingMigrations(MIGRATIONS_FOLDER_PATH);
   yield* expectDatabaseIntact();
   expect(yield* listBackupFileNames(testFolderPath)).toStrictEqual([]);
 });
@@ -298,7 +293,7 @@ const runInTestFolder = Effect.fn("runInTestFolder")(
   function* (
     check: (
       testFolderPath: string
-    ) => Effect.Effect<void, unknown, FileSystem | Path | SqlClient | SqliteClient.SqliteClient>
+    ) => Effect.Effect<void, unknown, DatabaseUtils | FileSystem | Path | SqlClient | SqliteClient.SqliteClient>
   ) {
     const fileSystem = yield* FileSystem;
     const testFolderPath = yield* fileSystem.makeTempDirectoryScoped();
@@ -307,7 +302,7 @@ const runInTestFolder = Effect.fn("runInTestFolder")(
     yield* Effect.provide(check(testFolderPath), databaseLayer);
   },
   Effect.scoped,
-  Effect.provide(NodeServices.layer)
+  Effect.provide([DatabaseUtils.layer, NodeServices.layer])
 );
 
 describe("migrations", () => {

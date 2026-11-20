@@ -47,8 +47,7 @@ export const CORE_MODULE = "core";
 
 export const isCamelCaseName = (name: string) => CAMEL_CASE_NAME.test(name);
 
-// `session-row` and `SessionRow` both suggest `sessionRow`.
-export const toCamelCaseName = (name: string) => {
+export const formatNameAsCamelCase = (name: string) => {
   const joinedName = name.replaceAll(NAME_WORD_SEPARATORS, (_separator, letter: string | undefined) =>
     letter === undefined ? "" : letter.toUpperCase()
   );
@@ -56,9 +55,8 @@ export const toCamelCaseName = (name: string) => {
   return `${joinedName.charAt(0).toLowerCase()}${joinedName.slice(1)}`;
 };
 
-export const toPascalCaseName = (name: string) => `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+export const formatNameAsPascalCase = (name: string) => `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
 
-// A file is <stem>.<role>.<extension>, or <stem>.tsx for a component.
 export const parseFileName = (fileName: string): ParsedFileName => {
   const nameParts = fileName.split(".");
   const [stem = "", ...restParts] = nameParts;
@@ -79,7 +77,6 @@ export const findSourceRoot = (filePath: string) => {
   return sourceIndex === -1 ? undefined : pathParts.slice(0, sourceIndex + 1).join(sep);
 };
 
-// src, modules/, and each module always exist, even with one thing in them.
 export const isFixedFolder = (folderPath: string, sourceRootPath: string) =>
   folderPath === sourceRootPath ||
   basename(folderPath) === MODULES_FOLDER ||

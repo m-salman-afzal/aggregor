@@ -10,7 +10,6 @@ export const LeftoverWorktreeDtoSchema = Schema.Struct({
 
 export type LeftoverWorktreeDto = typeof LeftoverWorktreeDtoSchema.Type;
 
-// Merged: its upstream is gone from origin, or its last commit is in the base branch.
 export const LeftoverBranchDtoSchema = Schema.Struct({branchName: Schema.String, isMerged: Schema.Boolean});
 
 export type LeftoverBranchDto = typeof LeftoverBranchDtoSchema.Type;
@@ -40,10 +39,8 @@ export const ListProjectBranchesRequestDtoSchema = Schema.Struct({projectPath: P
 
 export type ListProjectBranchesRequestDto = typeof ListProjectBranchesRequestDtoSchema.Type;
 
-// The current branch is a short hash while the project is detached, and missing when it can't be read.
 export const ProjectBranchesDtoSchema = Schema.Struct({
   currentBranchName: Schema.optional(Schema.String),
-  // The remote branches are as of the last fetch until this turns false.
   isFetchingRemote: Schema.Boolean,
   localBranchNames: Schema.Array(Schema.String),
   projectPath: ProjectPathValueObjectSchema,

@@ -69,7 +69,6 @@ pub enum ProgramStatus {
     Report(Report),
 }
 
-/// Parses what follows `OSC 7501 ;`. `None` when the spec says to ignore or discard it.
 pub fn parse_program_status(body: &[u8]) -> Option<ProgramStatus> {
     if body.trim_ascii() == b"?" {
         return Some(ProgramStatus::Query);
@@ -141,7 +140,6 @@ fn validate_id(id: &str) -> Option<&str> {
     is_valid.then_some(id)
 }
 
-/// `Some(None)` when the key is absent; `None` when the text breaks a rule, which discards the report.
 fn decode_text(encoded: Option<&str>, max_encoded_length: usize, max_decoded_length: usize) -> Option<Option<String>> {
     let Some(encoded) = encoded else {
         return Some(None);

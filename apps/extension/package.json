@@ -1,6 +1,6 @@
 {
   "name": "aggregor-app",
-  "version": "0.0.23",
+  "version": "0.0.24",
   "private": true,
   "description": "Combines multiple coding agents.",
   "repository": "github:m-salman-afzal/aggregor",
@@ -28,6 +28,8 @@
     "@effect/platform-node": "catalog:",
     "@effect/sql-sqlite-node": "catalog:",
     "@pkg/constants": "workspace:*",
+    "@pkg/errors": "workspace:*",
+    "@pkg/trace": "workspace:*",
     "@pkg/typings": "workspace:*",
     "@pkg/vscode": "workspace:*",
     "drizzle-orm": "catalog:",

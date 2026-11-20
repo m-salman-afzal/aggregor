@@ -1,18 +1,49 @@
 import {GenerateCommitMessageRequestDtoSchema} from "@dtos/commitMessage.dto.ts";
-import {decodeVsCodeArgument} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
-import {generateCommitMessage} from "@services/commitMessage.service.ts";
-import {Effect, Schema} from "effect";
+import {CommitMessageErrorMessage} from "@errorMessages/commitMessage.errorMessage.ts";
+import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
+import {COMMIT_MESSAGE_COMMANDS} from "@pkg/constants/src/commitMessage.constant.ts";
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
+import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
+import {CommitMessageService} from "@services/commitMessage.service.ts";
+import {Context, Effect, Layer, Schema} from "effect";
 
 const SourceControlArgumentSchema = Schema.Struct({
   rootUri: Schema.optional(Schema.Struct({fsPath: Schema.String}))
 });
 
-export const generateCommitMessageForSourceControl = Effect.fn(
-  "CommitMessageController.generateCommitMessageForSourceControl"
-)(function* (sourceControlArgument: unknown) {
-  const vsCodeArgument = yield* decodeVsCodeArgument(SourceControlArgumentSchema, sourceControlArgument);
-  const request = yield* decodeVsCodeArgument(GenerateCommitMessageRequestDtoSchema, {
-    projectPath: vsCodeArgument.rootUri === undefined ? undefined : vsCodeArgument.rootUri.fsPath
-  });
-  yield* generateCommitMessage(request);
-});
+export class CommitMessageController extends Context.Service<CommitMessageController>()(
+  "aggregor-app/presentation/controllers/commitMessage.controller/CommitMessageController",
+  {
+    make: Effect.fn("make")(function* () {
+      const registerCommandMiddleware = yield* RegisterCommandMiddleware;
+      const commitMessageService = yield* CommitMessageService;
+      const commitMessageErrorMessage = yield* CommitMessageErrorMessage;
+      const vscodeUtils = yield* VscodeUtils;
+
+      const generateCommitMessageForSourceControl = Effect.fn("generateCommitMessageForSourceControl")(function* (
+        sourceControlArgument: unknown
+      ) {
+        const vsCodeArgument = yield* vscodeUtils.decodeVsCodeArgument(
+          SourceControlArgumentSchema,
+          sourceControlArgument
+        );
+        const request = yield* vscodeUtils.decodeVsCodeArgument(GenerateCommitMessageRequestDtoSchema, {
+          projectPath: vsCodeArgument.rootUri === undefined ? undefined : vsCodeArgument.rootUri.fsPath
+        });
+        yield* commitMessageService.generateCommitMessage(request);
+      });
+
+      yield* registerCommandMiddleware.registerCommand(
+        COMMIT_MESSAGE_COMMANDS.GENERATE,
+        generateCommitMessageForSourceControl,
+        commitMessageErrorMessage.getCommitMessageCommandErrorMessage
+      );
+
+      return {generateCommitMessageForSourceControl};
+    })
+  }
+) {
+  public static readonly layer = Layer.effect(this, ownSpans("CommitMessageController", this.make())).pipe(
+    Layer.provide([CommitMessageErrorMessage.layer, RegisterCommandMiddleware.layer])
+  );
+}

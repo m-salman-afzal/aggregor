@@ -58,7 +58,7 @@ Which CLIs a session can run, and how a session picks one.
   - A row's **Set as Default** button runs `setDefaultAgent`, which saves `aggregorApp.defaultAgent` to user settings
     through `ISettingsConfig.saveDefaultAgentId`, and picks that agent.
   - The webview picks: one agent installed, or `aggregorApp.skipAgentPicker` on with the default installed, starts the
-    session without the picker. `newSession` takes the agent, or none for the default or the only one installed; none
+    session without the picker. `createSession` takes the agent, or none for the default or the only one installed; none
     installed fails with `NoAgentInstalledError`, naming the commands searched for, with **Open Settings**.
 
   Which agents are installed is the backend's fact about the machine; whether to ask is the front end's.

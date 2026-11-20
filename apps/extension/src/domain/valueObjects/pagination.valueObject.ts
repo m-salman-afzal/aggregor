@@ -1,6 +1,5 @@
 import {Schema} from "effect";
 
-// A cursor is a page's last row's sortId, opaque outside the repository; nextCursor exists only while a page follows.
 export const PaginationValueObjectSchema = Schema.Struct({
   afterCursor: Schema.optional(Schema.String),
   hasNextPage: Schema.Boolean,

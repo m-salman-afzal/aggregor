@@ -80,7 +80,7 @@ const getTopModuleName = (sourceRootPath: string, filePath: string) => {
 
 const findConsumingUnit = (levelPath: string, importerPaths: readonly string[]) => {
   const importerParts = importerPaths.map((importerPath) => relative(levelPath, importerPath).split(sep));
-  const sharedPart = (partIndex: number) => {
+  const findSharedPathPart = (partIndex: number) => {
     const partNames = new Set(
       importerParts.map((pathParts) => (pathParts.length > partIndex + 1 ? pathParts[partIndex] : ""))
     );
@@ -90,15 +90,14 @@ const findConsumingUnit = (levelPath: string, importerPaths: readonly string[]) 
       ? partName
       : undefined;
   };
-  const childName = sharedPart(0);
+  const childName = findSharedPathPart(0);
   if (childName === undefined || childName === MODULES_FOLDER) return undefined;
   if (getKindFolderRole(childName) === undefined) return join(levelPath, childName);
-  const unitName = sharedPart(1);
+  const unitName = findSharedPathPart(1);
 
   return unitName === undefined ? undefined : join(levelPath, childName, unitName);
 };
 
-// A level's main file stands for its folder, whose level is the folder above.
 const findUnitPath = (filePath: string) =>
   findMainFileName(dirname(filePath)) === basename(filePath) ? dirname(filePath) : filePath;
 

@@ -1,76 +1,96 @@
-import {IMPORT_BANS, IMPORT_RULES, OPTION_IMPORT_BANS} from "@pkg/eslint/src/layers/importRules.ts";
+import {
+  ERRORS_PACKAGE_IMPORTS,
+  IMPORT_BANS,
+  IMPORT_RULES,
+  OPTION_IMPORT_BANS
+} from "@pkg/eslint/src/layers/importRules.ts";
 import {ROLE_NAMES} from "@pkg/eslint/src/layers/roleNames.ts";
 import {
   AGENT_NAME_BAN,
   CONSTANT_BANS,
-  DOMAIN_SERVICE_EXPORT_BAN,
+  DEPENDENCY_PARAMETER_BAN,
   ENTITY_EXPORT_BAN,
   ENUM_VALUE_OBJECT_BANS,
   ENUM_VALUES_ACCESS_BAN,
   ERROR_FILE_BAN,
   EXPORTED_TYPE_BAN,
+  LAYER_MERGE_SPAN_BAN,
+  NESTED_SERVICE_YIELD_BAN,
   NON_TYPE_BAN,
   OBJECT_DESTRUCTURING_BAN,
   PLAIN_FUNCTION_BAN,
+  PROVIDE_MERGE_BAN,
   SERVICE_CLASS_BAN,
+  SERVICE_LAYER_OWN_SPANS_BAN,
   STATUS_LITERAL_BAN,
-  SYNTAX_BANS
+  SYNTAX_BANS,
+  TOP_LEVEL_FUNCTION_BAN
 } from "@pkg/eslint/src/layers/syntaxBans.ts";
 
 import type {Config} from "eslint/config";
 
+const prefixWithExtensionSourceFolder = (filePatterns: readonly string[]) =>
+  filePatterns.map((filePattern) => `apps/extension/src/${filePattern}`);
+
+const CODE_BANS = [
+  AGENT_NAME_BAN,
+  ...SYNTAX_BANS,
+  EXPORTED_TYPE_BAN,
+  PLAIN_FUNCTION_BAN,
+  TOP_LEVEL_FUNCTION_BAN,
+  DEPENDENCY_PARAMETER_BAN,
+  STATUS_LITERAL_BAN,
+  ENUM_VALUES_ACCESS_BAN,
+  NESTED_SERVICE_YIELD_BAN,
+  SERVICE_LAYER_OWN_SPANS_BAN
+];
+
 export const LAYER_CONFIGS: Config[] = [
   ...IMPORT_RULES.map(([sourcePath, paths, patterns]): Config => ({
     files: [`apps/extension/src/${sourcePath}${sourcePath.endsWith(".ts") ? "" : "/**/*.ts"}`],
-    rules: {"@typescript-eslint/no-restricted-imports": ["error", {paths, patterns}]}
+    rules: {
+      "@typescript-eslint/no-restricted-imports": ["error", {paths, patterns: [...patterns, ERRORS_PACKAGE_IMPORTS]}]
+    }
   })),
+  // A later entry replaces an earlier one's list for the files they share.
   {
     files: ["apps/extension/src/**/*.ts"],
-    ignores: ["**/*.interface.ts", "**/*.type.ts", "**/*.valueObject.ts", "**/*.dto.ts"],
+    rules: {"no-restricted-syntax": ["error", ...CODE_BANS, SERVICE_CLASS_BAN]}
+  },
+  {
+    files: prefixWithExtensionSourceFolder([
+      "**/*.service.ts",
+      "**/*.controller.ts",
+      "**/*.errorMessage.ts",
+      "**/*.domainService.ts",
+      "**/*.utils.ts",
+      "**/*.transformer.ts",
+      "**/*.view.ts",
+      "**/*.infraService.ts",
+      "**/*.repository.ts",
+      "infrastructure/config/*.config.ts",
+      "**/*.middleware.ts",
+      "**/*.layer.ts"
+    ]),
+    rules: {"no-restricted-syntax": ["error", ...CODE_BANS]}
+  },
+  {
+    files: prefixWithExtensionSourceFolder(["infrastructure/di/**/*.ts"]),
+    rules: {"no-restricted-syntax": ["error", ...CODE_BANS, LAYER_MERGE_SPAN_BAN]}
+  },
+  {
+    files: prefixWithExtensionSourceFolder(["infrastructure/di/app.layer.ts"]),
+    rules: {"no-restricted-syntax": ["error", ...CODE_BANS, LAYER_MERGE_SPAN_BAN, PROVIDE_MERGE_BAN]}
+  },
+  {
+    files: prefixWithExtensionSourceFolder(["extension.ts"]),
     rules: {
-      "no-restricted-syntax": [
-        "error",
-        AGENT_NAME_BAN,
-        ...SYNTAX_BANS,
-        EXPORTED_TYPE_BAN,
-        SERVICE_CLASS_BAN,
-        PLAIN_FUNCTION_BAN,
-        STATUS_LITERAL_BAN,
-        ENUM_VALUES_ACCESS_BAN
-      ]
+      "no-restricted-syntax": ["error", ...CODE_BANS, SERVICE_CLASS_BAN, LAYER_MERGE_SPAN_BAN, PROVIDE_MERGE_BAN]
     }
   },
   {
-    files: ["apps/extension/src/**/*.entity.ts"],
-    rules: {
-      "no-restricted-syntax": [
-        "error",
-        AGENT_NAME_BAN,
-        ...SYNTAX_BANS,
-        EXPORTED_TYPE_BAN,
-        SERVICE_CLASS_BAN,
-        PLAIN_FUNCTION_BAN,
-        ENTITY_EXPORT_BAN,
-        STATUS_LITERAL_BAN,
-        ENUM_VALUES_ACCESS_BAN
-      ]
-    }
-  },
-  {
-    files: ["apps/extension/src/**/*.domainService.ts"],
-    rules: {
-      "no-restricted-syntax": [
-        "error",
-        AGENT_NAME_BAN,
-        ...SYNTAX_BANS,
-        EXPORTED_TYPE_BAN,
-        SERVICE_CLASS_BAN,
-        PLAIN_FUNCTION_BAN,
-        DOMAIN_SERVICE_EXPORT_BAN,
-        STATUS_LITERAL_BAN,
-        ENUM_VALUES_ACCESS_BAN
-      ]
-    }
+    files: prefixWithExtensionSourceFolder(["**/*.entity.ts"]),
+    rules: {"no-restricted-syntax": ["error", ...CODE_BANS, SERVICE_CLASS_BAN, ENTITY_EXPORT_BAN]}
   },
   {
     files: ["apps/extension/src/**/*.interface.ts"],
@@ -80,21 +100,34 @@ export const LAYER_CONFIGS: Config[] = [
     files: ["apps/extension/src/**/*.dto.ts"],
     rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ...SYNTAX_BANS, SERVICE_CLASS_BAN, PLAIN_FUNCTION_BAN]}
   },
-  // The texts the user reads live in @pkg/constants, so they call the CLIs agents too.
   {
     files: ["packages/constants/src/**/*.ts"],
     rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ...SYNTAX_BANS, ...CONSTANT_BANS]}
   },
-  // @pkg/vscode is shared by presentation and infrastructure, under the same code rules.
   {
-    files: ["packages/vscode/src/**/*.ts"],
+    files: ["packages/vscode/src/**/*.ts", "packages/trace/src/**/*.ts", "packages/errors/src/**/*.ts"],
     rules: {
-      "@typescript-eslint/no-restricted-imports": ["error", {paths: IMPORT_BANS}],
-      "no-restricted-syntax": ["error", AGENT_NAME_BAN, ...SYNTAX_BANS, EXPORTED_TYPE_BAN, PLAIN_FUNCTION_BAN]
+      "@typescript-eslint/no-restricted-imports": ["error", {paths: IMPORT_BANS, patterns: [ERRORS_PACKAGE_IMPORTS]}],
+      "no-restricted-syntax": [
+        "error",
+        AGENT_NAME_BAN,
+        ...SYNTAX_BANS,
+        EXPORTED_TYPE_BAN,
+        PLAIN_FUNCTION_BAN,
+        TOP_LEVEL_FUNCTION_BAN
+      ]
     }
   },
   {
-    files: ["packages/vscode/src/**/*.type.ts"],
+    files: ["packages/vscode/src/**/*.utils.ts"],
+    rules: {
+      "@typescript-eslint/naming-convention": ["error", ...ROLE_NAMES["**/*.utils.ts"]],
+      "max-classes-per-file": "off",
+      "no-restricted-syntax": ["error", ...CODE_BANS]
+    }
+  },
+  {
+    files: ["packages/vscode/src/**/*.type.ts", "packages/trace/src/**/*.type.ts", "packages/errors/src/**/*.type.ts"],
     rules: {"no-restricted-syntax": ["error", AGENT_NAME_BAN, ...SYNTAX_BANS, NON_TYPE_BAN]}
   },
   {
@@ -130,7 +163,7 @@ export const LAYER_CONFIGS: Config[] = [
       "perfectionist/sort-modules": [
         "error",
         {
-          customGroups: [{elementNamePattern: "Error$", groupName: "error-class", selector: "class"}],
+          customGroups: [{elementNamePattern: "Errors$", groupName: "errors-class", selector: "class"}],
           groups: [
             "declare-enum",
             "export-enum",
@@ -138,7 +171,7 @@ export const LAYER_CONFIGS: Config[] = [
             ["declare-interface", "declare-type"],
             ["export-interface", "export-type"],
             ["interface", "type"],
-            "error-class",
+            "errors-class",
             "declare-class",
             "class",
             "export-class",

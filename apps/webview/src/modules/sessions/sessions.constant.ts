@@ -53,7 +53,6 @@ export const SESSIONS_LABELS = {
   WAITING_COUNT: (waitingCount: number) => `${waitingCount} waiting on you`
 } as const;
 
-// theme.css maps a named accent from data-accent; a colour of the user's own reaches it as CSS, with the text size.
 export const APPEARANCE = {
   ACCENT_CSS: (accentColor: string) => `:root{--aggregor-accent:${accentColor}}`,
   CUSTOM_ACCENT: "custom",
@@ -73,7 +72,6 @@ export const USER_INPUT_TAGS = {
   WORKING_TREE: "WorkingTreeInput"
 } as const;
 
-// What the webview does on its own, without the host.
 export const WEBVIEW_ACTIONS = {
   COPY_SESSION_ID: "copySessionId"
 } as const;

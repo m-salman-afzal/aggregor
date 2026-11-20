@@ -12,7 +12,7 @@ export class BaseEntity extends Schema.Class<BaseEntity, {readonly brand: unique
   sortId: Schema.Int,
   updatedAt: Schema.DateTimeUtc
 }) {
-  public static fromRow<Entity>(
+  public static decodeStoredRow<Entity>(
     entitySchema: Schema.Decoder<Entity>,
     storedRow: Readonly<Record<string, unknown>>
   ): Effect.Effect<Entity, Schema.SchemaError> {

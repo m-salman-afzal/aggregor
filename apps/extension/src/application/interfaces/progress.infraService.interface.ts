@@ -6,7 +6,7 @@ export class IProgressInfraService extends Context.Service<
   IProgressInfraService,
   {
     // Keeps the context key true meanwhile, so the manifest's menus can react.
-    readonly withSourceControlProgress: <A, E, R>(
+    readonly runWithSourceControlProgress: <A, E, R>(
       progressTitle: string,
       busyContextKey: string,
       effect: Effect.Effect<A, E, R>

@@ -4,7 +4,6 @@ import {
 } from "@valueObjects/sessionWorkingTree.valueObject.ts";
 import {Effect, Schema} from "effect";
 
-// A key missing, or holding a value that no longer decodes, takes its default, so a stored project always reads.
 export const ProjectSettingsValueObjectSchema = Schema.Struct({
   filesToCopy: Schema.Array(Schema.String).pipe(
     Schema.catchDecoding(() => Effect.succeedSome([".env*"])),

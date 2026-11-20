@@ -171,6 +171,28 @@ Where a session's agent runs, its tab, and resuming it.
   unbinding the unwanted keys one by one, which misses those a new tmux adds, as 3.8 added the floating panes; keeping
   the right-click menu for its Copy and Paste entries, which sit beside Split, Float and Kill.
 
+## Selecting and scrolling don't look or act like a tmux mode
+
+- **Problem:** with the mouse on, a drag, a double click and the wheel go through tmux's copy mode. On a Mac's trackpad
+  that read as a broken terminal: the selection was tmux's yellow, its position line (`[12/345]`) sat on the pane's
+  first row, a press that slipped a cell copied over the clipboard, and scrolling jumped. Measured on tmux 3.8 with this
+  file: tmux scrolls five lines for each wheel event, and a trackpad sends a stream of them where a mouse wheel sends
+  one per notch; a press whose pointer leaves its cell enters copy mode, copies and leaves it on release; and copy
+  mode's keys were vi's or emacs', whichever `$EDITOR` named, so the same stray key did different things on two
+  machines.
+- **Decision:** copy mode stays, since it is the only way to scroll back and select, and loses what made it show: the
+  selection is drawn in reverse, no position line is drawn, its keys are always tmux's emacs set (a stray key does
+  nothing there, where vi's letters move the cursor and open prompts), a press that ends in the cell it began in copies
+  nothing, and on macOS a wheel event scrolls one line.
+- **Solution:** `mode-style reverse`, `copy-mode-position-format ""` (set with `-q`, as the option is newer than tmux
+  3.2), `mode-keys emacs`, a `MouseDragEnd1Pane` binding that cancels when the selection starts and ends in one cell,
+  and the two wheel bindings inside `if-shell '[ "$(uname)" = Darwin ]'`. Checked on Linux with tmux 3.8, the macOS
+  branch with its condition forced; no Mac was at hand, so its effect on a real trackpad is unmeasured.
+- **Alternatives considered:** VS Code's own selection colour, which tmux cannot read, so a fixed one would be wrong on
+  the other theme; one line per wheel event everywhere, which makes a mouse wheel on Linux five times slower; ignoring
+  any drag of a cell or two, which would stop two characters being selected; telling Mac users to select with
+  Option+drag, which needs VS Code's `terminal.integrated.macOptionClickForcesSelection` and does nothing for scrolling.
+
 ## The tmux code is tmux itself, with a file on top for each kind of thing that runs in it
 
 - **Problem:** `TmuxInfraService` was one file of 411 lines that knew tmux and agents at once: the command lines, the
@@ -180,20 +202,20 @@ Where a session's agent runs, its tab, and resuming it.
 - **Decision:** inside `infrastructure/services/tmux/`, `tmuxServer.utils.ts` holds tmux in tmux's own terms and knows
   nothing of Aggregor: sessions by name, and clients by the process id of the terminal that runs them.
   `sessionAgent.utils.ts` and `folderShell.utils.ts` each say what one kind of tmux session is, on top of it: what it is
-  named, the command that starts it, when it ends. `tmux.infraService.ts` builds what they share and wires the port. The
-  port stays one, `ITmuxInfraService`, and its members stay named for what a use case asks (stop a session's agent, show
-  a folder's shell in a terminal), never for a tmux command. Each tmux command is written once, and a new kind of thing
-  in tmux is a file beside the two, not a longer one.
+  named, the command that starts it, when it ends. `tmux.infraService.ts` wires the port on them. The port stays one,
+  `ITmuxInfraService`, and its members stay named for what a use case asks (stop a session's agent, show a folder's
+  shell in a terminal), never for a tmux command. Each tmux command is written once, and a new kind of thing in tmux is
+  a file beside the two, not a longer one.
 - **Solution:**
   - `tmuxServer.utils.ts`: `runTmuxCommand` (a command's lines), `runCheckedTmuxCommand` (fails on tmux's exit code,
     since reading lines succeeds whatever tmux answers), `checkTmuxVersion`, `listTmuxSessionNames`, `listTmuxClients`
     and `findTmuxClient`, `switchTmuxClient` (`switch-client -E`), `killTmuxSession`, `prepareTerminalCommand` (the
     command a terminal runs: tmux on Aggregor's socket with its config, in a scope of its own),
     `prepareOwnScopeArguments` (the scope for what runs inside tmux), `probeOwnScope` and `escapeTmuxFormat`.
-  - `TmuxServer` (`tmux.infraService.type.ts`) is what every call needs: the socket, the config, the process spawner and
-    whether a scope can be made. `TmuxDependencies` adds what only agents need: the database's path, `aggregor-pty`'s
-    and the running sessions.
-  - Every span in the folder is `TmuxInfraService.‹const›`, since a helper file belongs to its folder's one owner.
+  - Each file is a unit. `TmuxServerUtils` holds what every call needs in its `make`: the socket, the config, the
+    process spawner and whether a scope can be made. `SessionAgentUtils` holds what only agents need in its own: the
+    database's path, `aggregor-pty`'s, and the running sessions.
+  - Each file's spans carry its own name (`TmuxServerUtils.runTmuxCommand`, `SessionAgentUtils.…`).
   - A window reads `tmux.conf` into a running server when the server has any session, a shell's or an agent's.
 - **Alternatives considered:** a second port, `IFolderShellInfraService`, with a layer of its own: the two layers would
   each probe the scope and hold the socket, or share them through a service only infrastructure uses, which `DDD.md` has

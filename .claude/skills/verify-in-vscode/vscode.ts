@@ -10,7 +10,7 @@ import {
   findWorkbenchPage,
   hoverInSessionsWebview,
   listCdpTargets,
-  screenshot
+  saveWindowScreenshot
 } from "./cdp.ts";
 import {findClaudeProcessId, findProcessTree, isClaudeProcess, readProcessFile, sendSignal} from "./processes.ts";
 
@@ -259,7 +259,7 @@ const requireArgument = (command: (commandArgument: string) => Promise<void>) =>
 const COMMANDS: Readonly<Record<string, (commandArgument?: string) => Promise<void> | void>> = {
   eval: requireArgument(evaluate),
   log: printTraceLogPath,
-  screenshot: requireArgument(screenshot),
+  screenshot: requireArgument(saveWindowScreenshot),
   start,
   stop,
   "webview-eval": requireArgument(evaluateInSessionsWebview),

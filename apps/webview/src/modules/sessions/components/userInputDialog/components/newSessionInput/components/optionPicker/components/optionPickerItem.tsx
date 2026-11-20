@@ -17,7 +17,6 @@ export const OptionPickerItem = (props: OptionPickerItemProps) => (
       <SecondaryActionButton
         Icon={props.option.SecondaryActionIcon}
         label={props.option.secondaryActionLabel}
-        // Stopped here, so the item the button sits in isn't chosen as well.
         onClick={(clickEvent: MouseEvent) => {
           clickEvent.stopPropagation();
           props.onSecondaryAction?.(props.option.optionId);

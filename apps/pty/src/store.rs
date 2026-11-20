@@ -16,7 +16,7 @@ const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 const TITLE_WRITE_INTERVAL: Duration = Duration::from_millis(500);
 const IDLE_WAIT: Duration = Duration::from_secs(3600);
 
-// The extension's timestamp format, such as 2026-11-07T22:13:46.836Z.
+// The extension's timestamp format.
 const NOW: &str = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -42,7 +42,6 @@ impl Status {
 
 pub enum Update {
     Status(Status),
-    /// A record with an id, such as a sub-agent; `None` clears it.
     Task(String, Option<Status>),
     TerminalTitle(String),
     Exited,
@@ -70,7 +69,6 @@ impl Store {
         self.sender.clone()
     }
 
-    /// Records the exit and waits until it is written.
     pub fn finish(self) {
         let _ = self.sender.send(Update::Exited);
         let _ = self.writer.join();
@@ -308,7 +306,7 @@ fn execute(
     }
 }
 
-/// `aggregor-pty.log` beside the database. Nothing goes to the terminal, which is the agent's screen.
+/// Nothing goes to the terminal, which is the agent's screen.
 struct ErrorLog {
     path: PathBuf,
     session_id: String,
@@ -340,7 +338,7 @@ impl ErrorLog {
     }
 }
 
-/// ISO 8601 in UTC, to the second, from days since the epoch (Howard Hinnant's civil_from_days).
+/// Howard Hinnant's civil_from_days.
 fn format_utc(time: SystemTime) -> String {
     let seconds = time
         .duration_since(UNIX_EPOCH)

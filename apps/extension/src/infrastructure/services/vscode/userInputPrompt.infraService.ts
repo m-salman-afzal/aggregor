@@ -1,43 +1,45 @@
 import {
-  FolderPickCancelledError,
-  IUserInputPromptInfraService
+  IUserInputPromptInfraService,
+  IUserInputPromptInfraServiceErrors
 } from "@interfaces/userInputPrompt.infraService.interface.ts";
 import {PROJECT_LABELS} from "@pkg/constants/src/project.constant.ts";
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
-import {Array, Effect, Layer, Result} from "effect";
+import {Array, Context, Effect, Layer, Result} from "effect";
 
-import type {window as VsCodeWindow} from "vscode";
+export class UserInputPromptInfraService extends Context.Service<UserInputPromptInfraService>()(
+  "aggregor-app/infrastructure/services/vscode/userInputPrompt.infraService/UserInputPromptInfraService",
+  {
+    make: Effect.fn("make")(function* () {
+      const vsCodeApi = yield* VsCodeApi;
 
-type Window = typeof VsCodeWindow;
+      const pickProjectFolderPaths = Effect.fn("pickProjectFolderPaths")(function* () {
+        const pickedFolderUris = yield* Effect.promise(() =>
+          vsCodeApi.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: true,
+            openLabel: PROJECT_LABELS.ADD_FOLDERS
+          })
+        );
+        const confirmedFolderUris = yield* Effect.fromResult(
+          Result.fromNullishOr(pickedFolderUris, () =>
+            IUserInputPromptInfraServiceErrors.FolderPickCancelledError.make()
+          )
+        );
 
-const pickProjectFolderPaths = Effect.fn("UserInputPromptInfraService.pickProjectFolderPaths")(function* (
-  window: Window
-) {
-  const pickedFolderUris = yield* Effect.promise(() =>
-    window.showOpenDialog({
-      canSelectFiles: false,
-      canSelectFolders: true,
-      canSelectMany: true,
-      openLabel: PROJECT_LABELS.ADD_FOLDERS
+        return Array.map(confirmedFolderUris, (folderUri) => ProjectPathValueObjectSchema.make(folderUri.fsPath));
+      });
+
+      return {
+        pickProjectFolderPaths: pickProjectFolderPaths()
+      };
     })
+  }
+) {
+  public static readonly layer = Layer.effect(
+    IUserInputPromptInfraService,
+    ownSpans("UserInputPromptInfraService", this.make())
   );
-  const confirmedFolderUris = yield* Effect.fromResult(
-    Result.fromNullishOr(pickedFolderUris, () => FolderPickCancelledError.make())
-  );
-
-  return Array.map(confirmedFolderUris, (folderUri) => ProjectPathValueObjectSchema.make(folderUri.fsPath));
-});
-
-const makeUserInputPromptInfraService = Effect.fn("UserInputPromptInfraService.make")(function* () {
-  const vsCodeApi = yield* VsCodeApi;
-
-  return {
-    pickProjectFolderPaths: pickProjectFolderPaths(vsCodeApi.window)
-  };
-});
-
-export const UserInputPromptInfraService = Layer.effect(
-  IUserInputPromptInfraService,
-  makeUserInputPromptInfraService()
-);
+}

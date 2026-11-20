@@ -1,54 +1,56 @@
-import {findLinuxGroupProcessIds} from "@infraServices/process/linuxProcess.utils.ts";
-import {collectProcessTree} from "@infraServices/process/processTree.utils.ts";
-import {listRunningProcesses} from "@infraServices/process/psProcess.utils.ts";
+import {NodeServices} from "@effect/platform-node";
+import {LinuxProcessUtils} from "@infraServices/process/linuxProcess.utils.ts";
+import {ProcessTreeUtils} from "@infraServices/process/processTree.utils.ts";
+import {PsProcessUtils} from "@infraServices/process/psProcess.utils.ts";
 import {IProcessInfraService} from "@interfaces/process.infraService.interface.ts";
 import {PLATFORMS} from "@pkg/constants/src/process.constant.ts";
-import {Array, Effect, Layer} from "effect";
-import {FileSystem} from "effect/FileSystem";
-import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
+import {Array, Context, Effect, Layer} from "effect";
 import {platform} from "node:os";
 
-import type {ProcessDependencies} from "@infraServices/process/process.infraService.type.ts";
 import type {ProcessGroupRequest} from "@interfaces/process.infraService.interface.ts";
 
-// Where there are no cgroups, as on macOS, each root brings in its tree.
-const findTreeGroupProcessIds = Effect.fn("ProcessInfraService.findTreeGroupProcessIds")(function* (
-  processGroupRequest: ProcessGroupRequest,
-  parentProcessIds: ReadonlyMap<number, number>
+export class ProcessInfraService extends Context.Service<ProcessInfraService>()(
+  "aggregor-app/infrastructure/services/process/process.infraService/ProcessInfraService",
+  {
+    make: Effect.fn("make")(function* () {
+      const linuxProcessUtils = yield* LinuxProcessUtils;
+      const processTreeUtils = yield* ProcessTreeUtils;
+      const psProcessUtils = yield* PsProcessUtils;
+
+      // Where there are no cgroups, as on macOS, each root brings in its tree.
+      const findTreeGroupProcessIds = Effect.fn("findTreeGroupProcessIds")(function* (
+        processGroupRequest: ProcessGroupRequest,
+        parentProcessIds: ReadonlyMap<number, number>
+      ) {
+        const treeProcessIds = yield* Effect.forEach(processGroupRequest.rootProcessIds, (rootProcessId) =>
+          processTreeUtils.collectProcessTree(rootProcessId, parentProcessIds)
+        );
+
+        return new Set(Array.flatten(treeProcessIds));
+      });
+
+      const listGroupProcesses = Effect.fn("listGroupProcesses")(function* (processGroupRequest: ProcessGroupRequest) {
+        const runningProcesses = yield* psProcessUtils.listRunningProcesses;
+        const parentProcessIds: ReadonlyMap<number, number> = new Map(
+          Array.map(
+            runningProcesses,
+            (runningProcess) => [runningProcess.processId, runningProcess.parentProcessId] as const
+          )
+        );
+        const groupProcessIds =
+          platform() === PLATFORMS.LINUX
+            ? yield* linuxProcessUtils.findLinuxGroupProcessIds(processGroupRequest, parentProcessIds)
+            : yield* findTreeGroupProcessIds(processGroupRequest, parentProcessIds);
+
+        return Array.filter(runningProcesses, (runningProcess) => groupProcessIds.has(runningProcess.processId));
+      });
+
+      return IProcessInfraService.of({listGroupProcesses});
+    })
+  }
 ) {
-  const treeProcessIds = yield* Effect.forEach(processGroupRequest.rootProcessIds, (rootProcessId) =>
-    collectProcessTree(rootProcessId, parentProcessIds)
+  public static readonly layer = Layer.effect(IProcessInfraService, ownSpans("ProcessInfraService", this.make())).pipe(
+    Layer.provide([LinuxProcessUtils.layer, ProcessTreeUtils.layer, PsProcessUtils.layer, NodeServices.layer])
   );
-
-  return new Set(Array.flatten(treeProcessIds));
-});
-
-const listGroupProcesses = Effect.fn("ProcessInfraService.listGroupProcesses")(function* (
-  processDependencies: ProcessDependencies,
-  processGroupRequest: ProcessGroupRequest
-) {
-  const runningProcesses = yield* listRunningProcesses(processDependencies);
-  const parentProcessIds: ReadonlyMap<number, number> = new Map(
-    Array.map(runningProcesses, (runningProcess) => [runningProcess.processId, runningProcess.parentProcessId] as const)
-  );
-  const groupProcessIds =
-    platform() === PLATFORMS.LINUX
-      ? yield* findLinuxGroupProcessIds(processDependencies, processGroupRequest, parentProcessIds)
-      : yield* findTreeGroupProcessIds(processGroupRequest, parentProcessIds);
-
-  return Array.filter(runningProcesses, (runningProcess) => groupProcessIds.has(runningProcess.processId));
-});
-
-const makeProcessInfraService = Effect.fn("ProcessInfraService.make")(function* () {
-  const processDependencies: ProcessDependencies = {
-    childProcessSpawner: yield* ChildProcessSpawner,
-    fileSystem: yield* FileSystem
-  };
-
-  return {
-    listGroupProcesses: (processGroupRequest: ProcessGroupRequest) =>
-      listGroupProcesses(processDependencies, processGroupRequest)
-  };
-});
-
-export const ProcessInfraService = Layer.effect(IProcessInfraService, makeProcessInfraService());
+}

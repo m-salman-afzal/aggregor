@@ -1,5 +1,6 @@
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {AGENT_TASK_KINDS} from "@valueObjects/agentTaskKind.valueObject.ts";
-import {Effect, Record, Result, String} from "effect";
+import {Context, Effect, Layer, Record, Result, String} from "effect";
 
 import type {AgentTaskKindValueObject} from "@valueObjects/agentTaskKind.valueObject.ts";
 
@@ -15,10 +16,21 @@ const AGENT_TASK_KINDS_BY_ID_PREFIX: Record.ReadonlyRecord<string, AgentTaskKind
   w: AGENT_TASK_KINDS.WORKFLOW
 };
 
-export const getAgentTaskKind = Effect.fn("AgentTaskDomainService.getAgentTaskKind")(function* (taskId: string) {
-  const taskIdPrefix = String.slice(0, 1)(taskId);
+export class AgentTaskDomainService extends Context.Service<AgentTaskDomainService>()(
+  "aggregor-app/domain/services/agentTask.domainService/AgentTaskDomainService",
+  {
+    make: Effect.fn("make")(function* () {
+      const getAgentTaskKind = Effect.fn("getAgentTaskKind")(function* (taskId: string) {
+        const taskIdPrefix = String.slice(0, 1)(taskId);
 
-  return Result.merge(
-    Result.fromOption(Record.get(AGENT_TASK_KINDS_BY_ID_PREFIX, taskIdPrefix), () => AGENT_TASK_KINDS.OTHER)
-  );
-});
+        return Result.merge(
+          Result.fromOption(Record.get(AGENT_TASK_KINDS_BY_ID_PREFIX, taskIdPrefix), () => AGENT_TASK_KINDS.OTHER)
+        );
+      });
+
+      return {getAgentTaskKind};
+    })
+  }
+) {
+  public static readonly layer = Layer.effect(this, ownSpans("AgentTaskDomainService", this.make()));
+}

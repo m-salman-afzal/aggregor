@@ -1,6 +1,5 @@
 import {Schema} from "effect";
 
-// What a task is, read from its id: Claude Code's background task ids start with a letter per kind.
 export const AgentTaskKindValueObjectSchema = Schema.Enum({
   MCP_TASK: "mcpTask",
   MONITOR: "monitor",

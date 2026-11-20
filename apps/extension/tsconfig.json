@@ -21,8 +21,8 @@
       "@infraServices/*": ["./src/infrastructure/services/*"],
       "@infraUtils/*": ["./src/infrastructure/utils/*"],
       "@controllers/*": ["./src/presentation/controllers/*"],
+      "@errorMessages/*": ["./src/presentation/errorMessages/*"],
       "@middlewares/*": ["./src/presentation/middlewares/*"],
-      "@presenters/*": ["./src/presentation/presenters/*"],
       "@views/*": ["./src/presentation/views/*"]
     }
   },

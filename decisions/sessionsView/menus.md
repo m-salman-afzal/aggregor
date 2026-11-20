@@ -10,9 +10,9 @@ The Sessions view's buttons and menus, on its lists and its rows, and the questi
   Session…, Add Project and Open Settings as buttons, always shown, then its … menu (Stop All Agents, Archive All
   Sessions). VS Code still draws the view's name above. One place for a list's actions, drawn like every row.
 - **Solution:** `LIST_INLINE_ACTIONS` and `LIST_ACTION_GROUPS` in the webview's `sessions.constant.ts`. Open Settings
-  (`aggregorApp.openSettings`) opens the Settings editor at `@ext:<extension id>`; `routes.ts` registers it straight to
-  `openAggregorSettingsInSettingsEditor` in `@pkg/vscode`, with `presentAppCommandError`, since it reads and writes no
-  data.
+  (`aggregorApp.openSettings`) opens the Settings editor at `@ext:<extension id>`; `AppController` registers it and
+  calls `VscodeUtils`'s `openAggregorSettingsInSettingsEditor` in `@pkg/vscode`, with `AppErrorMessage`, since it reads
+  and writes no data.
 - **Alternatives considered:** a toolbar of its own at the webview's top, a row that holds nothing else; keeping VS
   Code's title actions, with their glyphs and apart from the lists; a controller and a settings service for Open
   Settings, so every command takes the same path.
@@ -41,7 +41,7 @@ The Sessions view's buttons and menus, on its lists and its rows, and the questi
   - `rowActions.utils.ts` runs a row action: New Session opens one dialog with the choices left to make (Add Project
     first when there is none; see `sessions/worktrees.md`); Rename asks for the name; Remove asks while the agent runs;
     a stop asks only when it cuts a turn short. Each sends a complete request:
-    `newSession {projectPath, agentId, workingTree}` (no agent: the default, or the only one installed),
+    `createSession {projectPath, agentId, workingTree}` (no agent: the default, or the only one installed),
     `renameSession {sessionId, customName}`, `setDefaultAgent {agentId}` for the star.
   - Each user input carries what its answer does; the store keeps the one that is open, and the dialog closes before
     running the answer, so an answer may open the next one. The webview draws it with shadcn's dialog and input on Base

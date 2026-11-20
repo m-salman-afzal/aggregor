@@ -48,7 +48,6 @@ export const DESKTOP_NOTIFIERS = {
   }
 } as const;
 
-// A WSL toast's click opens this link, which the extension handles in the window that sent it.
 export const SESSION_LINK = {
   OPEN_SESSION_PATH: "/openSession",
   SESSION_ID_PARAMETER: "sessionId"

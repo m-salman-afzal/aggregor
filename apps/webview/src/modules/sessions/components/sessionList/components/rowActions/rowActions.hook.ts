@@ -5,8 +5,8 @@ import {
   ROW_SURFACE
 } from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.constant.ts";
 import {
-  runRowActionAsking,
-  toMenuGroups
+  makeMenuGroups,
+  runRowActionAsking
 } from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.utils.ts";
 import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.store.ts";
 
@@ -39,7 +39,7 @@ export const useRowActions = (props: UseRowActionsProps) => {
 
   return {
     actionBarClassName: isHeader ? ALWAYS_SHOWN_ACTION_BAR : HOVER_ACTION_BAR,
-    menuGroups: toMenuGroups(props.actionGroups),
+    menuGroups: makeMenuGroups(props.actionGroups),
     rowClassName: isHeader ? HEADER_SURFACE : ROW_SURFACE,
     runAction
   };

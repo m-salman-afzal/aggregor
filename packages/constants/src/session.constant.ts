@@ -20,7 +20,6 @@ export const SESSION_COMMANDS = {
   UNLINK_WORKTREE: "aggregorApp.unlinkSessionWorktree"
 } as const;
 
-// Each project's list shows its newest sessions a page at a time.
 export const SESSION_PAGES = {
   FIRST_PAGE_COUNT: 1,
   PAGE_SIZE: 10
@@ -31,7 +30,6 @@ export const SESSION_RUN_STATE = {
   STOP_SETTLE_INTERVAL: "10 seconds"
 } as const;
 
-// What a request to start or move a session says about the working tree it runs in.
 export const WORKING_TREE_CHOICE_TAGS = {
   EXISTING_WORKTREE: "ExistingWorktree",
   NEW_WORKTREE: "NewWorktree",
@@ -65,7 +63,6 @@ export const SESSION_LABELS = {
   WORKING_TREE_SECTION: "Works in"
 } as const;
 
-// Which one a question shows is picked in the webview's sessions.utils.ts.
 export const SESSION_NOTICES = {
   CONFIRM_REMOVE_RUNNING: (displayName: string) => `Remove "${displayName}"?`,
   CONFIRM_RESTART_AGENT: (displayName: string) => `Restart the agent of "${displayName}" in another folder?`,
@@ -90,6 +87,5 @@ export const SESSION_ERRORS = {
   LAUNCH_FAILED: "Could not open a terminal for the session.",
   NOT_FOUND: "This session no longer exists.",
   PTY_BINARY_NOT_FOUND: "Sessions can't run on this platform yet: this build of Aggregor has no aggregor-pty for it.",
-  // A Windows VSIX has no aggregor-pty; sessions on Windows run inside WSL, on the Linux VSIX.
   PTY_BINARY_NOT_FOUND_ON_WINDOWS: "On Windows, sessions run in WSL. Reopen the folder in WSL to start one."
 } as const;

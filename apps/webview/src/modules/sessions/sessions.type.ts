@@ -25,7 +25,6 @@ export interface RowAction {
 
 export type SessionListId = (typeof SESSION_LISTS)[keyof typeof SESSION_LISTS];
 
-// Each user input carries what its answer does; the dialog closes before running it, so an answer may open the next one.
 export type UserInput =
   | {
       readonly _tag: typeof USER_INPUT_TAGS.CLEAN_UP;

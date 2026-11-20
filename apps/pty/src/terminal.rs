@@ -9,13 +9,11 @@ const DEFAULT_SIZE: PtySize = PtySize {
     pixel_height: 0,
 };
 
-/// Our own terminal in raw mode, so every key reaches the agent as it was typed; dropping it restores the settings.
 pub struct RawMode {
     original_settings: Termios,
 }
 
 impl RawMode {
-    /// `None` when stdin is not a terminal, as in tests.
     pub fn enable() -> Option<Self> {
         if !stdin().is_terminal() {
             return None;

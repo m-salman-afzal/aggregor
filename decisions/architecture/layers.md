@@ -62,8 +62,9 @@ DDD.md's layers: what each holds and how they talk.
 - **Decision:**
   - Request and response DTOs live in `application/dtos/<x>.dto.ts` as schemas: `<UseCase>RequestDto`, one per use case,
     and response DTOs named for what they are (`SessionListItemDto`, `ProjectListItemDto`).
-  - A controller decodes its input into the request DTO with `decodeVsCodeArgument` and calls one service; it imports
-    only services, DTOs, presentation helpers and that decoder. Presenters import services' types; views import
+  - A controller decodes its input into the request DTO with `VscodeUtils`'s `decodeVsCodeArgument` and calls one
+    service; it imports only services, DTOs, the middleware and error messages it registers its commands with,
+    `@pkg/constants`, `ownSpans`, `TaggedErrors` and `VscodeUtils`. Error messages import services' types; views import
     controllers and DTOs' types. Presentation imports nothing from the domain or infrastructure.
   - A value object is only a value: the list's rows and changes became DTOs.
   - Source Control progress and its context key moved into `CommitMessageService`, through a new
@@ -78,29 +79,37 @@ DDD.md's layers: what each holds and how they talk.
   presentation model and the domain model differ; they differ here (rows against entities). One request DTO per shape
   (`{sessionId}`) instead of one per use case.
 
-## A command's failure is shown by its presenter
+## A command's failure is shown by its error message
 
 - **Problem:** services built and showed error messages, so the backend decided what the user reads.
 - **Decision:** a use case returns every failure the user should hear about as a typed error, and ends quietly on a
-  cancelled pick or a row removed meanwhile. Each feature has a presenter (`presentation/presenters/<x>.presenter.ts`)
-  whose type is every failure its services return, so a new failure fails to compile until it has a message; `routes.ts`
-  registers each command with its presenter, and `registerCommand` logs the failure and shows the message. A presenter
-  may also name the setting that fixes the failure (`aggregorApp.agents` for a missing agent), and the message then has
-  an **Open Settings** button. Work no command started logs its failures in the trace log. The backend says what went
-  wrong; presentation decides how to say it.
+  cancelled pick or a row removed meanwhile. Each feature has an error message, a unit in
+  `presentation/errorMessages/<x>.errorMessage.ts` (`SessionErrorMessage`, alias `@errorMessages`), whose
+  `get<X>CommandErrorMessage` takes every failure its services return, so a new failure fails to compile until it has a
+  message. The controller registers each command with it, and `registerCommand` logs the failure and shows the
+  `CommandErrorMessage` it returns. An error message may also name the setting that fixes the failure
+  (`aggregorApp.agents` for a missing agent), and the message then has an **Open Settings** button. Work no command
+  started logs its failures in the trace log. The backend says what went wrong; presentation decides how to say it.
+- **Solution:** each feature's error message is a class, such as `SessionErrorMessage`, which its controller yields and
+  its controller's layer provides. `AppErrorMessage` takes `never`, since the app's own commands only drive VS Code and
+  have no failure to show.
 - **Alternatives considered:** a controller mapping its errors (a controller only calls a service); one message per
   error tag for every command, which can't tell a session's terminal from a project's. For work no command starts (title
-  sync, viewedAt, the project switch): handing failures to presentation through a stream.
+  sync, viewedAt, the project switch): handing failures to presentation through a stream. A presenter per feature
+  (`presentation/presenters/<x>.presenter.ts` with `present<X>CommandError`), registered with each command in
+  `routes.ts`: it holds only error messages, so it is named for them, and each controller registers its own commands.
 
 ## `@pkg/vscode` holds what presentation and infrastructure share
 
 - **Problem:** `VsCodeApi` and the vscode helpers sat in infrastructure, but views and the middleware need them too.
-- **Decision:** a workspace package, `packages/vscode`: `VsCodeApi` (the one runtime `vscode` import),
-  `acquireScopedDisposable`, `streamVsCodeEvent`, `setWhenClauseContextKey`, `runWithProgressIndicator`,
-  `openAggregorSettingsInSettingsEditor`, `showErrorNotificationWithoutWaiting`, and `decodeVsCodeArgument` (formerly
-  `decodeCommandArgument`). Lint applies the extension's code rules to it. The helpers were `acquireDisposable`,
-  `fromEvent`, `setContext`, `withProgress`, `openSetting` and `showErrorInBackground` before, which named the gesture
-  rather than what each one does. Presentation imports nothing from infrastructure, and the shared code has one home.
+- **Decision:** a workspace package, `packages/vscode`: `VsCodeApi` (the one runtime `vscode` import) and `VscodeUtils`,
+  one unit holding `acquireScopedDisposable`, `streamVsCodeEvent`, `setWhenClauseContextKey`,
+  `runWithProgressIndicator`, `openAggregorSettingsInSettingsEditor`, `showErrorNotificationWithoutWaiting`, and
+  `decodeVsCodeArgument` (formerly `decodeCommandArgument`). Lint applies the extension's code rules to it, and its
+  utils rules to `VscodeUtils`. It sits below infrastructure and presentation, so `VscodeUtils.layer` is given to both
+  where the levels are put together. The helpers were `acquireDisposable`, `fromEvent`, `setContext`, `withProgress`,
+  `openSetting` and `showErrorInBackground` before, which named the gesture rather than what each one does. Presentation
+  imports nothing from infrastructure, and the shared code has one home.
 
 ## A set of values is an enum value object that exports its values
 

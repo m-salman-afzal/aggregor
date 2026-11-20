@@ -18,7 +18,6 @@ export const SessionDiffStatsDtoSchema = Schema.Struct({
 
 export type SessionDiffStatsDto = typeof SessionDiffStatsDtoSchema.Type;
 
-// The pull request whose head is the worktree's branch, as gh last found it.
 export const SessionPullRequestDtoSchema = Schema.Struct({
   number: Schema.Int,
   state: PullRequestStateValueObjectSchema,
@@ -27,7 +26,6 @@ export const SessionPullRequestDtoSchema = Schema.Struct({
 
 export type SessionPullRequestDto = typeof SessionPullRequestDtoSchema.Type;
 
-// One of the agent's tasks, such as a Claude Code sub-agent, named by its title or else its id.
 export const SessionTaskDtoSchema = Schema.Struct({
   displayName: Schema.String,
   kind: AgentTaskKindValueObjectSchema,
@@ -39,7 +37,6 @@ export const SessionTaskDtoSchema = Schema.Struct({
 
 export type SessionTaskDto = typeof SessionTaskDtoSchema.Type;
 
-// The wait kind and progress exist only at the agent's turn; no agent name or icon means it left the settings.
 export const SessionListItemDtoSchema = Schema.Struct({
   agentConversationId: Schema.optional(Schema.String),
   agentName: Schema.optional(Schema.String),
@@ -74,7 +71,6 @@ export const WorktreeListItemDtoSchema = Schema.Struct({
 
 export type WorktreeListItemDto = typeof WorktreeListItemDtoSchema.Type;
 
-// The hidden sessions are those on the pages not yet shown; the waiting ones among them still count in the badge.
 export const SessionPageDtoSchema = Schema.Struct({
   hiddenSessionCount: Schema.Int,
   hiddenWaitingCount: Schema.Int,
@@ -83,7 +79,6 @@ export const SessionPageDtoSchema = Schema.Struct({
 
 export type SessionPageDto = typeof SessionPageDtoSchema.Type;
 
-// Without worktrees, the project is no git repository, or the list doesn't read them (the Archive).
 export const ProjectSessionsDtoSchema = Schema.Struct({
   hasLeftovers: Schema.optional(Schema.Boolean),
   projectListItem: ProjectListItemDtoSchema,
@@ -103,10 +98,8 @@ export const SessionListChangeDtoSchema = Schema.TaggedUnion({
 
 export type SessionListChangeDto = typeof SessionListChangeDtoSchema.Type;
 
-// Without an agent, the default one starts, or the only one installed.
 export const WorkingTreeChoiceDtoSchema = Schema.TaggedUnion({
   [WORKING_TREE_CHOICE_TAGS.EXISTING_WORKTREE]: {worktreePath: ProjectPathValueObjectSchema},
-  // Without a base branch, the worktree starts from the project's current commit.
   [WORKING_TREE_CHOICE_TAGS.NEW_WORKTREE]: {baseBranchName: Schema.optional(Schema.NonEmptyString)},
   [WORKING_TREE_CHOICE_TAGS.PROJECT_ROOT]: {}
 });
@@ -155,7 +148,6 @@ export const StopArchivedProjectSessionAgentsRequestDtoSchema = Schema.Struct({
 
 export type StopArchivedProjectSessionAgentsRequestDto = typeof StopArchivedProjectSessionAgentsRequestDtoSchema.Type;
 
-// An empty name hands the row and the tab back to the agent's title.
 export const RenameSessionRequestDtoSchema = Schema.Struct({
   customName: Schema.String,
   sessionId: EntityIdValueObjectSchema
@@ -202,7 +194,6 @@ export const GetProjectSessionsRequestDtoSchema = Schema.Struct({
 
 export type GetProjectSessionsRequestDto = typeof GetProjectSessionsRequestDtoSchema.Type;
 
-// A project with no count shows its first page.
 export const ListProjectSessionsRequestDtoSchema = Schema.Struct({
   shownPageCounts: Schema.Record(Schema.String, ShownPageCountSchema)
 });

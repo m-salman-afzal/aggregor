@@ -1,18 +1,34 @@
 import {NotifyOnDesktopRequestDtoSchema} from "@dtos/sessionAlert.dto.ts";
-import {decodeVsCodeArgument} from "@pkg/vscode/src/vsCodeArgument.utils.ts";
-import {notifyOnDesktop, watchSessionAlerts} from "@services/sessionAlert.service.ts";
-import {Effect} from "effect";
+import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
+import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
+import {SessionAlertService} from "@services/sessionAlert.service.ts";
+import {Context, Effect, Layer} from "effect";
 
-export const watchSessionAlertsForSessionAlertsView = Effect.fn(
-  "SessionAlertController.watchSessionAlertsForSessionAlertsView"
-)(function* () {
-  return yield* watchSessionAlerts();
-});
+export class SessionAlertController extends Context.Service<SessionAlertController>()(
+  "aggregor-app/presentation/controllers/sessionAlert.controller/SessionAlertController",
+  {
+    make: Effect.fn("make")(function* () {
+      const sessionAlertService = yield* SessionAlertService;
+      const vscodeUtils = yield* VscodeUtils;
 
-export const notifyOnDesktopForSessionAlertsView = Effect.fn(
-  "SessionAlertController.notifyOnDesktopForSessionAlertsView"
-)(function* (desktopNotification: unknown) {
-  const request = yield* decodeVsCodeArgument(NotifyOnDesktopRequestDtoSchema, desktopNotification);
+      const watchSessionAlertsForSessionAlertsView = Effect.fn("watchSessionAlertsForSessionAlertsView")(function* () {
+        return yield* sessionAlertService.watchSessionAlerts;
+      });
 
-  yield* notifyOnDesktop(request);
-});
+      const notifyOnDesktopForSessionAlertsView = Effect.fn("notifyOnDesktopForSessionAlertsView")(function* (
+        desktopNotification: unknown
+      ) {
+        const request = yield* vscodeUtils.decodeVsCodeArgument(NotifyOnDesktopRequestDtoSchema, desktopNotification);
+
+        yield* sessionAlertService.notifyOnDesktop(request);
+      });
+
+      return {
+        notifyOnDesktopForSessionAlertsView,
+        watchSessionAlertsForSessionAlertsView: watchSessionAlertsForSessionAlertsView()
+      };
+    })
+  }
+) {
+  public static readonly layer = Layer.effect(this, ownSpans("SessionAlertController", this.make()));
+}

@@ -21,7 +21,6 @@ export const COMMAND_SEARCH = {
   WINDOWS_PATH_SEPARATOR: ";"
 } as const;
 
-// A terminal's processes are read this often, only while a session's dropdown is open in the Sessions view.
 export const PROCESS_SAMPLING = {
   INTERVAL: "2 seconds"
 } as const;

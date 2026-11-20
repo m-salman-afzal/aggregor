@@ -1,6 +1,5 @@
 export const APP_NAME = "Aggregor App";
 
-// Only its owner can read it; F5's Run Extension sets ~/.aggregorDev through the variable, and tests their own.
 export const AGGREGOR_FOLDER = {
   DEFAULT_NAME: ".aggregor",
   ENVIRONMENT_VARIABLE: "AGGREGOR_HOME",
@@ -32,6 +31,7 @@ export const TRACE_LOGGING = {
   FORCED_LINE: (logMethod: string, logLine: string) => `[${logMethod}] ${logLine}`,
   LINE_BREAK_PATTERN: /\s*\n\s*/gu,
   SETTING: "traceLogging",
+  SPAN_OWNER_ATTRIBUTE: "owner",
   TYPE_MARKER_PREFIX: "~",
   VALUE_DEPTH: 3
 } as const;

@@ -28,7 +28,7 @@ What lint checks, where its setup lives, and how its messages read.
 - **Problem:** lint kept every type at the top of its file, so `AgentListItemDto = typeof AgentListItemDtoSchema.Type`
   sat above the schema it comes from, and an error union above its errors.
 - **Decision:** `aggregor/type-placement` in `packages/eslint/src/rules/`, for every TypeScript file: a type built from
-  a value of its own file (a schema, an error class, a function), directly or through another such type, sits below the
+  a value of its own file (a schema, an errors class, a function), directly or through another such type, sits below the
   last of them; a type that stands alone stays at the top, after the imports. It replaced the `no-restricted-syntax`
   selector for types, and `perfectionist/sort-modules` now splits its sorting at blank lines, so such a type can follow
   the classes it names. A file reads top down, each name defined before what is built from it.
@@ -87,8 +87,8 @@ What lint checks, where its setup lives, and how its messages read.
 - **Solution:** `no-restricted-syntax` bans `ObjectPattern` everywhere (`OBJECT_DESTRUCTURING_BAN` in
   `packages/eslint/src/layers/syntaxBans.ts`), with a message that says why and what to write instead; ESLint's and
   typescript-eslint's `prefer-destructuring` are off. A parameter that was a pattern is named after its type
-  (`workspaceDependencies: WorkspaceDependencies`), a `Match` handler's after its tag, or `error` in a presenter. Where
-  a VS Code getter or narrowing inside a callback needs it, a value is read once into a named const.
+  (`commitMessageRequest: CommitMessageRequest`), a `Match` handler's after its tag, or `error` in an error message.
+  Where a VS Code getter or narrowing inside a callback needs it, a value is read once into a named const.
 - **Alternatives considered:** destructuring only small objects, which needs a size to argue about; banning it only in
   the webview, which leaves the extension's long Effect functions as they were.
 
@@ -137,7 +137,7 @@ What lint checks, where its setup lives, and how its messages read.
   the type `typeof` it, and a `Match.valueTags` key `[CONSTANT]`. One name per tag, shared by the extension and the
   webview.
 - **Solution:** `TAG_LITERAL_BAN` in `packages/eslint/src/layers/syntaxBans.ts` reports a string literal as a `_tag`'s
-  value or type, everywhere. Tags that `Schema.TaggedError` and `Schema.TaggedUnion` define stay their schemas', and
+  value or type, everywhere. Tags that a `TaggedErrors` key or a `Schema.TaggedUnion` defines stay their schemas', and
   matches on them keep the tag names as keys.
 - **Alternatives considered:** only the webview's messages, which leaves the same string copies in the extension.
 
@@ -153,3 +153,45 @@ What lint checks, where its setup lives, and how its messages read.
   still counts as one.
 - **Alternatives considered:** a `ScrollArea` component, which every list would have to be rewritten into; a global
   `::-webkit-scrollbar` style, which would also restyle scrollbars we don't own and lose the per-element hover reveal.
+
+## The unit form is linted
+
+- **Decision:** each part of the unit form ("A unit is an Effect service class that yields what it needs once" in
+  `architecture/dependencyInjection.md`) is a lint whose message says what is wrong, why and what to write instead:
+  where a class may sit, its layer, where it yields, its names and its levels' spans ("Conventions are enforced by lint,
+  not prose").
+- **Solution:** in `packages/eslint/src/layers/`:
+  - `SERVICE_CLASS_BAN` allows a `Context.Service` class in every role that holds functions (a service, controller,
+    error message, domain service, utils, transformer, view, infra service, repository, middleware, layer file or
+    `infrastructure/config`'s config) and in a port's `.interface.ts`, and bans it in a file that holds only
+    definitions.
+  - `TOP_LEVEL_FUNCTION_BAN` bans a top-level `Effect.fn` in `apps/extension/src` and `packages/vscode/src`, with no
+    exemption: every function is a const inside its class's `make`.
+  - `SERVICE_LAYER_OWN_SPANS_BAN` fails a class whose static `layer` does not go through `ownSpans`, whether it is
+    `Layer.effect(this, …)` or a port implementation's `Layer.effect(IPort, …)`.
+  - `NESTED_SERVICE_YIELD_BAN` fails a function inside another `Effect.fn` that yields a service class or calls a
+    service's `.use`: the unit yields it once at the top of `make`.
+  - `DEPENDENCY_PARAMETER_BAN` fails any parameter named or typed `…Dependencies`: a function reads services and shared
+    state from the `make` it sits in.
+  - `LAYER_MERGE_SPAN_BAN` fails a `Layer.mergeAll` in `infrastructure/di/` or `extension.ts` without
+    `.pipe(Layer.withSpan("<Level>"))`, and `PROVIDE_MERGE_BAN` any `Layer.provideMerge` in `app.layer.ts` or
+    `extension.ts`, where the levels meet.
+  - `roleNames.ts` names each unit's class for its role: `<X>Service`, `<X>Controller`, `<X>ErrorMessage`,
+    `<X>DomainService`, `<X>Utils`, `<X>Transformer`, `<X>View`, `<X>InfraService`, `<X>Repository`, `<X>Config` and
+    `<X>Middleware`; a layer file's exported layer ends in `Layer`.
+  - `@pkg/vscode`'s `.utils.ts` files get the extension's utils rules: the class, the ban on a top-level `Effect.fn`,
+    the `Utils` name and the layer through `ownSpans`.
+  - `importRules.ts` gives error messages their own allow-list (`effect`, `@pkg/constants`, `ownSpans`, and services'
+    types), lets a controller import the middleware, error messages and `@pkg/constants` it registers its commands with,
+    and `@pkg/vscode`'s `vscode.utils.ts`, whose `VscodeUtils` decodes its input and opens the settings, and lets every
+    layer, and `@pkg/vscode`, import `@pkg/trace`'s `ownSpans` and `@pkg/errors`' `TaggedErrors`, and nothing else from
+    `@pkg/errors`.
+  - The rules on which class a role's file may hold, and its name, accept a file's `…Errors` class beside its unit class
+    and don't take it for a unit. `packages/errors/src` is under the same code rules as `packages/trace/src`.
+
+  In `packages/eslint/src/rules/`, `aggregor/span-name` names a class's `make` span `make` and every other `Effect.fn`
+  span after its const, and checks that `ownSpans` is given its file's owner, which for every file with a role is the
+  file itself (`terminal.utils.ts` is `TerminalUtils`). `aggregor/max-lines-per-function` replaces ESLint's own rule so
+  a class's `make`, or a `make<Name>` const such as `makeFor`, that holds `Effect.fn`s is exempt while each function
+  inside stays capped at 30 lines. `unicorn/name-replacements` allows `utils` and `application` as words, since they
+  name a role and a layer.
