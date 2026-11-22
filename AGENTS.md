@@ -11,15 +11,16 @@ once it has two files. Each entry holds the problem, the decision and why it won
 alternatives considered, with no dates, milestones or steps (`decisions/README.md` has the format and the index). Add
 each one once it is agreed, in the same commit as the code it shapes, in its feature's file; a changed decision is
 rewritten to say what holds, with the old choice moved to its alternatives. A stack's plan lives in its PRs' decision
-lists and the README's roadmap; there are no plan files. Before a session's last hand-back, check that every decision
-the session made, or changed, is there.
+lists and `ROADMAP.md`; there are no plan files. Before a session's last hand-back, check that every decision the
+session made, or changed, is there.
 
 Work lands as small, feature-sliced, stacked PRs on `stack/<name>/<n>/<type>/<slug>` branches, each starting from the
 one below it. The `stack` skill (`.claude/skills/stack`) creates them; on push, the Auto PR workflow opens each PR into
 the branch below and joins them into a GitHub stack. Land a stack by merging its top PR with a merge commit, never
 squash. A problem left for later is a GitHub issue with a branch for its fix linked to it, which the `issue` skill
-(`.claude/skills/issue`) files when the user asks for an issue. The roadmap lives in `README.md`. Commit and push only
-when the user asks.
+(`.claude/skills/issue`) files when the user asks for an issue. The roadmap lives in `ROADMAP.md`. `README.md` is both
+GitHub's page and the Marketplace listing: `apps/extension/README.md` is a symlink to it. Commit and push only when the
+user asks.
 
 A commit subject is `<type>(<scope>): <subject>`, with `!` before the colon for a breaking change, and its scope is a
 feature from the list in `.github/workflows/pr-title.yaml`. Auto PR titles each PR with its first commit's subject, plus
@@ -183,6 +184,9 @@ pnpm --filter=aggregor-webview build  # Builds the webview into apps/extension/d
 pnpm --filter=aggregor-webview dev    # The webview's dev server, which F5 starts and its webview loads
 pnpm bump          # On an up-to-date dev: pick the next version; pushes chore/bump-v<version> and opens its PR
 ```
+
+`AGGREGOR_HOME` moves the extension's whole data folder and `AGGREGOR_DATABASE_FILE` only its database, each an absolute
+path.
 
 To release, run `pnpm bump` (`bump.config.ts`). Merging the bump PR into dev opens the release PR, dev into main
 (`release-pr.yaml`); merging that one publishes to the Marketplace and creates the GitHub release (`release.yaml`): a

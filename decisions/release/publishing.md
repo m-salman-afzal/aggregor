@@ -28,16 +28,25 @@ How a version is bumped, released and published.
 - **Decision:** `pnpm bump` sets one version in the root and `apps/extension` `package.json` and pushes
   `chore/bump-v<version>`.
 
-## A Marketplace README with media served from GitHub
+## One README for GitHub and the Marketplace, with media served from GitHub
 
-- **Problem:** vsce ships `apps/extension/README.md` as the listing's page, and there was none, so the Marketplace
-  showed nothing. vsce rewrites a relative image link against the repository's root, not `apps/extension`.
-- **Decision:** a short `apps/extension/README.md` (what Aggregor is, what it does today, what is planned, requirements)
-  with screenshots and GIFs of a real headless VS Code run. Its images are absolute `raw/main` GitHub URLs to
+- **Problem:** vsce ships `apps/extension/README.md` as the listing's page, and GitHub shows the root `README.md`. As
+  two texts they read differently: the listing said what Aggregor is, with screenshots, and the repository's page was
+  the developer's, with every feature in full and the roadmap.
+- **Decision:** one short text for both (what Aggregor is, what it does today, what is planned, requirements), with
+  screenshots and GIFs of a real headless VS Code run, so the repository's page reads as the listing does. It is the
+  root `README.md`, and `apps/extension/README.md` is a symlink to it, so there is nothing to keep in sync. The roadmap
+  moved to `ROADMAP.md` and the development notes to `AGENTS.md`; the text on every feature in full was deleted, since
+  the settings' descriptions and `decisions/` hold that detail. Its images are absolute `raw/main` GitHub URLs to
   `apps/extension/media/`, which `.vscodeignore` leaves out of the VSIX, so the listing shows what the released branch
-  holds and the VSIX stays small. The root `README.md` stays the developer's page with the full roadmap.
-- **Solution:** the media were recorded with the verify-in-vscode skill's window over CDP screencast and turned into
-  GIFs; the Marketplace plays GIFs but no video, and vsce rejects SVG images.
-- **Alternatives considered:** relative links, which resolve to the repository root and break on GitHub's view of the
-  file; shipping the media in the VSIX, which grows every install by about 2 MB; one README for both GitHub and the
-  Marketplace, too long for a listing.
+  holds and the VSIX stays small.
+- **Solution:** vsce packs the symlink as a regular file. lint-staged leaves a symlink out of the files it checks, and
+  Prettier skips one when it walks a folder but fails when given its path. The links to `ROADMAP.md` and `AGENTS.md` are
+  relative: GitHub resolves them on the branch in view, and vsce rewrites them to the default branch, `dev`. The media
+  were recorded with the verify-in-vscode skill's window over CDP screencast and turned into GIFs; the Marketplace plays
+  GIFs but no video, and vsce rejects SVG images.
+- **Alternatives considered:** a short listing README beside the root's long developer page, the first choice, dropped
+  so both pages read the same; the root file copied in by `vscode:prepublish`, one more build step; two identical files
+  kept by a check, every edit made twice; `vsce --readme-path`, which only finds a file inside `apps/extension`;
+  relative image links, which vsce resolves against `dev`, not the released branch; shipping the media in the VSIX,
+  which grows every install by about 2 MB.

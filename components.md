@@ -65,7 +65,7 @@ heading there. Update this file in the same commit as a change that adds, remove
   tab shows any session and one panel terminal any folder's shell.
 - **Alternatives:** "Every session's agent runs in tmux": a hidden VS Code terminal running `tmux new-session -d` with
   the tab only attaching; tmux as the extension's child process; one control-mode (`-CC`) client for every tab.
-  harness-foundation 5, Decided 3: a pkexec install prompt and a bundled tmux (README's M6 plans a bundled tmux).
+  harness-foundation 5, Decided 3: a pkexec install prompt and a bundled tmux (`ROADMAP.md`'s M6 plans a bundled tmux).
   Decided 4: a named server, `-L aggregor`. The harness-foundation plan names psmux for native Windows later.
   - Other options for the multiplexer itself, not weighed in `decisions/`: GNU screen, Zellij, dtach or abduco.
 
