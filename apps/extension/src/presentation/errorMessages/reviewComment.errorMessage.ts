@@ -7,7 +7,8 @@ import type {ReviewCommentService} from "@services/reviewComment.service.ts";
 type ReviewCommentCommandError =
   | Effect.Error<ReturnType<ReviewCommentService["Service"]["addReviewComment"]>>
   | Effect.Error<ReturnType<ReviewCommentService["Service"]["editReviewComment"]>>
-  | Effect.Error<ReturnType<ReviewCommentService["Service"]["sendReviewComments"]>>;
+  | Effect.Error<ReturnType<ReviewCommentService["Service"]["sendSessionReviewComments"]>>
+  | Effect.Error<ReviewCommentService["Service"]["sendReviewComments"]>;
 
 export class ReviewCommentErrorMessage extends Context.Service<ReviewCommentErrorMessage>()(
   "aggregor-app/presentation/errorMessages/reviewComment.errorMessage/ReviewCommentErrorMessage",

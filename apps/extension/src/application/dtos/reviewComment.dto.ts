@@ -38,16 +38,14 @@ export const RemoveReviewCommentRequestDtoSchema = Schema.Struct({reviewCommentI
 
 export type RemoveReviewCommentRequestDto = typeof RemoveReviewCommentRequestDtoSchema.Type;
 
-export const ReviewCommentLineRangeDtoSchema = Schema.Struct({
+export const MoveReviewCommentRequestDtoSchema = Schema.Struct({
   endLine: Schema.Int,
   reviewCommentId: EntityIdValueObjectSchema,
   startLine: Schema.Int
 });
 
-export type ReviewCommentLineRangeDto = typeof ReviewCommentLineRangeDtoSchema.Type;
+export type MoveReviewCommentRequestDto = typeof MoveReviewCommentRequestDtoSchema.Type;
 
-export const SendReviewCommentsRequestDtoSchema = Schema.Struct({
-  currentLineRanges: Schema.Array(ReviewCommentLineRangeDtoSchema)
-});
+export const SendSessionReviewCommentsRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
 
-export type SendReviewCommentsRequestDto = typeof SendReviewCommentsRequestDtoSchema.Type;
+export type SendSessionReviewCommentsRequestDto = typeof SendSessionReviewCommentsRequestDtoSchema.Type;

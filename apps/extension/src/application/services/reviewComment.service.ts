@@ -13,9 +13,9 @@ import {Array, Context, DateTime, Effect, Layer, Order, Schema, Stream} from "ef
 import type {
   AddReviewCommentRequestDto,
   EditReviewCommentRequestDto,
+  MoveReviewCommentRequestDto,
   RemoveReviewCommentRequestDto,
-  ReviewCommentLineRangeDto,
-  SendReviewCommentsRequestDto
+  SendSessionReviewCommentsRequestDto
 } from "@dtos/reviewComment.dto.ts";
 import type {EntityChange} from "@entities/base/base.repository.interface.ts";
 import type {ReviewCommentEntity} from "@entities/reviewComment/reviewComment.entity.ts";
@@ -102,17 +102,11 @@ export class ReviewCommentService extends Context.Service<ReviewCommentService>(
         yield* reviewCommentBaseService.removeEntity(request.reviewCommentId);
       });
 
-      const saveCurrentLineRange = Effect.fn("ReviewCommentService.saveCurrentLineRange")(
-        function* (currentLineRange: ReviewCommentLineRangeDto) {
-          const reviewComment = yield* reviewCommentBaseService.findEntityById(currentLineRange.reviewCommentId);
-          const hasMoved =
-            reviewComment.startLine !== currentLineRange.startLine ||
-            reviewComment.endLine !== currentLineRange.endLine;
-          if (!hasMoved) return;
-
-          yield* reviewCommentBaseService.updateEntity(reviewComment.id, {
-            endLine: currentLineRange.endLine,
-            startLine: currentLineRange.startLine
+      const moveReviewComment = Effect.fn("ReviewCommentService.moveReviewComment")(
+        function* (request: MoveReviewCommentRequestDto) {
+          yield* reviewCommentBaseService.updateEntity(request.reviewCommentId, {
+            endLine: request.endLine,
+            startLine: request.startLine
           });
         },
         Effect.catchTag("EntityNotFoundError", () => Effect.void)
@@ -191,16 +185,24 @@ export class ReviewCommentService extends Context.Service<ReviewCommentService>(
           )
       );
 
-      const sendReviewComments = Effect.fn("ReviewCommentService.sendReviewComments")(function* (
-        request: SendReviewCommentsRequestDto
+      const findSentReviewComments = Effect.fn("ReviewCommentService.findSentReviewComments")(function* (
+        targetSession: SessionEntity,
+        pendingReviewComments: readonly ReviewCommentEntity[]
       ) {
-        yield* Effect.forEach(request.currentLineRanges, (currentLineRange) => saveCurrentLineRange(currentLineRange));
-        const pendingReviewComments = yield* findPendingReviewComments();
-        const targetSession = yield* findReviewTargetSession(pendingReviewComments);
         const sentReviewComments = yield* reviewCommentDomainService.findReviewCommentsInFolder(
           pendingReviewComments,
           targetSession.workingFolderPath
         );
+        if (sentReviewComments.length === 0) return yield* ReviewCommentServiceErrors.NoReviewCommentsError.make();
+
+        return sentReviewComments;
+      });
+
+      const sendFolderReviewComments = Effect.fn("ReviewCommentService.sendFolderReviewComments")(function* (
+        targetSession: SessionEntity,
+        pendingReviewComments: readonly ReviewCommentEntity[]
+      ) {
+        const sentReviewComments = yield* findSentReviewComments(targetSession, pendingReviewComments);
         yield* Effect.annotateCurrentSpan({
           sentReviewCommentCount: sentReviewComments.length,
           sessionId: targetSession.id
@@ -213,12 +215,31 @@ export class ReviewCommentService extends Context.Service<ReviewCommentService>(
         yield* showReviewTargetSession(targetSession);
       });
 
+      const sendReviewComments = Effect.fn("ReviewCommentService.sendReviewComments")(function* () {
+        const pendingReviewComments = yield* findPendingReviewComments();
+        const targetSession = yield* findReviewTargetSession(pendingReviewComments);
+
+        yield* sendFolderReviewComments(targetSession, pendingReviewComments);
+      });
+
+      const sendSessionReviewComments = Effect.fn("ReviewCommentService.sendSessionReviewComments")(
+        function* (request: SendSessionReviewCommentsRequestDto) {
+          const targetSession = yield* sessionBaseService.findEntityById(request.sessionId);
+          const pendingReviewComments = yield* findPendingReviewComments();
+
+          yield* sendFolderReviewComments(targetSession, pendingReviewComments);
+        },
+        Effect.catchTag("EntityNotFoundError", () => Effect.void)
+      );
+
       return {
         addReviewComment,
         editReviewComment,
         listReviewComments: listReviewComments(),
+        moveReviewComment,
         removeReviewComment,
-        sendReviewComments,
+        sendReviewComments: sendReviewComments(),
+        sendSessionReviewComments,
         watchReviewCommentChanges: watchReviewCommentChanges()
       };
     })

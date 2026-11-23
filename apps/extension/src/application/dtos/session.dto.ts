@@ -50,6 +50,7 @@ export const SessionListItemDtoSchema = Schema.Struct({
   isArchived: Schema.Boolean,
   isPullRequestLinked: Schema.Boolean,
   name: Schema.String,
+  pendingReviewCommentCount: Schema.Int,
   projectName: Schema.String,
   projectPath: ProjectPathValueObjectSchema,
   pullRequest: Schema.optional(SessionPullRequestDtoSchema),

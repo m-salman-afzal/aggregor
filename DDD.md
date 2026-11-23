@@ -315,9 +315,11 @@ apps/extension/src/
       workspace.service.ts                 startShownProjectSync: the viewed session's project as the only
                                            project folder; startSessionReopenAfterReload
       reviewComment.service.ts             listReviewComments, watchReviewCommentChanges, addReviewComment,
-                                           editReviewComment, removeReviewComment, sendReviewComments (pastes the
-                                           comments under the folder of the session last in view into its agent's
-                                           prompt, removes them and opens the session); NoReviewCommentsError,
+                                           editReviewComment, moveReviewComment (a thread's new lines),
+                                           removeReviewComment, sendReviewComments (pastes the comments under the
+                                           folder of the session last in view into its agent's prompt, removes them
+                                           and opens the session) and sendSessionReviewComments (the same for the
+                                           session whose row asked); NoReviewCommentsError,
                                            NoSessionForReviewCommentsError, SessionAgentNotRunningError,
                                            SessionNotShownError
     dtos/
@@ -340,8 +342,7 @@ apps/extension/src/
       sessionProcess.dto.ts                SessionProcessesDto (TerminalProcessesDto, FolderShellProcessesDto,
                                            SessionProcessDto),
                                            WatchSessionProcessesRequestDto
-      reviewComment.dto.ts                 ReviewCommentDto, ReviewCommentChangeDto, ReviewCommentLineRangeDto (the
-                                           lines a comment's thread sits on now), and a request DTO per review
+      reviewComment.dto.ts                 ReviewCommentDto, ReviewCommentChangeDto, and a request DTO per review
                                            comment use case
     interfaces/                            each with the errors and types its signatures name
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
@@ -509,9 +510,9 @@ apps/extension/src/
     views/folderShellProfile/              FolderShellProfileView: the Aggregor terminal profile's provider, which
                                            VS Code calls for every terminal it opens itself in Aggregor's workspace
     views/reviewComments/                  ReviewCommentsView: the comment controller, a thread per review comment
-                                           not sent yet, which it moves with its file's edits, and the commands that
-                                           need VS Code's draft thread, a comment's editing mode or the lines a
-                                           thread sits on
+                                           not sent yet, which it moves with its file's edits and whose new lines it
+                                           then saves, and the commands that need VS Code's draft thread or a
+                                           comment's editing mode
   extension.ts                             PresentationLayer: the controllers and views, merged under its span, on
                                            ApplicationLayer; activate, deactivate
 apps/extension/tests/
@@ -586,12 +587,14 @@ apps/extension/tests/
 - Every command runs from the webview, the Source Control button, a notification or a comment thread's buttons. Only
   Send Comments to Session is in the Command Palette, with a keybinding.
 - A button VS Code draws in a menu of its own runs a controller's command with the object VS Code hands it, which the
-  controller decodes as it does a webview's request: Source Control's button, and a comment's Save and Delete. When the
-  gesture needs more of VS Code's object than reading it (a draft thread to dispose, a comment's editing mode, the lines
-  a thread sits on now), the view registers the command, does that part, and runs the controller's command with a
-  complete request, as the Sessions view does for its webview: `ReviewCommentsView`'s Add Comment, Edit, Cancel and Send
-  Comments to Session (`REVIEW_COMMENTS_VIEW_GESTURES`). The view draws nothing from its own gesture: the saved comment
-  comes back through `watchReviewCommentChanges`, which every window draws from.
+  controller decodes as it does a webview's request: Source Control's button, and a comment's Save, Delete and Send
+  Comments to Session. When the gesture needs more of VS Code's object than reading it (a draft thread to dispose, a
+  comment's editing mode), the view registers the command, does that part, and runs the controller's command with a
+  complete request, as the Sessions view does for its webview: `ReviewCommentsView`'s Add Comment, Edit and Cancel
+  (`REVIEW_COMMENTS_VIEW_GESTURES`). The view draws nothing from its own gesture: the saved comment comes back through
+  `watchReviewCommentChanges`, which every window draws from. What only a view can see and a use case needs, such as the
+  lines a comment's thread has moved to, the view reports through a controller's command, so the database holds it and
+  no other view has to ask this one.
 - A display preference only the view uses, `aggregorApp.fontSize`, `aggregorApp.accentColor` and
   `aggregorApp.skipAgentPicker`, the view reads itself through `VsCodeApi`, as it draws, rather than through a
   controller and a service, since no use case needs it.

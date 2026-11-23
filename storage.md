@@ -83,10 +83,10 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
   path), `startLine` and `endLine` (the lines it is about, counted from 1) and `body` (its text). One list serves every
   window.
 - **Written by:** `ReviewCommentService` through the base service: a row per Add Comment, `body` on Save, `startLine`
-  and `endLine` when Send Comments to Session finds the comment's thread on other lines than stored, since the view
-  moves a thread with its file's edits, and a soft delete on Delete and for each comment a send pasted into an agent.
+  and `endLine` half a second after an edit of the file moved the comment's thread, and a soft delete on Delete and for
+  each comment a send pasted into an agent.
 - **Read by:** `ReviewCommentService`: every window draws each row as a comment thread on its file, and a send reads the
-  rows under the target session's folder.
+  rows under the target session's folder. `SessionService` counts the rows under each session's folder for its row.
 
 ## `data/aggregor-pty.log`
 

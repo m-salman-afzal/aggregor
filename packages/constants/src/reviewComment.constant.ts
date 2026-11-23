@@ -1,13 +1,14 @@
 export const REVIEW_COMMENT_COMMANDS = {
   ADD: "aggregorApp.addReviewComment",
   EDIT: "aggregorApp.editReviewComment",
+  MOVE: "aggregorApp.moveReviewComment",
   REMOVE: "aggregorApp.removeReviewComment",
-  SEND: "aggregorApp.sendReviewComments"
+  SEND: "aggregorApp.sendReviewComments",
+  SEND_TO_SESSION: "aggregorApp.sendSessionReviewComments"
 } as const;
 
 export const REVIEW_COMMENTS_VIEW_GESTURES = {
   CANCEL_EDIT: "aggregorApp.cancelReviewCommentEdit",
-  SEND_SHOWN: "aggregorApp.sendShownReviewComments",
   START_EDIT: "aggregorApp.startReviewCommentEdit",
   SUBMIT_DRAFT: "aggregorApp.submitReviewCommentDraft"
 } as const;
@@ -21,7 +22,8 @@ export const REVIEW_COMMENTS_VIEW = {
   DRAFT_PROMPT: "Comment for the session's agent",
   LINE_BREAK: "\n",
   // Past any line's end, where VS Code cuts a range off, so a thread's highlight covers its last line whole.
-  LINE_END_CHARACTER: 1_000_000
+  LINE_END_CHARACTER: 1_000_000,
+  MOVED_LINES_SAVE_DELAY: "500 millis"
 } as const;
 
 export const REVIEW_COMMENT_ERRORS = {

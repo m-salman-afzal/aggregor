@@ -1,8 +1,9 @@
 import {
   AddReviewCommentRequestDtoSchema,
   EditReviewCommentRequestDtoSchema,
+  MoveReviewCommentRequestDtoSchema,
   RemoveReviewCommentRequestDtoSchema,
-  SendReviewCommentsRequestDtoSchema
+  SendSessionReviewCommentsRequestDtoSchema
 } from "@dtos/reviewComment.dto.ts";
 import {ReviewCommentErrorMessage} from "@errorMessages/reviewComment.errorMessage.ts";
 import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
@@ -44,15 +45,27 @@ export class ReviewCommentController extends Context.Service<ReviewCommentContro
         yield* reviewCommentService.removeReviewComment(request);
       });
 
-      const sendShownReviewComments = Effect.fn("ReviewCommentController.sendShownReviewComments")(function* (
-        shownReviewComments: unknown
+      const moveShownReviewComment = Effect.fn("ReviewCommentController.moveShownReviewComment")(function* (
+        shownReviewComment: unknown
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(
-          SendReviewCommentsRequestDtoSchema,
-          shownReviewComments
-        );
-        yield* reviewCommentService.sendReviewComments(request);
+        const request = yield* vscodeUtils.decodeVsCodeArgument(MoveReviewCommentRequestDtoSchema, shownReviewComment);
+        yield* reviewCommentService.moveReviewComment(request);
       });
+
+      // VS Code hands the comment thread when a thread's title button runs this, and nothing from a keybinding.
+      const sendPendingReviewComments = Effect.fn("ReviewCommentController.sendPendingReviewComments")(function* () {
+        yield* reviewCommentService.sendReviewComments;
+      });
+
+      const sendChosenSessionReviewComments = Effect.fn("ReviewCommentController.sendChosenSessionReviewComments")(
+        function* (chosenSession: unknown) {
+          const request = yield* vscodeUtils.decodeVsCodeArgument(
+            SendSessionReviewCommentsRequestDtoSchema,
+            chosenSession
+          );
+          yield* reviewCommentService.sendSessionReviewComments(request);
+        }
+      );
 
       const listReviewCommentsForReviewCommentsView = Effect.fn(
         "ReviewCommentController.listReviewCommentsForReviewCommentsView"
@@ -82,8 +95,18 @@ export class ReviewCommentController extends Context.Service<ReviewCommentContro
         reviewCommentErrorMessage.getReviewCommentCommandErrorMessage
       );
       yield* registerCommandMiddleware.registerCommand(
+        REVIEW_COMMENT_COMMANDS.MOVE,
+        moveShownReviewComment,
+        reviewCommentErrorMessage.getReviewCommentCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
         REVIEW_COMMENT_COMMANDS.SEND,
-        sendShownReviewComments,
+        sendPendingReviewComments,
+        reviewCommentErrorMessage.getReviewCommentCommandErrorMessage
+      );
+      yield* registerCommandMiddleware.registerCommand(
+        REVIEW_COMMENT_COMMANDS.SEND_TO_SESSION,
+        sendChosenSessionReviewComments,
         reviewCommentErrorMessage.getReviewCommentCommandErrorMessage
       );
 
@@ -91,8 +114,10 @@ export class ReviewCommentController extends Context.Service<ReviewCommentContro
         addWrittenReviewComment,
         editChosenReviewComment,
         listReviewCommentsForReviewCommentsView: listReviewCommentsForReviewCommentsView(),
+        moveShownReviewComment,
         removeChosenReviewComment,
-        sendShownReviewComments,
+        sendChosenSessionReviewComments,
+        sendPendingReviewComments,
         watchReviewCommentChangesForReviewCommentsView: watchReviewCommentChangesForReviewCommentsView()
       };
     })

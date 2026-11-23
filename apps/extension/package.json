@@ -336,7 +336,7 @@
       ],
       "comments/commentThread/title": [
         {
-          "command": "aggregorApp.sendShownReviewComments",
+          "command": "aggregorApp.sendReviewComments",
           "group": "inline@1",
           "when": "commentController == aggregorApp.reviewComments && !commentThreadIsEmpty"
         }
@@ -429,14 +429,14 @@
       },
       {
         "title": "Send Comments to Session",
-        "command": "aggregorApp.sendShownReviewComments",
+        "command": "aggregorApp.sendReviewComments",
         "category": "Aggregor",
         "icon": "$(send)"
       }
     ],
     "keybindings": [
       {
-        "command": "aggregorApp.sendShownReviewComments",
+        "command": "aggregorApp.sendReviewComments",
         "key": "ctrl+k ctrl+alt+enter",
         "mac": "cmd+k cmd+alt+enter"
       }

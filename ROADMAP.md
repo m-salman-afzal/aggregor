@@ -49,7 +49,7 @@ solution and what was turned down.
 
 - [ ] Review comments: comment on code and send the comments to a session's agent as one prompt
   - [x] Comment on lines in an editor or a diff, and Send Comments to Session
-  - [ ] The pending comments' count and Send on the session's row
+  - [x] The pending comments' count and Send on the session's row
   - [ ] Comment on the agent's last reply
 
 ## M4: tray

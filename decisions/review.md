@@ -14,12 +14,11 @@ Commenting on code lines, and sending the comments to a session's agent.
   thread per `ReviewCommentDto`: every pending comment when the window starts, then each change
   `ReviewCommentService.watchReviewCommentChanges` streams, so a comment added, edited, deleted or sent in any window
   shows in all of them. The buttons are the manifest's `comments/*` menus: Add Comment on a draft, Edit and Delete on a
-  comment, Save and Cancel while editing, and Send Comments to Session on a thread's title bar. Save and Delete run
-  `ReviewCommentController`'s commands with the comment VS Code hands them, which carries its `reviewCommentId`. The
-  view registers the commands that need VS Code's own objects and runs the controller's with a complete request, as the
-  Sessions view does for its webview: Add Comment, which reads the draft's file and lines and then disposes VS Code's
-  draft thread; Edit and Cancel, which only switch a comment between reading and editing; and Send, which reads the
-  lines each thread sits on now.
+  comment, Save and Cancel while editing, and Send Comments to Session on a thread's title bar. Save, Delete and Send
+  run `ReviewCommentController`'s commands with what VS Code hands them: a comment carries its `reviewCommentId`, and
+  Send needs nothing. The view registers the commands that need VS Code's own objects and runs the controller's with a
+  complete request, as the Sessions view does for its webview: Add Comment, which reads the draft's file and lines and
+  then disposes VS Code's draft thread; and Edit and Cancel, which only switch a comment between reading and editing.
 - **Alternatives considered:**
   - A list in the Sessions webview, or decorations of our own: both rebuild what the Comments API ships.
   - Comments on a diff's original side: its lines number the old version of the file, which the agent can't open.
@@ -109,30 +108,57 @@ Commenting on code lines, and sending the comments to a session's agent.
   ```
 
   The lines are the ones each thread sits on when the comments are sent (see "A comment's thread follows its file's
-  edits"). Sent comments are deleted, since the agent's conversation now holds them.
+  edits, and so do its stored lines"). Sent comments are deleted, since the agent's conversation now holds them.
 
 - **Solution:** `ReviewCommentDomainService.formatReviewPrompt`.
 - **Alternatives considered:** Claude Code's `@file#374-376`, which the other agents don't read; XML blocks, as T3
   Code's closed pull request built; sent comments kept as resolved threads, a history nothing reads.
 
-## A comment's thread follows its file's edits
+## A comment's thread follows its file's edits, and so do its stored lines
 
 - **Problem:** VS Code moves a thread's mark in the gutter as lines are added or removed above it, but leaves the
-  thread's range, which the Comments panel shows and a send reads, on the old lines. A comment would cite lines its code
-  has left.
-- **Decision:** the view moves each shown thread itself. On every change of a `file:` document it shifts the document's
-  threads by the lines added or removed above them, and stretches or shrinks one by the lines added or removed inside
-  it. A send carries the lines each thread sits on, and the use case saves them before it reads the comments, so the
-  prompt cites where the code is now.
-- **Solution:** `ReviewCommentsView.moveShownThreadsWithDocumentChange`, on `workspace.onDidChangeTextDocument`,
-  untraced, since it runs on every keystroke and the trace log is a document too; a file changed on disk reaches its
-  open document the same way. `SendReviewCommentsRequestDto.currentLineRanges` carries the lines, and a thread drawn
-  again keeps its range, since the stored lines lag behind until the next send. Its limits: an edit that replaces a
-  block reaching past a thread's lines on either side, such as Delete Duplicate Lines or a file rewritten on disk above
-  and below a comment at once, can't say where the lines went, so the thread keeps its line numbers; a file that changes
-  while no document of it is open keeps the stored lines; and a window reload draws each thread on the lines last saved.
+  thread's range, which the Comments panel shows, on the old lines, and the stored lines know nothing of the edit. A
+  comment would cite lines its code has left.
+- **Decision:** the view moves each shown thread itself, and saves the lines it moved to. On every change of a `file:`
+  document it shifts the document's threads by the lines added or removed above them, and stretches or shrinks one by
+  the lines added or removed inside it. Half a second after the edits stop it saves each moved thread's lines through
+  `ReviewCommentController`'s Move command. The database then holds where each comment is, so every Send is a plain
+  controller command that reads the rows, from a thread's button, the keybinding or a session's row alike.
+- **Solution:** `ReviewCommentsView.moveShownThreadsWithDocumentChange`, on `workspace.onDidChangeTextDocument`, and the
+  save after `REVIEW_COMMENTS_VIEW.MOVED_LINES_SAVE_DELAY`, both untraced, since they run on every keystroke and the
+  trace log is a document too; each `aggregorApp.moveReviewComment` is traced as its own command. A file changed on disk
+  reaches its open document the same way. A thread drawn again keeps its own range, and a redraw that changes only a
+  comment's lines leaves the comment alone, so an edit in progress stays open. Each window saves the lines it worked out
+  itself and never takes another window's for a thread it shows: two windows with the file open arrive at the same
+  lines, where taking the other's and then shifting again on the file's reload would count one edit twice. Its limits:
+  an edit that replaces a block reaching past a thread's lines on either side, such as Delete Duplicate Lines or a file
+  rewritten on disk above and below a comment at once, can't say where the lines went, so the thread keeps its line
+  numbers; a file that changes while no document of it is open keeps the stored lines; and lines moved by an edit not
+  saved to disk yet are the editor's, a step ahead of the file the agent reads.
 - **Alternatives considered:**
-  - Saving every move at once: a second window with the same file open would shift the stored lines a second time when
-    the file is saved.
+  - The lines sent along with Send, read from the threads at that moment (the first build's `currentLineRanges`): only
+    the comment view could then run a Send, and the Sessions webview reaches every action through a controller.
+  - Saving each move as it happens: a write for every Enter typed above a comment.
   - The stored lines only: wrong after any edit above a comment, while the mark in the gutter shows the new line.
   - The commented code quoted under each `cite:`, for the agent to find by its text: it makes the prompt long.
+
+## A session's row shows its pending comments and sends them
+
+- **Problem:** nothing outside the editor said that comments were waiting, or for which session, and a send picked its
+  session by a rule the user could not see.
+- **Decision:** a session's row shows the number of pending comments under its working folder, beside its pull request
+  and diff stats, and a click on the number sends them to that session: the same paste, not sent, and the session comes
+  into view. The row names the target, so this send skips the last-in-view rule. Every ongoing session in a folder shows
+  the folder's count, since any of them can take the comments; an archived session shows none.
+- **Solution:** `SessionListItemDto.pendingReviewCommentCount`, which `SessionService` works out with
+  `ReviewCommentDomainService.findReviewCommentsInFolder`, the rule Send uses. A comment added or removed redraws the
+  rows of the sessions in its folder, through one more source of `watchSessionListChanges`. The webview's chip runs
+  `aggregorApp.sendSessionReviewComments` with the row's session id, a command of `ReviewCommentController` that
+  `SESSIONS_WEBVIEW_COMMANDS` lists, and `ReviewCommentService.sendSessionReviewComments` sends. A session whose agent
+  isn't running answers with `SessionAgentNotRunningError`, as the other sends do.
+- **Alternatives considered:**
+  - A button among the row's hover actions: hidden until the pointer is on the row.
+  - The click opening the first commented file, with Send in the row's menu: a step more for the one thing the number is
+    there for.
+  - Starting a stopped agent and pasting once it is up: the paste has to wait for the agent's prompt box, a piece of
+    work of its own.
