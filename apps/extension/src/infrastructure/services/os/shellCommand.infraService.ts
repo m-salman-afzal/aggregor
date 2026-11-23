@@ -1,10 +1,12 @@
+import {platform} from "node:os";
+
 import {NodeServices} from "@effect/platform-node";
-import {IShellCommandInfraService} from "@interfaces/shellCommand.infraService.interface.ts";
-import {COMMAND_SEARCH, PLATFORMS} from "@pkg/constants/src/process.constant.ts";
 import {Array, Config, Context, Effect, Layer, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
-import {platform} from "node:os";
+
+import {IShellCommandInfraService} from "@/interfaces/shellCommand.infraService.interface.ts";
+import {COMMAND_SEARCH, PLATFORMS} from "@pkg/constants/src/process.constant.ts";
 
 interface CommandSearch {
   readonly commandExtensions: readonly string[];

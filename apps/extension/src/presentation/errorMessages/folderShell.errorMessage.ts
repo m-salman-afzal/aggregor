@@ -1,11 +1,12 @@
+import {Context, Effect, Layer, Match} from "effect";
+
 import {DATABASE_ERRORS} from "@pkg/constants/src/database.constant.ts";
 import {REQUIRED_TOOLS_COMMANDS, REQUIRED_TOOLS_LABELS} from "@pkg/constants/src/requiredTools.constant.ts";
 import {SESSION_ERRORS} from "@pkg/constants/src/session.constant.ts";
 import {TERMINAL_ERRORS} from "@pkg/constants/src/terminal.constant.ts";
 import {TMUX_ERRORS} from "@pkg/constants/src/tmux.constant.ts";
-import {Context, Effect, Layer, Match} from "effect";
 
-import type {FolderShellService} from "@services/folderShell.service.ts";
+import type {FolderShellService} from "@/services/folderShell.service.ts";
 
 type FolderShellCommandError = Effect.Error<
   ReturnType<FolderShellService["Service"]["openProjectTerminal" | "openSessionFolderTerminal"]>

@@ -18,9 +18,9 @@
     // for types only: lint rejects a value import from them, so no extension code enters the webview's bundle.
     "paths": {
       "@/*": ["./src/*"],
-      "@dtos/*": ["../extension/src/application/dtos/*"],
-      "@valueObjects/*": ["../extension/src/domain/valueObjects/*"],
-      "@views/*": ["../extension/src/presentation/views/*"]
+      "@/dtos/*": ["../extension/src/application/dtos/*"],
+      "@/valueObjects/*": ["../extension/src/domain/valueObjects/*"],
+      "@/views/*": ["../extension/src/presentation/views/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts"]

@@ -1,16 +1,18 @@
+import {homedir} from "node:os";
+
 import {NodeServices} from "@effect/platform-node";
-import {AggregorFolderUtils} from "@infraUtils/aggregorFolder.utils.ts";
-import {IWorktreeInfraService, IWorktreeInfraServiceErrors} from "@interfaces/worktree.infraService.interface.ts";
-import {GIT_COMMAND, WORKTREES} from "@pkg/constants/src/git.constant.ts";
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {Array, Context, Effect, Layer, Result, Schema, Stream, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {sumAll} from "effect/Number";
 import {Path} from "effect/Path";
 import {ChildProcess} from "effect/process";
 import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
-import {homedir} from "node:os";
+
+import {AggregorFolderUtils} from "@/infraUtils/aggregorFolder.utils.ts";
+import {IWorktreeInfraService, IWorktreeInfraServiceErrors} from "@/interfaces/worktree.infraService.interface.ts";
+import {ProjectPathValueObjectSchema} from "@/valueObjects/projectPath.valueObject.ts";
+import {GIT_COMMAND, WORKTREES} from "@pkg/constants/src/git.constant.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 
 import type {
   BranchMergeCheck,
@@ -20,8 +22,8 @@ import type {
   ProjectBranchNames,
   WorktreeBranch,
   WorktreeDiffStats
-} from "@interfaces/worktree.infraService.interface.ts";
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+} from "@/interfaces/worktree.infraService.interface.ts";
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 class WorktreeInfraServiceErrors extends TaggedErrors({
   GitCommandFailedError: {gitError: Schema.String}

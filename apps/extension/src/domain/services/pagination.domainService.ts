@@ -1,7 +1,8 @@
-import {PaginationValueObjectSchema} from "@valueObjects/pagination.valueObject.ts";
 import {Context, Effect, Layer} from "effect";
 
-import type {PaginationValueObject} from "@valueObjects/pagination.valueObject.ts";
+import {PaginationValueObjectSchema} from "@/valueObjects/pagination.valueObject.ts";
+
+import type {PaginationValueObject} from "@/valueObjects/pagination.valueObject.ts";
 
 export class PaginationDomainService extends Context.Service<PaginationDomainService>()(
   "aggregor-app/domain/services/pagination.domainService/PaginationDomainService",

@@ -7,9 +7,9 @@ The Sessions view drawn in a webview of our own.
 - **Problem:** a webview's React code runs in VS Code's page, apart from the extension, yet draws the extension's DTOs.
 - **Decision:**
   - `apps/webview` is the Sessions view's drawing half: React, built into the extension's `dist/webview`, following the
-    folder-structure skill rather than `DDD.md`. It imports the extension's `@views/sessions/sessions.view.type.ts` and
-    `@dtos` for types only, the rule `DDD.md` already gives a view, and `@pkg/constants` for texts and command ids. Lint
-    rejects a value import from the extension, so none of its code enters the webview's bundle.
+    folder-structure skill rather than `DDD.md`. It imports the extension's `@/views/sessions/sessions.view.type.ts` and
+    `@/dtos` for types only, the rule `DDD.md` already gives a view, and `@pkg/constants` for texts and command ids.
+    Lint rejects a value import from the extension, so none of its code enters the webview's bundle.
   - `presentation/views/sessions/` is the view, a file per job. `sessions.view.ts` registers the webview view provider,
     answers the webview's messages and watches what changes. `sessionsDrawing.utils.ts` is everything sent to the
     webview with `postMessage`: each list, read whole through one controller, then each change of

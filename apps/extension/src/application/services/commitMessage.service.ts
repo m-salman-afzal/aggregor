@@ -1,14 +1,15 @@
-import {ICommitCliInfraService} from "@interfaces/commitCli.infraService.interface.ts";
-import {IGitInfraService} from "@interfaces/git.infraService.interface.ts";
-import {IProgressInfraService} from "@interfaces/progress.infraService.interface.ts";
-import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
-import {COMMIT_MESSAGE_CONTEXT_KEYS, COMMIT_MESSAGE_LABELS} from "@pkg/constants/src/commitMessage.constant.ts";
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {Context, Effect, Layer, Result} from "effect";
 
-import type {GenerateCommitMessageRequestDto} from "@dtos/commitMessage.dto.ts";
-import type {Settings} from "@interfaces/settings.config.interface.ts";
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+import {ICommitCliInfraService} from "@/interfaces/commitCli.infraService.interface.ts";
+import {IGitInfraService} from "@/interfaces/git.infraService.interface.ts";
+import {IProgressInfraService} from "@/interfaces/progress.infraService.interface.ts";
+import {ISettingsConfig} from "@/interfaces/settings.config.interface.ts";
+import {COMMIT_MESSAGE_CONTEXT_KEYS, COMMIT_MESSAGE_LABELS} from "@pkg/constants/src/commitMessage.constant.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
+import type {GenerateCommitMessageRequestDto} from "@/dtos/commitMessage.dto.ts";
+import type {Settings} from "@/interfaces/settings.config.interface.ts";
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 export class CommitMessageServiceErrors extends TaggedErrors({
   SourceControlRootNotFoundError: {}

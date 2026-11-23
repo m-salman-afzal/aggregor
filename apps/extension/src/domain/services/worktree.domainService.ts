@@ -1,6 +1,6 @@
 import {Context, Effect, Layer, String} from "effect";
 
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
 
 const WORKTREE_BRANCH_PREFIX = "aggregor/";
 const NAME_SEPARATOR_PATTERN = /[^\da-z]+/gu;

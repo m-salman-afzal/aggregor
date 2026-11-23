@@ -8,8 +8,9 @@ import {
   RotateCcwIcon
 } from "lucide-react";
 
-import type {SessionListItemDto} from "@dtos/session.dto.ts";
 import type {LucideIcon} from "lucide-react";
+
+import type {SessionListItemDto} from "@/dtos/session.dto.ts";
 
 export const SESSION_STATUS_ICONS = {
   blocked: {className: "text-status-blocked", StatusIcon: CircleAlertIcon},

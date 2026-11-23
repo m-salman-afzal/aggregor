@@ -6,7 +6,7 @@ import {
 } from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/sessionRow.utils.ts";
 import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.store.ts";
 
-import type {SessionRowData} from "@views/sessions/sessions.view.type.ts";
+import type {SessionRowData} from "@/views/sessions/sessions.view.type.ts";
 
 interface UseSessionRowProps {
   readonly sessionRow: SessionRowData;

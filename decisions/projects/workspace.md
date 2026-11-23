@@ -11,8 +11,8 @@ The project in view, and the workspace file Aggregor writes for it.
   session's project at folder 1, by opening Aggregor's workspace file (see "Aggregor's workspace is a file Aggregor
   writes"); later switches swap only folder 1. Session terminals carry `AGGREGOR_SESSION_ID` in their env, so they are
   found again after an extension restart, and the anchor's `terminal.integrated.cwd` makes New Terminal open in the
-  shown project. One reload instead of an extension restart per switch. TypeScript, ESLint, Prettier, rust-analyzer and
-  Lua all follow the shown project; mise needs `mise.selectWorkspaceFolder` after each switch.
+  shown project. One reload instead of an extension restart per switch. TypeScript, oxlint, oxfmt, rust-analyzer and Lua
+  all follow the shown project; mise needs `mise.selectWorkspaceFolder` after each switch.
 - **Alternatives considered:** swap folder 0 on each switch, restarting every extension each time; an extension-owned
   anchor at folder 0.
 

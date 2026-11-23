@@ -61,16 +61,16 @@ that no scope covers, add its scope in that PR, to `pr-title.yaml` and with what
 `DDD.md` holds the layering (domain, application, infrastructure, presentation): where each kind of code goes, its
 names, and the lint that checks them. Read it before deciding where code goes, and update it in the same commit as a
 change that moves where code goes. Each file's suffix names its role (`.entity.ts`, `.interface.ts`, `.infraService.ts`
-and so on), and `@pkg/eslint` (`packages/eslint`) checks each layer's imports, the names each role requires, and where
-types and interfaces live. Code imports through one alias per folder under a layer (`@entities/`, `@interfaces/`,
-`@infraServices/` and so on, listed in `apps/extension/tsconfig.json`), never through a relative path, and by name,
+and so on), and `@pkg/lint` (`packages/lint`) checks each layer's imports, the names each role requires, and where types
+and interfaces live. Code imports through one alias per folder under a layer (`@/entities/`, `@/interfaces/`,
+`@/infraServices/` and so on, listed in `apps/extension/tsconfig.json`), never through a relative path, and by name,
 never with `import * as`. Every constant outside the domain lives in its feature's `@pkg/constants` file, grouped in a
 labelled object with the constants it belongs with, and holds no logic: a util beside its caller picks between texts
 (see `DDD.md`). Enforce a new convention with a lint there, not only with prose here, and give the lint a message that
 says what is wrong, why the rule exists, and what to do instead.
 
 `apps/webview` is the Sessions view's webview, a React front end (see `DDD.md`'s Layers). It follows the
-folder-structure skill (`.claude/skills/folder-structure`) instead of the layers, and `@pkg/eslint`'s `folderStructure/`
+folder-structure skill (`.claude/skills/folder-structure`) instead of the layers, and `@pkg/lint`'s `folderStructure/`
 checks each of its rules. It imports the extension's message and DTO types for types only, and texts and ids shared with
 the extension from `@pkg/constants`; its own constants sit in its units' `.constant.ts` files. Its design system, the
 theme and shadcn's base components, is `@pkg/ui` (`packages/ui`), where `shadcn add` writes. It runs no Effect, so the
@@ -86,7 +86,7 @@ Effect here is `4.1.4`. Most Effect material online is v3 and the names differ (
   editor; `packages/tsconfigs/tsconfig.base.json` lists each rule, and one turned off says why there.
 - **Every function is an `Effect.fn`**, which gives it its span, even one that only builds a stream, so the trace shows
   it ran. Lint checks every function at the top of a file in the extension source; one nested in an `Effect.fn` is its
-  callback. The exceptions carry an `eslint-disable` with the reason: `activate` and `deactivate`, which VS Code calls,
+  callback. The exceptions carry an `oxlint-disable` with the reason: `activate` and `deactivate`, which VS Code calls,
   and `TaggedErrors`, which builds a file's errors class when the file loads, outside any effect. Error handling and
   other combinators go in `Effect.fn`'s extra arguments after the body, not in a `.pipe`; handling that only one caller
   needs gets its own small `Effect.fn`. A service member that takes no arguments is an `Effect`, not a function: `make`
@@ -130,7 +130,7 @@ its function. The name is part of the function, so work handed to another unit k
 `CommitMessageService.writeCommitMessage` prints under its own name although `VscodeUtils.runWithProgressIndicator` runs
 it, and a command handler's spans stay its controller's although `RegisterCommandMiddleware` runs it. A library's span
 keeps the name its library gave it (`sqlite`), under the span of the unit that ran it. `aggregor/span-name`
-(`packages/eslint/src/rules/`) checks every name and that each unit's class is named after its file, and `pnpm lint:fix`
+(`packages/lint/src/rules/`) checks every name and that each unit's class is named after its file, and `pnpm lint:fix`
 writes the names. Startup nests under one span per level: `Domain`, `Infrastructure` (`Infrastructure > Database.make`),
 `Application` (the background jobs under `Application > BackgroundJobs.make`) and `Presentation`. Finished spans and
 Effect logs go to the **Aggregor App** output channel, one trace-level line per span, with each failure's fields and
@@ -158,23 +158,23 @@ used.
 Every dependency version lives once, in `pnpm-workspace.yaml`'s `catalog:`; each `package.json` names it as `"catalog:"`
 (workspace packages stay `workspace:*`). Change versions only there or with `pnpm add` / `pnpm remove`:
 `catalogMode: strict` makes `pnpm add` write the catalog entry, and `cleanupUnusedCatalogs` drops entries nothing uses.
-ESLint (`pnpm/json-enforce-catalog`) fails any other version, and `pnpm lint:fix` moves a plain one into the catalog.
-`@types/vscode` is the exception: vsce reads its version to check `engines.vscode` and fails on `catalog:`, so it stays
-a version in `apps/extension` and `packages/vscode`.
+Nothing lints a version typed by hand, so add and change dependencies through `pnpm add`. `@types/vscode` is the
+exception: vsce reads its version to check `engines.vscode` and fails on `catalog:`, so it stays a version in
+`apps/extension` and `packages/vscode`.
 
 ## Commands
 
 Lint, format and type checks run from the repo root. `:check` scripts only report, `:fix` scripts write.
 
 ```bash
-pnpm lint:check    # ESLint over the whole repo (--max-warnings 0); reports only
+pnpm lint:check    # oxlint over the whole repo (no warnings allowed); reports only
 pnpm lint:fix      # Same, with --fix
-pnpm format:check  # Prettier over the whole repo; reports only
+pnpm format:check  # oxfmt over the whole repo; reports only
 pnpm format:fix    # Same, writing the changes
 pnpm typecheck     # tsc --noEmit in the apps, the root config files and .claude's scripts; packages are covered through the apps
 pnpm pty:check     # cargo fmt --check and cargo clippy -D warnings on apps/pty, the aggregor-pty binary
 pnpm pty:test      # aggregor-pty's tests, the end-to-end one included
-pnpm test          # The extension's tests (vitest, apps/extension/tests), the migration test among them, and the lint rules' (packages/eslint/tests)
+pnpm test          # The extension's tests (vitest, apps/extension/tests), the migration test among them, and the lint rules' (packages/lint/tests)
 pnpm quality       # lint:check + format:check + typecheck + pty:check, in parallel
 pnpm lint-staged   # Same lint and format checks on staged files only (the husky pre-commit hook)
 pnpm db:generate   # After changing a table model, with --name <change>: drizzle-kit writes its migration

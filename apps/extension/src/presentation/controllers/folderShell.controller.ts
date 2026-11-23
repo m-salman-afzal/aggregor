@@ -1,10 +1,14 @@
-import {OpenProjectTerminalRequestDtoSchema, OpenSessionFolderTerminalRequestDtoSchema} from "@dtos/folderShell.dto.ts";
-import {FolderShellErrorMessage} from "@errorMessages/folderShell.errorMessage.ts";
-import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
+import {Context, Effect, Layer} from "effect";
+
+import {
+  OpenProjectTerminalRequestDtoSchema,
+  OpenSessionFolderTerminalRequestDtoSchema
+} from "@/dtos/folderShell.dto.ts";
+import {FolderShellErrorMessage} from "@/errorMessages/folderShell.errorMessage.ts";
+import {RegisterCommandMiddleware} from "@/middlewares/registerCommand.middleware.ts";
+import {FolderShellService} from "@/services/folderShell.service.ts";
 import {TERMINAL_COMMANDS} from "@pkg/constants/src/terminal.constant.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {FolderShellService} from "@services/folderShell.service.ts";
-import {Context, Effect, Layer} from "effect";
 
 export class FolderShellController extends Context.Service<FolderShellController>()(
   "aggregor-app/presentation/controllers/folderShell.controller/FolderShellController",

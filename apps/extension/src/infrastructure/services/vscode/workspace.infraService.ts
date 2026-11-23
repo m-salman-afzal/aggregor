@@ -1,23 +1,4 @@
 import {NodeServices} from "@effect/platform-node";
-import {AnchorFolderUtils} from "@infraUtils/anchorFolder.utils.ts";
-import {IWorkspaceInfraService, IWorkspaceInfraServiceErrors} from "@interfaces/workspace.infraService.interface.ts";
-import {VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
-import {
-  AGGREGOR_WORKSPACE,
-  AGGREGOR_WORKSPACE_SETTINGS,
-  ANCHOR_FOLDER_SETTINGS,
-  FOLDER_SELECT_COMMANDS,
-  FOLDER_SETTINGS_FILE,
-  PROJECT_SETTINGS_SYNC,
-  SESSION_TO_REOPEN,
-  SETTINGS_FILE_WRITE_RETRY,
-  WORKSPACE_FOLDERS_CHANGE
-} from "@pkg/constants/src/workspace.constant.ts";
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
-import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {
   Array,
   Clock,
@@ -40,11 +21,32 @@ import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 import {applyEdits, modify, parse, parseTree} from "jsonc-parser";
 
-import type {WorkspaceFolderProject} from "@interfaces/workspace.infraService.interface.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+import {AnchorFolderUtils} from "@/infraUtils/anchorFolder.utils.ts";
+import {IWorkspaceInfraService, IWorkspaceInfraServiceErrors} from "@/interfaces/workspace.infraService.interface.ts";
+import {EntityIdValueObjectSchema} from "@/valueObjects/entityId.valueObject.ts";
+import {ProjectPathValueObjectSchema} from "@/valueObjects/projectPath.valueObject.ts";
+import {VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
+import {
+  AGGREGOR_WORKSPACE,
+  AGGREGOR_WORKSPACE_SETTINGS,
+  ANCHOR_FOLDER_SETTINGS,
+  FOLDER_SELECT_COMMANDS,
+  FOLDER_SETTINGS_FILE,
+  PROJECT_SETTINGS_SYNC,
+  SESSION_TO_REOPEN,
+  SETTINGS_FILE_WRITE_RETRY,
+  WORKSPACE_FOLDERS_CHANGE
+} from "@pkg/constants/src/workspace.constant.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
+import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
+
 import type {ParseError} from "jsonc-parser";
 import type {TextDocument, Uri} from "vscode";
+
+import type {WorkspaceFolderProject} from "@/interfaces/workspace.infraService.interface.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 interface WorkspaceFileFolder {
   readonly folderPath: string;

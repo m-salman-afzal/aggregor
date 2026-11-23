@@ -41,10 +41,10 @@ How a version is bumped, released and published.
   `apps/extension/media/`, which `.vscodeignore` leaves out of the VSIX, so the listing shows what the released branch
   holds and the VSIX stays small.
 - **Solution:** vsce packs the symlink as a regular file. lint-staged leaves a symlink out of the files it checks, and
-  Prettier skips one when it walks a folder but fails when given its path. The links to `ROADMAP.md` and `AGENTS.md` are
-  relative: GitHub resolves them on the branch in view, and vsce rewrites them to the default branch, `dev`. The media
-  were recorded with the verify-in-vscode skill's window over CDP screencast and turned into GIFs; the Marketplace plays
-  GIFs but no video, and vsce rejects SVG images.
+  oxfmt formats the file it points to. The links to `ROADMAP.md` and `AGENTS.md` are relative: GitHub resolves them on
+  the branch in view, and vsce rewrites them to the default branch, `dev`. The media were recorded with the
+  verify-in-vscode skill's window over CDP screencast and turned into GIFs; the Marketplace plays GIFs but no video, and
+  vsce rejects SVG images.
 - **Alternatives considered:** a short listing README beside the root's long developer page, the first choice, dropped
   so both pages read the same; the root file copied in by `vscode:prepublish`, one more build step; two identical files
   kept by a check, every edit made twice; `vsce --readme-path`, which only finds a file inside `apps/extension`;

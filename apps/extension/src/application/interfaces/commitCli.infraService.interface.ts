@@ -1,8 +1,10 @@
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {Context, Schema} from "effect";
 
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
 import type {Effect} from "effect";
+
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 export interface CommitMessageRequest {
   readonly commitCommand: string;

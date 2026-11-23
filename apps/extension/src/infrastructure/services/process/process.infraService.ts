@@ -1,13 +1,15 @@
-import {NodeServices} from "@effect/platform-node";
-import {LinuxProcessUtils} from "@infraServices/process/linuxProcess.utils.ts";
-import {ProcessTreeUtils} from "@infraServices/process/processTree.utils.ts";
-import {PsProcessUtils} from "@infraServices/process/psProcess.utils.ts";
-import {IProcessInfraService} from "@interfaces/process.infraService.interface.ts";
-import {PLATFORMS} from "@pkg/constants/src/process.constant.ts";
-import {Array, Context, Effect, Layer} from "effect";
 import {platform} from "node:os";
 
-import type {ProcessGroupRequest} from "@interfaces/process.infraService.interface.ts";
+import {NodeServices} from "@effect/platform-node";
+import {Array, Context, Effect, Layer} from "effect";
+
+import {LinuxProcessUtils} from "@/infraServices/process/linuxProcess.utils.ts";
+import {ProcessTreeUtils} from "@/infraServices/process/processTree.utils.ts";
+import {PsProcessUtils} from "@/infraServices/process/psProcess.utils.ts";
+import {IProcessInfraService} from "@/interfaces/process.infraService.interface.ts";
+import {PLATFORMS} from "@pkg/constants/src/process.constant.ts";
+
+import type {ProcessGroupRequest} from "@/interfaces/process.infraService.interface.ts";
 
 export class ProcessInfraService extends Context.Service<ProcessInfraService>()(
   "aggregor-app/infrastructure/services/process/process.infraService/ProcessInfraService",

@@ -1,12 +1,13 @@
+import {Array, Context, Effect, Layer, Match} from "effect";
+
 import {AGENT_ERRORS, AGENTS_SETTING_ID} from "@pkg/constants/src/agent.constant.ts";
 import {DATABASE_ERRORS} from "@pkg/constants/src/database.constant.ts";
 import {WORKTREE_ERRORS} from "@pkg/constants/src/git.constant.ts";
 import {REQUIRED_TOOLS_COMMANDS, REQUIRED_TOOLS_LABELS} from "@pkg/constants/src/requiredTools.constant.ts";
 import {SESSION_ERRORS} from "@pkg/constants/src/session.constant.ts";
 import {TMUX_ERRORS} from "@pkg/constants/src/tmux.constant.ts";
-import {Array, Context, Effect, Layer, Match} from "effect";
 
-import type {SessionService} from "@services/session.service.ts";
+import type {SessionService} from "@/services/session.service.ts";
 
 type SessionCommandError = Effect.Error<
   | ReturnType<
@@ -34,7 +35,7 @@ export class SessionErrorMessage extends Context.Service<SessionErrorMessage>()(
   "aggregor-app/presentation/errorMessages/session.errorMessage/SessionErrorMessage",
   {
     make: Effect.fn("SessionErrorMessage.make")(function* () {
-      // eslint-disable-next-line aggregor/max-lines-per-function -- one line per failure of the session commands
+      // oxlint-disable-next-line aggregor/max-lines-per-function -- one line per failure of the session commands
       const getSessionCommandErrorMessage = Effect.fn("SessionErrorMessage.getSessionCommandErrorMessage")(function* (
         sessionCommandError: SessionCommandError
       ) {

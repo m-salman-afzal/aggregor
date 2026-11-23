@@ -1,11 +1,12 @@
 import {NodeServices} from "@effect/platform-node";
-import {AgentHistoryUtils} from "@infraServices/agentHistory/agentHistory.utils.ts";
-import {COPILOT_HISTORY} from "@pkg/constants/src/agentHistory.constant.ts";
 import {Array, Context, Effect, Layer, Record, Result, Schema, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 
-import type {AgentConversation} from "@interfaces/agentHistory.infraService.interface.ts";
+import {AgentHistoryUtils} from "@/infraServices/agentHistory/agentHistory.utils.ts";
+import {COPILOT_HISTORY} from "@pkg/constants/src/agentHistory.constant.ts";
+
+import type {AgentConversation} from "@/interfaces/agentHistory.infraService.interface.ts";
 
 const CopilotEventLineJson = Schema.fromJsonString(
   Schema.Struct({

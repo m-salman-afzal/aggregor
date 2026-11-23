@@ -20,7 +20,7 @@ type TaggedErrorTypes<FieldsByTag extends ErrorFieldsByTag> = {
   readonly [ErrorTag in keyof FieldsByTag & string]: TaggedErrorOf<ErrorTag, FieldsByTag[ErrorTag]>;
 };
 
-// eslint-disable-next-line no-restricted-syntax -- builds a unit's errors when its file loads, outside any effect, so it cannot be an Effect.fn inside a make
+// oxlint-disable-next-line eslint-js/no-restricted-syntax -- builds a unit's errors when its file loads, outside any effect, so it cannot be an Effect.fn inside a make
 export const TaggedErrors = <const FieldsByTag extends ErrorFieldsByTag>(
   fieldsByTag: FieldsByTag
 ): TaggedErrorClasses<FieldsByTag> & (new () => TaggedErrorTypes<FieldsByTag>) => {
@@ -28,6 +28,6 @@ export const TaggedErrors = <const FieldsByTag extends ErrorFieldsByTag>(
     ([errorTag, errorFields]) => [errorTag, Schema.TaggedError()(errorTag, errorFields)] as const
   );
 
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-extraneous-class -- one class per key is built at run time, which no type can follow; the empty class only carries them as statics
+  // oxlint-disable-next-line typescript/consistent-type-assertions, typescript/no-unsafe-type-assertion, typescript/no-extraneous-class -- one class per key is built at run time, which no type can follow; the empty class only carries them as statics
   return Object.assign(class TaggedErrorHolder {}, Object.fromEntries(errorClassEntries)) as never;
 };

@@ -4,7 +4,7 @@ import {useImportChecklist} from "@/modules/sessions/components/userInputDialog/
 import {SESSION_IMPORT_LABELS} from "@pkg/constants/src/agentHistory.constant.ts";
 import {DialogDescription} from "@pkg/ui/src/components/base/dialog.tsx";
 
-import type {ImportableSessionsDto} from "@dtos/sessionImport.dto.ts";
+import type {ImportableSessionsDto} from "@/dtos/sessionImport.dto.ts";
 
 interface ImportChecklistProps {
   readonly importableSessions: ImportableSessionsDto;

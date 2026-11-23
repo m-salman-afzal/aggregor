@@ -1,5 +1,6 @@
-import {MIGRATIONS} from "@pkg/constants/src/database.constant.ts";
 import {defineConfig} from "drizzle-kit";
+
+import {MIGRATIONS} from "@pkg/constants/src/database.constant.ts";
 
 export default defineConfig({
   dialect: "sqlite",

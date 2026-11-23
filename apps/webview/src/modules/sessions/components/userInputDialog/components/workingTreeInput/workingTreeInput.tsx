@@ -17,7 +17,7 @@ export const WorkingTreeInput = (props: WorkingTreeInputProps) => {
 
   return (
     <form className="flex flex-col gap-4" onSubmit={workingTreeView.move}>
-      <div className="scrollbar-minimal -mr-2 flex max-h-[60vh] flex-col gap-4 overflow-y-auto pr-2">
+      <div className="-mr-2 scrollbar-minimal flex max-h-[60vh] flex-col gap-4 overflow-y-auto pr-2">
         {workingTreeView.optionGroups.map((optionGroup) => (
           <NewSessionField key={optionGroup.name} optionGroup={optionGroup} />
         ))}

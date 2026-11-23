@@ -1,8 +1,9 @@
-import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {Context, DateTime, Effect, Layer, String} from "effect";
 import {SecureRandom} from "effect/crypto";
 
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import {EntityIdValueObjectSchema} from "@/valueObjects/entityId.valueObject.ts";
+
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
 
 export class EntityIdDomainService extends Context.Service<EntityIdDomainService>()(
   "aggregor-app/domain/services/entityId.domainService/EntityIdDomainService",

@@ -1,7 +1,8 @@
-import {SESSION_ROW_LABELS} from "@pkg/constants/src/sessionsView.constant.ts";
 import {FileDiffIcon} from "lucide-react";
 
-import type {SessionDiffStatsDto} from "@dtos/session.dto.ts";
+import {SESSION_ROW_LABELS} from "@pkg/constants/src/sessionsView.constant.ts";
+
+import type {SessionDiffStatsDto} from "@/dtos/session.dto.ts";
 
 interface SessionDiffStatsProps {
   readonly diffStats: SessionDiffStatsDto;

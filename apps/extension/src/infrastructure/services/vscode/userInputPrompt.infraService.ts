@@ -1,11 +1,12 @@
+import {Array, Context, Effect, Layer, Result} from "effect";
+
 import {
   IUserInputPromptInfraService,
   IUserInputPromptInfraServiceErrors
-} from "@interfaces/userInputPrompt.infraService.interface.ts";
+} from "@/interfaces/userInputPrompt.infraService.interface.ts";
+import {ProjectPathValueObjectSchema} from "@/valueObjects/projectPath.valueObject.ts";
 import {PROJECT_LABELS} from "@pkg/constants/src/project.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
-import {Array, Context, Effect, Layer, Result} from "effect";
 
 export class UserInputPromptInfraService extends Context.Service<UserInputPromptInfraService>()(
   "aggregor-app/infrastructure/services/vscode/userInputPrompt.infraService/UserInputPromptInfraService",

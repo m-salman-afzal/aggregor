@@ -1,3 +1,5 @@
+import {ChevronRightIcon} from "lucide-react";
+
 import {CountBadge} from "@/modules/sessions/components/sessionList/components/countBadge.tsx";
 import {LeftoverDot} from "@/modules/sessions/components/sessionList/components/projectGroup/components/leftoverDot.tsx";
 import {ProjectSessionRows} from "@/modules/sessions/components/sessionList/components/projectGroup/components/projectSessionRows.tsx";
@@ -5,10 +7,9 @@ import {useProjectGroup} from "@/modules/sessions/components/sessionList/compone
 import {RowActions} from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.tsx";
 import {COLLAPSIBLE_PANEL} from "@/modules/sessions/components/sessionList/sessionList.constant.ts";
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@pkg/ui/src/components/base/collapsible.tsx";
-import {ChevronRightIcon} from "lucide-react";
 
 import type {SessionListId} from "@/modules/sessions/sessions.type.ts";
-import type {ProjectRowData} from "@views/sessions/sessions.view.type.ts";
+import type {ProjectRowData} from "@/views/sessions/sessions.view.type.ts";
 
 interface ProjectGroupProps {
   readonly listId: SessionListId;

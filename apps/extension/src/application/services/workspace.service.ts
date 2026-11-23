@@ -1,13 +1,14 @@
-import {IGitInfraService} from "@interfaces/git.infraService.interface.ts";
-import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
-import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import {ProjectService} from "@services/project.service.ts";
-import {SessionService} from "@services/session.service.ts";
 import {Array, Context, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
 
-import type {ProjectListItemDto} from "@dtos/project.dto.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+import {IGitInfraService} from "@/interfaces/git.infraService.interface.ts";
+import {ITerminalInfraService} from "@/interfaces/terminal.infraService.interface.ts";
+import {IWorkspaceInfraService} from "@/interfaces/workspace.infraService.interface.ts";
+import {ProjectService} from "@/services/project.service.ts";
+import {SessionService} from "@/services/session.service.ts";
+
+import type {ProjectListItemDto} from "@/dtos/project.dto.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 export class WorkspaceService extends Context.Service<WorkspaceService>()(
   "aggregor-app/application/services/workspace.service/WorkspaceService",

@@ -1,6 +1,6 @@
 import {TASK_KIND_ICONS} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdown/components/sessionTaskList/sessionTaskList.constant.ts";
 
-import type {SessionTaskDto} from "@dtos/session.dto.ts";
+import type {SessionTaskDto} from "@/dtos/session.dto.ts";
 
 interface SessionTaskKindIconProps {
   readonly kind: SessionTaskDto["kind"];

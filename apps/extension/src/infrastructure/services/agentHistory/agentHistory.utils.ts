@@ -1,11 +1,13 @@
+import {homedir} from "node:os";
+
 import {NodeServices} from "@effect/platform-node";
-import {AGENT_HISTORY_TITLE} from "@pkg/constants/src/agentHistory.constant.ts";
 import {Array, Config, Context, Effect, Layer, Result, Schema, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
-import {homedir} from "node:os";
 
-import type {FileSlice} from "@infraServices/agentHistory/agentHistory.infraService.type.ts";
+import {AGENT_HISTORY_TITLE} from "@pkg/constants/src/agentHistory.constant.ts";
+
+import type {FileSlice} from "@/infraServices/agentHistory/agentHistory.infraService.type.ts";
 
 export class AgentHistoryUtils extends Context.Service<AgentHistoryUtils>()(
   "aggregor-app/infrastructure/services/agentHistory/agentHistory.utils/AgentHistoryUtils",

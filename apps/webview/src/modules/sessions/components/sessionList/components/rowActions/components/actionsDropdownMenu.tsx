@@ -1,3 +1,5 @@
+import {EllipsisIcon} from "lucide-react";
+
 import {ActionMenuItems} from "@/modules/sessions/components/sessionList/components/rowActions/components/actionMenuItems.tsx";
 import {
   ACTION_BUTTON,
@@ -6,7 +8,6 @@ import {
 import {SESSIONS_LABELS} from "@/modules/sessions/sessions.constant.ts";
 import {Button} from "@pkg/ui/src/components/base/button.tsx";
 import {DropdownMenu, DropdownMenuContent, DropdownMenuTrigger} from "@pkg/ui/src/components/base/dropdown-menu.tsx";
-import {EllipsisIcon} from "lucide-react";
 
 import type {MenuGroup} from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.type.ts";
 import type {RowAction} from "@/modules/sessions/sessions.type.ts";

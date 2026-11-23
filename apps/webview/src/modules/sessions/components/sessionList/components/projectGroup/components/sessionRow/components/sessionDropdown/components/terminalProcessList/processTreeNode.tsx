@@ -1,6 +1,7 @@
+import {ChevronRightIcon} from "lucide-react";
+
 import {COLLAPSIBLE_PANEL} from "@/modules/sessions/components/sessionList/sessionList.constant.ts";
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@pkg/ui/src/components/base/collapsible.tsx";
-import {ChevronRightIcon} from "lucide-react";
 
 import type {ProcessTreeItem} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdown/components/terminalProcessList/terminalProcessList.type.ts";
 

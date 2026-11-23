@@ -1,11 +1,12 @@
+import {cn} from "cn";
+
 import {
   PULL_REQUEST_LINK_ATTRIBUTE,
   PULL_REQUEST_STATE_ICONS
 } from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/sessionOpenButton.constant.ts";
 import {PULL_REQUEST_STATE_LABELS, SESSION_ROW_LABELS} from "@pkg/constants/src/sessionsView.constant.ts";
-import {cn} from "cn";
 
-import type {SessionPullRequestDto} from "@dtos/session.dto.ts";
+import type {SessionPullRequestDto} from "@/dtos/session.dto.ts";
 
 interface SessionPullRequestProps {
   readonly pullRequest: SessionPullRequestDto;

@@ -1,10 +1,11 @@
+import {GitBranchIcon, TriangleAlertIcon} from "lucide-react";
+
 import {SessionDiffStats} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/components/sessionDiffStats.tsx";
 import {SessionPullRequest} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/components/sessionPullRequest.tsx";
 import {SessionReviewComments} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/components/sessionReviewComments/sessionReviewComments.tsx";
 import {AGENT_ICON} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/sessionOpenButton.constant.ts";
-import {GitBranchIcon, TriangleAlertIcon} from "lucide-react";
 
-import type {SessionListItemDto} from "@dtos/session.dto.ts";
+import type {SessionListItemDto} from "@/dtos/session.dto.ts";
 
 interface SessionDetailProps {
   readonly agentIconUri?: string | undefined;

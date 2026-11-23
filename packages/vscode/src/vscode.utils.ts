@@ -1,8 +1,9 @@
+import {Context, Effect, Layer, Queue, Schema, Stream} from "effect";
+
 import {APP_LABELS, APP_NAME} from "@pkg/constants/src/app.constant.ts";
 import {SETTINGS_EDITOR_EXTENSION_FILTER, VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {Context, Effect, Layer, Queue, Schema, Stream} from "effect";
 
 import type {Disposable, Event, ProgressOptions} from "vscode";
 

@@ -3,7 +3,7 @@ import {SESSION_TASK_LIST_LABELS} from "@/modules/sessions/components/sessionLis
 import {makeTaskActivity} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdown/components/sessionTaskList/sessionTaskList.utils.ts";
 import {SessionStatusIcon} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionStatusIcon/sessionStatusIcon.tsx";
 
-import type {SessionTaskDto} from "@dtos/session.dto.ts";
+import type {SessionTaskDto} from "@/dtos/session.dto.ts";
 
 interface SessionTaskListProps {
   readonly sessionTasks: readonly SessionTaskDto[];

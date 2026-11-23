@@ -1,15 +1,16 @@
+import {Context, Effect, Layer} from "effect";
+
 import {
   MoveProjectDownRequestDtoSchema,
   MoveProjectUpRequestDtoSchema,
   RemoveProjectRequestDtoSchema,
   SaveProjectSettingsRequestDtoSchema
-} from "@dtos/project.dto.ts";
-import {ProjectErrorMessage} from "@errorMessages/project.errorMessage.ts";
-import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
+} from "@/dtos/project.dto.ts";
+import {ProjectErrorMessage} from "@/errorMessages/project.errorMessage.ts";
+import {RegisterCommandMiddleware} from "@/middlewares/registerCommand.middleware.ts";
+import {ProjectService} from "@/services/project.service.ts";
 import {PROJECT_COMMANDS} from "@pkg/constants/src/project.constant.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {ProjectService} from "@services/project.service.ts";
-import {Context, Effect, Layer} from "effect";
 
 export class ProjectController extends Context.Service<ProjectController>()(
   "aggregor-app/presentation/controllers/project.controller/ProjectController",

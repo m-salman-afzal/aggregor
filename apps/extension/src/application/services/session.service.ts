@@ -1,41 +1,3 @@
-import {AgentTaskDomainService} from "@domainServices/agentTask.domainService.ts";
-import {ReviewCommentDomainService} from "@domainServices/reviewComment.domainService.ts";
-import {SessionDomainService} from "@domainServices/session.domainService.ts";
-import {SortOrderDomainService} from "@domainServices/sortOrder.domainService.ts";
-import {WorktreeDomainService} from "@domainServices/worktree.domainService.ts";
-import {
-  ProjectSessionsDtoSchema,
-  SessionListChangeDtoSchema,
-  SessionListItemDtoSchema,
-  SessionPageDtoSchema,
-  SessionPullRequestDtoSchema,
-  SessionTaskDtoSchema,
-  WorkingTreeChoiceDtoSchema,
-  WorktreeListItemDtoSchema
-} from "@dtos/session.dto.ts";
-import {IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
-import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
-import {IReviewCommentRepository} from "@entities/reviewComment/reviewComment.repository.interface.ts";
-import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
-import {IGitHubCliInfraService} from "@interfaces/gitHubCli.infraService.interface.ts";
-import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
-import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
-import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
-import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
-import {GIT_COMMAND} from "@pkg/constants/src/git.constant.ts";
-import {SESSION_PAGES, SESSION_RUN_STATE, WORKING_TREE_CHOICE_TAGS} from "@pkg/constants/src/session.constant.ts";
-import {SESSION_OPEN_PLACES} from "@pkg/constants/src/terminal.constant.ts";
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {AgentService} from "@services/agent.service.ts";
-import {BaseService} from "@services/base.service.ts";
-import {ProjectService} from "@services/project.service.ts";
-import {WorktreeService} from "@services/worktree.service.ts";
-import {ENTITY_CHANGE_KINDS} from "@valueObjects/entityChangeKind.valueObject.ts";
-import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
-import {SESSION_LIFECYCLES} from "@valueObjects/sessionLifecycle.valueObject.ts";
-import {SESSION_RUN_STATES} from "@valueObjects/sessionRunState.valueObject.ts";
-import {SESSION_STATUSES} from "@valueObjects/sessionStatus.valueObject.ts";
 import {
   Array,
   Context,
@@ -51,7 +13,46 @@ import {
 } from "effect";
 import {Path} from "effect/Path";
 
-import type {ProjectListItemDto} from "@dtos/project.dto.ts";
+import {AgentTaskDomainService} from "@/domainServices/agentTask.domainService.ts";
+import {ReviewCommentDomainService} from "@/domainServices/reviewComment.domainService.ts";
+import {SessionDomainService} from "@/domainServices/session.domainService.ts";
+import {SortOrderDomainService} from "@/domainServices/sortOrder.domainService.ts";
+import {WorktreeDomainService} from "@/domainServices/worktree.domainService.ts";
+import {
+  ProjectSessionsDtoSchema,
+  SessionListChangeDtoSchema,
+  SessionListItemDtoSchema,
+  SessionPageDtoSchema,
+  SessionPullRequestDtoSchema,
+  SessionTaskDtoSchema,
+  WorkingTreeChoiceDtoSchema,
+  WorktreeListItemDtoSchema
+} from "@/dtos/session.dto.ts";
+import {IAgentRepository} from "@/entities/agent/agent.repository.interface.ts";
+import {IProjectRepository} from "@/entities/project/project.repository.interface.ts";
+import {IReviewCommentRepository} from "@/entities/reviewComment/reviewComment.repository.interface.ts";
+import {ISessionRepository} from "@/entities/session/session.repository.interface.ts";
+import {IGitHubCliInfraService} from "@/interfaces/gitHubCli.infraService.interface.ts";
+import {ISettingsConfig} from "@/interfaces/settings.config.interface.ts";
+import {ITerminalInfraService} from "@/interfaces/terminal.infraService.interface.ts";
+import {ITmuxInfraService} from "@/interfaces/tmux.infraService.interface.ts";
+import {IWorkspaceInfraService} from "@/interfaces/workspace.infraService.interface.ts";
+import {IWorktreeInfraService} from "@/interfaces/worktree.infraService.interface.ts";
+import {AgentService} from "@/services/agent.service.ts";
+import {BaseService} from "@/services/base.service.ts";
+import {ProjectService} from "@/services/project.service.ts";
+import {WorktreeService} from "@/services/worktree.service.ts";
+import {ENTITY_CHANGE_KINDS} from "@/valueObjects/entityChangeKind.valueObject.ts";
+import {EntityIdValueObjectSchema} from "@/valueObjects/entityId.valueObject.ts";
+import {SESSION_LIFECYCLES} from "@/valueObjects/sessionLifecycle.valueObject.ts";
+import {SESSION_RUN_STATES} from "@/valueObjects/sessionRunState.valueObject.ts";
+import {SESSION_STATUSES} from "@/valueObjects/sessionStatus.valueObject.ts";
+import {GIT_COMMAND} from "@pkg/constants/src/git.constant.ts";
+import {SESSION_PAGES, SESSION_RUN_STATE, WORKING_TREE_CHOICE_TAGS} from "@pkg/constants/src/session.constant.ts";
+import {SESSION_OPEN_PLACES} from "@pkg/constants/src/terminal.constant.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
+import type {ProjectListItemDto} from "@/dtos/project.dto.ts";
 import type {
   ArchiveProjectSessionsRequestDto,
   ArchiveSessionRequestDto,
@@ -73,18 +74,18 @@ import type {
   UnarchiveSessionRequestDto,
   UnlinkSessionWorktreeRequestDto,
   WorkingTreeChoiceDto
-} from "@dtos/session.dto.ts";
-import type {AgentEntity} from "@entities/agent/agent.entity.ts";
-import type {EntityPage} from "@entities/base/base.repository.interface.ts";
-import type {ProjectEntity} from "@entities/project/project.entity.ts";
-import type {ReviewCommentEntity} from "@entities/reviewComment/reviewComment.entity.ts";
-import type {SessionEntity} from "@entities/session/session.entity.ts";
-import type {PullRequestLookup} from "@interfaces/gitHubCli.infraService.interface.ts";
-import type {SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
-import type {AgentTaskValueObject} from "@valueObjects/agentTask.valueObject.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
-import type {SessionLifecycleValueObject} from "@valueObjects/sessionLifecycle.valueObject.ts";
+} from "@/dtos/session.dto.ts";
+import type {AgentEntity} from "@/entities/agent/agent.entity.ts";
+import type {EntityPage} from "@/entities/base/base.repository.interface.ts";
+import type {ProjectEntity} from "@/entities/project/project.entity.ts";
+import type {ReviewCommentEntity} from "@/entities/reviewComment/reviewComment.entity.ts";
+import type {SessionEntity} from "@/entities/session/session.entity.ts";
+import type {PullRequestLookup} from "@/interfaces/gitHubCli.infraService.interface.ts";
+import type {SessionTabRequest} from "@/interfaces/terminal.infraService.interface.ts";
+import type {AgentTaskValueObject} from "@/valueObjects/agentTask.valueObject.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
+import type {SessionLifecycleValueObject} from "@/valueObjects/sessionLifecycle.valueObject.ts";
 
 interface SessionWorktreeDraft {
   readonly project: ProjectEntity;

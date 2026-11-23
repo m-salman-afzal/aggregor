@@ -1,6 +1,6 @@
 import {SessionStatusIcon} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionStatusIcon/sessionStatusIcon.tsx";
 
-import type {SessionListItemDto} from "@dtos/session.dto.ts";
+import type {SessionListItemDto} from "@/dtos/session.dto.ts";
 
 interface SessionTitleProps {
   readonly agentActivity: string;

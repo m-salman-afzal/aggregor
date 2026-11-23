@@ -1,4 +1,6 @@
-import {ReviewCommentController} from "@controllers/reviewComment.controller.ts";
+import {Array, Context, Effect, Layer, Match, Ref, Schema, Stream, String} from "effect";
+
+import {ReviewCommentController} from "@/controllers/reviewComment.controller.ts";
 import {
   REVIEW_COMMENT_COMMANDS,
   REVIEW_COMMENTS_VIEW,
@@ -8,9 +10,7 @@ import {VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {Array, Context, Effect, Layer, Match, Ref, Schema, Stream, String} from "effect";
 
-import type {ReviewCommentChangeDto, ReviewCommentDto} from "@dtos/reviewComment.dto.ts";
 import type {
   Comment,
   CommentReply,
@@ -20,6 +20,8 @@ import type {
   TextDocumentChangeEvent,
   TextDocumentContentChangeEvent
 } from "vscode";
+
+import type {ReviewCommentChangeDto, ReviewCommentDto} from "@/dtos/reviewComment.dto.ts";
 
 interface ReviewCommentThreadComment extends Comment {
   readonly body: string;

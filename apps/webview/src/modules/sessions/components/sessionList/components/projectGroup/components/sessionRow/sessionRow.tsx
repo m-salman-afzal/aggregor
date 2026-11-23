@@ -5,7 +5,7 @@ import {useSessionRow} from "@/modules/sessions/components/sessionList/component
 import {RowActions} from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.tsx";
 import {Collapsible} from "@pkg/ui/src/components/base/collapsible.tsx";
 
-import type {SessionRowData} from "@views/sessions/sessions.view.type.ts";
+import type {SessionRowData} from "@/views/sessions/sessions.view.type.ts";
 
 interface SessionRowProps {
   readonly sessionRow: SessionRowData;

@@ -1,7 +1,8 @@
-import {WatchSessionProcessesRequestDtoSchema} from "@dtos/sessionProcess.dto.ts";
-import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {SessionProcessService} from "@services/sessionProcess.service.ts";
 import {Context, Effect, Layer, Stream} from "effect";
+
+import {WatchSessionProcessesRequestDtoSchema} from "@/dtos/sessionProcess.dto.ts";
+import {SessionProcessService} from "@/services/sessionProcess.service.ts";
+import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 
 export class SessionProcessController extends Context.Service<SessionProcessController>()(
   "aggregor-app/presentation/controllers/sessionProcess.controller/SessionProcessController",

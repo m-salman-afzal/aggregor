@@ -1,7 +1,7 @@
 import {SESSIONS_LABELS} from "@/modules/sessions/sessions.constant.ts";
 import {SESSION_PAGES} from "@pkg/constants/src/session.constant.ts";
 
-import type {SessionPageDto} from "@dtos/session.dto.ts";
+import type {SessionPageDto} from "@/dtos/session.dto.ts";
 
 export const makeShowMoreLabel = (sessionPage: SessionPageDto) =>
   SESSIONS_LABELS.SHOW_MORE_SESSIONS(Math.min(sessionPage.hiddenSessionCount, SESSION_PAGES.PAGE_SIZE));

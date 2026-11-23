@@ -1,13 +1,14 @@
 import {NodeServices} from "@effect/platform-node";
 import {SqliteClient} from "@effect/sql-sqlite-node";
-import {AgentHistoryUtils} from "@infraServices/agentHistory/agentHistory.utils.ts";
-import {OPENCODE_HISTORY} from "@pkg/constants/src/agentHistory.constant.ts";
 import {Array, Config, Context, Effect, Layer, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 import {make as makeReactivity, Reactivity} from "effect/reactivity/Reactivity";
 
-import type {AgentConversation} from "@interfaces/agentHistory.infraService.interface.ts";
+import {AgentHistoryUtils} from "@/infraServices/agentHistory/agentHistory.utils.ts";
+import {OPENCODE_HISTORY} from "@pkg/constants/src/agentHistory.constant.ts";
+
+import type {AgentConversation} from "@/interfaces/agentHistory.infraService.interface.ts";
 
 interface OpenCodeSessionRow {
   readonly firstPrompt: null | string;

@@ -1,9 +1,9 @@
 "use client";
 
-import * as React from "react";
 import {ContextMenu as ContextMenuPrimitive} from "@base-ui/react/context-menu";
 import {cn} from "cn";
 import {ChevronRightIcon, CheckIcon} from "lucide-react";
+import * as React from "react";
 
 const ContextMenu = ({...props}: ContextMenuPrimitive.Root.Props) => (
   <ContextMenuPrimitive.Root data-slot="context-menu" {...props} />
@@ -36,7 +36,7 @@ const ContextMenuContent = ({
       <ContextMenuPrimitive.Popup
         data-slot="context-menu-content"
         className={cn(
-          "scrollbar-minimal z-50 max-h-(--available-height) min-w-36 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-level [--level:1] p-1.5 text-popover-foreground shadow-xl ring-1 ring-brand/25 outline-none transition-[opacity,scale] duration-150 ease-out data-starting-style:opacity-0 data-ending-style:opacity-0 motion-ok:data-starting-style:scale-95 motion-ok:data-ending-style:scale-95",
+          "z-50 scrollbar-minimal max-h-(--available-height) min-w-36 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-level p-1.5 text-popover-foreground shadow-xl ring-1 ring-brand/25 transition-[opacity,scale] duration-150 ease-out outline-none [--level:1] data-ending-style:opacity-0 data-starting-style:opacity-0 motion-ok:data-ending-style:scale-95 motion-ok:data-starting-style:scale-95",
           className
         )}
         {...props}
@@ -78,7 +78,7 @@ const ContextMenuItem = ({
     data-inset={inset}
     data-variant={variant}
     className={cn(
-      "group/context-menu-item relative flex cursor-default items-center gap-2 rounded-lg px-2 py-1.5 text-sm outline-hidden transition-colors duration-100 select-none focus:bg-accent not-data-[variant=destructive]:*:[svg]:text-muted-foreground not-data-[variant=destructive]:focus:*:[svg]:text-brand focus:text-accent-foreground data-inset:pl-7 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 focus:*:[svg]:text-accent-foreground data-[variant=destructive]:*:[svg]:text-destructive",
+      "group/context-menu-item relative flex cursor-default items-center gap-2 rounded-lg px-2 py-1.5 text-sm outline-hidden transition-colors duration-100 select-none focus:bg-accent focus:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 data-inset:pl-7 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 not-data-[variant=destructive]:*:[svg]:text-muted-foreground focus:*:[svg]:text-accent-foreground not-data-[variant=destructive]:focus:*:[svg]:text-brand data-[variant=destructive]:*:[svg]:text-destructive",
       className
     )}
     {...props}
@@ -127,7 +127,7 @@ const ContextMenuCheckboxItem = ({
     data-slot="context-menu-checkbox-item"
     data-inset={inset}
     className={cn(
-      "relative flex cursor-default items-center gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-inset:pl-7 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+      "relative flex cursor-default items-center gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 data-inset:pl-7 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
       className
     )}
     checked={checked}
@@ -157,7 +157,7 @@ const ContextMenuRadioItem = ({
     data-slot="context-menu-radio-item"
     data-inset={inset}
     className={cn(
-      "relative flex cursor-default items-center gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-inset:pl-7 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+      "relative flex cursor-default items-center gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 data-inset:pl-7 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
       className
     )}
     {...props}>

@@ -1,16 +1,17 @@
+import {Context, Effect, Layer} from "effect";
+
 import {
   AddReviewCommentRequestDtoSchema,
   EditReviewCommentRequestDtoSchema,
   MoveReviewCommentRequestDtoSchema,
   RemoveReviewCommentRequestDtoSchema,
   SendSessionReviewCommentsRequestDtoSchema
-} from "@dtos/reviewComment.dto.ts";
-import {ReviewCommentErrorMessage} from "@errorMessages/reviewComment.errorMessage.ts";
-import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
+} from "@/dtos/reviewComment.dto.ts";
+import {ReviewCommentErrorMessage} from "@/errorMessages/reviewComment.errorMessage.ts";
+import {RegisterCommandMiddleware} from "@/middlewares/registerCommand.middleware.ts";
+import {ReviewCommentService} from "@/services/reviewComment.service.ts";
 import {REVIEW_COMMENT_COMMANDS} from "@pkg/constants/src/reviewComment.constant.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {ReviewCommentService} from "@services/reviewComment.service.ts";
-import {Context, Effect, Layer} from "effect";
 
 export class ReviewCommentController extends Context.Service<ReviewCommentController>()(
   "aggregor-app/presentation/controllers/reviewComment.controller/ReviewCommentController",

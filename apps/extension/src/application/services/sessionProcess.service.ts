@@ -1,22 +1,23 @@
+import {Array, Context, Effect, Layer, Result, Schedule, Stream} from "effect";
+
 import {
   FolderShellProcessesDtoSchema,
   SessionProcessesDtoSchema,
   TerminalProcessesDtoSchema
-} from "@dtos/sessionProcess.dto.ts";
-import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
-import {IProcessInfraService} from "@interfaces/process.infraService.interface.ts";
-import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
+} from "@/dtos/sessionProcess.dto.ts";
+import {ISessionRepository} from "@/entities/session/session.repository.interface.ts";
+import {IProcessInfraService} from "@/interfaces/process.infraService.interface.ts";
+import {ITmuxInfraService} from "@/interfaces/tmux.infraService.interface.ts";
+import {BaseService} from "@/services/base.service.ts";
+import {FolderShellService} from "@/services/folderShell.service.ts";
+import {SessionService} from "@/services/session.service.ts";
+import {SESSION_LIFECYCLES} from "@/valueObjects/sessionLifecycle.valueObject.ts";
 import {PROCESS_SAMPLING} from "@pkg/constants/src/process.constant.ts";
-import {BaseService} from "@services/base.service.ts";
-import {FolderShellService} from "@services/folderShell.service.ts";
-import {SessionService} from "@services/session.service.ts";
-import {SESSION_LIFECYCLES} from "@valueObjects/sessionLifecycle.valueObject.ts";
-import {Array, Context, Effect, Layer, Result, Schedule, Stream} from "effect";
 
-import type {WatchSessionProcessesRequestDto} from "@dtos/sessionProcess.dto.ts";
-import type {SessionEntity} from "@entities/session/session.entity.ts";
-import type {TmuxSessionPanes} from "@interfaces/tmux.infraService.interface.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import type {WatchSessionProcessesRequestDto} from "@/dtos/sessionProcess.dto.ts";
+import type {SessionEntity} from "@/entities/session/session.entity.ts";
+import type {TmuxSessionPanes} from "@/interfaces/tmux.infraService.interface.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
 
 export class SessionProcessService extends Context.Service<SessionProcessService>()(
   "aggregor-app/application/services/sessionProcess.service/SessionProcessService",

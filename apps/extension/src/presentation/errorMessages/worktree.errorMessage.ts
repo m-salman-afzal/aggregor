@@ -1,8 +1,9 @@
-import {DATABASE_ERRORS} from "@pkg/constants/src/database.constant.ts";
-import {WORKTREE_ERRORS} from "@pkg/constants/src/git.constant.ts";
 import {Array, Context, Effect, Layer, Match} from "effect";
 
-import type {WorktreeService} from "@services/worktree.service.ts";
+import {DATABASE_ERRORS} from "@pkg/constants/src/database.constant.ts";
+import {WORKTREE_ERRORS} from "@pkg/constants/src/git.constant.ts";
+
+import type {WorktreeService} from "@/services/worktree.service.ts";
 
 type WorktreeCommandError = Effect.Error<ReturnType<WorktreeService["Service"]["cleanUpProjectLeftovers"]>>;
 

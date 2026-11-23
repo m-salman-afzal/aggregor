@@ -1,6 +1,7 @@
-import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
-import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {Schema} from "effect";
+
+import {EntityIdValueObjectSchema} from "@/valueObjects/entityId.valueObject.ts";
+import {ProjectPathValueObjectSchema} from "@/valueObjects/projectPath.valueObject.ts";
 
 export const OpenProjectTerminalRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
 

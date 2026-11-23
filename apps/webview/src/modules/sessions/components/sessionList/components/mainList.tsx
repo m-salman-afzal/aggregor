@@ -2,8 +2,9 @@ import {CountBadge} from "@/modules/sessions/components/sessionList/components/c
 import {RowActions} from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.tsx";
 import {SESSIONS_LABELS} from "@/modules/sessions/sessions.constant.ts";
 
-import type {RowAction} from "@/modules/sessions/sessions.type.ts";
 import type {ReactNode} from "react";
+
+import type {RowAction} from "@/modules/sessions/sessions.type.ts";
 
 interface MainListProps {
   readonly actionGroups: readonly (readonly RowAction[])[];

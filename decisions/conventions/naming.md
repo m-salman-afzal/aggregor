@@ -12,11 +12,11 @@ What things are called, and when a comment is worth it.
   function or line is or does, no history, no library defaults we override, no options we didn't take. History and
   options go here instead. The naming rules make code readable on its own, so comments stay a rarity, and one line
   leaves no room to narrate.
-- **Solution:** `aggregor/one-line-comment` (`packages/eslint/src/rules/`), on every TypeScript file, reports a block
+- **Solution:** `aggregor/one-line-comment` (`packages/lint/src/rules/`), on every TypeScript file, reports a block
   comment that spans lines, line comments on consecutive lines, and any comment inside an `…Errors` class, whose keys
-  name the errors. A directive a tool reads (`eslint-disable`, `@ts-`, a triple-slash reference) is not counted, so a
-  one-line reason may sit above one. It can't judge whether a line is obvious; that stays with review. CSS and Rust are
-  not linted.
+  name the errors. A directive a tool reads (`oxlint-disable`, `eslint-disable`, `@ts-`, a triple-slash reference) is
+  not counted, so a one-line reason may sit above one. It can't judge whether a line is obvious; that stays with review.
+  CSS and Rust are not linted.
 - **Alternatives considered:** prose only, which drifted; a cap on comments per file, which punishes the files with real
   platform quirks.
 
@@ -29,7 +29,7 @@ What things are called, and when a comment is worth it.
   `make…` assembles a DTO, row, option list or key from its inputs, `decode…` turns stored or outside input into a
   domain or port type, `parse…` splits a line of text, `format…As…` produces text, `run…` wraps an effect, `create…`
   makes a new thing, `find…` looks one up. A value is named for what it is (`settingTextWithProjectFolder`).
-- **Solution:** lint (`VERB_FIRST_NAME_BANS` in `packages/eslint/src/layers/syntaxBans.ts`, on every TypeScript file)
+- **Solution:** lint (`VERB_FIRST_NAME_BANS` in `packages/lint/src/layers/syntaxBans.ts`, on every TypeScript file)
   fails a variable, parameter, function or member whose name starts with `to`, `as`, `from`, `with`, `of` or `into`, and
   a function whose name starts with `new`. React's `on…` callback props and a library's own option keys pass.
 - **Alternatives considered:** a list of allowed verbs, which would fail every verb not yet on it; prose only, which did

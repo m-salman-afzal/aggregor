@@ -1,8 +1,9 @@
-import {BASE_COLUMNS} from "@models/base.model.ts";
-import {ProjectTableModel} from "@models/project.model.ts";
-import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
-import {SESSION_LIFECYCLES} from "@valueObjects/sessionLifecycle.valueObject.ts";
 import {integer, sqliteTable, text} from "drizzle-orm/sqlite-core";
+
+import {BASE_COLUMNS} from "@/models/base.model.ts";
+import {ProjectTableModel} from "@/models/project.model.ts";
+import {AGENT_STATUSES} from "@/valueObjects/agentStatus.valueObject.ts";
+import {SESSION_LIFECYCLES} from "@/valueObjects/sessionLifecycle.valueObject.ts";
 
 // aggregor-pty alone writes the status, tasks and title columns and agentSessionId; the extension writes the rest.
 export const SessionTableModel = sqliteTable("sessions", {

@@ -1,8 +1,9 @@
-import {useShowMoreSessions} from "@/modules/sessions/components/sessionList/components/projectGroup/components/showMoreSessions/showMoreSessions.hook.ts";
 import {ChevronDownIcon} from "lucide-react";
 
+import {useShowMoreSessions} from "@/modules/sessions/components/sessionList/components/projectGroup/components/showMoreSessions/showMoreSessions.hook.ts";
+
 import type {SessionListId} from "@/modules/sessions/sessions.type.ts";
-import type {ProjectRowData} from "@views/sessions/sessions.view.type.ts";
+import type {ProjectRowData} from "@/views/sessions/sessions.view.type.ts";
 
 interface ShowMoreSessionsProps {
   readonly listId: SessionListId;

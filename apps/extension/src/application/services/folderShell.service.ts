@@ -1,20 +1,21 @@
-import {ProfileTerminalDtoSchema} from "@dtos/folderShell.dto.ts";
-import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
-import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
-import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
-import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import {FOLDER_SHELL_STATUS_LABEL} from "@pkg/constants/src/terminal.constant.ts";
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {BaseService} from "@services/base.service.ts";
-import {ProjectService} from "@services/project.service.ts";
-import {SessionService} from "@services/session.service.ts";
 import {Context, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
-import type {OpenProjectTerminalRequestDto, OpenSessionFolderTerminalRequestDto} from "@dtos/folderShell.dto.ts";
-import type {SessionEntity} from "@entities/session/session.entity.ts";
-import type {FolderShellRequest} from "@interfaces/tmux.infraService.interface.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import {ProfileTerminalDtoSchema} from "@/dtos/folderShell.dto.ts";
+import {ISessionRepository} from "@/entities/session/session.repository.interface.ts";
+import {ITerminalInfraService} from "@/interfaces/terminal.infraService.interface.ts";
+import {ITmuxInfraService} from "@/interfaces/tmux.infraService.interface.ts";
+import {IWorkspaceInfraService} from "@/interfaces/workspace.infraService.interface.ts";
+import {BaseService} from "@/services/base.service.ts";
+import {ProjectService} from "@/services/project.service.ts";
+import {SessionService} from "@/services/session.service.ts";
+import {FOLDER_SHELL_STATUS_LABEL} from "@pkg/constants/src/terminal.constant.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
+import type {OpenProjectTerminalRequestDto, OpenSessionFolderTerminalRequestDto} from "@/dtos/folderShell.dto.ts";
+import type {SessionEntity} from "@/entities/session/session.entity.ts";
+import type {FolderShellRequest} from "@/interfaces/tmux.infraService.interface.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
 
 export class FolderShellServiceErrors extends TaggedErrors({
   NoShownFolderError: {}

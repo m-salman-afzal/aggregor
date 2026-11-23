@@ -2,7 +2,7 @@ import {SessionDetail} from "@/modules/sessions/components/sessionList/component
 import {SessionTitle} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/components/sessionTitle.tsx";
 import {useSessionOpenButton} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/sessionOpenButton.hook.ts";
 
-import type {SessionRowData} from "@views/sessions/sessions.view.type.ts";
+import type {SessionRowData} from "@/views/sessions/sessions.view.type.ts";
 
 interface SessionOpenButtonProps {
   readonly sessionRow: SessionRowData;

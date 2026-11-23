@@ -1,15 +1,16 @@
+import {Context, Effect, Layer} from "effect";
+
 import {
   LinkSessionPullRequestRequestDtoSchema,
   ListSessionPullRequestsRequestDtoSchema,
   OpenSessionPullRequestRequestDtoSchema,
   UnlinkSessionPullRequestRequestDtoSchema
-} from "@dtos/pullRequest.dto.ts";
-import {PullRequestErrorMessage} from "@errorMessages/pullRequest.errorMessage.ts";
-import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
+} from "@/dtos/pullRequest.dto.ts";
+import {PullRequestErrorMessage} from "@/errorMessages/pullRequest.errorMessage.ts";
+import {RegisterCommandMiddleware} from "@/middlewares/registerCommand.middleware.ts";
+import {PullRequestService} from "@/services/pullRequest.service.ts";
 import {GITHUB_CLI_COMMANDS} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {PullRequestService} from "@services/pullRequest.service.ts";
-import {Context, Effect, Layer} from "effect";
 
 export class PullRequestController extends Context.Service<PullRequestController>()(
   "aggregor-app/presentation/controllers/pullRequest.controller/PullRequestController",

@@ -1,7 +1,8 @@
-import {AGENT_TASK_KINDS} from "@valueObjects/agentTaskKind.valueObject.ts";
 import {Context, Effect, Layer, Record, Result, String} from "effect";
 
-import type {AgentTaskKindValueObject} from "@valueObjects/agentTaskKind.valueObject.ts";
+import {AGENT_TASK_KINDS} from "@/valueObjects/agentTaskKind.valueObject.ts";
+
+import type {AgentTaskKindValueObject} from "@/valueObjects/agentTaskKind.valueObject.ts";
 
 // Claude Code's own table (2.1.328), not part of OSC 7501: an id it doesn't list, or another agent's, is other.
 const AGENT_TASK_KINDS_BY_ID_PREFIX: Record.ReadonlyRecord<string, AgentTaskKindValueObject> = {

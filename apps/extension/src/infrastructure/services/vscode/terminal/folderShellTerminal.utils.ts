@@ -1,19 +1,21 @@
-import {TerminalUtils} from "@infraServices/vscode/terminal/terminal.utils.ts";
-import {AggregorFolderUtils} from "@infraUtils/aggregorFolder.utils.ts";
-import {ITerminalInfraServiceErrors} from "@interfaces/terminal.infraService.interface.ts";
+import {Array, Context, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
+
+import {TerminalUtils} from "@/infraServices/vscode/terminal/terminal.utils.ts";
+import {AggregorFolderUtils} from "@/infraUtils/aggregorFolder.utils.ts";
+import {ITerminalInfraServiceErrors} from "@/interfaces/terminal.infraService.interface.ts";
 import {FOLDER_SHELL_TERMINAL} from "@pkg/constants/src/terminal.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {Array, Context, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
+
+import type {Terminal} from "vscode";
 
 import type {
   FolderShellTerminalOptions,
   FolderShellTerminalRequest,
   TerminalCommand
-} from "@interfaces/terminal.infraService.interface.ts";
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
-import type {Terminal} from "vscode";
+} from "@/interfaces/terminal.infraService.interface.ts";
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 class FolderShellTerminalUtilsErrors extends TaggedErrors({
   FolderShellNotClosedByUserError: {}

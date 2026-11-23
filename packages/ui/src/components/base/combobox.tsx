@@ -1,6 +1,7 @@
-import * as React from "react";
 import {Combobox as ComboboxPrimitive} from "@base-ui/react";
 import {cn} from "cn";
+import {ChevronDownIcon, XIcon, CheckIcon} from "lucide-react";
+import * as React from "react";
 
 import {Button} from "@pkg/ui/src/components/base/button.tsx";
 import {
@@ -9,7 +10,6 @@ import {
   InputGroupButton,
   InputGroupInput
 } from "@pkg/ui/src/components/base/input-group.tsx";
-import {ChevronDownIcon, XIcon, CheckIcon} from "lucide-react";
 
 const Combobox = ComboboxPrimitive.Root;
 
@@ -89,7 +89,7 @@ const ComboboxContent = ({
         data-slot="combobox-content"
         data-chips={!!anchor}
         className={cn(
-          "group/combobox-content relative max-h-(--available-height) w-(--anchor-width) max-w-(--available-width) min-w-[calc(var(--anchor-width)+--spacing(7))] origin-(--transform-origin) overflow-hidden rounded-xl bg-level [--level:0] text-popover-foreground shadow-[0_20px_48px_-12px_rgb(0_0_0/0.75)] ring-1 ring-brand/40 duration-100 data-[chips=true]:min-w-(--anchor-width) data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 *:data-[slot=input-group]:m-1.5 *:data-[slot=input-group]:mb-0 *:data-[slot=input-group]:h-8 *:data-[slot=input-group]:w-auto *:data-[slot=input-group]:bg-lift-1 *:data-[slot=input-group]:shadow-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "group/combobox-content data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 relative max-h-(--available-height) w-(--anchor-width) max-w-(--available-width) min-w-[calc(var(--anchor-width)+(--spacing(7)))] origin-(--transform-origin) overflow-hidden rounded-xl bg-level text-popover-foreground shadow-[0_20px_48px_-12px_rgb(0_0_0/0.75)] ring-1 ring-brand/40 duration-100 [--level:0] data-[chips=true]:min-w-(--anchor-width) *:data-[slot=input-group]:m-1.5 *:data-[slot=input-group]:mb-0 *:data-[slot=input-group]:h-8 *:data-[slot=input-group]:w-auto *:data-[slot=input-group]:bg-lift-1 *:data-[slot=input-group]:shadow-none",
           className
         )}
         {...props}
@@ -102,7 +102,7 @@ const ComboboxList = ({className, ...props}: ComboboxPrimitive.List.Props) => (
   <ComboboxPrimitive.List
     data-slot="combobox-list"
     className={cn(
-      "scrollbar-minimal max-h-[min(calc(--spacing(72)---spacing(9)),calc(var(--available-height)---spacing(9)))] scroll-py-1 overflow-y-auto overscroll-contain p-1 data-empty:p-0",
+      "scrollbar-minimal max-h-[min(calc(--spacing(72)-(--spacing(9))),calc(var(--available-height)-(--spacing(9))))] scroll-py-1 overflow-y-auto overscroll-contain p-1 data-empty:p-0",
       className
     )}
     {...props}
@@ -113,7 +113,7 @@ const ComboboxItem = ({className, children, ...props}: ComboboxPrimitive.Item.Pr
   <ComboboxPrimitive.Item
     data-slot="combobox-item"
     className={cn(
-      "relative flex w-full cursor-default items-center gap-2 rounded-lg py-1 pr-8 pl-1.5 text-sm outline-hidden select-none data-highlighted:bg-lift-1 data-highlighted:text-accent-foreground not-data-[variant=destructive]:data-highlighted:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+      "relative flex w-full cursor-default items-center gap-2 rounded-lg py-1 pr-8 pl-1.5 text-sm outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-lift-1 data-highlighted:text-accent-foreground not-data-[variant=destructive]:data-highlighted:**:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
       className
     )}
     {...props}>

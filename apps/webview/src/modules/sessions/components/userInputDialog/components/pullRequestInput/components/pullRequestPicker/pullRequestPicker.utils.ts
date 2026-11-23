@@ -2,9 +2,9 @@ import {GITHUB_CLI_LABELS} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {SESSION_LABELS} from "@pkg/constants/src/session.constant.ts";
 import {PULL_REQUEST_STATE_LABELS} from "@pkg/constants/src/sessionsView.constant.ts";
 
+import type {ListedPullRequestDto} from "@/dtos/pullRequest.dto.ts";
+import type {SessionListItemDto} from "@/dtos/session.dto.ts";
 import type {UserInputOption} from "@/modules/sessions/sessions.type.ts";
-import type {ListedPullRequestDto} from "@dtos/pullRequest.dto.ts";
-import type {SessionListItemDto} from "@dtos/session.dto.ts";
 
 export const makePullRequestOptions = (
   pullRequests: readonly ListedPullRequestDto[],

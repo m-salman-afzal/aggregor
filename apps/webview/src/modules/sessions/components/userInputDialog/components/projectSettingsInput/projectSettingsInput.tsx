@@ -4,8 +4,9 @@ import {WorkingTreeField} from "@/modules/sessions/components/userInputDialog/co
 import {PROJECT_SETTINGS_FIELDS} from "@/modules/sessions/components/userInputDialog/userInputDialog.constant.ts";
 import {PROJECT_SETTINGS_LABELS} from "@pkg/constants/src/project.constant.ts";
 
-import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
 import type {SubmitEvent} from "react";
+
+import type {ProjectSettingsDto} from "@/dtos/project.dto.ts";
 
 interface ProjectSettingsInputProps {
   readonly onCancel: () => void;

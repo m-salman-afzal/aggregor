@@ -1,10 +1,11 @@
+import {useState} from "react";
+
 import {
   findChosenTabLabel,
   isSameOption,
   readOptionLabel,
   readOptionValue
 } from "@/modules/sessions/components/userInputDialog/components/newSessionInput/components/optionPicker/optionPicker.utils.ts";
-import {useState} from "react";
 
 import type {NewSessionOptionTab} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.type.ts";
 import type {UserInputOption} from "@/modules/sessions/sessions.type.ts";

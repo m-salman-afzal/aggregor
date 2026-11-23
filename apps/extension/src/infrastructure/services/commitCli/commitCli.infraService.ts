@@ -1,11 +1,12 @@
 import {NodeServices} from "@effect/platform-node";
-import {ICommitCliInfraService, ICommitCliInfraServiceErrors} from "@interfaces/commitCli.infraService.interface.ts";
-import {EXIT_CODES} from "@pkg/constants/src/process.constant.ts";
 import {Context, Effect, Layer, Stream, String} from "effect";
 import {ChildProcess} from "effect/process";
 import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 
-import type {CommitMessageRequest} from "@interfaces/commitCli.infraService.interface.ts";
+import {ICommitCliInfraService, ICommitCliInfraServiceErrors} from "@/interfaces/commitCli.infraService.interface.ts";
+import {EXIT_CODES} from "@pkg/constants/src/process.constant.ts";
+
+import type {CommitMessageRequest} from "@/interfaces/commitCli.infraService.interface.ts";
 
 export class CommitCliInfraService extends Context.Service<CommitCliInfraService>()(
   "aggregor-app/infrastructure/services/commitCli/commitCli.infraService/CommitCliInfraService",

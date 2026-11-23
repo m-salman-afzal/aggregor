@@ -1,8 +1,9 @@
 import {NodeServices} from "@effect/platform-node";
-import {AggregorFolderUtils} from "@infraUtils/aggregorFolder.utils.ts";
-import {TMUX} from "@pkg/constants/src/tmux.constant.ts";
 import {Context, Effect, Layer} from "effect";
 import {Path} from "effect/Path";
+
+import {AggregorFolderUtils} from "@/infraUtils/aggregorFolder.utils.ts";
+import {TMUX} from "@pkg/constants/src/tmux.constant.ts";
 
 export class TmuxSocketUtils extends Context.Service<TmuxSocketUtils>()(
   "aggregor-app/infrastructure/utils/tmuxSocket.utils/TmuxSocketUtils",

@@ -1,7 +1,8 @@
-import {COMMIT_MESSAGE_ERRORS} from "@pkg/constants/src/commitMessage.constant.ts";
 import {Array, Context, Effect, Layer, Match} from "effect";
 
-import type {CommitMessageService} from "@services/commitMessage.service.ts";
+import {COMMIT_MESSAGE_ERRORS} from "@pkg/constants/src/commitMessage.constant.ts";
+
+import type {CommitMessageService} from "@/services/commitMessage.service.ts";
 
 type CommitMessageCommandError = Effect.Error<ReturnType<CommitMessageService["Service"]["generateCommitMessage"]>>;
 

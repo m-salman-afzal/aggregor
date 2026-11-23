@@ -1,13 +1,14 @@
-import {AgentListItemDtoSchema} from "@dtos/agent.dto.ts";
-import {IAgentRepository, IAgentRepositoryErrors} from "@entities/agent/agent.repository.interface.ts";
-import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
-import {IShellCommandInfraService} from "@interfaces/shellCommand.infraService.interface.ts";
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {Array, Context, Effect, Layer, Result, Schema} from "effect";
 
-import type {SetDefaultAgentRequestDto} from "@dtos/agent.dto.ts";
-import type {AgentEntity} from "@entities/agent/agent.entity.ts";
-import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
+import {AgentListItemDtoSchema} from "@/dtos/agent.dto.ts";
+import {IAgentRepository, IAgentRepositoryErrors} from "@/entities/agent/agent.repository.interface.ts";
+import {ISettingsConfig} from "@/interfaces/settings.config.interface.ts";
+import {IShellCommandInfraService} from "@/interfaces/shellCommand.infraService.interface.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
+import type {SetDefaultAgentRequestDto} from "@/dtos/agent.dto.ts";
+import type {AgentEntity} from "@/entities/agent/agent.entity.ts";
+import type {AgentIdValueObject} from "@/valueObjects/agentId.valueObject.ts";
 
 export class AgentServiceErrors extends TaggedErrors({
   NoAgentInstalledError: {searchedCommands: Schema.Array(Schema.String)}

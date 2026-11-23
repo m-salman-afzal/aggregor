@@ -1,12 +1,13 @@
 import {NodeServices} from "@effect/platform-node";
 import {SqliteClient} from "@effect/sql-sqlite-node";
-import {DatabaseUtils} from "@infraUtils/database.utils.ts";
-import {AGGREGOR_FOLDER} from "@pkg/constants/src/app.constant.ts";
-import {MIGRATIONS} from "@pkg/constants/src/database.constant.ts";
-import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {Context, Effect, Layer} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
+
+import {DatabaseUtils} from "@/infraUtils/database.utils.ts";
+import {AGGREGOR_FOLDER} from "@pkg/constants/src/app.constant.ts";
+import {MIGRATIONS} from "@pkg/constants/src/database.constant.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 
 export class Database extends Context.Service<Database>()("aggregor-app/infrastructure/di/database.layer/Database", {
   make: Effect.fn("Database.make")(function* () {

@@ -1,0 +1,27 @@
+{
+  "name": "@pkg/lint",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./*"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@e18e/eslint-plugin": "catalog:",
+    "@oxlint/plugins": "catalog:",
+    "@pkg/tsconfigs": "workspace:*",
+    "@typescript-eslint/eslint-plugin": "catalog:",
+    "eslint-plugin-perfectionist": "catalog:",
+    "eslint-plugin-unicorn": "catalog:",
+    "oxlint-plugin-eslint": "catalog:",
+    "typescript": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "oxlint": "catalog:",
+    "vitest": "catalog:"
+  }
+}

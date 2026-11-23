@@ -1,6 +1,7 @@
-import {AgentIconValueObjectSchema} from "@valueObjects/agentIcon.valueObject.ts";
-import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
 import {Schema} from "effect";
+
+import {AgentIconValueObjectSchema} from "@/valueObjects/agentIcon.valueObject.ts";
+import {AgentIdValueObjectSchema} from "@/valueObjects/agentId.valueObject.ts";
 
 export const AgentListItemDtoSchema = Schema.Struct({
   agentId: AgentIdValueObjectSchema,

@@ -33,13 +33,13 @@ How dependency versions are pinned and updated.
   places that could drift apart.
 - **Decision:** as in chatly-web: every version sits once in `pnpm-workspace.yaml`'s `catalog:`, and each `package.json`
   names it as `"catalog:"` (workspace packages stay `workspace:*`). `catalogMode: strict` makes `pnpm add` write the
-  catalog entry and refuse a different version; `cleanupUnusedCatalogs` drops entries nothing uses. ESLint
-  (`eslint-plugin-pnpm` 1.9.1) fails a plain version (`pnpm/json-enforce-catalog`, which `lint:fix` moves into the
-  catalog), one that conflicts with the catalog, a `catalog:` with no entry, and an unused or duplicate entry.
-  `@types/vscode` is the one exception and stays a version in `apps/extension` and `packages/vscode`: vsce reads it to
-  check `engines.vscode` and fails on `catalog:`. Declaring it only in `@pkg/vscode`, with the extension taking its
-  types through that package, was tried and dropped, since vsce then skips the check. Renovate updates the catalog
-  itself. One source of truth for every version, which lint keeps that way.
+  catalog entry and refuse a different version; `cleanupUnusedCatalogs` drops entries nothing uses. A version typed into
+  a `package.json` by hand is not caught: eslint-plugin-pnpm checked that, and went with ESLint (see "Oxlint and oxfmt
+  check everything" in `decisions/conventions/lint.md`). `@types/vscode` is the one exception and stays a version in
+  `apps/extension` and `packages/vscode`: vsce reads it to check `engines.vscode` and fails on `catalog:`. Declaring it
+  only in `@pkg/vscode`, with the extension taking its types through that package, was tried and dropped, since vsce
+  then skips the check. Renovate updates the catalog itself. One source of truth for every version, which lint keeps
+  that way.
 - **Alternatives considered:** named catalogs, which would let one workspace keep its own version of a package.
 
 ## Drizzle updates only to its releases

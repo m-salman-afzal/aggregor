@@ -1,3 +1,5 @@
+import {useState} from "react";
+
 import {toggleRowKey} from "@/modules/sessions/components/userInputDialog/components/checklistSection/checklistSection.utils.ts";
 import {
   areAllRowsTicked,
@@ -6,9 +8,8 @@ import {
   toggleShownRowKeys
 } from "@/modules/sessions/components/userInputDialog/components/importSessionsInput/components/importChecklist/importChecklist.utils.ts";
 import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.store.ts";
-import {useState} from "react";
 
-import type {ImportableSessionsDto} from "@dtos/sessionImport.dto.ts";
+import type {ImportableSessionsDto} from "@/dtos/sessionImport.dto.ts";
 
 interface UseImportChecklistProps {
   readonly importableSessions: ImportableSessionsDto;

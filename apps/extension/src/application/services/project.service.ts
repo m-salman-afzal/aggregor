@@ -1,27 +1,28 @@
-import {SortOrderDomainService} from "@domainServices/sortOrder.domainService.ts";
-import {ProjectListItemDtoSchema} from "@dtos/project.dto.ts";
-import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
-import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
-import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
-import {IUserInputPromptInfraService} from "@interfaces/userInputPrompt.infraService.interface.ts";
-import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {BaseService} from "@services/base.service.ts";
-import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
-import {ProjectSettingsValueObjectSchema} from "@valueObjects/projectSettings.valueObject.ts";
 import {Array, Context, Effect, Layer, Predicate, Result, Schema} from "effect";
 import {Path} from "effect/Path";
+
+import {SortOrderDomainService} from "@/domainServices/sortOrder.domainService.ts";
+import {ProjectListItemDtoSchema} from "@/dtos/project.dto.ts";
+import {IProjectRepository} from "@/entities/project/project.repository.interface.ts";
+import {ISessionRepository} from "@/entities/session/session.repository.interface.ts";
+import {ITmuxInfraService} from "@/interfaces/tmux.infraService.interface.ts";
+import {IUserInputPromptInfraService} from "@/interfaces/userInputPrompt.infraService.interface.ts";
+import {IWorkspaceInfraService} from "@/interfaces/workspace.infraService.interface.ts";
+import {BaseService} from "@/services/base.service.ts";
+import {ProjectPathValueObjectSchema} from "@/valueObjects/projectPath.valueObject.ts";
+import {ProjectSettingsValueObjectSchema} from "@/valueObjects/projectSettings.valueObject.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 
 import type {
   MoveProjectDownRequestDto,
   MoveProjectUpRequestDto,
   RemoveProjectRequestDto,
   SaveProjectSettingsRequestDto
-} from "@dtos/project.dto.ts";
-import type {ProjectEntity} from "@entities/project/project.entity.ts";
-import type {WorkspaceFolderProject} from "@interfaces/workspace.infraService.interface.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+} from "@/dtos/project.dto.ts";
+import type {ProjectEntity} from "@/entities/project/project.entity.ts";
+import type {WorkspaceFolderProject} from "@/interfaces/workspace.infraService.interface.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 export class ProjectServiceErrors extends TaggedErrors({
   ProjectNotListedError: {projectPath: ProjectPathValueObjectSchema}

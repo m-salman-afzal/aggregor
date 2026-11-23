@@ -1,6 +1,7 @@
-import {AgentTaskStateValueObjectSchema} from "@valueObjects/agentTaskState.valueObject.ts";
-import {StatusKindValueObjectSchema} from "@valueObjects/statusKind.valueObject.ts";
 import {Schema} from "effect";
+
+import {AgentTaskStateValueObjectSchema} from "@/valueObjects/agentTaskState.valueObject.ts";
+import {StatusKindValueObjectSchema} from "@/valueObjects/statusKind.valueObject.ts";
 
 export const AgentTaskValueObjectSchema = Schema.Struct({
   kind: Schema.optional(StatusKindValueObjectSchema),

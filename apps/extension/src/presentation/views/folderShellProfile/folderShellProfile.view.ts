@@ -1,8 +1,9 @@
-import {FolderShellController} from "@controllers/folderShell.controller.ts";
+import {Context, Effect, Layer} from "effect";
+
+import {FolderShellController} from "@/controllers/folderShell.controller.ts";
 import {FOLDER_SHELL_TERMINAL} from "@pkg/constants/src/terminal.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {Context, Effect, Layer} from "effect";
 
 import type {TerminalOptions} from "vscode";
 

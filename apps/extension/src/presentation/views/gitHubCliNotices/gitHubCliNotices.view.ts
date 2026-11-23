@@ -1,7 +1,8 @@
-import {PullRequestController} from "@controllers/pullRequest.controller.ts";
+import {Context, Effect, Layer, Stream} from "effect";
+
+import {PullRequestController} from "@/controllers/pullRequest.controller.ts";
 import {GITHUB_CLI_COMMANDS, GITHUB_CLI_LABELS, GITHUB_CLI_NOTICES} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {Context, Effect, Layer, Stream} from "effect";
 
 export class GitHubCliNoticesView extends Context.Service<GitHubCliNoticesView>()(
   "aggregor-app/presentation/views/gitHubCliNotices/gitHubCliNotices.view/GitHubCliNoticesView",

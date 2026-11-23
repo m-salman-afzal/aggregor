@@ -1,5 +1,6 @@
-import {REQUIRED_TOOLS} from "@pkg/constants/src/requiredTools.constant.ts";
 import {Schema} from "effect";
+
+import {REQUIRED_TOOLS} from "@pkg/constants/src/requiredTools.constant.ts";
 
 export const MissingToolDtoSchema = Schema.Struct({
   foundVersion: Schema.optional(Schema.String),

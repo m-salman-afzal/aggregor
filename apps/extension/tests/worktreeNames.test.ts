@@ -1,6 +1,7 @@
-import {WorktreeDomainService} from "@domainServices/worktree.domainService.ts";
 import {Effect} from "effect";
 import {describe, expect, it} from "vitest";
+
+import {WorktreeDomainService} from "@/domainServices/worktree.domainService.ts";
 
 const checkWorktreeName = Effect.fn("checkWorktreeName")(function* () {
   const worktreeDomainService = yield* WorktreeDomainService;

@@ -1,4 +1,8 @@
-import {ISettingsConfig, ISettingsConfigErrors} from "@interfaces/settings.config.interface.ts";
+import {Context, Effect, Layer, Schema} from "effect";
+
+import {ISettingsConfig, ISettingsConfigErrors} from "@/interfaces/settings.config.interface.ts";
+import {AgentIdValueObjectSchema} from "@/valueObjects/agentId.valueObject.ts";
+import {AgentStatusValueObjectSchema} from "@/valueObjects/agentStatus.valueObject.ts";
 import {AGENT_SETTINGS} from "@pkg/constants/src/agent.constant.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/app.constant.ts";
 import {PULL_REQUEST_OPEN_PLACES} from "@pkg/constants/src/gitHubCli.constant.ts";
@@ -6,12 +10,9 @@ import {SESSION_SETTINGS} from "@pkg/constants/src/session.constant.ts";
 import {SESSION_OPEN_PLACES} from "@pkg/constants/src/terminal.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
-import {AgentStatusValueObjectSchema} from "@valueObjects/agentStatus.valueObject.ts";
-import {Context, Effect, Layer, Schema} from "effect";
 
-import type {AlertSettings, PullRequestSettings, SessionSettings} from "@interfaces/settings.config.interface.ts";
-import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
+import type {AlertSettings, PullRequestSettings, SessionSettings} from "@/interfaces/settings.config.interface.ts";
+import type {AgentIdValueObject} from "@/valueObjects/agentId.valueObject.ts";
 
 class SettingsConfigErrors extends TaggedErrors({
   DefaultAgentSaveFailedError: {cause: Schema.Unknown}

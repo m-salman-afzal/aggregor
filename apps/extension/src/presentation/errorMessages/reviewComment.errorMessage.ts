@@ -1,8 +1,9 @@
-import {DATABASE_ERRORS} from "@pkg/constants/src/database.constant.ts";
-import {REVIEW_COMMENT_ERRORS} from "@pkg/constants/src/reviewComment.constant.ts";
 import {Context, Effect, Layer, Match} from "effect";
 
-import type {ReviewCommentService} from "@services/reviewComment.service.ts";
+import {DATABASE_ERRORS} from "@pkg/constants/src/database.constant.ts";
+import {REVIEW_COMMENT_ERRORS} from "@pkg/constants/src/reviewComment.constant.ts";
+
+import type {ReviewCommentService} from "@/services/reviewComment.service.ts";
 
 type ReviewCommentCommandError =
   | Effect.Error<ReturnType<ReviewCommentService["Service"]["addReviewComment"]>>

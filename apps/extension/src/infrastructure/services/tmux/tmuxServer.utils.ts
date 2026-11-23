@@ -1,16 +1,17 @@
 import {NodeServices} from "@effect/platform-node";
-import {TmuxSocketUtils} from "@infraUtils/tmuxSocket.utils.ts";
-import {ITmuxInfraServiceErrors} from "@interfaces/tmux.infraService.interface.ts";
-import {SYSTEMD_SCOPE, TMUX} from "@pkg/constants/src/tmux.constant.ts";
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {Array, Context, Effect, Layer, Result, Stream, String} from "effect";
 import {ChildProcess} from "effect/process";
 import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 
-import type {TmuxClient} from "@infraServices/tmux/tmux.infraService.type.ts";
-import type {TerminalCommand} from "@interfaces/terminal.infraService.interface.ts";
-import type {TmuxSessionPanes} from "@interfaces/tmux.infraService.interface.ts";
+import {TmuxSocketUtils} from "@/infraUtils/tmuxSocket.utils.ts";
+import {ITmuxInfraServiceErrors} from "@/interfaces/tmux.infraService.interface.ts";
+import {SYSTEMD_SCOPE, TMUX} from "@pkg/constants/src/tmux.constant.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
+
+import type {TmuxClient} from "@/infraServices/tmux/tmux.infraService.type.ts";
+import type {TerminalCommand} from "@/interfaces/terminal.infraService.interface.ts";
+import type {TmuxSessionPanes} from "@/interfaces/tmux.infraService.interface.ts";
 
 export class TmuxServerUtilsErrors extends TaggedErrors({
   TmuxClientNotFoundError: {},

@@ -1,7 +1,7 @@
 import {Context, Effect, Layer} from "effect";
 
-import type {IBaseRepository, PageRequest} from "@entities/base/base.repository.interface.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import type {IBaseRepository, PageRequest} from "@/entities/base/base.repository.interface.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
 
 export class BaseService extends Context.Service<BaseService>()(
   "aggregor-app/application/services/base.service/BaseService",

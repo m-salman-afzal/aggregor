@@ -4,8 +4,8 @@ import {useLeftoverChecklist} from "@/modules/sessions/components/userInputDialo
 import {LEFTOVER_LABELS} from "@pkg/constants/src/git.constant.ts";
 import {DialogDescription} from "@pkg/ui/src/components/base/dialog.tsx";
 
+import type {ProjectLeftoversDto} from "@/dtos/worktree.dto.ts";
 import type {ChosenLeftovers} from "@/modules/sessions/sessions.type.ts";
-import type {ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
 
 interface LeftoverChecklistProps {
   readonly leftovers: ProjectLeftoversDto;
