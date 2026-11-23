@@ -21,6 +21,7 @@ export const USER_INPUT_ICONS = {
 } as const;
 
 export const PROJECT_SETTINGS_FIELDS = {
+  CLEAN_UP_BASE_BRANCH: "cleanUpBaseBranch",
   FILES_TO_COPY: "filesToCopy",
   NEW_SESSION_WORKING_TREE: "newSessionWorkingTree",
   SETUP_SCRIPT: "setupScript",

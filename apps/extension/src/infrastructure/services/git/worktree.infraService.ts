@@ -374,12 +374,12 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         return worktreeBranch;
       });
 
-      const listAggregorBranches = Effect.fn("WorktreeInfraService.listAggregorBranches")(
+      const listLocalBranches = Effect.fn("WorktreeInfraService.listLocalBranches")(
         function* (projectPath: ProjectPathValueObject) {
           const referenceOutput = yield* runGitCommand(projectPath, [
             "for-each-ref",
             "--format=%(refname:short)%09%(upstream:track)%09%(worktreepath)",
-            `${GIT_COMMAND.BRANCH_REF_PREFIX}${WORKTREES.BRANCH_PREFIX}`
+            GIT_COMMAND.BRANCH_REF_PREFIX
           ]);
           const referenceLines = Array.filter(String.split("\n")(referenceOutput), String.isNonEmpty);
 
@@ -418,32 +418,33 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         Effect.mapError(() => IWorktreeInfraServiceErrors.NotGitRepositoryError.make())
       );
 
-      const findBaseBranch = Effect.fn("WorktreeInfraService.findBaseBranch")(
-        function* (projectPath: ProjectPathValueObject) {
-          const originHead = yield* Effect.result(
-            runGitCommand(projectPath, ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"])
-          );
-          if (Result.isSuccess(originHead)) return String.trim(originHead.success);
-          const projectHead = yield* runGitCommand(projectPath, ["rev-parse", "--abbrev-ref", "HEAD"]);
+      const isBranchMergedIntoReference = Effect.fn("WorktreeInfraService.isBranchMergedIntoReference")(function* (
+        projectPath: ProjectPathValueObject,
+        branchName: string,
+        baseReferenceName: string
+      ) {
+        const ancestorCheck = yield* Effect.result(
+          runGitCommand(projectPath, ["merge-base", "--is-ancestor", branchName, baseReferenceName])
+        );
 
-          return String.trim(projectHead);
-        },
-        Effect.mapError(() => IWorktreeInfraServiceErrors.NotGitRepositoryError.make())
-      );
+        return Result.isSuccess(ancestorCheck);
+      });
 
       const isBranchMerged = Effect.fn("WorktreeInfraService.isBranchMerged")(function* (
         branchMergeCheck: BranchMergeCheck
       ) {
-        const ancestorCheck = yield* Effect.result(
-          runGitCommand(branchMergeCheck.projectPath, [
-            "merge-base",
-            "--is-ancestor",
-            branchMergeCheck.branchName,
-            branchMergeCheck.baseBranchName
-          ])
+        const isInOriginBase = yield* isBranchMergedIntoReference(
+          branchMergeCheck.projectPath,
+          branchMergeCheck.branchName,
+          `${GIT_COMMAND.ORIGIN_BRANCH_PREFIX}${branchMergeCheck.baseBranchName}`
         );
+        if (isInOriginBase) return true;
 
-        return Result.isSuccess(ancestorCheck);
+        return yield* isBranchMergedIntoReference(
+          branchMergeCheck.projectPath,
+          branchMergeCheck.branchName,
+          branchMergeCheck.baseBranchName
+        );
       });
 
       const pruneRemote = Effect.fn("WorktreeInfraService.pruneRemote")(
@@ -545,15 +546,14 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         createWorktree,
         deleteBranch,
         fetchRemote,
-        findBaseBranch,
         findFreeBranchName,
         findWorktreesRootPath,
         hasChanges,
         hasUpstream,
         isBranchMerged,
         isMadeByAggregor,
-        listAggregorBranches,
         listBranchNames,
+        listLocalBranches,
         listWorktrees,
         pruneRemote,
         readBranchName,

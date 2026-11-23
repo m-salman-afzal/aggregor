@@ -105,7 +105,8 @@ Each file's suffix names its role, each role lives in one layer, and the file's 
 `packages/eslint/src/layers/roleNames.ts` checks the names with `@typescript-eslint/naming-convention`, one block per
 file suffix. A function's name starts with a verb that says what it does (`makeSessionRow`, `decodeStoredRow`,
 `runWithSourceControlProgress`): `VERB_FIRST_NAME_BANS` in `syntaxBans.ts` fails a name that starts with `to`, `as`,
-`from`, `with`, `of` or `into`, and a function whose name starts with `new`.
+`from`, `with`, `of` or `into`, a function whose name starts with `new`, and a function whose name ends with `Of`, `In`,
+`To`, `For`, `From`, `With`, `Into`, `On` or `By`.
 
 | Role                    | Layer                             | File                                                    | Names                                              |
 | ----------------------- | --------------------------------- | ------------------------------------------------------- | -------------------------------------------------- |
@@ -260,16 +261,16 @@ apps/extension/src/
                                            rows move within an order
       pagination.domainService.ts          makePagination: what a page is, from its request and the row counts
       worktree.domainService.ts            getWorktreeName, getWorktreeBranchName, getWorktreesFolderName,
-                                           getTitledBranchName, hasWorktreeBranchFirstName, formatTextAsNamePart: what a
-                                           session's worktree, its branch and its project's worktrees folder are
-                                           called
+                                           getTitledBranchName, hasWorktreeBranchFirstName, isWorktreeBranchName,
+                                           formatTextAsNamePart: what a session's worktree, its branch and its
+                                           project's worktrees folder are called
       folderShell.domainService.ts         getFolderShellName: what a folder's shell is called in tmux
       agentTask.domainService.ts           getAgentTaskKind: what an agent's task is, from its id
       reviewComment.domainService.ts       findReviewCommentsInFolder, formatReviewPrompt: which review comments a
                                            folder holds, and how they read in an agent's prompt
   application/
     services/
-      base.service.ts                      BaseService.makeFor(repository): addEntity, findEntityById,
+      base.service.ts                      BaseService.makeForRepository(repository): addEntity, findEntityById,
                                            findEntities, findEntityPage, updateEntity, upsertEntity, removeEntity,
                                            placeEntitiesAtEnd, bound to one repository
       session.service.ts                   createSession (in a project, with an agent or the default one, at the
@@ -385,8 +386,8 @@ apps/extension/src/
                                            openInSourceControl
       worktree.infraService.interface.ts   createWorktree, listWorktrees, copyIncludedFiles, readBranchName,
                                            hasUpstream, findFreeBranchName, renameBranch, hasChanges,
-                                           removeWorktree, isMadeByAggregor, listAggregorBranches, pruneRemote,
-                                           findBaseBranch, isBranchMerged, deleteBranch,
+                                           removeWorktree, isMadeByAggregor, listLocalBranches, pruneRemote,
+                                           isBranchMerged, deleteBranch,
                                            findWorktreesRootPath, readDiffStats; GitWorktree,
                                            WorktreeBranch, WorktreeDiffStats, NotGitRepositoryError, WorktreeCreateFailedError,
                                            BranchRenameFailedError, WorktreeHasChangesError,
@@ -405,7 +406,7 @@ apps/extension/src/
     database/models/                       a Drizzle table per file (SessionTableModel...); base.model.ts:
                                            BASE_COLUMNS, the shared columns
     repositories/
-      base/                                BaseRepository.makeFor(entityTable): the base calls on one table, on
+      base/                                BaseRepository.makeForTable(entityTable): the base calls on one table, on
                                            Drizzle's query builder; its types in base.repository.type.ts;
                                            RepositoryUtils its helpers (formatCurrentTimestamp, encodeStoredColumns,
                                            findUniqueColumns, makeFilterClauses, selectRows, selectRowPage,
@@ -657,10 +658,11 @@ apps/extension/tests/
   `SessionRepository` or `TerminalInfraService`, whose layer provides the port:
   `Layer.effect(ITerminalInfraService, this.make())`. Nothing yields the implementation class itself. The backend shows
   in the folder (`services/vscode/`), not the name, and the port class stays in its `.interface.ts`.
-- **Base classes:** `BaseService` and `BaseRepository` each have one member, `makeFor`, which binds a repository or an
-  entity table and returns the base functions, each named `BaseService.…` or `BaseRepository.…` like any other function
-  of its class. A service or repository yields the class at the top of its `make`, calls `makeFor` there
-  (`const projectBaseService = yield* baseService.makeFor(projectRepository)`), and its layer provides the base class's.
+- **Base classes:** `BaseService` has one member, `makeForRepository`, which binds a repository, and `BaseRepository`
+  one, `makeForTable`, which binds an entity table; each returns the base functions, each named `BaseService.…` or
+  `BaseRepository.…` like any other function of its class. A service or repository yields the class at the top of its
+  `make`, calls it there (`const projectBaseService = yield* baseService.makeForRepository(projectRepository)`), and its
+  layer provides the base class's.
 - **Nothing is passed as a dependency:** no function takes a service, a ref or a `…Dependencies` object as a parameter.
   State, such as a `Ref` or a cache, lives in the `make` of the unit whose functions own it, and another unit that needs
   it yields that unit and calls its members.
@@ -719,7 +721,7 @@ apps/extension/tests/
 
 ## Repositories, models and transformers
 
-- Every repository is `BaseRepository.makeFor` on its table, with its own queries beside the base calls. Writes are
+- Every repository is `BaseRepository.makeForTable` on its table, with its own queries beside the base calls. Writes are
   column-scoped: `update` sets only the columns it is given, so the extension and `aggregor-pty` never overwrite each
   other's columns.
 - The database is the only copy of the data: every read is a query, and no repository, service or view keeps rows. Each
@@ -729,7 +731,7 @@ apps/extension/tests/
   or after the last one it read, skips those it already read unchanged at that instant, and counts a row placed (new, or
   moved by `placeAtEnd`) when its `sortId` is above every one it saw.
 - Each table model is a Drizzle `sqliteTable` that spreads `BASE_COLUMNS`; its unique columns are what `upsert` matches
-  on. A repository passes `makeFor` a join for the columns it reads from the rows it points at, such as a session's
+  on. A repository passes `makeForTable` a join for the columns it reads from the rows it points at, such as a session's
   `projectPath`. After changing a model, `pnpm db:generate --name <change>` writes its migration (see Tables and
   migrations). `storage.md` lists every stored table and key.
 - A list read a page at a time goes through `findPage(filter, pageRequest)`: newest first (highest `sortId` first), the

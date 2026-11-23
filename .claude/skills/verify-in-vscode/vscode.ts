@@ -66,12 +66,15 @@ const sleep = async (milliseconds: number) =>
     setTimeout(resolve, milliseconds);
   });
 
-const waitFor = async <A>(findValue: () => A | Promise<A | undefined> | undefined, timeoutMilliseconds: number) => {
+const waitForValue = async <A>(
+  findValue: () => A | Promise<A | undefined> | undefined,
+  timeoutMilliseconds: number
+) => {
   const value = await findValue();
   if (value !== undefined || timeoutMilliseconds <= 0) return value;
   await sleep(POLL_INTERVAL_MILLISECONDS);
 
-  return waitFor(findValue, timeoutMilliseconds - POLL_INTERVAL_MILLISECONDS);
+  return waitForValue(findValue, timeoutMilliseconds - POLL_INTERVAL_MILLISECONDS);
 };
 
 const isVerifyState = (value: unknown): value is VerifyState =>
@@ -108,7 +111,7 @@ const isInstanceProcess = (processId: number) => {
 const stopInstance = async () => {
   const instanceProcessIds = findProcessTree(isInstanceProcess);
   for (const processId of instanceProcessIds) sendSignal(processId, "SIGTERM");
-  await waitFor(() => (findProcessTree(isInstanceProcess).length === 0 ? true : undefined), 5000);
+  await waitForValue(() => (findProcessTree(isInstanceProcess).length === 0 ? true : undefined), 5000);
   for (const processId of findProcessTree(isInstanceProcess)) sendSignal(processId, "SIGKILL");
   fileSystem.rmSync(STATE_FILE, {force: true});
 
@@ -214,9 +217,9 @@ const start = async (workspaceArgument: string | undefined) => {
   writeState({ownerProcessId: claudeProcessId, startedAt, workspacePath});
   launchVsCode(workspacePath, claudeProcessId);
 
-  const workbenchPage = await waitFor(findWorkbenchPage, 30_000);
+  const workbenchPage = await waitForValue(findWorkbenchPage, 30_000);
   const traceLogPath =
-    workbenchPage === undefined ? undefined : await waitFor(() => findTraceLogPath(startedAt), 30_000);
+    workbenchPage === undefined ? undefined : await waitForValue(() => findTraceLogPath(startedAt), 30_000);
   if (traceLogPath === undefined) {
     await stopInstance();
     throw new Error(`VS Code did not come up; see ${LAUNCH_LOG} and ${MUTTER_LOG}.`);

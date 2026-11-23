@@ -36,7 +36,7 @@ export const maxLinesPerFunctionRule: Rule.RuleModule = {
       tooLong:
         "{{name}} has {{lineCount}} lines, over the limit of {{maxLines}}. Each function has one job, so each shows up " +
         "as its own span in the trace: split it into smaller functions. A Context.Service's make, or a make<Name> " +
-        "const such as a base class's makeFor, is exempt when it holds Effect.fns, since it only gathers them; every " +
+        "const such as BaseRepository's makeForTable, is exempt when it holds Effect.fns, since it only gathers them; every " +
         "function inside it stays capped."
     },
     schema: CORE_RULE.meta === undefined ? [] : CORE_RULE.meta.schema,

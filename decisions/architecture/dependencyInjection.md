@@ -75,10 +75,10 @@ Which layer is given what, the units that yield it, the levels they merge into, 
     loads, outside any effect, so it cannot be an `Effect.fn` inside a `make`.
   - A file that holds only definitions: value objects, entities, DTOs, ports, table models and types.
 - **Solution:**
-  - `BaseService` and `BaseRepository` each have one member, `makeFor`, which binds a repository or an entity table and
-    returns the base functions, each named `BaseService.…` or `BaseRepository.…` like any other function of its class. A
-    service or repository yields the class at the top of its `make`, calls `makeFor` there, and its layer provides the
-    base class's layer.
+  - `BaseService` has one member, `makeForRepository`, which binds a repository, and `BaseRepository` one,
+    `makeForTable`, which binds an entity table; each returns the base functions, each named `BaseService.…` or
+    `BaseRepository.…` like any other function of its class. A service or repository yields the class at the top of its
+    `make`, calls it there, and its layer provides the base class's layer.
   - `RegisterCommandMiddleware` has one member, `registerCommand`; a controller yields it and its layer provides it. A
     span's name is written in its function, so a command handler's spans stay its controller's although the middleware
     runs it.
@@ -88,8 +88,8 @@ Which layer is given what, the units that yield it, the levels they merge into, 
   - Lint allows a `Context.Service` class in every role that holds functions and bans it in a definition file, bans a
     top-level `Effect.fn` in `apps/extension/src` and `packages/vscode/src` with no exemption, and bans a parameter
     named or typed `…Dependencies` everywhere. `aggregor/max-lines-per-function` exempts a class's `make`, or a
-    `make<Name>` const such as `makeFor`, that holds `Effect.fn`s, while every function inside it stays capped at 30
-    lines.
+    `make<Name>` const such as `makeForTable`, that holds `Effect.fn`s, while every function inside it stays capped at
+    30 lines.
 - **Alternatives considered:** plain functions for the parts that need nothing, which needs a call per file that lint
   cannot make, and leaves a helper that later needs a port to pass it up to every caller. A view as a layer with no
   class, a top-level `make<Owner>View` passed to `Layer.effectDiscard`, since nothing calls it: dropped, as one form for
@@ -97,8 +97,9 @@ Which layer is given what, the units that yield it, the levels they merge into, 
   same shape for port implementations, a top-level `make<Owner>` with an exported layer const, dropped for the same
   reason. Exceptions for the middleware, which stayed top-level functions so its spans kept the calling controller's
   mark while the owner was a mark put on at run time (`decisions/tracing.md`); for `makeBaseService(repository)` and
-  `makeBaseRepository(entityTable)`, build-time factories generic over what they bind, now each a class's `makeFor`; and
-  for the layer files and the trace log's formatters. The user wanted the rule with no exception that could be avoided.
+  `makeBaseRepository(entityTable)`, build-time factories generic over what they bind, now
+  `BaseService.makeForRepository` and `BaseRepository.makeForTable`; and for the layer files and the trace log's
+  formatters. The user wanted the rule with no exception that could be avoided.
 
 ## Each level is merged under its own span, and given the levels below where they meet
 

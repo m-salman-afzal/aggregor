@@ -52,7 +52,6 @@ export class ReviewCommentController extends Context.Service<ReviewCommentContro
         yield* reviewCommentService.moveReviewComment(request);
       });
 
-      // VS Code hands the comment thread when a thread's title button runs this, and nothing from a keybinding.
       const sendPendingReviewComments = Effect.fn("ReviewCommentController.sendPendingReviewComments")(function* () {
         yield* reviewCommentService.sendReviewComments;
       });

@@ -192,5 +192,5 @@ What lint checks, where its setup lives, and how its messages read.
   `Effect.fn` span `<Class>.<const>`, writes the name with `--fix`, and checks that a unit's class is named after its
   file, which for every file with a role is the file itself (`terminal.utils.ts` is `TerminalUtils`).
   `aggregor/max-lines-per-function` replaces ESLint's own rule so a class's `make`, or a `make<Name>` const such as
-  `makeFor`, that holds `Effect.fn`s is exempt while each function inside stays capped at 30 lines.
+  `makeForTable`, that holds `Effect.fn`s is exempt while each function inside stays capped at 30 lines.
   `unicorn/name-replacements` allows `utils` and `application` as words, since they name a role and a layer.

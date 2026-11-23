@@ -78,7 +78,7 @@ const sendCdpCommand = async (
   return isRecord(reply.result) ? reply.result : {};
 };
 
-const evaluateIn = async (expression: string, findTarget?: () => Promise<CdpTarget | undefined>) => {
+const evaluateInTarget = async (expression: string, findTarget?: () => Promise<CdpTarget | undefined>) => {
   const evaluation = await sendCdpCommand(
     "Runtime.evaluate",
     {awaitPromise: true, expression, returnByValue: true},
@@ -94,12 +94,12 @@ const evaluateIn = async (expression: string, findTarget?: () => Promise<CdpTarg
 };
 
 export const evaluate = async (expression: string) => {
-  await evaluateIn(expression);
+  await evaluateInTarget(expression);
 };
 
 export const evaluateInSessionsWebview = async (expression: string) => {
   const activeFrame = 'document.querySelector("iframe#active-frame")';
-  await evaluateIn(
+  await evaluateInTarget(
     `((document, window) => (${expression}))(${activeFrame}.contentDocument, ${activeFrame}.contentWindow)`,
     findSessionsWebviewFrame
   );
