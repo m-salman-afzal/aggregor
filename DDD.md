@@ -10,7 +10,7 @@ The building blocks, as Evans (_Domain-Driven Design Reference_), Vernon (_Imple
 and Martin (_The Clean Architecture_) define them, and where each sits here.
 
 - **Entity:** an object "distinguished by its identity, rather than its attributes", whose identity runs through time:
-  `SessionEntity`, `ProjectEntity`, `AgentEntity`. Each entity is its own aggregate root.
+  `SessionEntity`, `ProjectEntity`, `ReviewCommentEntity`, `AgentEntity`. Each entity is its own aggregate root.
 - **Value object:** an object that describes or computes a characteristic of something and has no identity of its own;
   "when you care only about the attributes and logic of an element of the model, classify it as a value object". It is
   immutable and compared by value: a session's status, a project's path, an agent id, an entity's id. Anything that is
@@ -182,8 +182,8 @@ file suffix. A function's name starts with a verb that says what it does (`makeS
 packages/
   constants/src/                           one file per feature, each with its command ids, labels, notices, error
                                            texts and the feature's other constants: app, commitMessage, database,
-                                           git, agent, process, project, session, sessionAlert, sessionsView,
-                                           terminal, tmux, vscode (VS Code's own command ids),
+                                           git, agent, process, project, reviewComment, session, sessionAlert,
+                                           sessionsView, terminal, tmux, vscode (VS Code's own command ids),
                                            workspace
   errors/src/taggedErrors.utils.ts         TaggedErrors: a file's errors as the keys of one class, each keeping its
                                            own tag and type, built when the file loads
@@ -221,6 +221,11 @@ apps/extension/src/
       project/
         project.entity.ts                  ProjectEntity (BaseEntity and path, isAdded, settings)
         project.repository.interface.ts    IProjectRepository: the base calls
+      reviewComment/
+        reviewComment.entity.ts            ReviewCommentEntity (BaseEntity and filePath, startLine, endLine, body;
+                                           lineRange: its lines as a prompt cites them)
+        reviewComment.repository.interface.ts
+                                           IReviewCommentRepository: the base calls
       agent/
         agent.entity.ts                  AgentEntity (id, name, command, args, resumeArgs, environmentVariables,
                                            icon): an agent CLI,
@@ -260,6 +265,8 @@ apps/extension/src/
                                            called
       folderShell.domainService.ts         getFolderShellName: what a folder's shell is called in tmux
       agentTask.domainService.ts           getAgentTaskKind: what an agent's task is, from its id
+      reviewComment.domainService.ts       findReviewCommentsInFolder, formatReviewPrompt: which review comments a
+                                           folder holds, and how they read in an agent's prompt
   application/
     services/
       base.service.ts                      BaseService.makeFor(repository): addEntity, findEntityById,
@@ -307,6 +314,14 @@ apps/extension/src/
                                            shell run, read every 2 seconds while it is open
       workspace.service.ts                 startShownProjectSync: the viewed session's project as the only
                                            project folder; startSessionReopenAfterReload
+      reviewComment.service.ts             listReviewComments, watchReviewCommentChanges, addReviewComment,
+                                           editReviewComment, moveReviewComment (a thread's new lines),
+                                           removeReviewComment, sendReviewComments (pastes the comments under the
+                                           folder of the session last in view into its agent's prompt, removes them
+                                           and opens the session) and sendSessionReviewComments (the same for the
+                                           session whose row asked); NoReviewCommentsError,
+                                           NoSessionForReviewCommentsError, SessionAgentNotRunningError,
+                                           SessionNotShownError
     dtos/
       session.dto.ts                       SessionListItemDto, ProjectSessionsDto (a project's row with its sessions'
                                            rows, and its worktrees in the Sessions list), WorktreeListItemDto,
@@ -327,6 +342,8 @@ apps/extension/src/
       sessionProcess.dto.ts                SessionProcessesDto (TerminalProcessesDto, FolderShellProcessesDto,
                                            SessionProcessDto),
                                            WatchSessionProcessesRequestDto
+      reviewComment.dto.ts                 ReviewCommentDto, ReviewCommentChangeDto, and a request DTO per review
+                                           comment use case
     interfaces/                            each with the errors and types its signatures name
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
                                            closeOtherSessionTerminals, findOpenSessionTerminalProcessId,
@@ -339,7 +356,8 @@ apps/extension/src/
                                            TerminalLaunchFailedError, NoSessionTabOpenError,
                                            NoFolderShellTerminalOpenError
       tmux.infraService.interface.ts       checkTmuxVersion; for a session's agent: prepareSessionTabCommand,
-                                           waitForSessionAgentStart, stopSessionAgent, runningSessionIds,
+                                           waitForSessionAgentStart, stopSessionAgent, pasteTextIntoSessionAgent,
+                                           runningSessionIds,
                                            refreshRunningSessionIds, startedOrStoppedSessionIds, showSessionInTab,
                                            readShownSessionIdsByTabProcessId; for a folder's shell:
                                            prepareFolderShellTerminalCommand, showFolderShellInTerminal,
@@ -395,6 +413,7 @@ apps/extension/src/
                                            startEntityChangeFeed, which reads the rows written since its last check
       session.repository.ts                SessionRepository: sessions with their project's path
       project.repository.ts                ProjectRepository: projects
+      reviewComment.repository.ts          ReviewCommentRepository: the review comments not sent yet
       agent.repository.ts                AgentRepository: the aggregorApp.agents setting, decoded with its
                                            defaults, read again when it changes
     services/
@@ -412,11 +431,13 @@ apps/extension/src/
                                            files share in tmux.infraService.type.ts. tmuxServer.utils.ts is tmux
                                            itself, in tmux's own terms: runs a command on Aggregor's server, lists
                                            its sessions, clients and a session's panes, attaches a terminal's
-                                           client to another session, kills a session, and builds the command a
-                                           terminal runs, in a scope of its own. On top of it, sessionAgent.utils.ts: the command a
+                                           client to another session, kills a session, pastes a text into a
+                                           session's pane, and builds the command a terminal runs, in a scope of
+                                           its own. On top of it, sessionAgent.utils.ts: the command a
                                            session's tab runs, which starts its agent under aggregor-pty in a tmux
-                                           session or attaches to it; stops it; attaches a tab to another session;
-                                           reads which sessions tmux runs and which one each tab shows. And
+                                           session or attaches to it; stops it; pastes a text into its prompt;
+                                           attaches a tab to another session; reads which sessions tmux runs and
+                                           which one each tab shows. And
                                            folderShell.utils.ts: the command the window's Aggregor terminal runs,
                                            which starts a folder's shell in a tmux session or attaches to it;
                                            attaches the terminal to another folder's shell, started first with the
@@ -464,12 +485,14 @@ apps/extension/src/
                                            RegisterCommandMiddleware.registerCommand: root span per command; shows
                                            the failure's message, and logs a crash
     controllers/                           session, sessionImport, sessionProcess, agent, sessionAlert, project,
-                                           folderShell, worktree, pullRequest, requiredTools, commitMessage: each
+                                           folderShell, worktree, pullRequest, requiredTools, commitMessage,
+                                           reviewComment: each
                                            registers its commands, decodes a command's input into a request DTO and
                                            calls one service; the views' reads. app: Open Settings, which goes
                                            straight to @pkg/vscode
     errorMessages/                         session, sessionImport, project, folderShell, worktree, pullRequest,
-                                           requiredTools, commitMessage: a failed command's message, and the setting
+                                           requiredTools, commitMessage, reviewComment: a failed command's message,
+                                           and the setting
                                            that fixes it; app: none, for commands that cannot fail
     views/sessions/                        SessionsView (sessions.view.ts): the webview view provider, the webview's
                                            messages and the commands it asks for; sessionsDrawing.utils.ts what it
@@ -486,6 +509,10 @@ apps/extension/src/
                                            Install button, or each tool's install page
     views/folderShellProfile/              FolderShellProfileView: the Aggregor terminal profile's provider, which
                                            VS Code calls for every terminal it opens itself in Aggregor's workspace
+    views/reviewComments/                  ReviewCommentsView: the comment controller, a thread per review comment
+                                           not sent yet, which it moves with its file's edits and whose new lines it
+                                           then saves, and the commands that need VS Code's draft thread or a
+                                           comment's editing mode
   extension.ts                             PresentationLayer: the controllers and views, merged under its span, on
                                            ApplicationLayer; activate, deactivate
 apps/extension/tests/
@@ -557,7 +584,17 @@ apps/extension/tests/
 - The webview asks the user before it sends a request: it picks the project and the agent for New Session, the name for
   Rename, and confirms Remove on a running agent and Stop on a turn in progress, from the rows and the agent list the
   view sent it. Its dialogs are its own; no layer below waits on the user.
-- Every command runs from the webview, the Source Control button or a notification; none is in the Command Palette.
+- Every command runs from the webview, the Source Control button, a notification or a comment thread's buttons. Only
+  Send Comments to Session is in the Command Palette, with a keybinding.
+- A button VS Code draws in a menu of its own runs a controller's command with the object VS Code hands it, which the
+  controller decodes as it does a webview's request: Source Control's button, and a comment's Save, Delete and Send
+  Comments to Session. When the gesture needs more of VS Code's object than reading it (a draft thread to dispose, a
+  comment's editing mode), the view registers the command, does that part, and runs the controller's command with a
+  complete request, as the Sessions view does for its webview: `ReviewCommentsView`'s Add Comment, Edit and Cancel
+  (`REVIEW_COMMENTS_VIEW_GESTURES`). The view draws nothing from its own gesture: the saved comment comes back through
+  `watchReviewCommentChanges`, which every window draws from. What only a view can see and a use case needs, such as the
+  lines a comment's thread has moved to, the view reports through a controller's command, so the database holds it and
+  no other view has to ask this one.
 - A display preference only the view uses, `aggregorApp.fontSize`, `aggregorApp.accentColor` and
   `aggregorApp.skipAgentPicker`, the view reads itself through `VsCodeApi`, as it draws, rather than through a
   controller and a service, since no use case needs it.

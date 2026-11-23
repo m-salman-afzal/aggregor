@@ -47,6 +47,11 @@ solution and what was turned down.
   - [x] The agent terminal's processes, read only while a dropdown is open
   - [x] The folder shell's processes, under every session that shares the shell
 
+- [ ] Review comments: comment on code and send the comments to a session's agent as one prompt
+  - [x] Comment on lines in an editor or a diff, and Send Comments to Session
+  - [x] The pending comments' count and Send on the session's row
+  - [ ] Comment on the agent's last reply
+
 ## M4: tray
 
 - [ ] A tray icon that lists the sessions with their status and pull requests, alerts, and opens a session in VS Code or

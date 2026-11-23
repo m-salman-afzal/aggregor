@@ -42,6 +42,10 @@ export class ITmuxInfraService extends Context.Service<
   {
     readonly checkTmuxVersion: Effect.Effect<string, ITmuxInfraServiceErrors["TmuxUnavailableError"]>;
     readonly endFolderShell: (folderPath: ProjectPathValueObject) => Effect.Effect<void>;
+    readonly pasteTextIntoSessionAgent: (
+      sessionId: EntityIdValueObject,
+      text: string
+    ) => Effect.Effect<void, ITmuxInfraServiceErrors["TmuxSessionNotRunningError"]>;
     readonly prepareFolderShellTerminalCommand: (
       folderShellRequest: FolderShellRequest
     ) => Effect.Effect<TerminalCommand, ITmuxInfraServiceErrors["TmuxUnavailableError"]>;

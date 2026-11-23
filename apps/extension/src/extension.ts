@@ -5,6 +5,7 @@ import {FolderShellController} from "@controllers/folderShell.controller.ts";
 import {ProjectController} from "@controllers/project.controller.ts";
 import {PullRequestController} from "@controllers/pullRequest.controller.ts";
 import {RequiredToolsController} from "@controllers/requiredTools.controller.ts";
+import {ReviewCommentController} from "@controllers/reviewComment.controller.ts";
 import {SessionController} from "@controllers/session.controller.ts";
 import {SessionAlertController} from "@controllers/sessionAlert.controller.ts";
 import {SessionImportController} from "@controllers/sessionImport.controller.ts";
@@ -17,6 +18,7 @@ import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 import {FolderShellProfileView} from "@views/folderShellProfile/folderShellProfile.view.ts";
 import {GitHubCliNoticesView} from "@views/gitHubCliNotices/gitHubCliNotices.view.ts";
 import {RequiredToolsNoticesView} from "@views/requiredToolsNotices/requiredToolsNotices.view.ts";
+import {ReviewCommentsView} from "@views/reviewComments/reviewComments.view.ts";
 import {SessionAlertsView} from "@views/sessionAlerts/sessionAlerts.view.ts";
 import {SessionsView} from "@views/sessions/sessions.view.ts";
 import {Effect, Layer, ManagedRuntime} from "effect";
@@ -31,6 +33,7 @@ const PresentationLayer = Layer.mergeAll(
   ProjectController.layer,
   PullRequestController.layer,
   RequiredToolsController.layer,
+  ReviewCommentController.layer,
   SessionController.layer,
   SessionAlertController.layer,
   SessionImportController.layer,
@@ -40,7 +43,8 @@ const PresentationLayer = Layer.mergeAll(
   SessionAlertsView.layer,
   GitHubCliNoticesView.layer,
   RequiredToolsNoticesView.layer,
-  FolderShellProfileView.layer
+  FolderShellProfileView.layer,
+  ReviewCommentsView.layer
 ).pipe(Layer.withSpan("Presentation"), Layer.provide([ApplicationLayer, VscodeUtils.layer]));
 
 let activeRuntime: {readonly dispose: () => Promise<void>} | undefined;

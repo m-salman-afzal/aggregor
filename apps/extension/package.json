@@ -318,6 +318,13 @@
         }
       }
     ],
+    "configurationDefaults": {
+      "comments.openView": "never",
+      "workbench.colorCustomizations": {
+        "editorCommentsWidget.rangeBackground": "#d2992226",
+        "editorCommentsWidget.rangeActiveBackground": "#d299224d"
+      }
+    },
     "menus": {
       "scm/title": [
         {
@@ -330,6 +337,64 @@
         {
           "command": "aggregorApp.generateCommitMessage",
           "when": "false"
+        },
+        {
+          "command": "aggregorApp.submitReviewCommentDraft",
+          "when": "false"
+        },
+        {
+          "command": "aggregorApp.startReviewCommentEdit",
+          "when": "false"
+        },
+        {
+          "command": "aggregorApp.editReviewComment",
+          "when": "false"
+        },
+        {
+          "command": "aggregorApp.cancelReviewCommentEdit",
+          "when": "false"
+        },
+        {
+          "command": "aggregorApp.removeReviewComment",
+          "when": "false"
+        }
+      ],
+      "comments/commentThread/context": [
+        {
+          "command": "aggregorApp.submitReviewCommentDraft",
+          "group": "inline@1",
+          "when": "commentController == aggregorApp.reviewComments && commentThreadIsEmpty"
+        }
+      ],
+      "comments/commentThread/title": [
+        {
+          "command": "aggregorApp.sendReviewComments",
+          "group": "inline@1",
+          "when": "commentController == aggregorApp.reviewComments && !commentThreadIsEmpty"
+        }
+      ],
+      "comments/comment/title": [
+        {
+          "command": "aggregorApp.startReviewCommentEdit",
+          "group": "inline@1",
+          "when": "commentController == aggregorApp.reviewComments"
+        },
+        {
+          "command": "aggregorApp.removeReviewComment",
+          "group": "inline@2",
+          "when": "commentController == aggregorApp.reviewComments"
+        }
+      ],
+      "comments/comment/context": [
+        {
+          "command": "aggregorApp.editReviewComment",
+          "group": "inline@1",
+          "when": "commentController == aggregorApp.reviewComments"
+        },
+        {
+          "command": "aggregorApp.cancelReviewCommentEdit",
+          "group": "inline@2",
+          "when": "commentController == aggregorApp.reviewComments"
         }
       ]
     },
@@ -370,6 +435,42 @@
           "dark": "./assets/aggregorLightIcon.svg",
           "light": "./assets/aggregorDarkIcon.svg"
         }
+      },
+      {
+        "title": "Add Comment",
+        "command": "aggregorApp.submitReviewCommentDraft",
+        "enablement": "!commentIsEmpty"
+      },
+      {
+        "title": "Edit",
+        "command": "aggregorApp.startReviewCommentEdit",
+        "icon": "$(edit)"
+      },
+      {
+        "title": "Save",
+        "command": "aggregorApp.editReviewComment"
+      },
+      {
+        "title": "Cancel",
+        "command": "aggregorApp.cancelReviewCommentEdit"
+      },
+      {
+        "title": "Delete",
+        "command": "aggregorApp.removeReviewComment",
+        "icon": "$(trash)"
+      },
+      {
+        "title": "Send Comments to Session",
+        "command": "aggregorApp.sendReviewComments",
+        "category": "Aggregor",
+        "icon": "$(send)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "aggregorApp.sendReviewComments",
+        "key": "ctrl+k ctrl+alt+enter",
+        "mac": "cmd+k cmd+alt+enter"
       }
     ]
   },

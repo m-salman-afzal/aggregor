@@ -43,6 +43,7 @@ export class TmuxInfraService extends Context.Service<TmuxInfraService>()(
       return ITmuxInfraService.of({
         checkTmuxVersion: tmuxServerUtils.checkTmuxVersion,
         endFolderShell: folderShellUtils.endFolderShell,
+        pasteTextIntoSessionAgent: sessionAgentUtils.pasteTextIntoSessionAgent,
         prepareFolderShellTerminalCommand: folderShellUtils.prepareFolderShellTerminalCommand,
         prepareSessionTabCommand: sessionAgentUtils.prepareSessionTabCommand,
         readFolderShellPanes: folderShellUtils.readFolderShellPanes,

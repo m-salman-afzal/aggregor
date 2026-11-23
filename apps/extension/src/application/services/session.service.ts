@@ -1,4 +1,5 @@
 import {AgentTaskDomainService} from "@domainServices/agentTask.domainService.ts";
+import {ReviewCommentDomainService} from "@domainServices/reviewComment.domainService.ts";
 import {SessionDomainService} from "@domainServices/session.domainService.ts";
 import {SortOrderDomainService} from "@domainServices/sortOrder.domainService.ts";
 import {WorktreeDomainService} from "@domainServices/worktree.domainService.ts";
@@ -14,6 +15,7 @@ import {
 } from "@dtos/session.dto.ts";
 import {IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
+import {IReviewCommentRepository} from "@entities/reviewComment/reviewComment.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
 import {IGitHubCliInfraService} from "@interfaces/gitHubCli.infraService.interface.ts";
 import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
@@ -75,6 +77,7 @@ import type {
 import type {AgentEntity} from "@entities/agent/agent.entity.ts";
 import type {EntityPage} from "@entities/base/base.repository.interface.ts";
 import type {ProjectEntity} from "@entities/project/project.entity.ts";
+import type {ReviewCommentEntity} from "@entities/reviewComment/reviewComment.entity.ts";
 import type {SessionEntity} from "@entities/session/session.entity.ts";
 import type {PullRequestLookup} from "@interfaces/gitHubCli.infraService.interface.ts";
 import type {SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
@@ -122,6 +125,7 @@ export class SessionService extends Context.Service<SessionService>()(
     make: Effect.fn("SessionService.make")(function* () {
       const agentRepository = yield* IAgentRepository;
       const projectRepository = yield* IProjectRepository;
+      const reviewCommentRepository = yield* IReviewCommentRepository;
       const sessionRepository = yield* ISessionRepository;
       const gitHubCliInfraService = yield* IGitHubCliInfraService;
       const settingsConfig = yield* ISettingsConfig;
@@ -132,11 +136,13 @@ export class SessionService extends Context.Service<SessionService>()(
       const path = yield* Path;
       const baseService = yield* BaseService;
       const projectBaseService = yield* baseService.makeFor(projectRepository);
+      const reviewCommentBaseService = yield* baseService.makeFor(reviewCommentRepository);
       const sessionBaseService = yield* baseService.makeFor(sessionRepository);
       const agentService = yield* AgentService;
       const projectService = yield* ProjectService;
       const worktreeService = yield* WorktreeService;
       const agentTaskDomainService = yield* AgentTaskDomainService;
+      const reviewCommentDomainService = yield* ReviewCommentDomainService;
       const sessionDomainService = yield* SessionDomainService;
       const sortOrderDomainService = yield* SortOrderDomainService;
       const worktreeDomainService = yield* WorktreeDomainService;
@@ -690,6 +696,19 @@ export class SessionService extends Context.Service<SessionService>()(
         };
       });
 
+      const findSessionReviewCommentFields = Effect.fn("SessionService.findSessionReviewCommentFields")(function* (
+        session: SessionEntity
+      ) {
+        if (session.lifecycle === SESSION_LIFECYCLES.ARCHIVED) return {pendingReviewCommentCount: 0};
+        const pendingReviewComments = yield* reviewCommentBaseService.findEntities({});
+        const sessionReviewComments = yield* reviewCommentDomainService.findReviewCommentsInFolder(
+          pendingReviewComments,
+          session.workingFolderPath
+        );
+
+        return {pendingReviewCommentCount: sessionReviewComments.length};
+      });
+
       const isStoredSessionWaitingOnUser = Effect.fn("SessionService.isStoredSessionWaitingOnUser")(function* (
         storedSession: SessionEntity
       ) {
@@ -723,6 +742,7 @@ export class SessionService extends Context.Service<SessionService>()(
           ...(yield* findSessionAgentFields(session)),
           ...(yield* findSessionWorktreeFields(session)),
           ...(yield* findSessionPullRequestFields(session)),
+          ...(yield* findSessionReviewCommentFields(session)),
           displayName: session.displayName,
           isAgentRunning: sessionStatus.isAgentRunning,
           isArchived: session.lifecycle === SESSION_LIFECYCLES.ARCHIVED,
@@ -1031,6 +1051,25 @@ export class SessionService extends Context.Service<SessionService>()(
         )
       );
 
+      const makeSessionListChangesForReviewComment = Effect.fn("SessionService.makeSessionListChangesForReviewComment")(
+        function* (reviewComment: ReviewCommentEntity) {
+          const ongoingSessions = yield* sessionBaseService.findEntities({lifecycle: SESSION_LIFECYCLES.ONGOING});
+          const folderSessions = yield* Effect.filter(ongoingSessions, (ongoingSession) =>
+            Effect.map(
+              reviewCommentDomainService.findReviewCommentsInFolder([reviewComment], ongoingSession.workingFolderPath),
+              (folderReviewComments) => folderReviewComments.length > 0
+            )
+          );
+
+          return Array.map(folderSessions, (folderSession) =>
+            SessionListChangeDtoSchema.cases.SessionChanged.make({sessionId: folderSession.id})
+          );
+        },
+        Effect.catch((databaseError) =>
+          Effect.as(Effect.logWarning("Could not find the rows to redraw", databaseError), [])
+        )
+      );
+
       const watchSessionListChanges = Effect.fn("SessionService.watchSessionListChanges")(function* () {
         const sessionListChangeSources: readonly Stream.Stream<SessionListChangeDto>[] = [
           Stream.as(
@@ -1049,6 +1088,14 @@ export class SessionService extends Context.Service<SessionService>()(
           ),
           Stream.flatMap(gitHubCliInfraService.pullRequestChangedFolderPaths, (folderPath) =>
             Stream.fromIterableEffect(makeSessionListChangesForPullRequest(folderPath))
+          ),
+          Stream.flatMap(
+            Stream.filter(
+              reviewCommentRepository.entityChanges,
+              (reviewCommentChange) => reviewCommentChange.kind !== ENTITY_CHANGE_KINDS.UPDATED
+            ),
+            (reviewCommentChange) =>
+              Stream.fromIterableEffect(makeSessionListChangesForReviewComment(reviewCommentChange.entity))
           )
         ];
 

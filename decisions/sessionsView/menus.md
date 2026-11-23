@@ -107,15 +107,19 @@ The Sessions view's buttons and menus, on its lists and its rows, and the questi
 - **Alternatives considered:** Aggregor's own session id, which means nothing to Codex or OpenCode; a host command that
   writes VS Code's clipboard, a round trip for what the page can do.
 
-## No command is in the Command Palette
+## Only Send Comments to Session is in the Command Palette
 
 - **Problem:** the Command Palette listed New Session..., Add Project, New Terminal in Project..., Open Settings and the
   commit message's command, each needing its own way to ask for a project once the webview took over the questions.
-- **Decision:** the webview is how Aggregor is used, so the manifest contributes one command, Generate Commit Message,
-  for its Source Control button, and hides it from the Command Palette; every other command is registered without a
-  contribution and runs only from the webview or a notification. New Terminal in Project moved from the terminal panel's
-  title to the project's row, which knows its project (see "A project has one terminal, opened from its row" in
-  `decisions/projects/workspace.md`). The commands come back to the palette when they are missed.
-- **Alternatives considered:** the palette commands opening the webview's dialogs by a message; VS Code's quick pick for
-  them, a second UI for one flow; the terminal panel's project button back with Aggregor's icon, turned down again once
-  the row's terminal button opened each project's terminal.
+- **Decision:** the webview is how Aggregor is used, so the manifest contributes only the commands VS Code's own menus
+  need, hidden from the Command Palette: Generate Commit Message, for its Source Control button, and the review
+  comments' buttons (see `decisions/review.md`). Send Comments to Session alone is listed there, with a keybinding
+  (Ctrl+K Ctrl+Alt+Enter): it is run from a code file, where no row of the webview is at hand, and it asks nothing.
+  Every other command is registered without a contribution and runs only from the webview or a notification. New
+  Terminal in Project moved from the terminal panel's title to the project's row, which knows its project (see "A
+  project has one terminal, opened from its row" in `decisions/projects/workspace.md`). The commands come back to the
+  palette when they are missed.
+- **Alternatives considered:** no command in the palette at all, which held until a command had to run from a code file;
+  the palette commands opening the webview's dialogs by a message; VS Code's quick pick for them, a second UI for one
+  flow; the terminal panel's project button back with Aggregor's icon, turned down again once the row's terminal button
+  opened each project's terminal.

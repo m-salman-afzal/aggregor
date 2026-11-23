@@ -13,10 +13,13 @@ heading there. Update this file in the same commit as a change that adds, remove
   tmux and the agents run there), the Aggregor activity-bar container with the Sessions webview view, menus and
   `aggregorApp.*` settings. APIs: `registerWebviewViewProvider`, `createTerminal` (`shellPath`, `isTransient`, an
   editor-tab `location`, `env`, `iconPath`), `createQuickPick`, `showInputBox`, `withProgress`, `registerUriHandler`
-  with `env.asExternalUri`, a log `createOutputChannel` for the trace, `workspace.updateWorkspaceFolders` (only for a
-  window without a saved workspace file), `openTextDocument`, `applyEdit` and `TextDocument.save`, and the
-  `vscode.openFolder`, `workbench.action.reloadWindow`, `workbench.action.pinEditor` and `workbench.trust.manage`
-  commands. `packages/vscode` holds `VsCodeApi`, the one runtime `vscode` import.
+  with `env.asExternalUri`, `comments.createCommentController` with a commenting range provider, the manifest's
+  `comments/*` menus and its `configurationDefaults` for `comments.openView` and two comment colours, for review
+  comments, a log `createOutputChannel` for the trace, `workspace.updateWorkspaceFolders` (only for a window without a
+  saved workspace file), `openTextDocument`, `applyEdit` and `TextDocument.save`, and the `vscode.openFolder`,
+  `workbench.action.reloadWindow`, `workbench.action.pinEditor`, `workbench.trust.manage` and
+  `workbench.action.focusActiveEditorGroup` commands. `packages/vscode` holds `VsCodeApi`, the one runtime `vscode`
+  import.
 - **Why:** terminals, trees, Source Control and diffs already exist in VS Code, through stable APIs only.
 - **Alternatives:** "Agents run in their own terminal UIs": an ACP client with a webview chat UI; VS Code's chat
   sessions API, a proposed API. "Every session's agent runs in tmux": tabs drawn as `Pseudoterminal`s over one tmux
@@ -41,6 +44,10 @@ heading there. Update this file in the same commit as a change that adds, remove
   - `list-clients -F '#{client_pid} #{client_name} #{session_name}'` reads which session each tab shows, a tab being the
     tmux client with its process id; `switch-client -E -c ‹client› -t =‹sessionId›` attaches the shared tab to another
     running session, and `-E` leaves that session's environment as it is.
+  - `send-keys -X -t =‹sessionId›: cancel`, `load-buffer -b aggregor-review -` with the text on stdin, and
+    `paste-buffer -p -d -b aggregor-review -t =‹sessionId›:` put the review comments into an agent's prompt as one
+    bracketed paste, without sending it. `cancel` leaves copy mode first, where tmux leaves the brackets out and each
+    newline would arrive as Enter; stdin keeps a `;` at the text's end from ending the tmux command.
   - The window's Aggregor terminal runs tmux the same way for a folder's shell, as one command list:
     `new-session -A -s shell-‹folder›-‹hash› -c ‹folder› -- sh -c 'unset TMUX TMUX_PANE; exec "$@" "$SHELL" -l' sh [systemd-run … --]`,
     then `set-option -t =‹name›:` for `status on`, `history-limit 100000` and `@aggregor_folder_label`. The same

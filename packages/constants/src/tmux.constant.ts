@@ -3,6 +3,7 @@ export const TMUX = {
   CONFIG_FILE: "assets/tmux.conf",
   // The oldest tmux tmux.conf works with: extended-keys and terminal-features arrived in 3.2.
   MINIMUM_VERSION: {MAJOR: 3, MINOR: 2},
+  PASTE_BUFFER_NAME: "aggregor-review",
   SETUP_SHELL: "sh",
   SOCKET_FILE_NAME: "tmux.sock",
   // What `tmux -V` prints: "tmux 3.8", "tmux 3.3a" or "tmux next-3.6".

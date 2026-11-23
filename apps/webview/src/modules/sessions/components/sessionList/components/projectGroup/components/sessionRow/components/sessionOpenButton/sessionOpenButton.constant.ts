@@ -5,6 +5,8 @@ import type {LucideIcon} from "lucide-react";
 
 export const PULL_REQUEST_LINK_ATTRIBUTE = "data-pull-request-link";
 
+export const REVIEW_COMMENTS_SEND_ATTRIBUTE = "data-review-comments-send";
+
 export const PULL_REQUEST_STATE_ICONS = {
   closed: {className: "text-pull-request-closed", PullRequestIcon: GitPullRequestClosedIcon},
   draft: {className: "text-pull-request-draft", PullRequestIcon: GitPullRequestDraftIcon},
