@@ -6,11 +6,14 @@ import type {Effect} from "effect";
 
 export class IGitInfraServiceErrors extends TaggedErrors({
   CommitFailedError: {cause: Schema.Unknown},
+  DetachedHeadPushError: {},
   GitDiffError: {},
   GitExtensionDisabledError: {},
   GitExtensionUnavailableError: {},
   GitRepositoryUnavailableError: {},
-  NothingStagedError: {}
+  NothingStagedError: {},
+  PushFailedError: {cause: Schema.Unknown},
+  PushRemoteAmbiguousError: {remoteNames: Schema.Array(Schema.String)}
 }) {}
 
 export type GitUnavailableError = IGitInfraServiceErrors[
@@ -28,6 +31,13 @@ export class IGitInfraService extends Context.Service<
     ) => Effect.Effect<string, GitUnavailableError | IGitInfraServiceErrors["GitDiffError" | "NothingStagedError"]>;
     // Best effort: a folder that is no git repository is skipped, and git being off only logs a warning.
     readonly openInSourceControl: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;
+    readonly push: (
+      projectPath: ProjectPathValueObject
+    ) => Effect.Effect<
+      void,
+      | GitUnavailableError
+      | IGitInfraServiceErrors["DetachedHeadPushError" | "PushFailedError" | "PushRemoteAmbiguousError"]
+    >;
     readonly setCommitMessageInput: (
       projectPath: ProjectPathValueObject,
       commitMessage: string

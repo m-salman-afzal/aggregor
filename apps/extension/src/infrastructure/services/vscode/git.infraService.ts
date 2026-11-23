@@ -2,9 +2,9 @@ import {IGitInfraService, IGitInfraServiceErrors} from "@interfaces/git.infraSer
 import {GIT_EXTENSION} from "@pkg/constants/src/git.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {Context, Effect, Layer, Result, Schema} from "effect";
+import {Array, Context, Effect, Layer, Result, Schema} from "effect";
 
-import type {API, GitExtension, Repository} from "@pkg/typings/src/git.js";
+import type {API, Branch, GitExtension, Repository} from "@pkg/typings/src/git.js";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
 class GitInfraServiceErrors extends TaggedErrors({
@@ -101,6 +101,51 @@ export class GitInfraService extends Context.Service<GitInfraService>()(
         });
       });
 
+      const findPublishRemoteName = Effect.fn("GitInfraService.findPublishRemoteName")(function* (
+        repository: Repository
+      ) {
+        const remoteNames = Array.map(repository.state.remotes, (remote) => remote.name);
+        if (remoteNames.includes(GIT_EXTENSION.PUBLISH_REMOTE_NAME)) return GIT_EXTENSION.PUBLISH_REMOTE_NAME;
+        const [onlyRemoteName, ...otherRemoteNames] = remoteNames;
+        if (onlyRemoteName === undefined || otherRemoteNames.length > 0)
+          return yield* IGitInfraServiceErrors.PushRemoteAmbiguousError.make({remoteNames});
+
+        return onlyRemoteName;
+      });
+
+      const publishBranch = Effect.fn("GitInfraService.publishBranch")(function* (
+        repository: Repository,
+        headBranch: Branch | undefined
+      ) {
+        if (headBranch === undefined || headBranch.name === undefined)
+          return yield* IGitInfraServiceErrors.DetachedHeadPushError.make();
+        const branchName = headBranch.name;
+        const remoteName = yield* findPublishRemoteName(repository);
+
+        return yield* Effect.tryPromise({
+          catch: (cause) => IGitInfraServiceErrors.PushFailedError.make({cause}),
+          try: () => repository.push(remoteName, branchName, true)
+        });
+      });
+
+      const push = Effect.fn("GitInfraService.push")(function* (projectPath: ProjectPathValueObject) {
+        const repository = yield* getGitRepository(projectPath);
+        const headBranch = repository.state.HEAD;
+        const hasUpstream = headBranch !== undefined && headBranch.upstream !== undefined;
+        yield* Effect.annotateCurrentSpan({hasUpstream, remoteCount: repository.state.remotes.length});
+        if (!hasUpstream && repository.state.remotes.length === 0) return;
+        if (!hasUpstream) {
+          yield* publishBranch(repository, headBranch);
+
+          return;
+        }
+
+        yield* Effect.tryPromise({
+          catch: (cause) => IGitInfraServiceErrors.PushFailedError.make({cause}),
+          try: () => repository.push()
+        });
+      });
+
       const openAndLoadRepository = Effect.fn("GitInfraService.openAndLoadRepository")(function* (
         gitApi: API,
         projectPath: ProjectPathValueObject
@@ -128,7 +173,7 @@ export class GitInfraService extends Context.Service<GitInfraService>()(
         Effect.ignore({log: "Warn", message: "Could not open the project in Source Control"})
       );
 
-      return {commit, getStagedDiff, openInSourceControl, setCommitMessageInput};
+      return {commit, getStagedDiff, openInSourceControl, push, setCommitMessageInput};
     })
   }
 ) {

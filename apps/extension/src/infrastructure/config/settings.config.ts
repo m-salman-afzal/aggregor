@@ -19,6 +19,7 @@ class SettingsConfigErrors extends TaggedErrors({
 
 const SettingsSchema = Schema.Struct({
   autoCommit: Schema.Boolean,
+  autoPush: Schema.Boolean,
   commitCommand: Schema.NonEmptyString
 });
 

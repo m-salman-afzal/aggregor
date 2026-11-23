@@ -64,8 +64,13 @@
         },
         "aggregorApp.autoCommit": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Commit the staged changes right after generating the commit message."
+        },
+        "aggregorApp.autoPush": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Push the commit `#aggregorApp.autoCommit#` makes. A branch with no upstream is published to `origin`, or to the repository's only remote; a repository with no remote is not pushed. Does nothing while `#aggregorApp.autoCommit#` is off."
         },
         "aggregorApp.agents": {
           "type": "object",
