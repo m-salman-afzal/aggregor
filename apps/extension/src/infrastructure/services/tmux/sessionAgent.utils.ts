@@ -163,6 +163,15 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
         Effect.catchTag("SessionAgentNotListedError", () => Effect.void)
       );
 
+      const pasteTextIntoSessionAgent = Effect.fn("SessionAgentUtils.pasteTextIntoSessionAgent")(function* (
+        sessionId: EntityIdValueObject,
+        text: string
+      ) {
+        yield* Effect.mapError(tmuxServerUtils.pasteTextIntoTmuxSession(sessionId, text), () =>
+          ITmuxInfraServiceErrors.TmuxSessionNotRunningError.make()
+        );
+      });
+
       const killSessionAgent = Effect.fn("SessionAgentUtils.killSessionAgent")(function* (
         sessionId: EntityIdValueObject
       ) {
@@ -198,6 +207,7 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
 
       return {
         findPtyBinaryPath,
+        pasteTextIntoSessionAgent,
         prepareSessionTabCommand,
         readRunningSessionIds: readRunningSessionIds(),
         readShownSessionIdsByTabProcessId: readShownSessionIdsByTabProcessId(),

@@ -4,7 +4,7 @@ import {ITmuxInfraServiceErrors} from "@interfaces/tmux.infraService.interface.t
 import {SYSTEMD_SCOPE, TMUX} from "@pkg/constants/src/tmux.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {Array, Context, Effect, Layer, Result, String} from "effect";
+import {Array, Context, Effect, Layer, Result, Stream, String} from "effect";
 import {ChildProcess} from "effect/process";
 import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 
@@ -172,6 +172,35 @@ export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
         });
       });
 
+      // tmux reads a trailing ";" in an argument as a command separator, so the text goes in on stdin.
+      const loadTmuxPasteBuffer = Effect.fn("TmuxServerUtils.loadTmuxPasteBuffer")(function* (text: string) {
+        const tmuxExitCode = yield* Effect.orElseSucceed(
+          childProcessSpawner.exitCode(
+            ChildProcess.make(TMUX.COMMAND, ["-S", tmuxSocketPath, "load-buffer", "-b", TMUX.PASTE_BUFFER_NAME, "-"], {
+              stdin: Stream.make(text).pipe(Stream.encodeText)
+            })
+          ),
+          () => -1
+        );
+
+        return yield* tmuxExitCode === 0
+          ? Effect.void
+          : Effect.fail(TmuxServerUtilsErrors.TmuxCommandFailedError.make());
+      });
+
+      // tmux skips the paste brackets in copy mode, which the mouse wheel leaves, so each newline would reach the pane as Enter.
+      const pasteTextIntoTmuxSession = Effect.fn("TmuxServerUtils.pasteTextIntoTmuxSession")(function* (
+        sessionName: string,
+        text: string
+      ) {
+        yield* Effect.ignore(runCheckedTmuxCommand(["send-keys", "-X", "-t", `=${sessionName}:`, "cancel"]));
+        yield* loadTmuxPasteBuffer(text);
+        yield* runCheckedTmuxCommand([
+          ...["paste-buffer", "-p", "-d", "-b", TMUX.PASTE_BUFFER_NAME],
+          ...["-t", `=${sessionName}:`]
+        ]);
+      });
+
       const prepareOwnScopeArguments = Effect.fn("TmuxServerUtils.prepareOwnScopeArguments")(function* (
         memoryLimit: string | undefined
       ) {
@@ -204,6 +233,7 @@ export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
         killTmuxSession,
         listTmuxClients: listTmuxClients(),
         listTmuxSessionNames: listTmuxSessionNames(),
+        pasteTextIntoTmuxSession,
         prepareOwnScopeArguments,
         prepareTerminalCommand,
         probeOwnScope: probeOwnScope(),

@@ -1,6 +1,8 @@
 import {Context, Effect, Layer} from "effect";
 import {
   commands,
+  CommentMode,
+  comments,
   ConfigurationTarget,
   DataTransferItem,
   env,
@@ -30,6 +32,8 @@ export class VsCodeApi extends Context.Service<
   VsCodeApi,
   {
     readonly commands: typeof commands;
+    readonly CommentMode: typeof CommentMode;
+    readonly comments: typeof comments;
     readonly ConfigurationTarget: typeof ConfigurationTarget;
     readonly DataTransferItem: typeof DataTransferItem;
     readonly env: typeof env;
@@ -59,6 +63,8 @@ export class VsCodeApi extends Context.Service<
   public static readonly layer = (extensionContext: ExtensionContext) =>
     Layer.succeed(VsCodeApi, {
       commands,
+      CommentMode,
+      comments,
       ConfigurationTarget,
       DataTransferItem,
       env,

@@ -4,6 +4,7 @@ import {AgentTaskDomainService} from "@domainServices/agentTask.domainService.ts
 import {EntityIdDomainService} from "@domainServices/entityId.domainService.ts";
 import {FolderShellDomainService} from "@domainServices/folderShell.domainService.ts";
 import {PaginationDomainService} from "@domainServices/pagination.domainService.ts";
+import {ReviewCommentDomainService} from "@domainServices/reviewComment.domainService.ts";
 import {SessionDomainService} from "@domainServices/session.domainService.ts";
 import {SortOrderDomainService} from "@domainServices/sortOrder.domainService.ts";
 import {WorktreeDomainService} from "@domainServices/worktree.domainService.ts";
@@ -24,6 +25,7 @@ import {WorkspaceInfraService} from "@infraServices/vscode/workspace.infraServic
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 import {AgentRepository} from "@repositories/agent.repository.ts";
 import {ProjectRepository} from "@repositories/project.repository.ts";
+import {ReviewCommentRepository} from "@repositories/reviewComment.repository.ts";
 import {SessionRepository} from "@repositories/session.repository.ts";
 import {AgentService} from "@services/agent.service.ts";
 import {CommitMessageService} from "@services/commitMessage.service.ts";
@@ -31,6 +33,7 @@ import {FolderShellService} from "@services/folderShell.service.ts";
 import {ProjectService} from "@services/project.service.ts";
 import {PullRequestService} from "@services/pullRequest.service.ts";
 import {RequiredToolsService} from "@services/requiredTools.service.ts";
+import {ReviewCommentService} from "@services/reviewComment.service.ts";
 import {SessionService} from "@services/session.service.ts";
 import {SessionAlertService} from "@services/sessionAlert.service.ts";
 import {SessionImportService} from "@services/sessionImport.service.ts";
@@ -47,6 +50,7 @@ const DomainLayer = Layer.mergeAll(
   EntityIdDomainService.layer,
   FolderShellDomainService.layer,
   PaginationDomainService.layer,
+  ReviewCommentDomainService.layer,
   SessionDomainService.layer,
   SortOrderDomainService.layer,
   WorktreeDomainService.layer
@@ -62,6 +66,7 @@ const InfrastructureLayer = Layer.mergeAll(
   ProcessInfraService.layer,
   ProgressInfraService.layer,
   ProjectRepository.layer,
+  ReviewCommentRepository.layer,
   SessionRepository.layer,
   SettingsConfig.layer,
   ShellCommandInfraService.layer,
@@ -83,6 +88,7 @@ export const ApplicationLayer = Layer.mergeAll(
   ProjectService.layer,
   PullRequestService.layer,
   RequiredToolsService.layer,
+  ReviewCommentService.layer,
   SessionService.layer,
   SessionAlertService.layer,
   SessionImportService.layer,
