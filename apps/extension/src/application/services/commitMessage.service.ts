@@ -7,6 +7,7 @@ import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {Context, Effect, Layer, Result} from "effect";
 
 import type {GenerateCommitMessageRequestDto} from "@dtos/commitMessage.dto.ts";
+import type {Settings} from "@interfaces/settings.config.interface.ts";
 import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
 export class CommitMessageServiceErrors extends TaggedErrors({
@@ -22,6 +23,18 @@ export class CommitMessageService extends Context.Service<CommitMessageService>(
       const progressInfraService = yield* IProgressInfraService;
       const settingsConfig = yield* ISettingsConfig;
 
+      const commitAsSettingsSay = Effect.fn("CommitMessageService.commitAsSettingsSay")(function* (
+        settings: Settings,
+        projectPath: ProjectPathValueObject,
+        commitMessage: string
+      ) {
+        yield* Effect.annotateCurrentSpan({autoCommit: settings.autoCommit, autoPush: settings.autoPush});
+        if (!settings.autoCommit) return;
+
+        yield* gitInfraService.commit(projectPath, commitMessage);
+        if (settings.autoPush) yield* gitInfraService.push(projectPath);
+      });
+
       const writeCommitMessage = Effect.fn("CommitMessageService.writeCommitMessage")(function* (
         projectPath: ProjectPathValueObject
       ) {
@@ -34,7 +47,7 @@ export class CommitMessageService extends Context.Service<CommitMessageService>(
         });
 
         yield* gitInfraService.setCommitMessageInput(projectPath, commitMessage);
-        if (settings.autoCommit) yield* gitInfraService.commit(projectPath, commitMessage);
+        yield* commitAsSettingsSay(settings, projectPath, commitMessage);
       });
 
       const writeCommitMessageShowingProgress = Effect.fn("CommitMessageService.writeCommitMessageShowingProgress")(
