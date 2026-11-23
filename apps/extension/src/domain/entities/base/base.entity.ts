@@ -1,5 +1,6 @@
-import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {Effect, Record, Schema} from "effect";
+
+import {EntityIdValueObjectSchema} from "@/valueObjects/entityId.valueObject.ts";
 
 const StoredTimestampsSchema = Schema.Struct({
   deletedAt: Schema.optional(Schema.DateTimeUtcFromString),

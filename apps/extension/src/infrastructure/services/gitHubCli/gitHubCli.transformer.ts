@@ -1,8 +1,8 @@
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
-import {PULL_REQUEST_STATES, PullRequestStateValueObjectSchema} from "@valueObjects/pullRequestState.valueObject.ts";
 import {Context, Effect, Layer, Schema, String} from "effect";
 
-import type {BranchPullRequest, ListedPullRequest} from "@interfaces/gitHubCli.infraService.interface.ts";
+import {PULL_REQUEST_STATES, PullRequestStateValueObjectSchema} from "@/valueObjects/pullRequestState.valueObject.ts";
+
+import type {BranchPullRequest, ListedPullRequest} from "@/interfaces/gitHubCli.infraService.interface.ts";
 
 const GitHubCliPullRequestJson = Schema.fromJsonString(
   Schema.Struct({
@@ -29,8 +29,8 @@ const GitHubCliPullRequestListJson = Schema.fromJsonString(
 export class GitHubCliTransformer extends Context.Service<GitHubCliTransformer>()(
   "aggregor-app/infrastructure/services/gitHubCli/gitHubCli.transformer/GitHubCliTransformer",
   {
-    make: Effect.fn("make")(function* () {
-      const decodePullRequestState = Effect.fn("decodePullRequestState")(function* (
+    make: Effect.fn("GitHubCliTransformer.make")(function* () {
+      const decodePullRequestState = Effect.fn("GitHubCliTransformer.decodePullRequestState")(function* (
         gitHubCliState: string,
         isDraft: boolean
       ) {
@@ -41,7 +41,9 @@ export class GitHubCliTransformer extends Context.Service<GitHubCliTransformer>(
         return isDraft && pullRequestState === PULL_REQUEST_STATES.OPEN ? PULL_REQUEST_STATES.DRAFT : pullRequestState;
       });
 
-      const decodeBranchPullRequest = Effect.fn("decodeBranchPullRequest")(function* (gitHubCliOutput: string) {
+      const decodeBranchPullRequest = Effect.fn("GitHubCliTransformer.decodeBranchPullRequest")(function* (
+        gitHubCliOutput: string
+      ) {
         const gitHubCliPullRequest = yield* Schema.decodeEffect(GitHubCliPullRequestJson)(gitHubCliOutput);
         const branchPullRequest: BranchPullRequest = {
           number: gitHubCliPullRequest.number,
@@ -53,7 +55,9 @@ export class GitHubCliTransformer extends Context.Service<GitHubCliTransformer>(
         return branchPullRequest;
       });
 
-      const decodeListedPullRequests = Effect.fn("decodeListedPullRequests")(function* (gitHubCliOutput: string) {
+      const decodeListedPullRequests = Effect.fn("GitHubCliTransformer.decodeListedPullRequests")(function* (
+        gitHubCliOutput: string
+      ) {
         const gitHubCliPullRequests = yield* Schema.decodeEffect(GitHubCliPullRequestListJson)(gitHubCliOutput);
 
         return yield* Effect.forEach(gitHubCliPullRequests, (gitHubCliPullRequest) =>
@@ -74,5 +78,5 @@ export class GitHubCliTransformer extends Context.Service<GitHubCliTransformer>(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("GitHubCliTransformer", this.make()));
+  public static readonly layer = Layer.effect(this, this.make());
 }

@@ -1,10 +1,15 @@
+import {Effect, Schema} from "effect";
+
 import {
   SESSION_WORKING_TREES,
   SessionWorkingTreeValueObjectSchema
-} from "@valueObjects/sessionWorkingTree.valueObject.ts";
-import {Effect, Schema} from "effect";
+} from "@/valueObjects/sessionWorkingTree.valueObject.ts";
 
 export const ProjectSettingsValueObjectSchema = Schema.Struct({
+  cleanUpBaseBranch: Schema.NonEmptyString.pipe(
+    Schema.catchDecoding(() => Effect.succeedSome("dev")),
+    Schema.withDecodingDefaultKey(Effect.succeed("dev"))
+  ),
   filesToCopy: Schema.Array(Schema.String).pipe(
     Schema.catchDecoding(() => Effect.succeedSome([".env*"])),
     Schema.withDecodingDefaultKey(Effect.succeed([".env*"]))

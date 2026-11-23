@@ -1,18 +1,18 @@
 import {NodeServices} from "@effect/platform-node";
-import {ClaudeHistoryUtils} from "@infraServices/agentHistory/claudeHistory.utils.ts";
-import {CodexHistoryUtils} from "@infraServices/agentHistory/codexHistory.utils.ts";
-import {CopilotHistoryUtils} from "@infraServices/agentHistory/copilotHistory.utils.ts";
-import {OpenCodeHistoryUtils} from "@infraServices/agentHistory/openCodeHistory.utils.ts";
+import {Context, Effect, Layer} from "effect";
+
+import {ClaudeHistoryUtils} from "@/infraServices/agentHistory/claudeHistory.utils.ts";
+import {CodexHistoryUtils} from "@/infraServices/agentHistory/codexHistory.utils.ts";
+import {CopilotHistoryUtils} from "@/infraServices/agentHistory/copilotHistory.utils.ts";
+import {OpenCodeHistoryUtils} from "@/infraServices/agentHistory/openCodeHistory.utils.ts";
 import {
   IAgentHistoryInfraService,
   IAgentHistoryInfraServiceErrors
-} from "@interfaces/agentHistory.infraService.interface.ts";
+} from "@/interfaces/agentHistory.infraService.interface.ts";
 import {AGENT_HISTORY_AGENT_IDS} from "@pkg/constants/src/agentHistory.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
-import {Context, Effect, Layer} from "effect";
 
-import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+import type {AgentIdValueObject} from "@/valueObjects/agentId.valueObject.ts";
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 type ConversationReader =
   | ClaudeHistoryUtils["Service"]["listClaudeConversations"]
@@ -23,7 +23,7 @@ type ConversationReader =
 export class AgentHistoryInfraService extends Context.Service<AgentHistoryInfraService>()(
   "aggregor-app/infrastructure/services/agentHistory/agentHistory.infraService/AgentHistoryInfraService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("AgentHistoryInfraService.make")(function* () {
       const claudeHistoryUtils = yield* ClaudeHistoryUtils;
       const codexHistoryUtils = yield* CodexHistoryUtils;
       const copilotHistoryUtils = yield* CopilotHistoryUtils;
@@ -35,7 +35,7 @@ export class AgentHistoryInfraService extends Context.Service<AgentHistoryInfraS
         [AGENT_HISTORY_AGENT_IDS.OPENCODE]: openCodeHistoryUtils.listOpenCodeConversations
       };
 
-      const listAgentConversations = Effect.fn("listAgentConversations")(function* (
+      const listAgentConversations = Effect.fn("AgentHistoryInfraService.listAgentConversations")(function* (
         agentId: AgentIdValueObject,
         folderPath: ProjectPathValueObject
       ) {
@@ -55,10 +55,7 @@ export class AgentHistoryInfraService extends Context.Service<AgentHistoryInfraS
     })
   }
 ) {
-  public static readonly layer = Layer.effect(
-    IAgentHistoryInfraService,
-    ownSpans("AgentHistoryInfraService", this.make())
-  ).pipe(
+  public static readonly layer = Layer.effect(IAgentHistoryInfraService, this.make()).pipe(
     Layer.provide([
       ClaudeHistoryUtils.layer,
       CodexHistoryUtils.layer,

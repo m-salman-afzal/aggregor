@@ -1,5 +1,6 @@
-import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {Schema} from "effect";
+
+import {EntityIdValueObjectSchema} from "@/valueObjects/entityId.valueObject.ts";
 
 export const SessionProcessDtoSchema = Schema.Struct({
   commandLine: Schema.String,

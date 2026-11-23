@@ -1,6 +1,7 @@
+import {ChevronRightIcon} from "lucide-react";
+
 import {COLLAPSIBLE_PANEL} from "@/modules/sessions/components/sessionList/sessionList.constant.ts";
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@pkg/ui/src/components/base/collapsible.tsx";
-import {ChevronRightIcon} from "lucide-react";
 
 import type {ProcessTreeItem} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdown/components/terminalProcessList/terminalProcessList.type.ts";
 
@@ -16,7 +17,7 @@ export const ProcessTreeNode = (props: ProcessTreeNodeProps) => (
         <span className="truncate">{props.processTreeItem.sessionProcess.name}</span>
       </div>
     ) : (
-      <Collapsible defaultOpen>
+      <Collapsible>
         <CollapsibleTrigger className="group/process flex w-full min-w-0 items-center gap-1.5 rounded-md py-px text-left text-foreground/80 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
           <ChevronRightIcon
             aria-hidden

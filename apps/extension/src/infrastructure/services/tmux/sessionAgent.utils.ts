@@ -1,20 +1,21 @@
+import {platform} from "node:os";
+
 import {NodeServices} from "@effect/platform-node";
-import {TmuxServerUtils} from "@infraServices/tmux/tmuxServer.utils.ts";
-import {DatabaseUtils} from "@infraUtils/database.utils.ts";
-import {ITmuxInfraServiceErrors} from "@interfaces/tmux.infraService.interface.ts";
+import {Array, Context, Effect, Layer, Record, Result, Schedule, Stream, String, SubscriptionRef} from "effect";
+import {FileSystem} from "effect/FileSystem";
+
+import {TmuxServerUtils} from "@/infraServices/tmux/tmuxServer.utils.ts";
+import {DatabaseUtils} from "@/infraUtils/database.utils.ts";
+import {ITmuxInfraServiceErrors} from "@/interfaces/tmux.infraService.interface.ts";
+import {decodeEntityId} from "@/valueObjects/entityId.valueObject.ts";
 import {PLATFORMS} from "@pkg/constants/src/process.constant.ts";
 import {PTY_BINARY} from "@pkg/constants/src/terminal.constant.ts";
 import {AGENT_START_WAIT, TMUX} from "@pkg/constants/src/tmux.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {decodeEntityId} from "@valueObjects/entityId.valueObject.ts";
-import {Array, Context, Effect, Layer, Record, Result, Schedule, Stream, String, SubscriptionRef} from "effect";
-import {FileSystem} from "effect/FileSystem";
-import {platform} from "node:os";
 
-import type {SessionTabCommandRequest} from "@interfaces/tmux.infraService.interface.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import type {SessionTabCommandRequest} from "@/interfaces/tmux.infraService.interface.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
 
 class SessionAgentUtilsErrors extends TaggedErrors({
   SessionAgentNotListedError: {}
@@ -23,14 +24,14 @@ class SessionAgentUtilsErrors extends TaggedErrors({
 export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
   "aggregor-app/infrastructure/services/tmux/sessionAgent.utils/SessionAgentUtils",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("SessionAgentUtils.make")(function* () {
       const fileSystem = yield* FileSystem;
       const vsCodeApi = yield* VsCodeApi;
       const databaseUtils = yield* DatabaseUtils;
       const tmuxServerUtils = yield* TmuxServerUtils;
 
       // An agent's tmux session is named by its session's id; a folder's shell, whose name is no id, is none.
-      const readRunningSessionIds = Effect.fn("readRunningSessionIds")(function* () {
+      const readRunningSessionIds = Effect.fn("SessionAgentUtils.readRunningSessionIds")(function* () {
         const sessionNames = yield* tmuxServerUtils.listTmuxSessionNames;
         const runningSessionIds: ReadonlySet<EntityIdValueObject> = new Set(
           Array.getSuccesses(Array.map(sessionNames, (sessionName) => decodeEntityId(sessionName)))
@@ -40,7 +41,7 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
       });
 
       // Windows VSIXs carry no aggregor-pty.
-      const findPtyBinaryPath = Effect.fn("findPtyBinaryPath")(function* (ptyBinaryPath: string) {
+      const findPtyBinaryPath = Effect.fn("SessionAgentUtils.findPtyBinaryPath")(function* (ptyBinaryPath: string) {
         const isPtyBinaryFound = yield* Effect.orElseSucceed(fileSystem.exists(ptyBinaryPath), () => false);
         if (!isPtyBinaryFound)
           return yield* ITmuxInfraServiceErrors.PtyBinaryNotFoundError.make({
@@ -57,29 +58,31 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
         findPtyBinaryPath(vsCodeApi.Uri.joinPath(vsCodeApi.extensionUri, PTY_BINARY).fsPath)
       );
 
-      const refreshRunningSessionIds = Effect.fn("refreshRunningSessionIds")(function* () {
+      const refreshRunningSessionIds = Effect.fn("SessionAgentUtils.refreshRunningSessionIds")(function* () {
         return yield* SubscriptionRef.modifyEffect(runningSessionIds, () =>
           Effect.map(readRunningSessionIds(), (listedSessionIds) => [listedSessionIds, listedSessionIds] as const)
         );
       });
 
-      const readShownSessionIdsByTabProcessId = Effect.fn("readShownSessionIdsByTabProcessId")(function* () {
-        const tmuxClients = yield* tmuxServerUtils.listTmuxClients;
-        const shownSessionIdsByTabProcessId: ReadonlyMap<number, EntityIdValueObject> = new Map(
-          Array.getSuccesses(
-            Array.map(tmuxClients, (tmuxClient) =>
-              Result.map(
-                decodeEntityId(tmuxClient.sessionName),
-                (sessionId) => [tmuxClient.terminalProcessId, sessionId] as const
+      const readShownSessionIdsByTabProcessId = Effect.fn("SessionAgentUtils.readShownSessionIdsByTabProcessId")(
+        function* () {
+          const tmuxClients = yield* tmuxServerUtils.listTmuxClients;
+          const shownSessionIdsByTabProcessId: ReadonlyMap<number, EntityIdValueObject> = new Map(
+            Array.getSuccesses(
+              Array.map(tmuxClients, (tmuxClient) =>
+                Result.map(
+                  decodeEntityId(tmuxClient.sessionName),
+                  (sessionId) => [tmuxClient.terminalProcessId, sessionId] as const
+                )
               )
             )
-          )
-        );
+          );
 
-        return shownSessionIdsByTabProcessId;
-      });
+          return shownSessionIdsByTabProcessId;
+        }
+      );
 
-      const showSessionInTab = Effect.fn("showSessionInTab")(function* (
+      const showSessionInTab = Effect.fn("SessionAgentUtils.showSessionInTab")(function* (
         tabProcessId: number,
         sessionId: EntityIdValueObject
       ) {
@@ -89,7 +92,7 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
       });
 
       // -A attaches to the session's tmux session when it runs, and otherwise starts it.
-      const prepareSessionTmuxArguments = Effect.fn("prepareSessionTmuxArguments")(function* (
+      const prepareSessionTmuxArguments = Effect.fn("SessionAgentUtils.prepareSessionTmuxArguments")(function* (
         sessionTabCommandRequest: SessionTabCommandRequest
       ) {
         const environmentFlags = Array.flatMap(
@@ -104,7 +107,7 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
         ];
       });
 
-      const preparePtyArguments = Effect.fn("preparePtyArguments")(function* (
+      const preparePtyArguments = Effect.fn("SessionAgentUtils.preparePtyArguments")(function* (
         ptyBinaryPath: string,
         sessionTabCommandRequest: SessionTabCommandRequest
       ) {
@@ -115,7 +118,7 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
       });
 
       // The script's output stays in the tab above the agent's, and the agent starts whether or not the script succeeds.
-      const prepareSetupArguments = Effect.fn("prepareSetupArguments")(function* (
+      const prepareSetupArguments = Effect.fn("SessionAgentUtils.prepareSetupArguments")(function* (
         sessionTabCommandRequest: SessionTabCommandRequest
       ) {
         const setupScript = sessionTabCommandRequest.setupScript;
@@ -125,7 +128,7 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
       });
 
       // The tab runs tmux itself: tmux answers an agent's query about the terminal's colours only through an attached client.
-      const prepareSessionTabCommand = Effect.fn("prepareSessionTabCommand")(function* (
+      const prepareSessionTabCommand = Effect.fn("SessionAgentUtils.prepareSessionTabCommand")(function* (
         sessionTabCommandRequest: SessionTabCommandRequest
       ) {
         yield* tmuxServerUtils.checkTmuxVersion;
@@ -141,7 +144,7 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
         ]);
       });
 
-      const confirmSessionAgentListed = Effect.fn("confirmSessionAgentListed")(function* (
+      const confirmSessionAgentListed = Effect.fn("SessionAgentUtils.confirmSessionAgentListed")(function* (
         sessionId: EntityIdValueObject
       ) {
         const refreshedSessionIds = yield* refreshRunningSessionIds();
@@ -152,7 +155,7 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
       });
 
       // The tab starts the session's tmux session a moment after it opens.
-      const waitForSessionAgentStart = Effect.fn("waitForSessionAgentStart")(
+      const waitForSessionAgentStart = Effect.fn("SessionAgentUtils.waitForSessionAgentStart")(
         function* (sessionId: EntityIdValueObject) {
           yield* Effect.retry(confirmSessionAgentListed(sessionId), {
             schedule: Schedule.spaced(AGENT_START_WAIT.POLL_INTERVAL_MS),
@@ -162,35 +165,51 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
         Effect.catchTag("SessionAgentNotListedError", () => Effect.void)
       );
 
-      const killSessionAgent = Effect.fn("killSessionAgent")(function* (sessionId: EntityIdValueObject) {
+      const pasteTextIntoSessionAgent = Effect.fn("SessionAgentUtils.pasteTextIntoSessionAgent")(function* (
+        sessionId: EntityIdValueObject,
+        text: string
+      ) {
+        yield* Effect.mapError(tmuxServerUtils.pasteTextIntoTmuxSession(sessionId, text), () =>
+          ITmuxInfraServiceErrors.TmuxSessionNotRunningError.make()
+        );
+      });
+
+      const killSessionAgent = Effect.fn("SessionAgentUtils.killSessionAgent")(function* (
+        sessionId: EntityIdValueObject
+      ) {
         yield* tmuxServerUtils.killTmuxSession(sessionId);
 
         return yield* readRunningSessionIds();
       });
 
-      const stopSessionAgent = Effect.fn("stopSessionAgent")(function* (sessionId: EntityIdValueObject) {
+      const stopSessionAgent = Effect.fn("SessionAgentUtils.stopSessionAgent")(function* (
+        sessionId: EntityIdValueObject
+      ) {
         yield* SubscriptionRef.modifyEffect(runningSessionIds, () =>
           Effect.map(killSessionAgent(sessionId), (remainingSessionIds) => [undefined, remainingSessionIds] as const)
         );
       });
 
-      const watchStartedOrStoppedSessionIds = Effect.fn("watchStartedOrStoppedSessionIds")(function* () {
-        return Stream.mapAccum(
-          SubscriptionRef.changes(runningSessionIds),
-          (): ReadonlySet<EntityIdValueObject> => new Set(),
-          (previousSessionIds, currentSessionIds) => {
-            const changedSessionIds = [
-              ...Array.filter([...currentSessionIds], (sessionId) => !previousSessionIds.has(sessionId)),
-              ...Array.filter([...previousSessionIds], (sessionId) => !currentSessionIds.has(sessionId))
-            ];
+      const watchStartedOrStoppedSessionIds = Effect.fn("SessionAgentUtils.watchStartedOrStoppedSessionIds")(
+        function* () {
+          return Stream.mapAccum(
+            SubscriptionRef.changes(runningSessionIds),
+            (): ReadonlySet<EntityIdValueObject> => new Set(),
+            (previousSessionIds, currentSessionIds) => {
+              const changedSessionIds = [
+                ...Array.filter([...currentSessionIds], (sessionId) => !previousSessionIds.has(sessionId)),
+                ...Array.filter([...previousSessionIds], (sessionId) => !currentSessionIds.has(sessionId))
+              ];
 
-            return [currentSessionIds, changedSessionIds] as const;
-          }
-        );
-      });
+              return [currentSessionIds, changedSessionIds] as const;
+            }
+          );
+        }
+      );
 
       return {
         findPtyBinaryPath,
+        pasteTextIntoSessionAgent,
         prepareSessionTabCommand,
         readRunningSessionIds: readRunningSessionIds(),
         readShownSessionIdsByTabProcessId: readShownSessionIdsByTabProcessId(),
@@ -204,7 +223,7 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("SessionAgentUtils", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([DatabaseUtils.layer, TmuxServerUtils.layer, NodeServices.layer])
   );
 }

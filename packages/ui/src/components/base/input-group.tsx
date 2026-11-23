@@ -1,6 +1,6 @@
-import * as React from "react";
 import {cva, type VariantProps} from "class-variance-authority";
 import {cn} from "cn";
+import * as React from "react";
 
 import {Button} from "@pkg/ui/src/components/base/button.tsx";
 import {Input} from "@pkg/ui/src/components/base/input.tsx";

@@ -2,9 +2,9 @@ import {LEFTOVER_ROW_KEYS} from "@/modules/sessions/components/userInputDialog/c
 import {SESSIONS_LABELS} from "@/modules/sessions/sessions.constant.ts";
 import {LEFTOVER_LABELS} from "@pkg/constants/src/git.constant.ts";
 
+import type {ProjectLeftoversDto} from "@/dtos/worktree.dto.ts";
 import type {LeftoverRowData} from "@/modules/sessions/components/userInputDialog/components/cleanUpInput/components/leftoverChecklist/leftoverChecklist.type.ts";
 import type {ChosenLeftovers} from "@/modules/sessions/sessions.type.ts";
-import type {ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
 
 export const makeLeftoverWorktreeRows = (leftovers: ProjectLeftoversDto): readonly LeftoverRowData[] => {
   const mergedBranchNames = new Set(

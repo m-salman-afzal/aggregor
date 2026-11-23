@@ -2,8 +2,8 @@ import {keepApplyingActions} from "@/modules/sessions/components/sessionList/com
 import {ROW_ACTIONS, SESSIONS_LABELS} from "@/modules/sessions/sessions.constant.ts";
 import {SESSION_ROW_LABELS, STATUS_KIND_LABELS, STATUS_LABELS} from "@pkg/constants/src/sessionsView.constant.ts";
 
+import type {SessionListItemDto} from "@/dtos/session.dto.ts";
 import type {SessionsState} from "@/modules/sessions/stores/sessions/sessions.type.ts";
-import type {SessionListItemDto} from "@dtos/session.dto.ts";
 
 // Only the Sessions list reads a project's worktrees, so an archived session never counts as in git.
 export const selectIsSessionInGitProject = (sessionListItem: SessionListItemDto) => (sessionsState: SessionsState) =>

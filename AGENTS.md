@@ -11,15 +11,16 @@ once it has two files. Each entry holds the problem, the decision and why it won
 alternatives considered, with no dates, milestones or steps (`decisions/README.md` has the format and the index). Add
 each one once it is agreed, in the same commit as the code it shapes, in its feature's file; a changed decision is
 rewritten to say what holds, with the old choice moved to its alternatives. A stack's plan lives in its PRs' decision
-lists and the README's roadmap; there are no plan files. Before a session's last hand-back, check that every decision
-the session made, or changed, is there.
+lists and `ROADMAP.md`; there are no plan files. Before a session's last hand-back, check that every decision the
+session made, or changed, is there.
 
 Work lands as small, feature-sliced, stacked PRs on `stack/<name>/<n>/<type>/<slug>` branches, each starting from the
 one below it. The `stack` skill (`.claude/skills/stack`) creates them; on push, the Auto PR workflow opens each PR into
 the branch below and joins them into a GitHub stack. Land a stack by merging its top PR with a merge commit, never
 squash. A problem left for later is a GitHub issue with a branch for its fix linked to it, which the `issue` skill
-(`.claude/skills/issue`) files when the user asks for an issue. The roadmap lives in `README.md`. Commit and push only
-when the user asks.
+(`.claude/skills/issue`) files when the user asks for an issue. The roadmap lives in `ROADMAP.md`. `README.md` is both
+GitHub's page and the Marketplace listing: `apps/extension/README.md` is a symlink to it. Commit and push only when the
+user asks.
 
 A commit subject is `<type>(<scope>): <subject>`, with `!` before the colon for a breaking change, and its scope is a
 feature from the list in `.github/workflows/pr-title.yaml`. Auto PR titles each PR with its first commit's subject, plus
@@ -39,8 +40,9 @@ that no scope covers, add its scope in that PR, to `pr-title.yaml` and with what
   reference. Name a thing by what it is to the user, not by the gesture that reached it (`chosenProject`, not
   `clickedProject`), and give each word one meaning: a "prompt" is an LLM's, so asking the user is a user-input prompt
   (`IUserInputPromptInfraService`). A function's name starts with a verb that says what it does (`makeSessionRow`,
-  `decodeStoredRow`, `runWithSourceControlProgress`), never with `to`, `as`, `from`, `with`, `of`, `into` or `new`; lint
-  fails those.
+  `decodeStoredRow`, `runWithSourceControlProgress`), never with `to`, `as`, `from`, `with`, `of`, `into` or `new`, and
+  ends with what it does or works on, never with a preposition (`isBranchMergedIntoReference`, not `isAncestorOf`); lint
+  fails both.
 - **Comments only for what the code hides.** Write a comment only for a hidden side effect or a behaviour a reader can't
   see in the code: a platform limit, a workaround, a constraint from outside the file. Never one that says what a file,
   type, function or line is or does; the names say that. One line, about the code as it is now, updated or deleted with
@@ -60,16 +62,16 @@ that no scope covers, add its scope in that PR, to `pr-title.yaml` and with what
 `DDD.md` holds the layering (domain, application, infrastructure, presentation): where each kind of code goes, its
 names, and the lint that checks them. Read it before deciding where code goes, and update it in the same commit as a
 change that moves where code goes. Each file's suffix names its role (`.entity.ts`, `.interface.ts`, `.infraService.ts`
-and so on), and `@pkg/eslint` (`packages/eslint`) checks each layer's imports, the names each role requires, and where
-types and interfaces live. Code imports through one alias per folder under a layer (`@entities/`, `@interfaces/`,
-`@infraServices/` and so on, listed in `apps/extension/tsconfig.json`), never through a relative path, and by name,
+and so on), and `@pkg/lint` (`packages/lint`) checks each layer's imports, the names each role requires, and where types
+and interfaces live. Code imports through one alias per folder under a layer (`@/entities/`, `@/interfaces/`,
+`@/infraServices/` and so on, listed in `apps/extension/tsconfig.json`), never through a relative path, and by name,
 never with `import * as`. Every constant outside the domain lives in its feature's `@pkg/constants` file, grouped in a
 labelled object with the constants it belongs with, and holds no logic: a util beside its caller picks between texts
 (see `DDD.md`). Enforce a new convention with a lint there, not only with prose here, and give the lint a message that
 says what is wrong, why the rule exists, and what to do instead.
 
 `apps/webview` is the Sessions view's webview, a React front end (see `DDD.md`'s Layers). It follows the
-folder-structure skill (`.claude/skills/folder-structure`) instead of the layers, and `@pkg/eslint`'s `folderStructure/`
+folder-structure skill (`.claude/skills/folder-structure`) instead of the layers, and `@pkg/lint`'s `folderStructure/`
 checks each of its rules. It imports the extension's message and DTO types for types only, and texts and ids shared with
 the extension from `@pkg/constants`; its own constants sit in its units' `.constant.ts` files. Its design system, the
 theme and shadcn's base components, is `@pkg/ui` (`packages/ui`), where `shadcn add` writes. It runs no Effect, so the
@@ -85,22 +87,21 @@ Effect here is `4.1.4`. Most Effect material online is v3 and the names differ (
   editor; `packages/tsconfigs/tsconfig.base.json` lists each rule, and one turned off says why there.
 - **Every function is an `Effect.fn`**, which gives it its span, even one that only builds a stream, so the trace shows
   it ran. Lint checks every function at the top of a file in the extension source; one nested in an `Effect.fn` is its
-  callback. The exceptions carry an `eslint-disable` with the reason: `activate` and `deactivate`, which VS Code calls,
-  `ownSpans`' combinators, which wrap every call into a unit, and `TaggedErrors`, which builds a file's errors class
-  when the file loads, outside any effect. Error handling and other combinators go in `Effect.fn`'s extra arguments
-  after the body, not in a `.pipe`; handling that only one caller needs gets its own small `Effect.fn`. A service member
-  that takes no arguments is an `Effect`, not a function: `make` calls its `Effect.fn` once
-  (`readSettings: readSettings()`), and every run still gets its own span. `.pipe` is only for what is not a function:
-  layers, streams and schedules. Lint bans `Effect.gen` and `Effect.withSpan`.
+  callback. The exceptions carry an `oxlint-disable` with the reason: `activate` and `deactivate`, which VS Code calls,
+  and `TaggedErrors`, which builds a file's errors class when the file loads, outside any effect. Error handling and
+  other combinators go in `Effect.fn`'s extra arguments after the body, not in a `.pipe`; handling that only one caller
+  needs gets its own small `Effect.fn`. A service member that takes no arguments is an `Effect`, not a function: `make`
+  calls its `Effect.fn` once (`readSettings: readSettings()`), and every run still gets its own span. `.pipe` is only
+  for what is not a function: layers, streams and schedules. Lint bans `Effect.gen` and `Effect.withSpan`.
 - **A file that holds functions is a unit.** It exports one `Context.Service` class in the form Effect's docs use, whose
-  `make: Effect.fn("make")(…)` yields the unit's dependencies once at its top and holds each of its functions as a
-  const, and whose `static layer` is `Layer.effect(this, ownSpans("<Owner>", this.make()))`
+  `make: Effect.fn("<Owner>.make")(…)` yields the unit's dependencies once at its top and holds each of its functions as
+  a const, and whose `static layer` is `Layer.effect(this, this.make())`
   (`application/services/commitMessage.service.ts`). A port's implementation is a class too, whose layer provides its
-  port: `Layer.effect(IPort, ownSpans("<Owner>", this.make()))` (`userInputPrompt.infraService.ts`). A function inside
-  `make` yields no service, and none takes a service, a ref or a `…Dependencies` object as a parameter: state lives in
-  the `make` of the unit that owns it. Lint bans a top-level `Effect.fn` everywhere in the extension and `@pkg/vscode`;
-  only `activate`, `deactivate`, `ownSpans` and `TaggedErrors` are plain functions. `BaseService` and `BaseRepository`
-  bind a repository or a table with `makeFor`, called at the top of a `make`. DDD.md's Dependency injection has the
+  port: `Layer.effect(IPort, this.make())` (`userInputPrompt.infraService.ts`). A function inside `make` yields no
+  service, and none takes a service, a ref or a `…Dependencies` object as a parameter: state lives in the `make` of the
+  unit that owns it. Lint bans a top-level `Effect.fn` everywhere in the extension and `@pkg/vscode`; only `activate`,
+  `deactivate` and `TaggedErrors` are plain functions. `BaseService` and `BaseRepository` bind a repository or a table
+  with `makeForRepository` and `makeForTable`, called at the top of a `make`. DDD.md's Dependency injection has the
   rest, and the levels each layer is merged into.
 - **A file's errors are one class.** `<Owner>Errors extends TaggedErrors({...})` (`@pkg/errors`), above the file's other
   classes, with each error's tag as a key: `ITmuxInfraServiceErrors.TmuxUnavailableError.make({})` makes one, and
@@ -116,25 +117,25 @@ Effect here is `4.1.4`. Most Effect material online is v3 and the names differ (
   says why it is missing. Turn an `Option` that an Effect API returns into a `Result` right there with
   `Result.fromOption`. Lint bans importing `Option`.
 - **Small functions.** Give each function one job, so each shows up as its own span; lint caps a function at 30 lines. A
-  `make`, or a `make<Name>` const such as `makeFor`, that holds its unit's functions is exempt, and they read the state
-  they share (refs, VS Code handles, the unit's dependencies) from it; a long `make` is fine, and a class is divided
-  where its parts clearly belong apart.
+  `make`, or a `make<Name>` const such as `makeForTable`, that holds its unit's functions is exempt, and they read the
+  state they share (refs, VS Code handles, the unit's dependencies) from it; a long `make` is fine, and a class is
+  divided where its parts clearly belong apart.
 
 ## Traces
 
 Every command runs as a root span named by its command ID, and each `Effect.fn` it calls is a child span. Every file
 with a role is its own owner, named by its file (`session.service.ts` is `SessionService`, `terminal.utils.ts`
-`TerminalUtils`, `backgroundJobs.layer.ts` `BackgroundJobs`). An `Effect.fn` inside a `make` takes its const's name
-alone, and a class's `make` is `make`: `ownSpans` marks each span with the unit, and the trace log prints it in front,
-so the line reads `<Owner>.<name>`. An effect, a stream or a callback handed to a unit as an argument keeps its caller's
-mark: `CommitMessageService.writeCommitMessage` prints under its own name although
-`VscodeUtils.runWithProgressIndicator` runs it, and a command handler's spans stay its controller's although
-`RegisterCommandMiddleware` runs it. A library's span with an undotted name takes the unit it ran in
-(`BaseRepository.sqlite`). `aggregor/span-name` (`packages/eslint/src/rules/`) checks every name and each `ownSpans`
-owner, and `pnpm lint:fix` corrects them. Startup nests under one span per level: `Domain`, `Infrastructure`
-(`Infrastructure > Database.make`), `Application` (the background jobs under `Application > BackgroundJobs.make`) and
-`Presentation`. Finished spans and Effect logs go to the **Aggregor App** output channel, one trace-level line per span,
-with each failure's fields and what the span was annotated with (`Effect.annotateCurrentSpan`):
+`TerminalUtils`, `backgroundJobs.layer.ts` `BackgroundJobs`). An `Effect.fn` is named `<Owner>.<const>`, its class and
+then its const, and a class's `make` is `<Owner>.make`, so a trace line reads as the source does and one search finds
+its function. The name is part of the function, so work handed to another unit keeps it:
+`CommitMessageService.writeCommitMessage` prints under its own name although `VscodeUtils.runWithProgressIndicator` runs
+it, and a command handler's spans stay its controller's although `RegisterCommandMiddleware` runs it. A library's span
+keeps the name its library gave it (`sqlite`), under the span of the unit that ran it. `aggregor/span-name`
+(`packages/lint/src/rules/`) checks every name and that each unit's class is named after its file, and `pnpm lint:fix`
+writes the names. Startup nests under one span per level: `Domain`, `Infrastructure` (`Infrastructure > Database.make`),
+`Application` (the background jobs under `Application > BackgroundJobs.make`) and `Presentation`. Finished spans and
+Effect logs go to the **Aggregor App** output channel, one trace-level line per span, with each failure's fields and
+what the span was annotated with (`Effect.annotateCurrentSpan`):
 `aggregorApp.openSession > SessionController.openChosenSession > SessionService.openSession > TerminalInfraService.focusSessionTerminal 0.8ms failed: TerminalNotFoundError sessionId=…`.
 A failure a caller handles still shows on the span that failed, so annotate a span with what its outcome depends on
 rather than logging it. Work a layer starts in the background, such as a watcher, nests under that layer's `make` span.
@@ -158,23 +159,23 @@ used.
 Every dependency version lives once, in `pnpm-workspace.yaml`'s `catalog:`; each `package.json` names it as `"catalog:"`
 (workspace packages stay `workspace:*`). Change versions only there or with `pnpm add` / `pnpm remove`:
 `catalogMode: strict` makes `pnpm add` write the catalog entry, and `cleanupUnusedCatalogs` drops entries nothing uses.
-ESLint (`pnpm/json-enforce-catalog`) fails any other version, and `pnpm lint:fix` moves a plain one into the catalog.
-`@types/vscode` is the exception: vsce reads its version to check `engines.vscode` and fails on `catalog:`, so it stays
-a version in `apps/extension` and `packages/vscode`.
+Nothing lints a version typed by hand, so add and change dependencies through `pnpm add`. `@types/vscode` is the
+exception: vsce reads its version to check `engines.vscode` and fails on `catalog:`, so it stays a version in
+`apps/extension` and `packages/vscode`.
 
 ## Commands
 
 Lint, format and type checks run from the repo root. `:check` scripts only report, `:fix` scripts write.
 
 ```bash
-pnpm lint:check    # ESLint over the whole repo (--max-warnings 0); reports only
+pnpm lint:check    # oxlint over the whole repo (no warnings allowed); reports only
 pnpm lint:fix      # Same, with --fix
-pnpm format:check  # Prettier over the whole repo; reports only
+pnpm format:check  # oxfmt over the whole repo; reports only
 pnpm format:fix    # Same, writing the changes
 pnpm typecheck     # tsc --noEmit in the apps, the root config files and .claude's scripts; packages are covered through the apps
 pnpm pty:check     # cargo fmt --check and cargo clippy -D warnings on apps/pty, the aggregor-pty binary
 pnpm pty:test      # aggregor-pty's tests, the end-to-end one included
-pnpm test          # The extension's tests (vitest, apps/extension/tests), the migration test among them, and the lint rules' (packages/eslint/tests)
+pnpm test          # The extension's tests (vitest, apps/extension/tests), the migration test among them, and the lint rules' (packages/lint/tests)
 pnpm quality       # lint:check + format:check + typecheck + pty:check, in parallel
 pnpm lint-staged   # Same lint and format checks on staged files only (the husky pre-commit hook)
 pnpm db:generate   # After changing a table model, with --name <change>: drizzle-kit writes its migration
@@ -184,6 +185,9 @@ pnpm --filter=aggregor-webview build  # Builds the webview into apps/extension/d
 pnpm --filter=aggregor-webview dev    # The webview's dev server, which F5 starts and its webview loads
 pnpm bump          # On an up-to-date dev: pick the next version; pushes chore/bump-v<version> and opens its PR
 ```
+
+`AGGREGOR_HOME` moves the extension's whole data folder and `AGGREGOR_DATABASE_FILE` only its database, each an absolute
+path.
 
 To release, run `pnpm bump` (`bump.config.ts`). Merging the bump PR into dev opens the release PR, dev into main
 (`release-pr.yaml`); merging that one publishes to the Marketplace and creates the GitHub release (`release.yaml`): a

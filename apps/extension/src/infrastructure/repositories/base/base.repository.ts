@@ -1,21 +1,22 @@
-import {DatabaseLayer} from "@di/database.layer.ts";
-import {EntityIdDomainService} from "@domainServices/entityId.domainService.ts";
-import {PaginationDomainService} from "@domainServices/pagination.domainService.ts";
-import {BaseEntity} from "@entities/base/base.entity.ts";
-import {IBaseRepositoryErrors} from "@entities/base/base.repository.interface.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
-import {EntityChangeUtils} from "@repositories/base/entityChange.utils.ts";
-import {RepositoryUtils} from "@repositories/base/repository.utils.ts";
-import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {and, eq, gte, inArray, isNull, lt, sql} from "drizzle-orm";
 import {makeWithDefaults} from "drizzle-orm/effect-sqlite-node";
 import {Array, Context, Effect, Layer, Queue, Record, Schema} from "effect";
 
-import type {EntityPage, IBaseRepository, PageRequest} from "@entities/base/base.repository.interface.ts";
-import type {EntityTable, StoredColumns} from "@repositories/base/base.repository.type.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import {DatabaseLayer} from "@/di/database.layer.ts";
+import {EntityIdDomainService} from "@/domainServices/entityId.domainService.ts";
+import {PaginationDomainService} from "@/domainServices/pagination.domainService.ts";
+import {BaseEntity} from "@/entities/base/base.entity.ts";
+import {IBaseRepositoryErrors} from "@/entities/base/base.repository.interface.ts";
+import {EntityChangeUtils} from "@/repositories/base/entityChange.utils.ts";
+import {RepositoryUtils} from "@/repositories/base/repository.utils.ts";
+import {EntityIdValueObjectSchema} from "@/valueObjects/entityId.valueObject.ts";
+
 import type {SQL} from "drizzle-orm";
 import type {SQLiteColumn} from "drizzle-orm/sqlite-core";
+
+import type {EntityPage, IBaseRepository, PageRequest} from "@/entities/base/base.repository.interface.ts";
+import type {EntityTable, StoredColumns} from "@/repositories/base/base.repository.type.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
 
 // The cursor is the page's last row's sortId, so a row placed or moved meanwhile never shifts a page that follows.
 const CursorSortIdSchema = Schema.NumberFromString.check(Schema.isInt());
@@ -23,17 +24,18 @@ const CursorSortIdSchema = Schema.NumberFromString.check(Schema.isInt());
 export class BaseRepository extends Context.Service<BaseRepository>()(
   "aggregor-app/infrastructure/repositories/base/base.repository/BaseRepository",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("BaseRepository.make")(function* () {
       const database = yield* makeWithDefaults();
       const repositoryUtils = yield* RepositoryUtils;
       const entityChangeUtils = yield* EntityChangeUtils;
       const entityIdDomainService = yield* EntityIdDomainService;
       const paginationDomainService = yield* PaginationDomainService;
 
-      const makeFor = Effect.fn("makeFor")(function* <Entity extends BaseEntity, AddRequest extends StoredColumns>(
-        entityTable: EntityTable<Entity>
-      ) {
-        const findRows = Effect.fn("findRows")(
+      const makeForTable = Effect.fn("BaseRepository.makeForTable")(function* <
+        Entity extends BaseEntity,
+        AddRequest extends StoredColumns
+      >(entityTable: EntityTable<Entity>) {
+        const findRows = Effect.fn("BaseRepository.findRows")(
           function* (filter: StoredColumns) {
             const filterClauses = yield* repositoryUtils.makeFilterClauses(entityTable.tableModel, filter);
             const storedRows = yield* repositoryUtils.selectRows(
@@ -49,11 +51,13 @@ export class BaseRepository extends Context.Service<BaseRepository>()(
           Effect.mapError((cause) => IBaseRepositoryErrors.DatabaseReadError.make({cause}))
         );
 
-        const decodeCursorSortId = Effect.fn("decodeCursorSortId")(function* (afterCursor: string | undefined) {
+        const decodeCursorSortId = Effect.fn("BaseRepository.decodeCursorSortId")(function* (
+          afterCursor: string | undefined
+        ) {
           return afterCursor === undefined ? undefined : yield* Schema.decodeEffect(CursorSortIdSchema)(afterCursor);
         });
 
-        const countPageRows = Effect.fn("countPageRows")(function* (
+        const countPageRows = Effect.fn("BaseRepository.countPageRows")(function* (
           listedCondition: SQL | undefined,
           afterSortId: number | undefined
         ) {
@@ -69,7 +73,7 @@ export class BaseRepository extends Context.Service<BaseRepository>()(
           return {precedingCount, totalCount};
         });
 
-        const findRowPage = Effect.fn("findRowPage")(
+        const findRowPage = Effect.fn("BaseRepository.findRowPage")(
           function* (filter: StoredColumns, pageRequest: PageRequest) {
             const filterClauses = yield* repositoryUtils.makeFilterClauses(entityTable.tableModel, filter);
             const listedCondition = and(isNull(entityTable.tableModel.deletedAt), ...filterClauses);
@@ -95,7 +99,7 @@ export class BaseRepository extends Context.Service<BaseRepository>()(
           Effect.mapError((cause) => IBaseRepositoryErrors.DatabaseReadError.make({cause}))
         );
 
-        const findRowById = Effect.fn("findRowById")(function* (entityId: EntityIdValueObject) {
+        const findRowById = Effect.fn("BaseRepository.findRowById")(function* (entityId: EntityIdValueObject) {
           const [foundEntity] = yield* findRows({id: entityId});
           if (foundEntity === undefined) return yield* IBaseRepositoryErrors.EntityNotFoundError.make({entityId});
 
@@ -103,7 +107,7 @@ export class BaseRepository extends Context.Service<BaseRepository>()(
         });
 
         // AUTOINCREMENT needs an integer primary key, so sortId is MAX + 1, inside the writing statement.
-        const writeRowAtEnd = Effect.fn("writeRowAtEnd")(function* (
+        const writeRowAtEnd = Effect.fn("BaseRepository.writeRowAtEnd")(function* (
           addRequest: StoredColumns,
           conflictColumns: readonly SQLiteColumn[]
         ) {
@@ -133,7 +137,7 @@ export class BaseRepository extends Context.Service<BaseRepository>()(
           return yield* Schema.decodeUnknownEffect(EntityIdValueObjectSchema)(writtenRow.id);
         });
 
-        const writeAndReadRow = Effect.fn("writeAndReadRow")(
+        const writeAndReadRow = Effect.fn("BaseRepository.writeAndReadRow")(
           function* (addRequest: StoredColumns, conflictColumns: readonly SQLiteColumn[]) {
             const entityId = yield* Effect.mapError(writeRowAtEnd(addRequest, conflictColumns), (cause) =>
               IBaseRepositoryErrors.DatabaseWriteError.make({cause})
@@ -147,17 +151,20 @@ export class BaseRepository extends Context.Service<BaseRepository>()(
         );
 
         // A conflict on the new id never happens, so this always inserts; a unique-column clash still fails.
-        const addRow = Effect.fn("addRow")(function* (addRequest: StoredColumns) {
+        const addRow = Effect.fn("BaseRepository.addRow")(function* (addRequest: StoredColumns) {
           return yield* writeAndReadRow(addRequest, [entityTable.tableModel.id]);
         });
 
-        const upsertRow = Effect.fn("upsertRow")(function* (addRequest: StoredColumns) {
+        const upsertRow = Effect.fn("BaseRepository.upsertRow")(function* (addRequest: StoredColumns) {
           const uniqueColumns = yield* repositoryUtils.findUniqueColumns(entityTable.tableModel);
 
           return yield* writeAndReadRow(addRequest, uniqueColumns);
         });
 
-        const updateRow = Effect.fn("updateRow")(function* (entityId: EntityIdValueObject, changes: StoredColumns) {
+        const updateRow = Effect.fn("BaseRepository.updateRow")(function* (
+          entityId: EntityIdValueObject,
+          changes: StoredColumns
+        ) {
           const encodedChanges = yield* Effect.mapError(repositoryUtils.encodeStoredColumns(changes), (cause) =>
             IBaseRepositoryErrors.DatabaseWriteError.make({cause})
           );
@@ -177,7 +184,7 @@ export class BaseRepository extends Context.Service<BaseRepository>()(
           );
         });
 
-        const softDeleteRow = Effect.fn("softDeleteRow")(
+        const softDeleteRow = Effect.fn("BaseRepository.softDeleteRow")(
           function* (entityId: EntityIdValueObject) {
             const deletedAt = yield* repositoryUtils.formatCurrentTimestamp;
             yield* database
@@ -189,7 +196,7 @@ export class BaseRepository extends Context.Service<BaseRepository>()(
         );
 
         // One statement reads the highest sortId once, so the rows take the sortIds after it in the order given.
-        const placeRowsAtEnd = Effect.fn("placeRowsAtEnd")(
+        const placeRowsAtEnd = Effect.fn("BaseRepository.placeRowsAtEnd")(
           function* (entityIds: readonly EntityIdValueObject[]) {
             if (!Array.isReadonlyArrayNonEmpty(entityIds)) return;
             const highestSortId = sql`(SELECT MAX(${entityTable.tableModel.sortId}) FROM ${entityTable.tableModel})`;
@@ -224,14 +231,14 @@ export class BaseRepository extends Context.Service<BaseRepository>()(
           upsert: (addRequest) => notifyChangeFeedAfter(upsertRow(addRequest))
         };
 
-        return yield* ownSpans("BaseRepository", Effect.succeed(baseRepository));
+        return baseRepository;
       });
 
-      return {makeFor};
+      return {makeForTable};
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("BaseRepository", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([RepositoryUtils.layer, EntityChangeUtils.layer, DatabaseLayer])
   );
 }

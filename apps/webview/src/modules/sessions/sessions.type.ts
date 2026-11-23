@@ -1,12 +1,13 @@
-import type {USER_INPUT_TAGS, WEBVIEW_ACTIONS} from "@/modules/sessions/sessions.constant.ts";
-import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
-import type {SessionPullRequestsDto} from "@dtos/pullRequest.dto.ts";
-import type {SessionListItemDto} from "@dtos/session.dto.ts";
-import type {ImportableSessionsDto, ImportedSessionDto} from "@dtos/sessionImport.dto.ts";
-import type {ProjectBranchesDto, ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
-import type {SESSION_LISTS, SESSIONS_WEBVIEW_COMMANDS} from "@pkg/constants/src/sessionsView.constant.ts";
-import type {CommandRequest} from "@views/sessions/sessions.view.type.ts";
 import type {LucideIcon} from "lucide-react";
+
+import type {ProjectSettingsDto} from "@/dtos/project.dto.ts";
+import type {SessionPullRequestsDto} from "@/dtos/pullRequest.dto.ts";
+import type {SessionListItemDto} from "@/dtos/session.dto.ts";
+import type {ImportableSessionsDto, ImportedSessionDto} from "@/dtos/sessionImport.dto.ts";
+import type {ProjectBranchesDto, ProjectLeftoversDto} from "@/dtos/worktree.dto.ts";
+import type {USER_INPUT_TAGS, WEBVIEW_ACTIONS} from "@/modules/sessions/sessions.constant.ts";
+import type {CommandRequest} from "@/views/sessions/sessions.view.type.ts";
+import type {SESSION_LISTS, SESSIONS_WEBVIEW_COMMANDS} from "@pkg/constants/src/sessionsView.constant.ts";
 
 export interface ChosenLeftovers {
   readonly branchNames: readonly string[];
@@ -15,7 +16,8 @@ export interface ChosenLeftovers {
 
 export interface RowAction {
   readonly commandId:
-    (typeof SESSIONS_WEBVIEW_COMMANDS)[number] | (typeof WEBVIEW_ACTIONS)[keyof typeof WEBVIEW_ACTIONS];
+    | (typeof SESSIONS_WEBVIEW_COMMANDS)[number]
+    | (typeof WEBVIEW_ACTIONS)[keyof typeof WEBVIEW_ACTIONS];
   readonly hasAttentionDot?: boolean;
   readonly icon: LucideIcon;
   readonly isDestructive?: boolean;

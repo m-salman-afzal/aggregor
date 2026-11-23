@@ -1,9 +1,11 @@
-import {SessionDiffStats} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/components/sessionDiffStats.tsx";
-import {SessionPullRequest} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/components/sessionPullRequest.tsx";
-import {AGENT_ICON} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/sessionOpenButton.constant.ts";
 import {GitBranchIcon, TriangleAlertIcon} from "lucide-react";
 
-import type {SessionListItemDto} from "@dtos/session.dto.ts";
+import {SessionDiffStats} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/components/sessionDiffStats.tsx";
+import {SessionPullRequest} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/components/sessionPullRequest.tsx";
+import {SessionReviewComments} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/components/sessionReviewComments/sessionReviewComments.tsx";
+import {AGENT_ICON} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionOpenButton/sessionOpenButton.constant.ts";
+
+import type {SessionListItemDto} from "@/dtos/session.dto.ts";
 
 interface SessionDetailProps {
   readonly agentIconUri?: string | undefined;
@@ -25,6 +27,9 @@ export const SessionDetail = (props: SessionDetailProps) => (
     )}
     {props.sessionListItem.diffStats !== undefined && props.sessionListItem.diffStats.changedFileCount > 0 && (
       <SessionDiffStats diffStats={props.sessionListItem.diffStats} />
+    )}
+    {props.sessionListItem.pendingReviewCommentCount > 0 && (
+      <SessionReviewComments pendingReviewCommentCount={props.sessionListItem.pendingReviewCommentCount} />
     )}
     {props.sessionListItem.branchName !== undefined && (
       <span className="flex min-w-0 items-center gap-1" title={props.sessionListItem.branchName}>

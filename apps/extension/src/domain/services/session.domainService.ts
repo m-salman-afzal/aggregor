@@ -1,16 +1,16 @@
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
-import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
-import {AGENT_TASK_STATES} from "@valueObjects/agentTaskState.valueObject.ts";
-import {LaunchPlanValueObjectSchema} from "@valueObjects/launchPlan.valueObject.ts";
-import {SESSION_RUN_STATES} from "@valueObjects/sessionRunState.valueObject.ts";
-import {SESSION_STATUSES} from "@valueObjects/sessionStatus.valueObject.ts";
 import {Array, Context, DateTime, Effect, Layer, Predicate, Result, Schema, String} from "effect";
 
-import type {AgentEntity} from "@entities/agent/agent.entity.ts";
-import type {SessionEntity} from "@entities/session/session.entity.ts";
-import type {AgentStatusValueObject} from "@valueObjects/agentStatus.valueObject.ts";
-import type {SessionStatusValueObject} from "@valueObjects/sessionStatus.valueObject.ts";
+import {AGENT_STATUSES} from "@/valueObjects/agentStatus.valueObject.ts";
+import {AGENT_TASK_STATES} from "@/valueObjects/agentTaskState.valueObject.ts";
+import {LaunchPlanValueObjectSchema} from "@/valueObjects/launchPlan.valueObject.ts";
+import {SESSION_RUN_STATES} from "@/valueObjects/sessionRunState.valueObject.ts";
+import {SESSION_STATUSES} from "@/valueObjects/sessionStatus.valueObject.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
+import type {AgentEntity} from "@/entities/agent/agent.entity.ts";
+import type {SessionEntity} from "@/entities/session/session.entity.ts";
+import type {AgentStatusValueObject} from "@/valueObjects/agentStatus.valueObject.ts";
+import type {SessionStatusValueObject} from "@/valueObjects/sessionStatus.valueObject.ts";
 
 interface SessionViewingFacts {
   readonly isAgentRunning: boolean;
@@ -42,8 +42,8 @@ const AGENT_SESSION_ID_VARIABLE = `\${agentSessionId}`;
 export class SessionDomainService extends Context.Service<SessionDomainService>()(
   "aggregor-app/domain/services/session.domainService/SessionDomainService",
   {
-    make: Effect.fn("make")(function* () {
-      const fillInVariables = Effect.fn("fillInVariables")(function* (
+    make: Effect.fn("SessionDomainService.make")(function* () {
+      const fillInVariables = Effect.fn("SessionDomainService.fillInVariables")(function* (
         agentArgument: string,
         agent: AgentEntity,
         session: SessionEntity
@@ -57,7 +57,7 @@ export class SessionDomainService extends Context.Service<SessionDomainService>(
         return String.replaceAll(AGENT_SESSION_ID_VARIABLE, latestAgentSessionId)(filledInArgument);
       });
 
-      const getAgentConversationId = Effect.fn("getAgentConversationId")(function* (
+      const getAgentConversationId = Effect.fn("SessionDomainService.getAgentConversationId")(function* (
         agent: AgentEntity,
         session: SessionEntity
       ) {
@@ -76,7 +76,10 @@ export class SessionDomainService extends Context.Service<SessionDomainService>(
         return yield* fillInVariables(resumeArgument, agent, session);
       });
 
-      const prepareLaunchPlan = Effect.fn("prepareLaunchPlan")(function* (agent: AgentEntity, session: SessionEntity) {
+      const prepareLaunchPlan = Effect.fn("SessionDomainService.prepareLaunchPlan")(function* (
+        agent: AgentEntity,
+        session: SessionEntity
+      ) {
         const agentArguments = session.hasConversation ? agent.resumeArgs : agent.args;
 
         return LaunchPlanValueObjectSchema.make({
@@ -89,7 +92,10 @@ export class SessionDomainService extends Context.Service<SessionDomainService>(
       });
 
       // Agents add their name, command or the project folder to the title: "<title> - GitHub Copilot", "<title> | <folder>".
-      const dropNamesAtEnds = Effect.fn("dropNamesAtEnds")(function* (title: string, names: readonly string[]) {
+      const dropNamesAtEnds = Effect.fn("SessionDomainService.dropNamesAtEnds")(function* (
+        title: string,
+        names: readonly string[]
+      ) {
         return Array.reduce(names, title, (remainingTitle, name) => {
           const nameAsText = String.replaceAll(REGEX_SYNTAX_CHARACTERS, "\\$&")(name);
           const nameAtEnds = new RegExp(`^${nameAsText}\\s*[-|:]\\s*|\\s*[-|:]\\s*${nameAsText}$`, "giu");
@@ -98,7 +104,7 @@ export class SessionDomainService extends Context.Service<SessionDomainService>(
         });
       });
 
-      const getDefaultSessionName = Effect.fn("getDefaultSessionName")(function* (
+      const getDefaultSessionName = Effect.fn("SessionDomainService.getDefaultSessionName")(function* (
         projectName: string,
         existingSessions: readonly SessionEntity[]
       ) {
@@ -109,7 +115,7 @@ export class SessionDomainService extends Context.Service<SessionDomainService>(
         return `${projectName} #${sessionNumber}`;
       });
 
-      const getSessionTitle = Effect.fn("getSessionTitle")(function* (
+      const getSessionTitle = Effect.fn("SessionDomainService.getSessionTitle")(function* (
         session: SessionEntity,
         agent: AgentEntity,
         projectName: string
@@ -137,7 +143,7 @@ export class SessionDomainService extends Context.Service<SessionDomainService>(
         );
       });
 
-      const getSessionTitleToSave = Effect.fn("getSessionTitleToSave")(function* (
+      const getSessionTitleToSave = Effect.fn("SessionDomainService.getSessionTitleToSave")(function* (
         session: SessionEntity,
         agent: AgentEntity,
         projectName: string
@@ -149,7 +155,7 @@ export class SessionDomainService extends Context.Service<SessionDomainService>(
         return sessionTitle;
       });
 
-      const isFinishedTurnUnseen = Effect.fn("isFinishedTurnUnseen")(function* (
+      const isFinishedTurnUnseen = Effect.fn("SessionDomainService.isFinishedTurnUnseen")(function* (
         session: SessionEntity,
         isInView: boolean
       ) {
@@ -159,7 +165,7 @@ export class SessionDomainService extends Context.Service<SessionDomainService>(
       });
 
       // OpenCode reports its own conversation again as a task, with the title it reports for itself.
-      const getSessionTasks = Effect.fn("getSessionTasks")(function* (session: SessionEntity) {
+      const getSessionTasks = Effect.fn("SessionDomainService.getSessionTasks")(function* (session: SessionEntity) {
         return Array.filter(
           session.tasks,
           (agentTask) => agentTask.title === undefined || agentTask.title !== session.reportedTitle
@@ -167,13 +173,13 @@ export class SessionDomainService extends Context.Service<SessionDomainService>(
       });
 
       // A sub-agent can work on after the agent's own turn has ended, which keeps the row working.
-      const hasWorkingTask = Effect.fn("hasWorkingTask")(function* (session: SessionEntity) {
+      const hasWorkingTask = Effect.fn("SessionDomainService.hasWorkingTask")(function* (session: SessionEntity) {
         const sessionTasks = yield* getSessionTasks(session);
 
         return Array.some(sessionTasks, (agentTask) => agentTask.state === AGENT_TASK_STATES.WORKING);
       });
 
-      const getSessionStatus = Effect.fn("getSessionStatus")(function* (
+      const getSessionStatus = Effect.fn("SessionDomainService.getSessionStatus")(function* (
         session: SessionEntity,
         sessionViewingFacts: SessionViewingFacts
       ) {
@@ -193,14 +199,14 @@ export class SessionDomainService extends Context.Service<SessionDomainService>(
         return session.status;
       });
 
-      const isSessionTurnRunning = Effect.fn("isSessionTurnRunning")(function* (
+      const isSessionTurnRunning = Effect.fn("SessionDomainService.isSessionTurnRunning")(function* (
         sessionStatus: SessionStatusValueObject
       ) {
         return sessionStatus === SESSION_STATUSES.WORKING || sessionStatus === SESSION_STATUSES.BLOCKED;
       });
 
       // Agents that end a turn with idle rather than done (OpenCode) have finished when they go from working back to idle.
-      const getAlertedStatus = Effect.fn("getAlertedStatus")(function* (
+      const getAlertedStatus = Effect.fn("SessionDomainService.getAlertedStatus")(function* (
         heldStatus: AgentStatusValueObject,
         previousHeldStatus: AgentStatusValueObject | undefined
       ) {
@@ -210,7 +216,7 @@ export class SessionDomainService extends Context.Service<SessionDomainService>(
         return heldStatus;
       });
 
-      const isSessionWaitingOnUser = Effect.fn("isSessionWaitingOnUser")(function* (
+      const isSessionWaitingOnUser = Effect.fn("SessionDomainService.isSessionWaitingOnUser")(function* (
         sessionStatus: SessionStatusValueObject
       ) {
         return (
@@ -235,5 +241,5 @@ export class SessionDomainService extends Context.Service<SessionDomainService>(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("SessionDomainService", this.make()));
+  public static readonly layer = Layer.effect(this, this.make());
 }

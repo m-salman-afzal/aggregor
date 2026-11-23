@@ -1,5 +1,6 @@
-import {DropdownMenuItem} from "@pkg/ui/src/components/base/dropdown-menu.tsx";
 import {ArrowUpDownIcon} from "lucide-react";
+
+import {DropdownMenuItem} from "@pkg/ui/src/components/base/dropdown-menu.tsx";
 
 import type {RowAction} from "@/modules/sessions/sessions.type.ts";
 

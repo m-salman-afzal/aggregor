@@ -50,11 +50,11 @@ Which layer is given what, the units that yield it, the levels they merge into, 
   and takes none as a parameter, so nothing a unit does needs anything from its caller: a caller's type lists the unit,
   not what the unit uses. State, such as a `Ref` or a cache, lives in the `make` of the unit whose functions own it, and
   another unit that needs it calls that unit's members.
-- **Solution:** a class is `Context.Service<X>()("<key>", {make: Effect.fn("make")(function* () { … })})` with
-  `public static readonly layer = Layer.effect(this, ownSpans("X", this.make()))`; a member that takes no arguments is
-  an `Effect`, built once in `make`. A port's implementation is a class too, named as its port without the `I`, whose
-  layer provides the port, `Layer.effect(IPort, ownSpans("<Owner>", this.make()))`; the port class stays in
-  `application/interfaces` or `domain/entities`, and nothing yields the implementation class itself.
+- **Solution:** a class is `Context.Service<X>()("<key>", {make: Effect.fn("X.make")(function* () { … })})` with
+  `public static readonly layer = Layer.effect(this, this.make())`; a member that takes no arguments is an `Effect`,
+  built once in `make`. A port's implementation is a class too, named as its port without the `I`, whose layer provides
+  the port, `Layer.effect(IPort, this.make())`; the port class stays in `application/interfaces` or `domain/entities`,
+  and nothing yields the implementation class itself.
 - **Alternatives considered:** a unit's dependencies passed to its functions as parameters, which the user turned down
   outright. Module-level functions bound to their dependencies by helper files (a `.module.ts` per feature and two
   helpers of our own were drafted), dropped as a pattern Effect's docs do not use.
@@ -70,36 +70,36 @@ Which layer is given what, the units that yield it, the levels they merge into, 
   that is a unit stops passing its needs up to its callers. A long `make` is accepted, and a class is divided where its
   parts clearly belong apart, as a judgement, not a rule. What is left is not a unit because it cannot be one:
   - `activate` and `deactivate` in `extension.ts`, which VS Code calls directly.
-  - `ownSpans` (`packages/trace/src/ownSpans.utils.ts`), which every class's `static layer` line calls outside any
-    effect, so it cannot be a service that is yielded.
+
   - `TaggedErrors` (`packages/errors/src/taggedErrors.utils.ts`), which builds a file's errors class when the file
     loads, outside any effect, so it cannot be an `Effect.fn` inside a `make`.
   - A file that holds only definitions: value objects, entities, DTOs, ports, table models and types.
 - **Solution:**
-  - `BaseService` and `BaseRepository` each have one member, `makeFor`, which binds a repository or an entity table and
-    returns the base functions through `ownSpans`, so they keep `BaseService` and `BaseRepository` as owner. A service
-    or repository yields the class at the top of its `make`, calls `makeFor` there, and its layer provides the base
-    class's layer.
-  - `RegisterCommandMiddleware` has one member, `registerCommand`; a controller yields it and its layer provides it.
-    Since `ownSpans` keeps the caller's owner on a callback handed to a unit, a command handler's spans stay its
-    controller's.
+  - `BaseService` has one member, `makeForRepository`, which binds a repository, and `BaseRepository` one,
+    `makeForTable`, which binds an entity table; each returns the base functions, each named `BaseService.…` or
+    `BaseRepository.…` like any other function of its class. A service or repository yields the class at the top of its
+    `make`, calls it there, and its layer provides the base class's layer.
+  - `RegisterCommandMiddleware` has one member, `registerCommand`; a controller yields it and its layer provides it. A
+    span's name is written in its function, so a command handler's spans stay its controller's although the middleware
+    runs it.
   - `BackgroundJobs`, `Database` and `TraceLog` are the classes of the layer files that held functions; `DatabaseLayer`
     and `TraceLogLayer` are still exported, built from their class's members, and the trace log's formatters are
     closures inside `TraceLog`'s `make`.
   - Lint allows a `Context.Service` class in every role that holds functions and bans it in a definition file, bans a
     top-level `Effect.fn` in `apps/extension/src` and `packages/vscode/src` with no exemption, and bans a parameter
     named or typed `…Dependencies` everywhere. `aggregor/max-lines-per-function` exempts a class's `make`, or a
-    `make<Name>` const such as `makeFor`, that holds `Effect.fn`s, while every function inside it stays capped at 30
-    lines.
+    `make<Name>` const such as `makeForTable`, that holds `Effect.fn`s, while every function inside it stays capped at
+    30 lines.
 - **Alternatives considered:** plain functions for the parts that need nothing, which needs a call per file that lint
   cannot make, and leaves a helper that later needs a port to pass it up to every caller. A view as a layer with no
   class, a top-level `make<Owner>View` passed to `Layer.effectDiscard`, since nothing calls it: dropped, as one form for
   every file that holds functions is simpler to read and to lint than a second shape for the files nothing calls. The
   same shape for port implementations, a top-level `make<Owner>` with an exported layer const, dropped for the same
   reason. Exceptions for the middleware, which stayed top-level functions so its spans kept the calling controller's
-  mark, until `ownSpans` kept a callback's caller; for `makeBaseService(repository)` and
-  `makeBaseRepository(entityTable)`, build-time factories generic over what they bind, now each a class's `makeFor`; and
-  for the layer files and the trace log's formatters. The user wanted the rule with no exception that could be avoided.
+  mark while the owner was a mark put on at run time (`decisions/tracing.md`); for `makeBaseService(repository)` and
+  `makeBaseRepository(entityTable)`, build-time factories generic over what they bind, now
+  `BaseService.makeForRepository` and `BaseRepository.makeForTable`; and for the layer files and the trace log's
+  formatters. The user wanted the rule with no exception that could be avoided.
 
 ## Each level is merged under its own span, and given the levels below where they meet
 
@@ -127,8 +127,8 @@ Which layer is given what, the units that yield it, the levels they merge into, 
   and its error message's function, so its layer is all its commands need, and it yields its error message itself.
 - **Solution:** each controller's `make` registers its commands, and `extension.ts` merges the controllers' layers into
   `PresentationLayer`. Open Settings only drives VS Code and has no use case, so `AppController` registers it and calls
-  `VscodeUtils`'s `openAggregorSettingsInSettingsEditor`. The controller's import rule allows `@middlewares`,
-  `@errorMessages` and `@pkg/constants` for registering, and `@pkg/vscode/src/vscode.utils.ts`, whose `VscodeUtils`
+  `VscodeUtils`'s `openAggregorSettingsInSettingsEditor`. The controller's import rule allows `@/middlewares`,
+  `@/errorMessages` and `@pkg/constants` for registering, and `@pkg/vscode/src/vscode.utils.ts`, whose `VscodeUtils`
   decodes a command's input and opens the settings.
 - **Alternatives considered:** `routes.ts` registering every command, as before, which gives every controller the needs
   of all of them.

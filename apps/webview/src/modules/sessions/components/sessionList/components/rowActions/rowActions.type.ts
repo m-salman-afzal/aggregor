@@ -1,5 +1,5 @@
 import type {RowAction, UserInput} from "@/modules/sessions/sessions.type.ts";
-import type {AgentRowData, ProjectRowData, RowCommandArgument} from "@views/sessions/sessions.view.type.ts";
+import type {AgentRowData, ProjectRowData, RowCommandArgument} from "@/views/sessions/sessions.view.type.ts";
 
 export type AskingAction = (
   askingContext: AskingContext,

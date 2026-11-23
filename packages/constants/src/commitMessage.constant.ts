@@ -21,5 +21,9 @@ export const COMMIT_MESSAGE_ERRORS = {
   GIT_REPOSITORY_UNAVAILABLE: "No Git repository found for this source control.",
   INVALID_SETTINGS: (reason: string) => `Invalid settings: ${reason}`,
   NOTHING_STAGED: "Nothing is staged. Stage the changes to commit in Source Control, then generate the message.",
+  PUSH_DETACHED_HEAD: "Committed, but not pushed: no branch is checked out.",
+  PUSH_FAILED: "Committed, but the push failed. Check the Git output for details.",
+  PUSH_REMOTE_AMBIGUOUS: (remoteNames: string) =>
+    `Committed, but not pushed: the branch has no upstream and none of the remotes (${remoteNames}) is origin. Publish the branch from Source Control.`,
   SOURCE_CONTROL_ROOT_NOT_FOUND: "This source control has no root folder."
 } as const;

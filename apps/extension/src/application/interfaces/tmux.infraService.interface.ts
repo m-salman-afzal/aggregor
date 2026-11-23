@@ -1,13 +1,15 @@
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
-import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {Context, Schema} from "effect";
 
-import type {TerminalCommand} from "@interfaces/terminal.infraService.interface.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {LaunchPlanValueObject} from "@valueObjects/launchPlan.valueObject.ts";
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+import {EntityIdValueObjectSchema} from "@/valueObjects/entityId.valueObject.ts";
+import {ProjectPathValueObjectSchema} from "@/valueObjects/projectPath.valueObject.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
 import type {Effect, Stream, SubscriptionRef} from "effect";
+
+import type {TerminalCommand} from "@/interfaces/terminal.infraService.interface.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
+import type {LaunchPlanValueObject} from "@/valueObjects/launchPlan.valueObject.ts";
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 export interface FolderShellRequest {
   readonly folderPath: ProjectPathValueObject;
@@ -42,6 +44,10 @@ export class ITmuxInfraService extends Context.Service<
   {
     readonly checkTmuxVersion: Effect.Effect<string, ITmuxInfraServiceErrors["TmuxUnavailableError"]>;
     readonly endFolderShell: (folderPath: ProjectPathValueObject) => Effect.Effect<void>;
+    readonly pasteTextIntoSessionAgent: (
+      sessionId: EntityIdValueObject,
+      text: string
+    ) => Effect.Effect<void, ITmuxInfraServiceErrors["TmuxSessionNotRunningError"]>;
     readonly prepareFolderShellTerminalCommand: (
       folderShellRequest: FolderShellRequest
     ) => Effect.Effect<TerminalCommand, ITmuxInfraServiceErrors["TmuxUnavailableError"]>;

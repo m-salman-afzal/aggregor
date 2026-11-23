@@ -6,7 +6,7 @@ import {
 import {askHostForMoreSessions} from "@/modules/sessions/sessions.service.ts";
 
 import type {SessionListId} from "@/modules/sessions/sessions.type.ts";
-import type {ProjectRowData} from "@views/sessions/sessions.view.type.ts";
+import type {ProjectRowData} from "@/views/sessions/sessions.view.type.ts";
 
 interface UseShowMoreSessionsProps {
   readonly listId: SessionListId;

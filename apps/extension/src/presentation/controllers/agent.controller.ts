@@ -1,27 +1,29 @@
-import {SetDefaultAgentRequestDtoSchema} from "@dtos/agent.dto.ts";
-import {AppErrorMessage} from "@errorMessages/app.errorMessage.ts";
-import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
-import {AGENT_COMMANDS} from "@pkg/constants/src/agent.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
-import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {AgentService} from "@services/agent.service.ts";
 import {Context, Effect, Layer} from "effect";
+
+import {SetDefaultAgentRequestDtoSchema} from "@/dtos/agent.dto.ts";
+import {AppErrorMessage} from "@/errorMessages/app.errorMessage.ts";
+import {RegisterCommandMiddleware} from "@/middlewares/registerCommand.middleware.ts";
+import {AgentService} from "@/services/agent.service.ts";
+import {AGENT_COMMANDS} from "@pkg/constants/src/agent.constant.ts";
+import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 
 export class AgentController extends Context.Service<AgentController>()(
   "aggregor-app/presentation/controllers/agent.controller/AgentController",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("AgentController.make")(function* () {
       const registerCommandMiddleware = yield* RegisterCommandMiddleware;
       const agentService = yield* AgentService;
       const appErrorMessage = yield* AppErrorMessage;
       const vscodeUtils = yield* VscodeUtils;
 
-      const setChosenAgentAsDefault = Effect.fn("setChosenAgentAsDefault")(function* (chosenAgent: unknown) {
+      const setChosenAgentAsDefault = Effect.fn("AgentController.setChosenAgentAsDefault")(function* (
+        chosenAgent: unknown
+      ) {
         const request = yield* vscodeUtils.decodeVsCodeArgument(SetDefaultAgentRequestDtoSchema, chosenAgent);
         yield* agentService.setDefaultAgent(request);
       });
 
-      const listAgentsForSessionsView = Effect.fn("listAgentsForSessionsView")(function* () {
+      const listAgentsForSessionsView = Effect.fn("AgentController.listAgentsForSessionsView")(function* () {
         return yield* agentService.listAgents;
       });
 
@@ -35,7 +37,7 @@ export class AgentController extends Context.Service<AgentController>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("AgentController", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([AppErrorMessage.layer, RegisterCommandMiddleware.layer])
   );
 }

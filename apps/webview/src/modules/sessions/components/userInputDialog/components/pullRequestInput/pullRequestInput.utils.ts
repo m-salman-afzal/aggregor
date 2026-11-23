@@ -1,6 +1,6 @@
 import {GITHUB_CLI_LABELS, PULL_REQUEST_LIST_NOTICES} from "@pkg/constants/src/gitHubCli.constant.ts";
 
-import type {SessionPullRequestsDto} from "@dtos/pullRequest.dto.ts";
+import type {SessionPullRequestsDto} from "@/dtos/pullRequest.dto.ts";
 
 export const findPullRequestNotice = (pullRequests: SessionPullRequestsDto | undefined) => {
   if (pullRequests === undefined) return GITHUB_CLI_LABELS.LISTING;

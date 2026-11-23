@@ -1,17 +1,17 @@
 import {NodeServices} from "@effect/platform-node";
-import {TmuxSocketUtils} from "@infraUtils/tmuxSocket.utils.ts";
-import {ITmuxInfraServiceErrors} from "@interfaces/tmux.infraService.interface.ts";
-import {SYSTEMD_SCOPE, TMUX} from "@pkg/constants/src/tmux.constant.ts";
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
-import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {Array, Context, Effect, Layer, Result, String} from "effect";
+import {Array, Context, Effect, Layer, Result, Stream, String} from "effect";
 import {ChildProcess} from "effect/process";
 import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 
-import type {TmuxClient} from "@infraServices/tmux/tmux.infraService.type.ts";
-import type {TerminalCommand} from "@interfaces/terminal.infraService.interface.ts";
-import type {TmuxSessionPanes} from "@interfaces/tmux.infraService.interface.ts";
+import {TmuxSocketUtils} from "@/infraUtils/tmuxSocket.utils.ts";
+import {ITmuxInfraServiceErrors} from "@/interfaces/tmux.infraService.interface.ts";
+import {SYSTEMD_SCOPE, TMUX} from "@pkg/constants/src/tmux.constant.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
+
+import type {TmuxClient} from "@/infraServices/tmux/tmux.infraService.type.ts";
+import type {TerminalCommand} from "@/interfaces/terminal.infraService.interface.ts";
+import type {TmuxSessionPanes} from "@/interfaces/tmux.infraService.interface.ts";
 
 export class TmuxServerUtilsErrors extends TaggedErrors({
   TmuxClientNotFoundError: {},
@@ -21,13 +21,13 @@ export class TmuxServerUtilsErrors extends TaggedErrors({
 export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
   "aggregor-app/infrastructure/services/tmux/tmuxServer.utils/TmuxServerUtils",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("TmuxServerUtils.make")(function* () {
       const childProcessSpawner = yield* ChildProcessSpawner;
       const vsCodeApi = yield* VsCodeApi;
       const tmuxSocketUtils = yield* TmuxSocketUtils;
 
       // Without a systemd user manager (macOS, WSL without systemd, a container) sessions run in VS Code's cgroup.
-      const probeOwnScope = Effect.fn("probeOwnScope")(function* () {
+      const probeOwnScope = Effect.fn("TmuxServerUtils.probeOwnScope")(function* () {
         const probeExitCode = yield* Effect.orElseSucceed(
           childProcessSpawner.exitCode(
             ChildProcess.make(SYSTEMD_SCOPE.COMMAND, [...SYSTEMD_SCOPE.OPTIONS, "--", SYSTEMD_SCOPE.PROBE_COMMAND])
@@ -44,14 +44,16 @@ export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
       const tmuxConfigPath = vsCodeApi.Uri.joinPath(vsCodeApi.extensionUri, TMUX.CONFIG_FILE).fsPath;
       const tmuxSocketPath = yield* tmuxSocketUtils.getTmuxSocketPath;
 
-      const runTmuxCommand = Effect.fn("runTmuxCommand")(function* (tmuxArguments: readonly string[]) {
+      const runTmuxCommand = Effect.fn("TmuxServerUtils.runTmuxCommand")(function* (tmuxArguments: readonly string[]) {
         return yield* childProcessSpawner.lines(
           ChildProcess.make(TMUX.COMMAND, ["-S", tmuxSocketPath, ...tmuxArguments])
         );
       });
 
       // Reading a command's lines succeeds whatever tmux answers, so its exit code says whether it ran.
-      const runCheckedTmuxCommand = Effect.fn("runCheckedTmuxCommand")(function* (tmuxArguments: readonly string[]) {
+      const runCheckedTmuxCommand = Effect.fn("TmuxServerUtils.runCheckedTmuxCommand")(function* (
+        tmuxArguments: readonly string[]
+      ) {
         const tmuxExitCode = yield* Effect.orElseSucceed(
           childProcessSpawner.exitCode(ChildProcess.make(TMUX.COMMAND, ["-S", tmuxSocketPath, ...tmuxArguments])),
           () => -1
@@ -63,7 +65,7 @@ export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
       });
 
       // A build without a version number, such as "tmux master", is taken as new enough.
-      const checkTmuxVersion = Effect.fn("checkTmuxVersion")(function* () {
+      const checkTmuxVersion = Effect.fn("TmuxServerUtils.checkTmuxVersion")(function* () {
         const versionLines = yield* Effect.mapError(
           childProcessSpawner.lines(ChildProcess.make(TMUX.COMMAND, ["-V"])),
           () => ITmuxInfraServiceErrors.TmuxUnavailableError.make({})
@@ -88,11 +90,11 @@ export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
       });
 
       // tmux reads a "#" in a folder it is given as the start of a format, as in "#S", unless the "#" is doubled.
-      const escapeTmuxFormat = Effect.fn("escapeTmuxFormat")(function* (text: string) {
+      const escapeTmuxFormat = Effect.fn("TmuxServerUtils.escapeTmuxFormat")(function* (text: string) {
         return String.replaceAll("#", "##")(text);
       });
 
-      const listTmuxSessionNames = Effect.fn("listTmuxSessionNames")(function* () {
+      const listTmuxSessionNames = Effect.fn("TmuxServerUtils.listTmuxSessionNames")(function* () {
         return yield* Effect.orElseSucceed(
           runTmuxCommand(["list-sessions", "-F", "#{session_name}"]),
           (): readonly string[] => []
@@ -100,7 +102,7 @@ export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
       });
 
       // The path comes last, since it alone can hold spaces.
-      const listTmuxClients = Effect.fn("listTmuxClients")(function* () {
+      const listTmuxClients = Effect.fn("TmuxServerUtils.listTmuxClients")(function* () {
         const clientLines = yield* Effect.orElseSucceed(
           runTmuxCommand([...["list-clients", "-F"], "#{client_pid} #{client_name} #{session_name} #{session_path}"]),
           (): readonly string[] => []
@@ -120,7 +122,7 @@ export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
       });
 
       // Every pane of every window, so a pane the user split off counts too; #{pid} is the server's own.
-      const readTmuxSessionPanes = Effect.fn("readTmuxSessionPanes")(function* (sessionName: string) {
+      const readTmuxSessionPanes = Effect.fn("TmuxServerUtils.readTmuxSessionPanes")(function* (sessionName: string) {
         const paneLines = yield* Effect.orElseSucceed(
           runTmuxCommand(["list-panes", "-s", "-t", `=${sessionName}`, "-F", "#{pane_pid} #{pid}"]),
           (): readonly string[] => []
@@ -140,7 +142,7 @@ export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
         return tmuxSessionPanes;
       });
 
-      const findTmuxClient = Effect.fn("findTmuxClient")(function* (terminalProcessId: number) {
+      const findTmuxClient = Effect.fn("TmuxServerUtils.findTmuxClient")(function* (terminalProcessId: number) {
         const tmuxClients = yield* listTmuxClients();
 
         return yield* Effect.fromResult(
@@ -152,7 +154,7 @@ export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
       });
 
       // -E keeps the terminal's own variables, the id of the session it opened with among them, out of the session it now shows.
-      const switchTmuxClient = Effect.fn("switchTmuxClient")(function* (
+      const switchTmuxClient = Effect.fn("TmuxServerUtils.switchTmuxClient")(function* (
         terminalProcessId: number,
         sessionName: string
       ) {
@@ -164,14 +166,43 @@ export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
         ]);
       });
 
-      const killTmuxSession = Effect.fn("killTmuxSession")(function* (sessionName: string) {
+      const killTmuxSession = Effect.fn("TmuxServerUtils.killTmuxSession")(function* (sessionName: string) {
         yield* Effect.ignore(runTmuxCommand(["kill-session", "-t", `=${sessionName}`]), {
           log: "Debug",
           message: "tmux did not kill the session"
         });
       });
 
-      const prepareOwnScopeArguments = Effect.fn("prepareOwnScopeArguments")(function* (
+      // tmux reads a trailing ";" in an argument as a command separator, so the text goes in on stdin.
+      const loadTmuxPasteBuffer = Effect.fn("TmuxServerUtils.loadTmuxPasteBuffer")(function* (text: string) {
+        const tmuxExitCode = yield* Effect.orElseSucceed(
+          childProcessSpawner.exitCode(
+            ChildProcess.make(TMUX.COMMAND, ["-S", tmuxSocketPath, "load-buffer", "-b", TMUX.PASTE_BUFFER_NAME, "-"], {
+              stdin: Stream.make(text).pipe(Stream.encodeText)
+            })
+          ),
+          () => -1
+        );
+
+        return yield* tmuxExitCode === 0
+          ? Effect.void
+          : Effect.fail(TmuxServerUtilsErrors.TmuxCommandFailedError.make());
+      });
+
+      // tmux skips the paste brackets in copy mode, which the mouse wheel leaves, so each newline would reach the pane as Enter.
+      const pasteTextIntoTmuxSession = Effect.fn("TmuxServerUtils.pasteTextIntoTmuxSession")(function* (
+        sessionName: string,
+        text: string
+      ) {
+        yield* Effect.ignore(runCheckedTmuxCommand(["send-keys", "-X", "-t", `=${sessionName}:`, "cancel"]));
+        yield* loadTmuxPasteBuffer(text);
+        yield* runCheckedTmuxCommand([
+          ...["paste-buffer", "-p", "-d", "-b", TMUX.PASTE_BUFFER_NAME],
+          ...["-t", `=${sessionName}:`]
+        ]);
+      });
+
+      const prepareOwnScopeArguments = Effect.fn("TmuxServerUtils.prepareOwnScopeArguments")(function* (
         memoryLimit: string | undefined
       ) {
         if (!canRunInOwnScope) return [];
@@ -182,7 +213,7 @@ export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
       });
 
       // The terminal's tmux client starts the tmux server, which stays in the client's cgroup, so the client gets one of its own.
-      const prepareTerminalCommand = Effect.fn("prepareTerminalCommand")(function* (
+      const prepareTerminalCommand = Effect.fn("TmuxServerUtils.prepareTerminalCommand")(function* (
         tmuxCommandArguments: readonly string[]
       ) {
         const tmuxArguments = [...["-S", tmuxSocketPath, "-f", tmuxConfigPath, "-u"], ...tmuxCommandArguments];
@@ -203,6 +234,7 @@ export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
         killTmuxSession,
         listTmuxClients: listTmuxClients(),
         listTmuxSessionNames: listTmuxSessionNames(),
+        pasteTextIntoTmuxSession,
         prepareOwnScopeArguments,
         prepareTerminalCommand,
         probeOwnScope: probeOwnScope(),
@@ -215,7 +247,7 @@ export class TmuxServerUtils extends Context.Service<TmuxServerUtils>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("TmuxServerUtils", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([TmuxSocketUtils.layer, NodeServices.layer])
   );
 }

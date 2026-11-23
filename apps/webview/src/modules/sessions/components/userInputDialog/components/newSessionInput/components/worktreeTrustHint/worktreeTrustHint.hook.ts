@@ -1,6 +1,7 @@
+import {useState} from "react";
+
 import {copyPathThenManageTrust} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/components/worktreeTrustHint/worktreeTrustHint.utils.ts";
 import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.store.ts";
-import {useState} from "react";
 
 interface UseWorktreeTrustHintProps {
   readonly folderPath: string;

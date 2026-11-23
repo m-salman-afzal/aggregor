@@ -6,7 +6,7 @@ import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.stor
 import {makeProjectKey} from "@/modules/sessions/stores/sessions/sessions.utils.ts";
 
 import type {SessionListId} from "@/modules/sessions/sessions.type.ts";
-import type {ProjectRowData} from "@views/sessions/sessions.view.type.ts";
+import type {ProjectRowData} from "@/views/sessions/sessions.view.type.ts";
 
 interface UseProjectGroupProps {
   readonly listId: SessionListId;

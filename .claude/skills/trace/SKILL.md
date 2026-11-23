@@ -51,21 +51,20 @@ fill the gaps with guesses.
 - **Attributes** after the outcome are what the code annotated the span with, such as `projectPath` and
   `workspaceFolderPaths` on `WorkspaceInfraService.showOnlyProjectFolder`.
 - **`[warning]` and `[error]` lines** carry the message, then the cause with a stack whose frames are span names as the
-  code writes them, the bare name of a const inside a `make`
-  (`at updateWorkspaceFolders (file:///…/dist/extension.js:15984:16)`). The frame for a call into a unit points at
-  `ownSpans.utils.ts`, not at the calling line.
+  code writes them, each at the line that made the call
+  (`at WorkspaceInfraService.updateWorkspaceFolders (file:///…/dist/extension.js:15984:16)`), followed by a
+  `(definition)` frame at the function itself.
 - **From a span to its code:** `<Owner>.<name>` is the const `<name>` inside the `make` of the class named `<Owner>`, in
   the file named for it: `WorkspaceInfraService.showOnlyProjectFolder` is `showOnlyProjectFolder` in
   `apps/extension/src/infrastructure/services/vscode/workspace.infraService.ts`, `RepositoryUtils.encodeStoredColumns`
-  is in `repository.utils.ts`, and `<Owner>.make` is the class's `make`. The code names the span `"<name>"` alone and
-  the trace log puts the unit in front, so search the owner's file for `"<name>"`. An effect, a stream or a callback
-  handed to a unit keeps its caller's name, so a line names the file that holds the code:
+  is in `repository.utils.ts`, and `<Owner>.make` is the class's `make`. The code names the span `"<Owner>.<name>"`, so
+  one search for the name in the line finds it. A span's name is written in its function, so work handed to another unit
+  keeps it, and a line names the file that holds the code:
   `aggregorApp.renameSession > SessionController.renameChosenSession > SessionService.renameSession > BaseService.updateEntity > BaseRepository.updateRow > RepositoryUtils.encodeStoredColumns`
   reads straight down the files, although `RegisterCommandMiddleware` runs the handler, and
-  `CommitMessageService.writeCommitMessage` is in `commitMessage.service.ts` although `VscodeUtils` runs it. The one
-  exception is a library's span with an undotted name, which takes the unit it ran in: `BaseRepository.sqlite` is a
-  query Effect's SQL client ran for `base.repository.ts`. When the owner's file has no such const, search the whole
-  source: `grep -rn '"<name>"' apps/extension/src packages/vscode/src`.
+  `CommitMessageService.writeCommitMessage` is in `commitMessage.service.ts` although `VscodeUtils` runs it. A span with
+  no owner in front is a library's, such as `sqlite`, a query Effect's SQL client ran; the span above it in the line
+  names the unit that ran it.
 - **The timeline:** take the lines from a little before the user's report to the end, and find the first failure. A
   failure that repeats is usually the effect of an earlier one, whose state it keeps hitting.
 

@@ -1,3 +1,5 @@
+import {StarIcon} from "lucide-react";
+
 import {
   CURRENT_COMMIT_OPTION_ID,
   NEW_SESSION_FIELDS
@@ -6,8 +8,9 @@ import {SESSION_WORKING_TREES} from "@/modules/sessions/components/userInputDial
 import {askHostForBranches, runCommandOnHost} from "@/modules/sessions/sessions.service.ts";
 import {AGENT_COMMANDS, AGENT_LABELS} from "@pkg/constants/src/agent.constant.ts";
 import {SESSION_LABELS, WORKING_TREE_CHOICE_TAGS} from "@pkg/constants/src/session.constant.ts";
-import {StarIcon} from "lucide-react";
 
+import type {SessionListItemDto} from "@/dtos/session.dto.ts";
+import type {ProjectBranchesDto} from "@/dtos/worktree.dto.ts";
 import type {
   NewSessionChoices,
   NewSessionOptionGroup,
@@ -16,9 +19,7 @@ import type {
   NewSessionRequestChoices
 } from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.type.ts";
 import type {UserInputOption} from "@/modules/sessions/sessions.type.ts";
-import type {SessionListItemDto} from "@dtos/session.dto.ts";
-import type {ProjectBranchesDto} from "@dtos/worktree.dto.ts";
-import type {AgentRowData, CommandRequest, ProjectRowData} from "@views/sessions/sessions.view.type.ts";
+import type {AgentRowData, CommandRequest, ProjectRowData} from "@/views/sessions/sessions.view.type.ts";
 
 // The host starts the default agent when the request names none, so a hidden agent choice sends none.
 export const isAgentChoiceShown = (agentRows: readonly AgentRowData[], skipAgentPicker: boolean) =>

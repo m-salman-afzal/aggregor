@@ -1,13 +1,15 @@
+import {readdirSync} from "node:fs";
+import {join} from "node:path";
+
 import {NodeServices} from "@effect/platform-node";
 import {SqliteClient} from "@effect/sql-sqlite-node";
-import {DatabaseUtils} from "@infraUtils/database.utils.ts";
-import {DATABASE_BACKUP, DATABASE_FILE, MIGRATIONS} from "@pkg/constants/src/database.constant.ts";
 import {Array, Effect, Order, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {SqlClient} from "effect/sql/SqlClient";
-import {readdirSync} from "node:fs";
-import {join} from "node:path";
 import {describe, expect, it} from "vitest";
+
+import {DatabaseUtils} from "@/infraUtils/database.utils.ts";
+import {DATABASE_BACKUP, DATABASE_FILE, MIGRATIONS} from "@pkg/constants/src/database.constant.ts";
 
 import type {Path} from "effect/Path";
 
@@ -258,7 +260,7 @@ const expectBackupOfRowsBefore = Effect.fn("expectBackupOfRowsBefore")(function*
   expect(yield* Effect.provide(readTableSnapshots(), backupLayer)).toStrictEqual(snapshotsBefore);
 });
 
-const checkUpgradeFrom = Effect.fn("checkUpgradeFrom")(function* (
+const checkUpgradeFromAppliedMigrations = Effect.fn("checkUpgradeFromAppliedMigrations")(function* (
   testFolderPath: string,
   appliedMigrationCount: number
 ) {
@@ -310,5 +312,7 @@ describe("migrations", () => {
 
   for (const [migrationIndex, migrationName] of MIGRATION_NAMES.entries())
     it(`a database at ${migrationName} keeps every row when it migrates to the newest`, () =>
-      Effect.runPromise(runInTestFolder((testFolderPath) => checkUpgradeFrom(testFolderPath, migrationIndex + 1))));
+      Effect.runPromise(
+        runInTestFolder((testFolderPath) => checkUpgradeFromAppliedMigrations(testFolderPath, migrationIndex + 1))
+      ));
 });

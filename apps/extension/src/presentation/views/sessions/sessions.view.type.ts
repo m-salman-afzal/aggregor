@@ -1,16 +1,17 @@
-import type {AgentListItemDto} from "@dtos/agent.dto.ts";
-import type {ProjectListItemDto} from "@dtos/project.dto.ts";
-import type {SessionPullRequestsDto} from "@dtos/pullRequest.dto.ts";
-import type {SessionListItemDto, SessionPageDto, WorktreeListItemDto} from "@dtos/session.dto.ts";
-import type {ImportableSessionsDto} from "@dtos/sessionImport.dto.ts";
-import type {SessionProcessesDto} from "@dtos/sessionProcess.dto.ts";
-import type {ProjectBranchesDto, ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
+import type {Ref, SubscriptionRef} from "effect";
+
+import type {AgentListItemDto} from "@/dtos/agent.dto.ts";
+import type {ProjectListItemDto} from "@/dtos/project.dto.ts";
+import type {SessionPullRequestsDto} from "@/dtos/pullRequest.dto.ts";
+import type {SessionListItemDto, SessionPageDto, WorktreeListItemDto} from "@/dtos/session.dto.ts";
+import type {ImportableSessionsDto} from "@/dtos/sessionImport.dto.ts";
+import type {SessionProcessesDto} from "@/dtos/sessionProcess.dto.ts";
+import type {ProjectBranchesDto, ProjectLeftoversDto} from "@/dtos/worktree.dto.ts";
 import type {
   SESSION_LISTS,
   SESSIONS_VIEW_MESSAGE_TAGS,
   SESSIONS_WEBVIEW_MESSAGE_TAGS
 } from "@pkg/constants/src/sessionsView.constant.ts";
-import type {Ref, SubscriptionRef} from "effect";
 
 export interface SessionRowData {
   readonly agentIconUri?: string;

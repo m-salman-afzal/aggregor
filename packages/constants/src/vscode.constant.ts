@@ -1,4 +1,5 @@
 export const VS_CODE_COMMANDS = {
+  FOCUS_ACTIVE_EDITOR_GROUP: "workbench.action.focusActiveEditorGroup",
   MANAGE_WORKSPACE_TRUST: "workbench.trust.manage",
   OPEN_FOLDER: "vscode.openFolder",
   OPEN_SETTINGS: "workbench.action.openSettings",

@@ -1,11 +1,3 @@
-import {SESSION_IMPORT_LABELS} from "@pkg/constants/src/agentHistory.constant.ts";
-import {APP_COMMANDS, APP_LABELS} from "@pkg/constants/src/app.constant.ts";
-import {LEFTOVER_LABELS, WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
-import {GITHUB_CLI_COMMANDS} from "@pkg/constants/src/gitHubCli.constant.ts";
-import {PROJECT_COMMANDS, PROJECT_LABELS} from "@pkg/constants/src/project.constant.ts";
-import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
-import {SESSION_LISTS, SESSIONS_WEBVIEW} from "@pkg/constants/src/sessionsView.constant.ts";
-import {TERMINAL_COMMANDS} from "@pkg/constants/src/terminal.constant.ts";
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
@@ -29,6 +21,15 @@ import {
   Trash2Icon,
   UnlinkIcon
 } from "lucide-react";
+
+import {SESSION_IMPORT_LABELS} from "@pkg/constants/src/agentHistory.constant.ts";
+import {APP_COMMANDS, APP_LABELS} from "@pkg/constants/src/app.constant.ts";
+import {LEFTOVER_LABELS, WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
+import {GITHUB_CLI_COMMANDS} from "@pkg/constants/src/gitHubCli.constant.ts";
+import {PROJECT_COMMANDS, PROJECT_LABELS} from "@pkg/constants/src/project.constant.ts";
+import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
+import {SESSION_LISTS, SESSIONS_WEBVIEW} from "@pkg/constants/src/sessionsView.constant.ts";
+import {TERMINAL_COMMANDS} from "@pkg/constants/src/terminal.constant.ts";
 
 import type {RowAction} from "@/modules/sessions/sessions.type.ts";
 

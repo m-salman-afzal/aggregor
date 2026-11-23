@@ -1,7 +1,8 @@
-import {PULL_REQUEST_LIST_PROBLEMS} from "@pkg/constants/src/gitHubCli.constant.ts";
-import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
-import {PullRequestStateValueObjectSchema} from "@valueObjects/pullRequestState.valueObject.ts";
 import {Schema} from "effect";
+
+import {EntityIdValueObjectSchema} from "@/valueObjects/entityId.valueObject.ts";
+import {PullRequestStateValueObjectSchema} from "@/valueObjects/pullRequestState.valueObject.ts";
+import {PULL_REQUEST_LIST_PROBLEMS} from "@pkg/constants/src/gitHubCli.constant.ts";
 
 export const OpenSessionPullRequestRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
 

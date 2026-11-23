@@ -1,9 +1,11 @@
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {Context} from "effect";
 
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
 import type {Effect, Stream} from "effect";
+
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 export interface WorkspaceFolderProject {
   readonly name: string;

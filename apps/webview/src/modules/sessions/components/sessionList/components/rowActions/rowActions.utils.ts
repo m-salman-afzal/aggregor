@@ -20,14 +20,14 @@ import {GITHUB_CLI_COMMANDS, GITHUB_CLI_LABELS} from "@pkg/constants/src/gitHubC
 import {PROJECT_COMMANDS, PROJECT_SETTINGS_LABELS} from "@pkg/constants/src/project.constant.ts";
 import {SESSION_COMMANDS, SESSION_LABELS, SESSION_NOTICES} from "@pkg/constants/src/session.constant.ts";
 
+import type {SessionListItemDto} from "@/dtos/session.dto.ts";
 import type {
   AskingAction,
   AskingContext,
   MenuGroup
 } from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.type.ts";
 import type {RowAction} from "@/modules/sessions/sessions.type.ts";
-import type {SessionListItemDto} from "@dtos/session.dto.ts";
-import type {CommandRequest, ProjectRowData, RowCommandArgument} from "@views/sessions/sessions.view.type.ts";
+import type {CommandRequest, ProjectRowData, RowCommandArgument} from "@/views/sessions/sessions.view.type.ts";
 
 const findSharedRowLabel = (actionGroup: readonly RowAction[]) => {
   const [firstAction] = actionGroup;

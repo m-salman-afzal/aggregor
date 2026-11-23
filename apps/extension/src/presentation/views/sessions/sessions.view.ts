@@ -1,5 +1,9 @@
-import {SessionController} from "@controllers/session.controller.ts";
-import {SessionProcessController} from "@controllers/sessionProcess.controller.ts";
+import {Array, Context, Effect, Layer, Match, Schema, Stream, SubscriptionRef} from "effect";
+
+import {SessionController} from "@/controllers/session.controller.ts";
+import {SessionProcessController} from "@/controllers/sessionProcess.controller.ts";
+import {SessionsDrawingUtils} from "@/views/sessions/sessionsDrawing.utils.ts";
+import {SessionsPageUtils} from "@/views/sessions/sessionsPage.utils.ts";
 import {AGENT_SETTINGS} from "@pkg/constants/src/agent.constant.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/app.constant.ts";
 import {
@@ -10,17 +14,14 @@ import {
   SESSIONS_WEBVIEW_MESSAGE_TAGS
 } from "@pkg/constants/src/sessionsView.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {SessionsDrawingUtils} from "@views/sessions/sessionsDrawing.utils.ts";
-import {SessionsPageUtils} from "@views/sessions/sessionsPage.utils.ts";
-import {Array, Context, Effect, Layer, Match, Schema, Stream, SubscriptionRef} from "effect";
 
-import type {SessionListChangeDto} from "@dtos/session.dto.ts";
-import type {SessionProcessesDto} from "@dtos/sessionProcess.dto.ts";
-import type {CommandRequest, OpenDropdownSessionIds} from "@views/sessions/sessions.view.type.ts";
 import type {WebviewView} from "vscode";
+
+import type {SessionListChangeDto} from "@/dtos/session.dto.ts";
+import type {SessionProcessesDto} from "@/dtos/sessionProcess.dto.ts";
+import type {CommandRequest, OpenDropdownSessionIds} from "@/views/sessions/sessions.view.type.ts";
 
 class SessionsViewErrors extends TaggedErrors({
   RowCommandFailedError: {cause: Schema.Unknown, commandId: Schema.String}
@@ -46,7 +47,7 @@ const SessionsWebviewMessageSchema = Schema.TaggedUnion({
 export class SessionsView extends Context.Service<SessionsView>()(
   "aggregor-app/presentation/views/sessions/sessions.view/SessionsView",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("SessionsView.make")(function* () {
       const sessionController = yield* SessionController;
       const sessionProcessController = yield* SessionProcessController;
       const sessionsDrawingUtils = yield* SessionsDrawingUtils;
@@ -55,7 +56,7 @@ export class SessionsView extends Context.Service<SessionsView>()(
       const vscodeUtils = yield* VscodeUtils;
       const openDropdownSessionIds: OpenDropdownSessionIds = yield* SubscriptionRef.make<readonly string[]>([]);
 
-      const redrawChange = Effect.fn("redrawChange")(
+      const redrawChange = Effect.fn("SessionsView.redrawChange")(
         function* (sessionListChange: SessionListChangeDto) {
           yield* sessionsDrawingUtils.drawChange(sessionListChange);
         },
@@ -63,21 +64,21 @@ export class SessionsView extends Context.Service<SessionsView>()(
         Effect.catch((drawError) => Effect.logWarning("Could not redraw the Sessions view", drawError))
       );
 
-      const redrawSessionProcesses = Effect.fn("redrawSessionProcesses")(
+      const redrawSessionProcesses = Effect.fn("SessionsView.redrawSessionProcesses")(
         function* (sessionProcesses: SessionProcessesDto) {
           yield* sessionsDrawingUtils.drawSessionProcesses(sessionProcesses);
         },
         Effect.catchTag("WebviewNotShownError", () => Effect.void)
       );
 
-      const redrawViewedSession = Effect.fn("redrawViewedSession")(
+      const redrawViewedSession = Effect.fn("SessionsView.redrawViewedSession")(
         function* () {
           yield* sessionsDrawingUtils.drawViewedSession;
         },
         Effect.catchTag("WebviewNotShownError", () => Effect.void)
       );
 
-      const runRowCommand = Effect.fn("runRowCommand")(function* (
+      const runRowCommand = Effect.fn("SessionsView.runRowCommand")(function* (
         commandId: string,
         commandArgument: CommandRequest | undefined
       ) {
@@ -91,21 +92,21 @@ export class SessionsView extends Context.Service<SessionsView>()(
       });
 
       // Until VS Code first shows the view there are no counts to draw, and a failed read leaves them as they were.
-      const updateWaitingCounts = Effect.fn("updateWaitingCounts")(
+      const updateWaitingCounts = Effect.fn("SessionsView.updateWaitingCounts")(
         function* () {
           yield* sessionsDrawingUtils.drawWaitingCounts;
         },
         Effect.ignore({log: "Debug", message: "Could not update the Sessions view's badge and counts"})
       );
 
-      const redrawAppearance = Effect.fn("redrawAppearance")(
+      const redrawAppearance = Effect.fn("SessionsView.redrawAppearance")(
         function* () {
           yield* sessionsDrawingUtils.drawAppearance;
         },
         Effect.catchTag("WebviewNotShownError", () => Effect.void)
       );
 
-      const redrawAgents = Effect.fn("redrawAgents")(
+      const redrawAgents = Effect.fn("SessionsView.redrawAgents")(
         function* () {
           yield* sessionsDrawingUtils.drawAgents;
         },
@@ -113,7 +114,7 @@ export class SessionsView extends Context.Service<SessionsView>()(
         Effect.catch((drawError) => Effect.logWarning("Could not redraw the Sessions view's agents", drawError))
       );
 
-      const handleWebviewMessage = Effect.fn("handleWebviewMessage", {root: true})(
+      const handleWebviewMessage = Effect.fn("SessionsView.handleWebviewMessage", {root: true})(
         function* (webviewMessage: unknown) {
           const sessionsWebviewMessage = yield* vscodeUtils.decodeVsCodeArgument(
             SessionsWebviewMessageSchema,
@@ -141,7 +142,7 @@ export class SessionsView extends Context.Service<SessionsView>()(
         Effect.catch((messageError) => Effect.logWarning("Could not answer the Sessions view's webview", messageError))
       );
 
-      const attachWebviewView = Effect.fn("attachWebviewView")(function* (webviewView: WebviewView) {
+      const attachWebviewView = Effect.fn("SessionsView.attachWebviewView")(function* (webviewView: WebviewView) {
         yield* sessionsPageUtils.setUpWebviewOptions(webviewView.webview);
         const webviewHtml = yield* sessionsPageUtils.makeWebviewHtml(webviewView.webview);
         yield* Effect.sync(() => {
@@ -151,12 +152,12 @@ export class SessionsView extends Context.Service<SessionsView>()(
         yield* updateWaitingCounts();
       });
 
-      const detachWebviewView = Effect.fn("detachWebviewView")(function* () {
+      const detachWebviewView = Effect.fn("SessionsView.detachWebviewView")(function* () {
         yield* sessionsDrawingUtils.clearShownWebviewView;
         yield* SubscriptionRef.set(openDropdownSessionIds, []);
       });
 
-      const makeRunPromise = Effect.fn("makeRunPromise")(function* () {
+      const makeRunPromise = Effect.fn("SessionsView.makeRunPromise")(function* () {
         const sessionsViewContext = yield* Effect.context();
         const runPromise = Effect.runPromiseWith(sessionsViewContext);
 
@@ -164,7 +165,7 @@ export class SessionsView extends Context.Service<SessionsView>()(
       });
 
       // VS Code disposes the webview's events with it.
-      const registerWebviewViewProvider = Effect.fn("registerWebviewViewProvider")(function* () {
+      const registerWebviewViewProvider = Effect.fn("SessionsView.registerWebviewViewProvider")(function* () {
         const runPromise = yield* makeRunPromise();
 
         yield* vscodeUtils.acquireScopedDisposable(() =>
@@ -181,7 +182,9 @@ export class SessionsView extends Context.Service<SessionsView>()(
         );
       });
 
-      const watchSettingChanges = Effect.fn("watchSettingChanges")(function* (settingKeys: readonly string[]) {
+      const watchSettingChanges = Effect.fn("SessionsView.watchSettingChanges")(function* (
+        settingKeys: readonly string[]
+      ) {
         const configChanges = yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.workspace.onDidChangeConfiguration);
 
         return Stream.filter(configChanges, (configChange) =>
@@ -192,7 +195,7 @@ export class SessionsView extends Context.Service<SessionsView>()(
       });
 
       // Polled every 2 seconds, so its redraws go untraced.
-      const startSessionProcessRedraws = Effect.fn("startSessionProcessRedraws")(function* () {
+      const startSessionProcessRedraws = Effect.fn("SessionsView.startSessionProcessRedraws")(function* () {
         const sessionProcessReadings = yield* sessionProcessController.watchSessionProcessesForSessionsView(
           SubscriptionRef.changes(openDropdownSessionIds)
         );
@@ -204,7 +207,7 @@ export class SessionsView extends Context.Service<SessionsView>()(
         );
       });
 
-      const startSettingRedraws = Effect.fn("startSettingRedraws")(function* () {
+      const startSettingRedraws = Effect.fn("SessionsView.startSettingRedraws")(function* () {
         const appearanceChanges = yield* watchSettingChanges([
           SESSIONS_VIEW_SETTINGS.FONT_SIZE,
           SESSIONS_VIEW_SETTINGS.ACCENT_COLOR
@@ -236,7 +239,7 @@ export class SessionsView extends Context.Service<SessionsView>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("SessionsView", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([
       SessionController.layer,
       SessionProcessController.layer,

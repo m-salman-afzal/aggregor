@@ -1,19 +1,19 @@
-import {IGitInfraService} from "@interfaces/git.infraService.interface.ts";
-import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
-import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
-import {ProjectService} from "@services/project.service.ts";
-import {SessionService} from "@services/session.service.ts";
 import {Array, Context, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
 
-import type {ProjectListItemDto} from "@dtos/project.dto.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+import {IGitInfraService} from "@/interfaces/git.infraService.interface.ts";
+import {ITerminalInfraService} from "@/interfaces/terminal.infraService.interface.ts";
+import {IWorkspaceInfraService} from "@/interfaces/workspace.infraService.interface.ts";
+import {ProjectService} from "@/services/project.service.ts";
+import {SessionService} from "@/services/session.service.ts";
+
+import type {ProjectListItemDto} from "@/dtos/project.dto.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 export class WorkspaceService extends Context.Service<WorkspaceService>()(
   "aggregor-app/application/services/workspace.service/WorkspaceService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("WorkspaceService.make")(function* () {
       const gitInfraService = yield* IGitInfraService;
       const terminalInfraService = yield* ITerminalInfraService;
       const workspaceInfraService = yield* IWorkspaceInfraService;
@@ -21,7 +21,7 @@ export class WorkspaceService extends Context.Service<WorkspaceService>()(
       const sessionService = yield* SessionService;
 
       // Added projects are left alone: adding one again would move it to the end of the list.
-      const keepWorkspaceFoldersListed = Effect.fn("keepWorkspaceFoldersListed")(function* (
+      const keepWorkspaceFoldersListed = Effect.fn("WorkspaceService.keepWorkspaceFoldersListed")(function* (
         projectListItems: readonly ProjectListItemDto[],
         shownProjectPath: ProjectPathValueObject
       ) {
@@ -36,7 +36,7 @@ export class WorkspaceService extends Context.Service<WorkspaceService>()(
         );
       });
 
-      const showSessionProject = Effect.fn("showSessionProject")(
+      const showSessionProject = Effect.fn("WorkspaceService.showSessionProject")(
         function* (sessionId: EntityIdValueObject) {
           const session = yield* sessionService.findSession(sessionId);
           const projectListItems = yield* projectService.listProjects;
@@ -53,7 +53,7 @@ export class WorkspaceService extends Context.Service<WorkspaceService>()(
         )
       );
 
-      const startShownProjectSync = Effect.fn("startShownProjectSync")(function* () {
+      const startShownProjectSync = Effect.fn("WorkspaceService.startShownProjectSync")(function* () {
         yield* Effect.forkScoped(
           // A switch takes about a second, so only the last session viewed during one is switched to next.
           SubscriptionRef.changes(terminalInfraService.viewedSessionId).pipe(
@@ -65,7 +65,7 @@ export class WorkspaceService extends Context.Service<WorkspaceService>()(
         );
       });
 
-      const reopenSessionAfterReload = Effect.fn("reopenSessionAfterReload")(
+      const reopenSessionAfterReload = Effect.fn("WorkspaceService.reopenSessionAfterReload")(
         function* () {
           const sessionId = yield* workspaceInfraService.takeSessionToReopen;
 
@@ -75,7 +75,7 @@ export class WorkspaceService extends Context.Service<WorkspaceService>()(
         Effect.catch((openError) => Effect.logWarning("Could not reopen the session after the reload", openError))
       );
 
-      const startSessionReopenAfterReload = Effect.fn("startSessionReopenAfterReload")(function* () {
+      const startSessionReopenAfterReload = Effect.fn("WorkspaceService.startSessionReopenAfterReload")(function* () {
         yield* Effect.forkScoped(reopenSessionAfterReload());
       });
 
@@ -86,7 +86,7 @@ export class WorkspaceService extends Context.Service<WorkspaceService>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("WorkspaceService", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([ProjectService.layer, SessionService.layer])
   );
 }

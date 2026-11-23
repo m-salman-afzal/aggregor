@@ -1,24 +1,4 @@
 import {NodeServices} from "@effect/platform-node";
-import {AnchorFolderUtils} from "@infraUtils/anchorFolder.utils.ts";
-import {IWorkspaceInfraService, IWorkspaceInfraServiceErrors} from "@interfaces/workspace.infraService.interface.ts";
-import {VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
-import {
-  AGGREGOR_WORKSPACE,
-  AGGREGOR_WORKSPACE_SETTINGS,
-  ANCHOR_FOLDER_SETTINGS,
-  FOLDER_SELECT_COMMANDS,
-  FOLDER_SETTINGS_FILE,
-  PROJECT_SETTINGS_SYNC,
-  SESSION_TO_REOPEN,
-  SETTINGS_FILE_WRITE_RETRY,
-  WORKSPACE_FOLDERS_CHANGE
-} from "@pkg/constants/src/workspace.constant.ts";
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
-import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
-import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {
   Array,
   Clock,
@@ -41,11 +21,32 @@ import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 import {applyEdits, modify, parse, parseTree} from "jsonc-parser";
 
-import type {WorkspaceFolderProject} from "@interfaces/workspace.infraService.interface.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+import {AnchorFolderUtils} from "@/infraUtils/anchorFolder.utils.ts";
+import {IWorkspaceInfraService, IWorkspaceInfraServiceErrors} from "@/interfaces/workspace.infraService.interface.ts";
+import {EntityIdValueObjectSchema} from "@/valueObjects/entityId.valueObject.ts";
+import {ProjectPathValueObjectSchema} from "@/valueObjects/projectPath.valueObject.ts";
+import {VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
+import {
+  AGGREGOR_WORKSPACE,
+  AGGREGOR_WORKSPACE_SETTINGS,
+  ANCHOR_FOLDER_SETTINGS,
+  FOLDER_SELECT_COMMANDS,
+  FOLDER_SETTINGS_FILE,
+  PROJECT_SETTINGS_SYNC,
+  SESSION_TO_REOPEN,
+  SETTINGS_FILE_WRITE_RETRY,
+  WORKSPACE_FOLDERS_CHANGE
+} from "@pkg/constants/src/workspace.constant.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
+import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
+
 import type {ParseError} from "jsonc-parser";
 import type {TextDocument, Uri} from "vscode";
+
+import type {WorkspaceFolderProject} from "@/interfaces/workspace.infraService.interface.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 interface WorkspaceFileFolder {
   readonly folderPath: string;
@@ -117,7 +118,7 @@ const SessionToReopenJson = Schema.fromJsonString(
 export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService>()(
   "aggregor-app/infrastructure/services/vscode/workspace.infraService/WorkspaceInfraService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("WorkspaceInfraService.make")(function* () {
       const vsCodeApi = yield* VsCodeApi;
       const vscodeUtils = yield* VscodeUtils;
       const fileSystem = yield* FileSystem;
@@ -135,7 +136,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       const projectSettingsLock = yield* Semaphore.make(1);
       const selectedProjectPath = yield* Ref.make<ProjectPathValueObject | undefined>(undefined);
 
-      const readWorkspaceFolderPaths = Effect.fn("readWorkspaceFolderPaths")(function* () {
+      const readWorkspaceFolderPaths = Effect.fn("WorkspaceInfraService.readWorkspaceFolderPaths")(function* () {
         return yield* Effect.sync(() =>
           Array.map(
             vsCodeApi.workspace.workspaceFolders === undefined ? [] : vsCodeApi.workspace.workspaceFolders,
@@ -144,7 +145,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         );
       });
 
-      const listWorkspaceFolderProjects = Effect.fn("listWorkspaceFolderProjects")(function* () {
+      const listWorkspaceFolderProjects = Effect.fn("WorkspaceInfraService.listWorkspaceFolderProjects")(function* () {
         return yield* Effect.sync(() => {
           const workspaceFolders =
             vsCodeApi.workspace.workspaceFolders === undefined ? [] : vsCodeApi.workspace.workspaceFolders;
@@ -158,7 +159,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       });
 
       // One change at a time: VS Code refuses a folder update made before the last one fired onDidChangeWorkspaceFolders.
-      const updateWorkspaceFolders = Effect.fn("updateWorkspaceFolders")(function* (
+      const updateWorkspaceFolders = Effect.fn("WorkspaceInfraService.updateWorkspaceFolders")(function* (
         workspaceFoldersSplice: WorkspaceFoldersSplice
       ) {
         yield* Effect.callback<undefined, WorkspaceInfraServiceErrors["WorkspaceFoldersUpdateRejectedError"]>(
@@ -185,7 +186,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         );
       }, Effect.timeout(WORKSPACE_FOLDERS_CHANGE.TIMEOUT));
 
-      const writeAnchorFolderSettings = Effect.fn("writeAnchorFolderSettings")(function* (
+      const writeAnchorFolderSettings = Effect.fn("WorkspaceInfraService.writeAnchorFolderSettings")(function* (
         projectPath: ProjectPathValueObject
       ) {
         const settingsDirectoryPath = path.join(anchorFolderPath, FOLDER_SETTINGS_FILE.FOLDER_NAME);
@@ -200,7 +201,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         );
       });
 
-      const isSavedAnchoredWorkspace = Effect.fn("isSavedAnchoredWorkspace")(function* () {
+      const isSavedAnchoredWorkspace = Effect.fn("WorkspaceInfraService.isSavedAnchoredWorkspace")(function* () {
         return yield* Effect.sync(() => {
           const workspaceFile = vsCodeApi.workspace.workspaceFile;
           const workspaceFolders = vsCodeApi.workspace.workspaceFolders;
@@ -215,7 +216,9 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         });
       });
 
-      const writeSessionToReopen = Effect.fn("writeSessionToReopen")(function* (sessionToReopen: EntityIdValueObject) {
+      const writeSessionToReopen = Effect.fn("WorkspaceInfraService.writeSessionToReopen")(function* (
+        sessionToReopen: EntityIdValueObject
+      ) {
         const writtenAt = yield* Clock.currentTimeMillis;
         const sessionToReopenText = yield* Schema.encodeEffect(SessionToReopenJson)({
           sessionId: sessionToReopen,
@@ -228,13 +231,15 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         );
       });
 
-      const findProjectSettingsFilePath = Effect.fn("findProjectSettingsFilePath")(function* (projectPath: string) {
+      const findProjectSettingsFilePath = Effect.fn("WorkspaceInfraService.findProjectSettingsFilePath")(function* (
+        projectPath: string
+      ) {
         return yield* Effect.sync(() =>
           path.join(projectPath, FOLDER_SETTINGS_FILE.FOLDER_NAME, FOLDER_SETTINGS_FILE.FILE_NAME)
         );
       });
 
-      const parseSettingsText = Effect.fn("parseSettingsText")(function* (
+      const parseSettingsText = Effect.fn("WorkspaceInfraService.parseSettingsText")(function* (
         settingsText: string,
         settingsFilePath: string
       ) {
@@ -246,7 +251,9 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         return yield* Schema.decodeUnknownEffect(FolderSettingsSchema)(parsedSettings);
       });
 
-      const readProjectSettings = Effect.fn("readProjectSettings")(function* (projectPath: string) {
+      const readProjectSettings = Effect.fn("WorkspaceInfraService.readProjectSettings")(function* (
+        projectPath: string
+      ) {
         const settingsFilePath = yield* findProjectSettingsFilePath(projectPath);
         if (!(yield* fileSystem.exists(settingsFilePath))) return {};
         const settingsText = yield* fileSystem.readFileString(settingsFilePath);
@@ -254,7 +261,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         return yield* parseSettingsText(settingsText, settingsFilePath);
       });
 
-      const readWorkspaceFileSettings = Effect.fn("readWorkspaceFileSettings")(function* () {
+      const readWorkspaceFileSettings = Effect.fn("WorkspaceInfraService.readWorkspaceFileSettings")(function* () {
         const workspaceFileText = yield* fileSystem.readFileString(aggregorWorkspaceFilePath);
         const workspaceFile = yield* parseSettingsText(workspaceFileText, aggregorWorkspaceFilePath);
         const workspaceSettings = workspaceFile[PROJECT_SETTINGS_SYNC.WORKSPACE_FILE_SETTINGS_KEY];
@@ -262,7 +269,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         return isFolderSettings(workspaceSettings) ? workspaceSettings : {};
       });
 
-      const mapSettingTexts = Effect.fn("mapSettingTexts")(function* (
+      const mapSettingTexts = Effect.fn("WorkspaceInfraService.mapSettingTexts")(function* (
         folderSettings: FolderSettings,
         mapSettingText: (settingText: string) => string
       ) {
@@ -278,7 +285,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       });
 
       // In the workspace file, a relative path or a folder variable would name the anchor folder.
-      const resolveProjectSettings = Effect.fn("resolveProjectSettings")(function* (
+      const resolveProjectSettings = Effect.fn("WorkspaceInfraService.resolveProjectSettings")(function* (
         projectPath: string,
         projectSettings: FolderSettings
       ) {
@@ -307,7 +314,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       });
 
       // A relative path in the workspace file starts from that file's folder; the project's own file has it from its own.
-      const rebaseWorkspaceEdits = Effect.fn("rebaseWorkspaceEdits")(function* (
+      const rebaseWorkspaceEdits = Effect.fn("WorkspaceInfraService.rebaseWorkspaceEdits")(function* (
         projectPath: string,
         workspaceEdits: FolderSettings
       ) {
@@ -326,7 +333,9 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       });
 
       // Aggregor's own settings count as the project's, so the sync never takes them for an edit to write to the project.
-      const prepareWorkspaceSettings = Effect.fn("prepareWorkspaceSettings")(function* (projectPath: string) {
+      const prepareWorkspaceSettings = Effect.fn("WorkspaceInfraService.prepareWorkspaceSettings")(function* (
+        projectPath: string
+      ) {
         const projectSettings = yield* readProjectSettings(projectPath);
         const resolvedProjectSettings = yield* resolveProjectSettings(projectPath, projectSettings);
         const workspaceSettings: FolderSettings = {...resolvedProjectSettings, ...AGGREGOR_WORKSPACE_SETTINGS};
@@ -334,7 +343,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         return workspaceSettings;
       });
 
-      const findWorkspaceEditedKeys = Effect.fn("findWorkspaceEditedKeys")(function* (
+      const findWorkspaceEditedKeys = Effect.fn("WorkspaceInfraService.findWorkspaceEditedKeys")(function* (
         workspaceSettings: FolderSettings,
         projectSettings: FolderSettings,
         copiedSettings: FolderSettings
@@ -355,7 +364,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         });
       });
 
-      const mergeProjectSettings = Effect.fn("mergeProjectSettings")(function* (
+      const mergeProjectSettings = Effect.fn("WorkspaceInfraService.mergeProjectSettings")(function* (
         workspaceSettings: FolderSettings,
         projectSettings: FolderSettings,
         copiedSettings: FolderSettings
@@ -377,7 +386,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       });
 
       // A deeper line's indentation, such as the first folder's after `{"folders":[`, would double with every edit.
-      const findJsonIndentation = Effect.fn("findJsonIndentation")(function* (jsonText: string) {
+      const findJsonIndentation = Effect.fn("WorkspaceInfraService.findJsonIndentation")(function* (jsonText: string) {
         const rootNode = parseTree(jsonText);
         const topLevelPropertyNodes =
           rootNode === undefined || rootNode.children === undefined ? [] : rootNode.children;
@@ -398,7 +407,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         return indentation;
       });
 
-      const editJsonPropertyInText = Effect.fn("editJsonPropertyInText")(function* (
+      const editJsonPropertyInText = Effect.fn("WorkspaceInfraService.editJsonPropertyInText")(function* (
         jsonText: string,
         propertyKey: string,
         propertyValue: unknown
@@ -415,7 +424,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         );
       });
 
-      const confirmSettingsDocumentSaved = Effect.fn("confirmSettingsDocumentSaved")(function* (
+      const confirmSettingsDocumentSaved = Effect.fn("WorkspaceInfraService.confirmSettingsDocumentSaved")(function* (
         settingsDocument: TextDocument
       ) {
         if (settingsDocument.isDirty)
@@ -427,7 +436,9 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       });
 
       // VS Code's own copy of the file is shared with every extension's settings writes, so none finds it changed under it.
-      const openSettingsDocumentCopy = Effect.fn("openSettingsDocumentCopy")(function* (settingsFilePath: string) {
+      const openSettingsDocumentCopy = Effect.fn("WorkspaceInfraService.openSettingsDocumentCopy")(function* (
+        settingsFilePath: string
+      ) {
         return yield* Effect.tryPromise({
           catch: (cause) => WorkspaceInfraServiceErrors.SettingsFileNotOpenedError.make({cause, settingsFilePath}),
           try: () => vsCodeApi.workspace.openTextDocument(vsCodeApi.Uri.file(settingsFilePath))
@@ -435,7 +446,9 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       });
 
       // Unsaved changes are another writer's or an editor's, and are left alone, as VS Code's own writes leave them.
-      const openSettingsDocument = Effect.fn("openSettingsDocument")(function* (settingsFilePath: string) {
+      const openSettingsDocument = Effect.fn("WorkspaceInfraService.openSettingsDocument")(function* (
+        settingsFilePath: string
+      ) {
         const settingsDocument = yield* openSettingsDocumentCopy(settingsFilePath);
 
         return yield* Effect.retry(confirmSettingsDocumentSaved(settingsDocument), {
@@ -445,7 +458,9 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       });
 
       // An edit left unsaved in VS Code's copy blocks every settings write, VS Code's own included, so the save is retried.
-      const saveSettingsDocument = Effect.fn("saveSettingsDocument")(function* (settingsDocument: TextDocument) {
+      const saveSettingsDocument = Effect.fn("WorkspaceInfraService.saveSettingsDocument")(function* (
+        settingsDocument: TextDocument
+      ) {
         const settingsFilePath = settingsDocument.uri.fsPath;
         const isSaved = yield* Effect.tryPromise({
           catch: () => WorkspaceInfraServiceErrors.SettingsFileNotSavedError.make({settingsFilePath}),
@@ -456,7 +471,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         return settingsDocument;
       });
 
-      const saveSettingsDocumentText = Effect.fn("saveSettingsDocumentText")(function* (
+      const saveSettingsDocumentText = Effect.fn("WorkspaceInfraService.saveSettingsDocumentText")(function* (
         settingsDocument: TextDocument,
         editedSettingsText: string
       ) {
@@ -479,7 +494,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       });
 
       // A write that failed to save makes VS Code refuse every settings write and hide folder changes, so it is saved.
-      const saveStaleWorkspaceFileChanges = Effect.fn("saveStaleWorkspaceFileChanges")(function* (
+      const saveStaleWorkspaceFileChanges = Effect.fn("WorkspaceInfraService.saveStaleWorkspaceFileChanges")(function* (
         workspaceFilePath: string
       ) {
         const workspaceFileDocument = yield* openSettingsDocumentCopy(workspaceFilePath);
@@ -494,7 +509,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         });
       });
 
-      const openWorkspaceFileDocument = Effect.fn("openWorkspaceFileDocument")(
+      const openWorkspaceFileDocument = Effect.fn("WorkspaceInfraService.openWorkspaceFileDocument")(
         function* (workspaceFilePath: string) {
           return yield* openSettingsDocument(workspaceFilePath);
         },
@@ -502,7 +517,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
           Effect.catchTag(effect, "SettingsFileUnsavedError", () => saveStaleWorkspaceFileChanges(workspaceFilePath))
       );
 
-      const editSettingsDocument = Effect.fn("editSettingsDocument")(function* (
+      const editSettingsDocument = Effect.fn("WorkspaceInfraService.editSettingsDocument")(function* (
         settingsDocument: TextDocument,
         editSettingsText: (settingsText: string) => Effect.Effect<string>
       ) {
@@ -511,7 +526,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         if (editedSettingsText !== settingsText) yield* saveSettingsDocumentText(settingsDocument, editedSettingsText);
       });
 
-      const writeWorkspaceFileSettings = Effect.fn("writeWorkspaceFileSettings")(function* (
+      const writeWorkspaceFileSettings = Effect.fn("WorkspaceInfraService.writeWorkspaceFileSettings")(function* (
         workspaceSettings: FolderSettings
       ) {
         const workspaceFileDocument = yield* openWorkspaceFileDocument(aggregorWorkspaceFilePath);
@@ -525,7 +540,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         );
       });
 
-      const writeWorkspaceEditsToProject = Effect.fn("writeWorkspaceEditsToProject")(function* (
+      const writeWorkspaceEditsToProject = Effect.fn("WorkspaceInfraService.writeWorkspaceEditsToProject")(function* (
         projectPath: string,
         workspaceEdits: FolderSettings
       ) {
@@ -551,7 +566,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         );
       });
 
-      const readCopiedProjectSettings = Effect.fn("readCopiedProjectSettings")(
+      const readCopiedProjectSettings = Effect.fn("WorkspaceInfraService.readCopiedProjectSettings")(
         function* () {
           const copiedProjectSettingsText = yield* fileSystem.readFileString(copiedProjectSettingsFilePath);
 
@@ -560,7 +575,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         Effect.mapError(() => WorkspaceInfraServiceErrors.NoCopiedProjectSettingsError.make())
       );
 
-      const writeCopiedProjectSettings = Effect.fn("writeCopiedProjectSettings")(function* (
+      const writeCopiedProjectSettings = Effect.fn("WorkspaceInfraService.writeCopiedProjectSettings")(function* (
         projectPath: string,
         copiedSettings: FolderSettings
       ) {
@@ -573,7 +588,9 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       });
 
       // Edits go to the project first, so a failure there leaves them in the workspace file for the next sync.
-      const syncProjectSettings = Effect.fn("syncProjectSettings")(function* (projectPath: string) {
+      const syncProjectSettings = Effect.fn("WorkspaceInfraService.syncProjectSettings")(function* (
+        projectPath: string
+      ) {
         const isProjectFolderThere = yield* fileSystem.exists(projectPath);
         yield* Effect.annotateCurrentSpan({isProjectFolderThere});
         // A deleted worktree is still the shown project when the switch away syncs it, and a write would bring it back.
@@ -594,7 +611,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
           yield* writeCopiedProjectSettings(projectPath, projectSettingsMerge.mergedSettings);
       });
 
-      const isAggregorWorkspaceOpen = Effect.fn("isAggregorWorkspaceOpen")(function* () {
+      const isAggregorWorkspaceOpen = Effect.fn("WorkspaceInfraService.isAggregorWorkspaceOpen")(function* () {
         return yield* Effect.sync(() => {
           const workspaceFile = vsCodeApi.workspace.workspaceFile;
 
@@ -606,7 +623,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         });
       });
 
-      const syncShownProjectSettings = Effect.fn("syncShownProjectSettings")(
+      const syncShownProjectSettings = Effect.fn("WorkspaceInfraService.syncShownProjectSettings")(
         function* () {
           if (!(yield* isAggregorWorkspaceOpen())) return;
           const workspaceFolderProjects = yield* listWorkspaceFolderProjects();
@@ -618,11 +635,15 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         Effect.ignore({log: "Warn", message: "Could not sync the project's settings with Aggregor's workspace"})
       );
 
-      const syncShownProjectSettingsInTurn = Effect.fn("syncShownProjectSettingsInTurn")(function* () {
-        yield* Semaphore.withPermits(projectSettingsLock, 1)(syncShownProjectSettings());
-      });
+      const syncShownProjectSettingsInTurn = Effect.fn("WorkspaceInfraService.syncShownProjectSettingsInTurn")(
+        function* () {
+          yield* Semaphore.withPermits(projectSettingsLock, 1)(syncShownProjectSettings());
+        }
+      );
 
-      const isProjectSettingsFile = Effect.fn("isProjectSettingsFile")(function* (changedFileUri: Uri) {
+      const isProjectSettingsFile = Effect.fn("WorkspaceInfraService.isProjectSettingsFile")(function* (
+        changedFileUri: Uri
+      ) {
         const workspaceFolderProjects = yield* listWorkspaceFolderProjects();
         const projectSettingsFilePaths = yield* Effect.forEach(workspaceFolderProjects, (workspaceFolderProject) =>
           findProjectSettingsFilePath(workspaceFolderProject.path)
@@ -631,24 +652,26 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         return Array.contains(projectSettingsFilePaths, changedFileUri.fsPath);
       });
 
-      const streamProjectSettingsFileChanges = Effect.fn("streamProjectSettingsFileChanges")(function* () {
-        const settingsFileWatcher = yield* vscodeUtils.acquireScopedDisposable(() =>
-          vsCodeApi.workspace.createFileSystemWatcher(FOLDER_SETTINGS_FILE.WATCH_PATTERN)
-        );
-        const settingsFileChanges = Stream.mergeAll(
-          [
-            yield* vscodeUtils.streamVsCodeEvent(settingsFileWatcher.onDidCreate),
-            yield* vscodeUtils.streamVsCodeEvent(settingsFileWatcher.onDidChange),
-            yield* vscodeUtils.streamVsCodeEvent(settingsFileWatcher.onDidDelete)
-          ],
-          {concurrency: "unbounded"}
-        );
+      const streamProjectSettingsFileChanges = Effect.fn("WorkspaceInfraService.streamProjectSettingsFileChanges")(
+        function* () {
+          const settingsFileWatcher = yield* vscodeUtils.acquireScopedDisposable(() =>
+            vsCodeApi.workspace.createFileSystemWatcher(FOLDER_SETTINGS_FILE.WATCH_PATTERN)
+          );
+          const settingsFileChanges = Stream.mergeAll(
+            [
+              yield* vscodeUtils.streamVsCodeEvent(settingsFileWatcher.onDidCreate),
+              yield* vscodeUtils.streamVsCodeEvent(settingsFileWatcher.onDidChange),
+              yield* vscodeUtils.streamVsCodeEvent(settingsFileWatcher.onDidDelete)
+            ],
+            {concurrency: "unbounded"}
+          );
 
-        return Stream.filterEffect(settingsFileChanges, (changedFileUri) => isProjectSettingsFile(changedFileUri));
-      });
+          return Stream.filterEffect(settingsFileChanges, (changedFileUri) => isProjectSettingsFile(changedFileUri));
+        }
+      );
 
       // An extension such as Peacock writes its settings in the workspace file, so any settings write starts a sync.
-      const watchProjectSettingsChanges = Effect.fn("watchProjectSettingsChanges")(function* () {
+      const watchProjectSettingsChanges = Effect.fn("WorkspaceInfraService.watchProjectSettingsChanges")(function* () {
         const projectSettingsFileChanges = yield* streamProjectSettingsFileChanges();
         const configChanges = yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.workspace.onDidChangeConfiguration);
         const workspaceFolderChanges = yield* vscodeUtils.streamVsCodeEvent(
@@ -668,7 +691,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       });
 
       // Edits an earlier window left in the workspace file reach their project before the file is written anew.
-      const syncCopiedProjectSettings = Effect.fn("syncCopiedProjectSettings")(
+      const syncCopiedProjectSettings = Effect.fn("WorkspaceInfraService.syncCopiedProjectSettings")(
         function* () {
           const copiedProjectSettings = yield* readCopiedProjectSettings();
 
@@ -681,7 +704,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         })
       );
 
-      const prepareOpeningWorkspaceSettings = Effect.fn("prepareOpeningWorkspaceSettings")(
+      const prepareOpeningWorkspaceSettings = Effect.fn("WorkspaceInfraService.prepareOpeningWorkspaceSettings")(
         function* (projectPath: ProjectPathValueObject) {
           return yield* prepareWorkspaceSettings(projectPath);
         },
@@ -691,7 +714,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       );
 
       // Opening the file reloads this window; VS Code shows another window instead when that one already has it open.
-      const openAggregorWorkspace = Effect.fn("openAggregorWorkspace")(function* (
+      const openAggregorWorkspace = Effect.fn("WorkspaceInfraService.openAggregorWorkspace")(function* (
         projectPath: ProjectPathValueObject,
         sessionToReopen: EntityIdValueObject | undefined
       ) {
@@ -714,7 +737,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         );
       });
 
-      const findSavedWorkspaceFilePath = Effect.fn("findSavedWorkspaceFilePath")(function* () {
+      const findSavedWorkspaceFilePath = Effect.fn("WorkspaceInfraService.findSavedWorkspaceFilePath")(function* () {
         const workspaceFile = vsCodeApi.workspace.workspaceFile;
         if (workspaceFile === undefined || workspaceFile.scheme !== "file")
           return yield* WorkspaceInfraServiceErrors.NoSavedWorkspaceFileError.make();
@@ -722,7 +745,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         return workspaceFile.fsPath;
       });
 
-      const readWorkspaceFileFolders = Effect.fn("readWorkspaceFileFolders")(function* (
+      const readWorkspaceFileFolders = Effect.fn("WorkspaceInfraService.readWorkspaceFileFolders")(function* (
         workspaceFilePath: string,
         workspaceFileText: string
       ) {
@@ -746,7 +769,9 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       });
 
       // VS Code reloads the folders from the saved file and tells every extension host, which this waits for.
-      const saveWorkspaceFileFolders = Effect.fn("saveWorkspaceFileFolders")(function* <EditError>(
+      const saveWorkspaceFileFolders = Effect.fn("WorkspaceInfraService.saveWorkspaceFileFolders")(function* <
+        EditError
+      >(
         workspaceFilePath: string,
         editWorkspaceFile: (workspaceFileContents: WorkspaceFileContents) => Effect.Effect<string, EditError>
       ) {
@@ -770,7 +795,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         yield* Effect.timeout(Deferred.await(foldersChanged), WORKSPACE_FOLDERS_CHANGE.TIMEOUT);
       }, Effect.scoped);
 
-      const readIncomingProjectSettings = Effect.fn("readIncomingProjectSettings")(
+      const readIncomingProjectSettings = Effect.fn("WorkspaceInfraService.readIncomingProjectSettings")(
         function* (projectPath: ProjectPathValueObject) {
           return yield* prepareWorkspaceSettings(projectPath);
         },
@@ -782,16 +807,16 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         )
       );
 
-      const prepareIncomingProjectSettings = Effect.fn("prepareIncomingProjectSettings")(function* (
-        projectPath: ProjectPathValueObject
-      ) {
-        if (!(yield* isAggregorWorkspaceOpen()))
-          return yield* WorkspaceInfraServiceErrors.NoIncomingProjectSettingsError.make();
+      const prepareIncomingProjectSettings = Effect.fn("WorkspaceInfraService.prepareIncomingProjectSettings")(
+        function* (projectPath: ProjectPathValueObject) {
+          if (!(yield* isAggregorWorkspaceOpen()))
+            return yield* WorkspaceInfraServiceErrors.NoIncomingProjectSettingsError.make();
 
-        return yield* readIncomingProjectSettings(projectPath);
-      });
+          return yield* readIncomingProjectSettings(projectPath);
+        }
+      );
 
-      const findAnchorFolderEntry = Effect.fn("findAnchorFolderEntry")(function* (
+      const findAnchorFolderEntry = Effect.fn("WorkspaceInfraService.findAnchorFolderEntry")(function* (
         folders: readonly WorkspaceFileFolder[]
       ) {
         const [firstFolder] = folders;
@@ -803,7 +828,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         );
       });
 
-      const editWorkspaceFileForProject = Effect.fn("editWorkspaceFileForProject")(function* (
+      const editWorkspaceFileForProject = Effect.fn("WorkspaceInfraService.editWorkspaceFileForProject")(function* (
         workspaceFileContents: WorkspaceFileContents,
         incomingProject: IncomingProject
       ) {
@@ -823,44 +848,43 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       });
 
       // VS Code confirms only folder changes it sees, so the project is taken out and put back to bring the host in step.
-      const swapProjectFolderThroughNoProject = Effect.fn("swapProjectFolderThroughNoProject")(function* (
-        workspaceFilePath: string,
-        incomingProject: IncomingProject
-      ) {
-        yield* Effect.logWarning(
-          "VS Code didn't confirm the folder change; taking the project out of the workspace and back in",
-          incomingProject.projectPath
-        );
-        yield* saveWorkspaceFileFolders(workspaceFilePath, (workspaceFileContents) =>
-          Effect.flatMap(findAnchorFolderEntry(workspaceFileContents.folders), (anchorFolder) =>
-            editJsonPropertyInText(workspaceFileContents.text, WORKSPACE_FOLDERS_CHANGE.FILE_KEY, [anchorFolder])
-          )
-        );
+      const swapProjectFolderThroughNoProject = Effect.fn("WorkspaceInfraService.swapProjectFolderThroughNoProject")(
+        function* (workspaceFilePath: string, incomingProject: IncomingProject) {
+          yield* Effect.logWarning(
+            "VS Code didn't confirm the folder change; taking the project out of the workspace and back in",
+            incomingProject.projectPath
+          );
+          yield* saveWorkspaceFileFolders(workspaceFilePath, (workspaceFileContents) =>
+            Effect.flatMap(findAnchorFolderEntry(workspaceFileContents.folders), (anchorFolder) =>
+              editJsonPropertyInText(workspaceFileContents.text, WORKSPACE_FOLDERS_CHANGE.FILE_KEY, [anchorFolder])
+            )
+          );
 
-        yield* saveWorkspaceFileFolders(workspaceFilePath, (workspaceFileContents) =>
-          editWorkspaceFileForProject(workspaceFileContents, incomingProject)
-        );
-      });
+          yield* saveWorkspaceFileFolders(workspaceFilePath, (workspaceFileContents) =>
+            editWorkspaceFileForProject(workspaceFileContents, incomingProject)
+          );
+        }
+      );
 
       // One write brings in the folder with its settings, so Peacock doesn't race a later copy; updateWorkspaceFolders wedges.
-      const swapProjectFolderInWorkspaceFile = Effect.fn("swapProjectFolderInWorkspaceFile")(function* (
-        projectPath: ProjectPathValueObject
-      ) {
-        const workspaceFilePath = yield* findSavedWorkspaceFilePath();
-        const settings = yield* Effect.result(prepareIncomingProjectSettings(projectPath));
-        if (Result.isSuccess(settings)) yield* writeCopiedProjectSettings(projectPath, settings.success);
-        const incomingProject: IncomingProject = {projectPath, settings};
+      const swapProjectFolderInWorkspaceFile = Effect.fn("WorkspaceInfraService.swapProjectFolderInWorkspaceFile")(
+        function* (projectPath: ProjectPathValueObject) {
+          const workspaceFilePath = yield* findSavedWorkspaceFilePath();
+          const settings = yield* Effect.result(prepareIncomingProjectSettings(projectPath));
+          if (Result.isSuccess(settings)) yield* writeCopiedProjectSettings(projectPath, settings.success);
+          const incomingProject: IncomingProject = {projectPath, settings};
 
-        yield* Effect.catchTag(
-          saveWorkspaceFileFolders(workspaceFilePath, (workspaceFileContents) =>
-            editWorkspaceFileForProject(workspaceFileContents, incomingProject)
-          ),
-          "TimeoutError",
-          () => swapProjectFolderThroughNoProject(workspaceFilePath, incomingProject)
-        );
-      });
+          yield* Effect.catchTag(
+            saveWorkspaceFileFolders(workspaceFilePath, (workspaceFileContents) =>
+              editWorkspaceFileForProject(workspaceFileContents, incomingProject)
+            ),
+            "TimeoutError",
+            () => swapProjectFolderThroughNoProject(workspaceFilePath, incomingProject)
+          );
+        }
+      );
 
-      const reloadWindowForProject = Effect.fn("reloadWindowForProject")(function* (
+      const reloadWindowForProject = Effect.fn("WorkspaceInfraService.reloadWindowForProject")(function* (
         projectPath: ProjectPathValueObject,
         sessionToReopen: EntityIdValueObject | undefined
       ) {
@@ -875,51 +899,50 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       });
 
       // The anchor folder's settings follow the project after a swap, so a swap that fails leaves them with the project shown.
-      const moveProjectFolderIn = Effect.fn("moveProjectFolderIn")(function* (
-        projectPath: ProjectPathValueObject,
-        sessionToReopen: EntityIdValueObject | undefined
-      ) {
-        if (!(yield* isSavedAnchoredWorkspace())) {
-          yield* writeAnchorFolderSettings(projectPath);
+      const moveProjectFolderIntoWorkspace = Effect.fn("WorkspaceInfraService.moveProjectFolderIntoWorkspace")(
+        function* (projectPath: ProjectPathValueObject, sessionToReopen: EntityIdValueObject | undefined) {
+          if (!(yield* isSavedAnchoredWorkspace())) {
+            yield* writeAnchorFolderSettings(projectPath);
 
-          return yield* openAggregorWorkspace(projectPath, sessionToReopen);
+            return yield* openAggregorWorkspace(projectPath, sessionToReopen);
+          }
+          yield* Effect.catchTag(swapProjectFolderInWorkspaceFile(projectPath), "TimeoutError", () =>
+            reloadWindowForProject(projectPath, sessionToReopen)
+          );
+
+          return yield* writeAnchorFolderSettings(projectPath);
         }
-        yield* Effect.catchTag(swapProjectFolderInWorkspaceFile(projectPath), "TimeoutError", () =>
-          reloadWindowForProject(projectPath, sessionToReopen)
-        );
-
-        return yield* writeAnchorFolderSettings(projectPath);
-      });
+      );
 
       // Once per project and extension host: a restarted host's extensions start from folder 0 again.
-      const selectProjectFolderInExtensions = Effect.fn("selectProjectFolderInExtensions")(function* (
-        projectPath: ProjectPathValueObject
-      ) {
-        if ((yield* Ref.getAndSet(selectedProjectPath, projectPath)) === projectPath) return;
-        const installedFolderSelectCommands = Array.filter(
-          FOLDER_SELECT_COMMANDS,
-          (folderSelectCommand) => vsCodeApi.extensions.getExtension(folderSelectCommand.extensionId) !== undefined
-        );
+      const selectProjectFolderInExtensions = Effect.fn("WorkspaceInfraService.selectProjectFolderInExtensions")(
+        function* (projectPath: ProjectPathValueObject) {
+          if ((yield* Ref.getAndSet(selectedProjectPath, projectPath)) === projectPath) return;
+          const installedFolderSelectCommands = Array.filter(
+            FOLDER_SELECT_COMMANDS,
+            (folderSelectCommand) => vsCodeApi.extensions.getExtension(folderSelectCommand.extensionId) !== undefined
+          );
 
-        yield* Effect.forEach(installedFolderSelectCommands, (folderSelectCommand) =>
-          Effect.tryPromise({
-            catch: (cause) => WorkspaceInfraServiceErrors.FolderSelectFailedError.make({cause}),
-            try: () => vsCodeApi.commands.executeCommand(folderSelectCommand.command, vsCodeApi.Uri.file(projectPath))
-          })
-        );
-      });
+          yield* Effect.forEach(installedFolderSelectCommands, (folderSelectCommand) =>
+            Effect.tryPromise({
+              catch: (cause) => WorkspaceInfraServiceErrors.FolderSelectFailedError.make({cause}),
+              try: () => vsCodeApi.commands.executeCommand(folderSelectCommand.command, vsCodeApi.Uri.file(projectPath))
+            })
+          );
+        }
+      );
 
       // The shown project's workspace edits reach it before it leaves.
-      const switchShownProject = Effect.fn("switchShownProject")(function* (
+      const switchShownProject = Effect.fn("WorkspaceInfraService.switchShownProject")(function* (
         projectPath: ProjectPathValueObject,
         sessionToReopen: EntityIdValueObject | undefined
       ) {
         yield* syncShownProjectSettings();
-        yield* moveProjectFolderIn(projectPath, sessionToReopen);
+        yield* moveProjectFolderIntoWorkspace(projectPath, sessionToReopen);
         yield* syncShownProjectSettings();
       });
 
-      const showOnlyProjectFolder = Effect.fn("showOnlyProjectFolder")(
+      const showOnlyProjectFolder = Effect.fn("WorkspaceInfraService.showOnlyProjectFolder")(
         function* (projectPath: ProjectPathValueObject, sessionToReopen: EntityIdValueObject | undefined) {
           const workspaceFolderPaths = yield* readWorkspaceFolderPaths();
           yield* Effect.annotateCurrentSpan({projectPath, workspaceFolderPaths});
@@ -937,10 +960,9 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       );
 
       // Changing folder 0 would restart every extension, so a project there stays.
-      const removeProjectFolderFromWorkspaceFile = Effect.fn("removeProjectFolderFromWorkspaceFile")(function* (
-        workspaceFilePath: string,
-        projectPath: ProjectPathValueObject
-      ) {
+      const removeProjectFolderFromWorkspaceFile = Effect.fn(
+        "WorkspaceInfraService.removeProjectFolderFromWorkspaceFile"
+      )(function* (workspaceFilePath: string, projectPath: ProjectPathValueObject) {
         yield* saveWorkspaceFileFolders(workspaceFilePath, (workspaceFileContents) =>
           editJsonPropertyInText(
             workspaceFileContents.text,
@@ -955,9 +977,9 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       });
 
       // Without a saved workspace file, VS Code changes the folders itself.
-      const removeProjectFolderFromUnsavedWorkspace = Effect.fn("removeProjectFolderFromUnsavedWorkspace")(function* (
-        projectPath: ProjectPathValueObject
-      ) {
+      const removeProjectFolderFromUnsavedWorkspace = Effect.fn(
+        "WorkspaceInfraService.removeProjectFolderFromUnsavedWorkspace"
+      )(function* (projectPath: ProjectPathValueObject) {
         const workspaceFolderPaths = yield* readWorkspaceFolderPaths();
         const projectFolderIndex = workspaceFolderPaths.indexOf(projectPath);
         // Changing folder 0 would restart every extension, so a project there stays.
@@ -966,7 +988,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         yield* updateWorkspaceFolders({deleteCount: 1, foldersToAdd: [], start: projectFolderIndex});
       });
 
-      const removeProjectFolder = Effect.fn("removeProjectFolder")(
+      const removeProjectFolder = Effect.fn("WorkspaceInfraService.removeProjectFolder")(
         function* (projectPath: ProjectPathValueObject) {
           const workspaceFilePath = yield* Effect.result(findSavedWorkspaceFilePath());
           if (Result.isFailure(workspaceFilePath)) return yield* removeProjectFolderFromUnsavedWorkspace(projectPath);
@@ -976,7 +998,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         Effect.ignore({log: "Warn", message: "Could not take the project out of the workspace"})
       );
 
-      const takeSessionToReopen = Effect.fn("takeSessionToReopen")(
+      const takeSessionToReopen = Effect.fn("WorkspaceInfraService.takeSessionToReopen")(
         function* () {
           const sessionToReopenPath = path.join(path.dirname(anchorFolderPath), SESSION_TO_REOPEN.FILE_NAME);
           const sessionToReopenText = yield* fileSystem.readFileString(sessionToReopenPath);
@@ -991,7 +1013,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         Effect.mapError(() => IWorkspaceInfraServiceErrors.NoSessionToReopenError.make())
       );
 
-      const watchWorkspaceFolderChanges = Effect.fn("watchWorkspaceFolderChanges")(function* () {
+      const watchWorkspaceFolderChanges = Effect.fn("WorkspaceInfraService.watchWorkspaceFolderChanges")(function* () {
         const workspaceFolderEvents = yield* vscodeUtils.streamVsCodeEvent(
           vsCodeApi.workspace.onDidChangeWorkspaceFolders
         );
@@ -1011,8 +1033,8 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
     })
   }
 ) {
-  public static readonly layer = Layer.effect(
-    IWorkspaceInfraService,
-    ownSpans("WorkspaceInfraService", this.make())
-  ).pipe(Layer.provide(AnchorFolderUtils.layer), Layer.provide(NodeServices.layer));
+  public static readonly layer = Layer.effect(IWorkspaceInfraService, this.make()).pipe(
+    Layer.provide(AnchorFolderUtils.layer),
+    Layer.provide(NodeServices.layer)
+  );
 }

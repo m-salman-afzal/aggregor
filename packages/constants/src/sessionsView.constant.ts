@@ -3,6 +3,7 @@ import {APP_COMMANDS} from "@pkg/constants/src/app.constant.ts";
 import {WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
 import {GITHUB_CLI_COMMANDS} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {PROJECT_COMMANDS} from "@pkg/constants/src/project.constant.ts";
+import {REVIEW_COMMENT_COMMANDS} from "@pkg/constants/src/reviewComment.constant.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {TERMINAL_COMMANDS} from "@pkg/constants/src/terminal.constant.ts";
 import {VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
@@ -65,6 +66,7 @@ export const SESSIONS_WEBVIEW_COMMANDS = [
   PROJECT_COMMANDS.MOVE_UP,
   PROJECT_COMMANDS.REMOVE,
   PROJECT_COMMANDS.SAVE_SETTINGS,
+  REVIEW_COMMENT_COMMANDS.SEND_TO_SESSION,
   SESSION_COMMANDS.ARCHIVE,
   SESSION_COMMANDS.ARCHIVE_ONGOING,
   SESSION_COMMANDS.ARCHIVE_PROJECT_SESSIONS,
@@ -172,6 +174,9 @@ export const SESSION_ROW_LABELS = {
   PULL_REQUEST: (pullRequestNumber: number) => `#${pullRequestNumber}`,
   PULL_REQUEST_TOOLTIP: (pullRequestTitle: string, stateLabel: string) =>
     `${pullRequestTitle} · ${stateLabel} · click to open`,
+  REVIEW_COMMENT_TOOLTIP: "1 comment · click to send it to this session's agent",
+  REVIEW_COMMENTS_TOOLTIP: (pendingReviewCommentCount: number) =>
+    `${pendingReviewCommentCount} comments · click to send them to this session's agent`,
   TOOLTIP_HEADING: (sessionName: string, statusLabel: string) => `${sessionName} · ${statusLabel}`,
   TOOLTIP_SESSION_ID: (agentConversationId: string) => `Session ID: ${agentConversationId}`
 } as const;

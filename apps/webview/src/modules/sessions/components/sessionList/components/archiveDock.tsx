@@ -1,12 +1,14 @@
+import {ChevronUpIcon} from "lucide-react";
+
 import {CountBadge} from "@/modules/sessions/components/sessionList/components/countBadge.tsx";
 import {RowActions} from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.tsx";
 import {ARCHIVE_PANEL} from "@/modules/sessions/components/sessionList/sessionList.constant.ts";
 import {SESSIONS_LABELS} from "@/modules/sessions/sessions.constant.ts";
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@pkg/ui/src/components/base/collapsible.tsx";
-import {ChevronUpIcon} from "lucide-react";
+
+import type {ReactNode} from "react";
 
 import type {RowAction} from "@/modules/sessions/sessions.type.ts";
-import type {ReactNode} from "react";
 
 interface ArchiveDockProps {
   readonly actionGroups: readonly (readonly RowAction[])[];
@@ -20,7 +22,7 @@ interface ArchiveDockProps {
 export const ArchiveDock = (props: ArchiveDockProps) => (
   <Collapsible className="shrink-0 pt-1" onOpenChange={props.onOpenChange} open={props.isOpen}>
     <RowActions actionGroups={props.actionGroups} className="mx-1.5 mb-1.5">
-      <CollapsibleTrigger className="group flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-semibold tracking-wider text-muted-foreground uppercase outline-none transition-colors duration-150 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+      <CollapsibleTrigger className="group flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-semibold tracking-wider text-muted-foreground uppercase transition-colors duration-150 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
         <span className="shrink-0">{props.title}</span>
         <ChevronUpIcon
           aria-hidden

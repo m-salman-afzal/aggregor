@@ -1,22 +1,23 @@
+import {homedir} from "node:os";
+
 import {NodeServices} from "@effect/platform-node";
-import {AGENT_HISTORY_TITLE} from "@pkg/constants/src/agentHistory.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Array, Config, Context, Effect, Layer, Result, Schema, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
-import {homedir} from "node:os";
 
-import type {FileSlice} from "@infraServices/agentHistory/agentHistory.infraService.type.ts";
+import {AGENT_HISTORY_TITLE} from "@pkg/constants/src/agentHistory.constant.ts";
+
+import type {FileSlice} from "@/infraServices/agentHistory/agentHistory.infraService.type.ts";
 
 export class AgentHistoryUtils extends Context.Service<AgentHistoryUtils>()(
   "aggregor-app/infrastructure/services/agentHistory/agentHistory.utils/AgentHistoryUtils",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("AgentHistoryUtils.make")(function* () {
       const fileSystem = yield* FileSystem;
       const path = yield* Path;
       const homeFolderPath = homedir();
 
-      const readFolderFromEnvironment = Effect.fn("readFolderFromEnvironment")(function* (
+      const readFolderFromEnvironment = Effect.fn("AgentHistoryUtils.readFolderFromEnvironment")(function* (
         environmentVariable: string,
         defaultFolderName: string
       ) {
@@ -25,7 +26,7 @@ export class AgentHistoryUtils extends Context.Service<AgentHistoryUtils>()(
         return configuredFolder === "" ? path.join(homeFolderPath, defaultFolderName) : configuredFolder;
       }, Effect.orDie);
 
-      const readFileSlice = Effect.fn("readFileSlice")(function* (fileSlice: FileSlice) {
+      const readFileSlice = Effect.fn("AgentHistoryUtils.readFileSlice")(function* (fileSlice: FileSlice) {
         const openedFile = yield* fileSystem.open(fileSlice.filePath, {flag: "r"});
         const readBytes = yield* openedFile.readAlloc(fileSlice.byteCount, {position: fileSlice.position});
 
@@ -36,14 +37,14 @@ export class AgentHistoryUtils extends Context.Service<AgentHistoryUtils>()(
       }, Effect.scoped);
 
       // The last byteCount bytes; its first line is usually cut, and fails to parse like any other broken line.
-      const readFileTail = Effect.fn("readFileTail")(function* (filePath: string, byteCount: number) {
+      const readFileTail = Effect.fn("AgentHistoryUtils.readFileTail")(function* (filePath: string, byteCount: number) {
         const fileInfo = yield* fileSystem.stat(filePath);
         const tailStart = fileInfo.size > BigInt(byteCount) ? fileInfo.size - BigInt(byteCount) : 0n;
 
         return yield* readFileSlice({byteCount, filePath, position: tailStart});
       });
 
-      const decodeJsonLines = Effect.fn("decodeJsonLines")(function* <LineType>(
+      const decodeJsonLines = Effect.fn("AgentHistoryUtils.decodeJsonLines")(function* <LineType>(
         lineSchema: Schema.Codec<LineType, string>,
         jsonLines: string
       ) {
@@ -52,7 +53,9 @@ export class AgentHistoryUtils extends Context.Service<AgentHistoryUtils>()(
         );
       });
 
-      const formatTextAsOneLineTitle = Effect.fn("formatTextAsOneLineTitle")(function* (text: string) {
+      const formatTextAsOneLineTitle = Effect.fn("AgentHistoryUtils.formatTextAsOneLineTitle")(function* (
+        text: string
+      ) {
         const oneLineText = String.trim(String.replaceAll(AGENT_HISTORY_TITLE.LINE_BREAKS, " ")(text));
 
         return oneLineText.length > AGENT_HISTORY_TITLE.MAX_LENGTH
@@ -64,7 +67,5 @@ export class AgentHistoryUtils extends Context.Service<AgentHistoryUtils>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("AgentHistoryUtils", this.make())).pipe(
-    Layer.provide(NodeServices.layer)
-  );
+  public static readonly layer = Layer.effect(this, this.make()).pipe(Layer.provide(NodeServices.layer));
 }

@@ -1,9 +1,11 @@
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {Context} from "effect";
 
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
-import type {PullRequestStateValueObject} from "@valueObjects/pullRequestState.valueObject.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
 import type {Effect, Stream} from "effect";
+
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
+import type {PullRequestStateValueObject} from "@/valueObjects/pullRequestState.valueObject.ts";
 
 // gh pr view takes a branch's name or a pull request's number alike.
 export interface PullRequestLookup {

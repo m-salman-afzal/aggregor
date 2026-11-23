@@ -1,3 +1,5 @@
+import {useSyncExternalStore} from "react";
+
 import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 import {
   askHostToDraw,
@@ -14,13 +16,12 @@ import {
   makeProjectKey
 } from "@/modules/sessions/stores/sessions/sessions.utils.ts";
 import {SESSION_LISTS} from "@pkg/constants/src/sessionsView.constant.ts";
-import {useSyncExternalStore} from "react";
 
+import type {ProjectSettingsDto} from "@/dtos/project.dto.ts";
+import type {ImportedSessionDto} from "@/dtos/sessionImport.dto.ts";
 import type {ChosenLeftovers, SessionListId, UserInput} from "@/modules/sessions/sessions.type.ts";
 import type {SessionsData, SessionsState} from "@/modules/sessions/stores/sessions/sessions.type.ts";
-import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
-import type {ImportedSessionDto} from "@dtos/sessionImport.dto.ts";
-import type {CommandRequest} from "@views/sessions/sessions.view.type.ts";
+import type {CommandRequest} from "@/views/sessions/sessions.view.type.ts";
 
 interface UseSessionsStoreProps<Selected> {
   readonly selectFromState: (sessionsState: SessionsState) => Selected;

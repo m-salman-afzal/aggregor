@@ -1,5 +1,6 @@
-import {DialogTitle} from "@pkg/ui/src/components/base/dialog.tsx";
 import {cn} from "cn";
+
+import {DialogTitle} from "@pkg/ui/src/components/base/dialog.tsx";
 
 import type {LucideIcon} from "lucide-react";
 

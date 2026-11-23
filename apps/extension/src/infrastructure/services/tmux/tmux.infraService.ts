@@ -1,18 +1,18 @@
 import {NodeServices} from "@effect/platform-node";
-import {FolderShellUtils} from "@infraServices/tmux/folderShell.utils.ts";
-import {SessionAgentUtils} from "@infraServices/tmux/sessionAgent.utils.ts";
-import {TmuxServerUtils} from "@infraServices/tmux/tmuxServer.utils.ts";
-import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
+import {Context, Effect, Layer, Stream} from "effect";
+
+import {FolderShellUtils} from "@/infraServices/tmux/folderShell.utils.ts";
+import {SessionAgentUtils} from "@/infraServices/tmux/sessionAgent.utils.ts";
+import {TmuxServerUtils} from "@/infraServices/tmux/tmuxServer.utils.ts";
+import {ITmuxInfraService} from "@/interfaces/tmux.infraService.interface.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {Context, Effect, Layer, Stream} from "effect";
 
 // A server already running keeps the config it started with, so this window's tmux.conf is read into it again.
 export class TmuxInfraService extends Context.Service<TmuxInfraService>()(
   "aggregor-app/infrastructure/services/tmux/tmux.infraService/TmuxInfraService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("TmuxInfraService.make")(function* () {
       const vsCodeApi = yield* VsCodeApi;
       const vscodeUtils = yield* VscodeUtils;
       const folderShellUtils = yield* FolderShellUtils;
@@ -20,7 +20,7 @@ export class TmuxInfraService extends Context.Service<TmuxInfraService>()(
       const tmuxServerUtils = yield* TmuxServerUtils;
 
       // An agent can end, or tmux be killed, while the window is away; a tab whose tmux session ended closes with it.
-      const watchTmuxChangeHints = Effect.fn("watchTmuxChangeHints")(function* () {
+      const watchTmuxChangeHints = Effect.fn("TmuxInfraService.watchTmuxChangeHints")(function* () {
         const windowStateChanges = yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.window.onDidChangeWindowState);
         const closedTerminals = yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.window.onDidCloseTerminal);
         const tmuxChangeHints = Stream.merge(
@@ -44,6 +44,7 @@ export class TmuxInfraService extends Context.Service<TmuxInfraService>()(
       return ITmuxInfraService.of({
         checkTmuxVersion: tmuxServerUtils.checkTmuxVersion,
         endFolderShell: folderShellUtils.endFolderShell,
+        pasteTextIntoSessionAgent: sessionAgentUtils.pasteTextIntoSessionAgent,
         prepareFolderShellTerminalCommand: folderShellUtils.prepareFolderShellTerminalCommand,
         prepareSessionTabCommand: sessionAgentUtils.prepareSessionTabCommand,
         readFolderShellPanes: folderShellUtils.readFolderShellPanes,
@@ -61,7 +62,7 @@ export class TmuxInfraService extends Context.Service<TmuxInfraService>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(ITmuxInfraService, ownSpans("TmuxInfraService", this.make())).pipe(
+  public static readonly layer = Layer.effect(ITmuxInfraService, this.make()).pipe(
     Layer.provide([FolderShellUtils.layer, SessionAgentUtils.layer, TmuxServerUtils.layer, NodeServices.layer])
   );
 }

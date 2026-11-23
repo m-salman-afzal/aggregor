@@ -1,14 +1,14 @@
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
-import {FolderShellService} from "@services/folderShell.service.ts";
-import {PullRequestService} from "@services/pullRequest.service.ts";
-import {SessionService} from "@services/session.service.ts";
-import {WorkspaceService} from "@services/workspace.service.ts";
 import {Context, Effect, Layer} from "effect";
+
+import {FolderShellService} from "@/services/folderShell.service.ts";
+import {PullRequestService} from "@/services/pullRequest.service.ts";
+import {SessionService} from "@/services/session.service.ts";
+import {WorkspaceService} from "@/services/workspace.service.ts";
 
 export class BackgroundJobs extends Context.Service<BackgroundJobs>()(
   "aggregor-app/infrastructure/di/backgroundJobs.layer/BackgroundJobs",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("BackgroundJobs.make")(function* () {
       const sessionService = yield* SessionService;
       const folderShellService = yield* FolderShellService;
       const pullRequestService = yield* PullRequestService;
@@ -36,7 +36,7 @@ export class BackgroundJobs extends Context.Service<BackgroundJobs>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("BackgroundJobs", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([SessionService.layer, FolderShellService.layer, PullRequestService.layer, WorkspaceService.layer])
   );
 }

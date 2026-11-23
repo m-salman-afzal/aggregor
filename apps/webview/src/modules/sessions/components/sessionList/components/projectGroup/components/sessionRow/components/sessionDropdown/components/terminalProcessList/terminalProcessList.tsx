@@ -1,11 +1,13 @@
+import {ChevronRightIcon} from "lucide-react";
+
 import {ProcessTreeNode} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdown/components/terminalProcessList/processTreeNode.tsx";
 import {buildProcessTree} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdown/components/terminalProcessList/terminalProcessList.utils.ts";
 import {COLLAPSIBLE_PANEL} from "@/modules/sessions/components/sessionList/sessionList.constant.ts";
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@pkg/ui/src/components/base/collapsible.tsx";
-import {ChevronRightIcon} from "lucide-react";
 
-import type {TerminalProcessesDto} from "@dtos/sessionProcess.dto.ts";
 import type {ReactNode} from "react";
+
+import type {TerminalProcessesDto} from "@/dtos/sessionProcess.dto.ts";
 
 interface TerminalProcessListProps {
   readonly label: string;
@@ -15,7 +17,7 @@ interface TerminalProcessListProps {
 }
 
 export const TerminalProcessList = (props: TerminalProcessListProps) => (
-  <Collapsible defaultOpen render={<section aria-label={props.label} className="flex flex-col gap-1" />}>
+  <Collapsible render={<section aria-label={props.label} className="flex flex-col gap-1" />}>
     <h3 className="min-w-0 font-medium text-muted-foreground">
       <CollapsibleTrigger className="group/terminal flex w-full min-w-0 items-center gap-1.5 rounded-md text-left outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
         <ChevronRightIcon

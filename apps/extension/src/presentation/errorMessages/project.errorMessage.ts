@@ -1,16 +1,16 @@
-import {DATABASE_ERRORS} from "@pkg/constants/src/database.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Context, Effect, Layer, Match} from "effect";
 
-import type {ProjectService} from "@services/project.service.ts";
+import {DATABASE_ERRORS} from "@pkg/constants/src/database.constant.ts";
+
+import type {ProjectService} from "@/services/project.service.ts";
 
 type ProjectCommandError = Effect.Error<ProjectService["Service"]["addProject"]>;
 
 export class ProjectErrorMessage extends Context.Service<ProjectErrorMessage>()(
   "aggregor-app/presentation/errorMessages/project.errorMessage/ProjectErrorMessage",
   {
-    make: Effect.fn("make")(function* () {
-      const getProjectCommandErrorMessage = Effect.fn("getProjectCommandErrorMessage")(function* (
+    make: Effect.fn("ProjectErrorMessage.make")(function* () {
+      const getProjectCommandErrorMessage = Effect.fn("ProjectErrorMessage.getProjectCommandErrorMessage")(function* (
         projectCommandError: ProjectCommandError
       ) {
         return Match.valueTags(projectCommandError, {
@@ -23,5 +23,5 @@ export class ProjectErrorMessage extends Context.Service<ProjectErrorMessage>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("ProjectErrorMessage", this.make()));
+  public static readonly layer = Layer.effect(this, this.make());
 }

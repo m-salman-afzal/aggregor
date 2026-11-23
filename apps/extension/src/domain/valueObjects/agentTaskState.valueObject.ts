@@ -1,5 +1,6 @@
-import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
 import {Schema} from "effect";
+
+import {AGENT_STATUSES} from "@/valueObjects/agentStatus.valueObject.ts";
 
 // The states an OSC 7501 report names; clear removes the task instead.
 export const AgentTaskStateValueObjectSchema = Schema.Enum({

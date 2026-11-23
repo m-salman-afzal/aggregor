@@ -2,7 +2,7 @@ import {SessionRow} from "@/modules/sessions/components/sessionList/components/p
 import {ShowMoreSessions} from "@/modules/sessions/components/sessionList/components/projectGroup/components/showMoreSessions/showMoreSessions.tsx";
 
 import type {SessionListId} from "@/modules/sessions/sessions.type.ts";
-import type {ProjectRowData} from "@views/sessions/sessions.view.type.ts";
+import type {ProjectRowData} from "@/views/sessions/sessions.view.type.ts";
 
 interface ProjectSessionRowsProps {
   readonly listId: SessionListId;

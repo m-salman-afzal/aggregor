@@ -1,14 +1,14 @@
-import {AgentListItemDtoSchema} from "@dtos/agent.dto.ts";
-import {IAgentRepository, IAgentRepositoryErrors} from "@entities/agent/agent.repository.interface.ts";
-import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
-import {IShellCommandInfraService} from "@interfaces/shellCommand.infraService.interface.ts";
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Array, Context, Effect, Layer, Result, Schema} from "effect";
 
-import type {SetDefaultAgentRequestDto} from "@dtos/agent.dto.ts";
-import type {AgentEntity} from "@entities/agent/agent.entity.ts";
-import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
+import {AgentListItemDtoSchema} from "@/dtos/agent.dto.ts";
+import {IAgentRepository, IAgentRepositoryErrors} from "@/entities/agent/agent.repository.interface.ts";
+import {ISettingsConfig} from "@/interfaces/settings.config.interface.ts";
+import {IShellCommandInfraService} from "@/interfaces/shellCommand.infraService.interface.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
+import type {SetDefaultAgentRequestDto} from "@/dtos/agent.dto.ts";
+import type {AgentEntity} from "@/entities/agent/agent.entity.ts";
+import type {AgentIdValueObject} from "@/valueObjects/agentId.valueObject.ts";
 
 export class AgentServiceErrors extends TaggedErrors({
   NoAgentInstalledError: {searchedCommands: Schema.Array(Schema.String)}
@@ -17,12 +17,12 @@ export class AgentServiceErrors extends TaggedErrors({
 export class AgentService extends Context.Service<AgentService>()(
   "aggregor-app/application/services/agent.service/AgentService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("AgentService.make")(function* () {
       const agentRepository = yield* IAgentRepository;
       const settingsConfig = yield* ISettingsConfig;
       const shellCommandInfraService = yield* IShellCommandInfraService;
 
-      const listInstalledAgents = Effect.fn("listInstalledAgents")(function* () {
+      const listInstalledAgents = Effect.fn("AgentService.listInstalledAgents")(function* () {
         const agents = yield* agentRepository.findAll;
         const agentCommands = Array.map(agents, (agent) => agent.command);
         const installedCommands = yield* shellCommandInfraService.listInstalledCommands(agentCommands);
@@ -33,7 +33,7 @@ export class AgentService extends Context.Service<AgentService>()(
         return installedAgents;
       });
 
-      const findInstalledAgent = Effect.fn("findInstalledAgent")(function* (
+      const findInstalledAgent = Effect.fn("AgentService.findInstalledAgent")(function* (
         installedAgents: readonly AgentEntity[],
         agentId: AgentIdValueObject
       ) {
@@ -45,7 +45,9 @@ export class AgentService extends Context.Service<AgentService>()(
         );
       });
 
-      const findAgentToStart = Effect.fn("findAgentToStart")(function* (agentId: AgentIdValueObject | undefined) {
+      const findAgentToStart = Effect.fn("AgentService.findAgentToStart")(function* (
+        agentId: AgentIdValueObject | undefined
+      ) {
         const installedAgents = yield* listInstalledAgents();
         if (agentId !== undefined) return yield* findInstalledAgent(installedAgents, agentId);
         const sessionSettings = yield* settingsConfig.readSessionSettings;
@@ -56,7 +58,7 @@ export class AgentService extends Context.Service<AgentService>()(
         return Result.getOrElse(defaultAgentResult, () => Array.headNonEmpty(installedAgents));
       });
 
-      const listAgents = Effect.fn("listAgents")(
+      const listAgents = Effect.fn("AgentService.listAgents")(
         function* () {
           const sessionSettings = yield* settingsConfig.readSessionSettings;
           const installedAgents = yield* listInstalledAgents();
@@ -78,7 +80,7 @@ export class AgentService extends Context.Service<AgentService>()(
         Effect.catchTag("NoAgentInstalledError", () => Effect.succeed([]))
       );
 
-      const setDefaultAgent = Effect.fn("setDefaultAgent")(function* (request: SetDefaultAgentRequestDto) {
+      const setDefaultAgent = Effect.fn("AgentService.setDefaultAgent")(function* (request: SetDefaultAgentRequestDto) {
         yield* settingsConfig.saveDefaultAgentId(request.agentId);
       });
 
@@ -86,5 +88,5 @@ export class AgentService extends Context.Service<AgentService>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("AgentService", this.make()));
+  public static readonly layer = Layer.effect(this, this.make());
 }

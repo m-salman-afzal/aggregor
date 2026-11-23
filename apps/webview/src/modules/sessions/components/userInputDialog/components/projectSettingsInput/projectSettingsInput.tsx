@@ -4,8 +4,9 @@ import {WorkingTreeField} from "@/modules/sessions/components/userInputDialog/co
 import {PROJECT_SETTINGS_FIELDS} from "@/modules/sessions/components/userInputDialog/userInputDialog.constant.ts";
 import {PROJECT_SETTINGS_LABELS} from "@pkg/constants/src/project.constant.ts";
 
-import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
 import type {SubmitEvent} from "react";
+
+import type {ProjectSettingsDto} from "@/dtos/project.dto.ts";
 
 interface ProjectSettingsInputProps {
   readonly onCancel: () => void;
@@ -33,6 +34,12 @@ export const ProjectSettingsInput = (props: ProjectSettingsInputProps) => (
       label={PROJECT_SETTINGS_LABELS.SETUP_SCRIPT}
       name={PROJECT_SETTINGS_FIELDS.SETUP_SCRIPT}
       value={props.settings.setupScript}
+    />
+    <SettingsTextField
+      hint={PROJECT_SETTINGS_LABELS.CLEAN_UP_BASE_BRANCH_HINT}
+      label={PROJECT_SETTINGS_LABELS.CLEAN_UP_BASE_BRANCH}
+      name={PROJECT_SETTINGS_FIELDS.CLEAN_UP_BASE_BRANCH}
+      value={props.settings.cleanUpBaseBranch}
     />
     <FormButtons onCancel={props.onCancel} submitLabel={PROJECT_SETTINGS_LABELS.SAVE} />
   </form>

@@ -13,10 +13,13 @@ heading there. Update this file in the same commit as a change that adds, remove
   tmux and the agents run there), the Aggregor activity-bar container with the Sessions webview view, menus and
   `aggregorApp.*` settings. APIs: `registerWebviewViewProvider`, `createTerminal` (`shellPath`, `isTransient`, an
   editor-tab `location`, `env`, `iconPath`), `createQuickPick`, `showInputBox`, `withProgress`, `registerUriHandler`
-  with `env.asExternalUri`, a log `createOutputChannel` for the trace, `workspace.updateWorkspaceFolders` (only for a
-  window without a saved workspace file), `openTextDocument`, `applyEdit` and `TextDocument.save`, and the
-  `vscode.openFolder`, `workbench.action.reloadWindow`, `workbench.action.pinEditor` and `workbench.trust.manage`
-  commands. `packages/vscode` holds `VsCodeApi`, the one runtime `vscode` import.
+  with `env.asExternalUri`, `comments.createCommentController` with a commenting range provider, the manifest's
+  `comments/*` menus and its `configurationDefaults` for `comments.openView` and two comment colours, for review
+  comments, a log `createOutputChannel` for the trace, `workspace.updateWorkspaceFolders` (only for a window without a
+  saved workspace file), `openTextDocument`, `applyEdit` and `TextDocument.save`, and the `vscode.openFolder`,
+  `workbench.action.reloadWindow`, `workbench.action.pinEditor`, `workbench.trust.manage` and
+  `workbench.action.focusActiveEditorGroup` commands. `packages/vscode` holds `VsCodeApi`, the one runtime `vscode`
+  import.
 - **Why:** terminals, trees, Source Control and diffs already exist in VS Code, through stable APIs only.
 - **Alternatives:** "Agents run in their own terminal UIs": an ACP client with a webview chat UI; VS Code's chat
   sessions API, a proposed API. "Every session's agent runs in tmux": tabs drawn as `Pseudoterminal`s over one tmux
@@ -41,6 +44,10 @@ heading there. Update this file in the same commit as a change that adds, remove
   - `list-clients -F '#{client_pid} #{client_name} #{session_name}'` reads which session each tab shows, a tab being the
     tmux client with its process id; `switch-client -E -c ‹client› -t =‹sessionId›` attaches the shared tab to another
     running session, and `-E` leaves that session's environment as it is.
+  - `send-keys -X -t =‹sessionId›: cancel`, `load-buffer -b aggregor-review -` with the text on stdin, and
+    `paste-buffer -p -d -b aggregor-review -t =‹sessionId›:` put the review comments into an agent's prompt as one
+    bracketed paste, without sending it. `cancel` leaves copy mode first, where tmux leaves the brackets out and each
+    newline would arrive as Enter; stdin keeps a `;` at the text's end from ending the tmux command.
   - The window's Aggregor terminal runs tmux the same way for a folder's shell, as one command list:
     `new-session -A -s shell-‹folder›-‹hash› -c ‹folder› -- sh -c 'unset TMUX TMUX_PANE; exec "$@" "$SHELL" -l' sh [systemd-run … --]`,
     then `set-option -t =‹name›:` for `status on`, `history-limit 100000` and `@aggregor_folder_label`. The same
@@ -65,7 +72,7 @@ heading there. Update this file in the same commit as a change that adds, remove
   tab shows any session and one panel terminal any folder's shell.
 - **Alternatives:** "Every session's agent runs in tmux": a hidden VS Code terminal running `tmux new-session -d` with
   the tab only attaching; tmux as the extension's child process; one control-mode (`-CC`) client for every tab.
-  harness-foundation 5, Decided 3: a pkexec install prompt and a bundled tmux (README's M6 plans a bundled tmux).
+  harness-foundation 5, Decided 3: a pkexec install prompt and a bundled tmux (`ROADMAP.md`'s M6 plans a bundled tmux).
   Decided 4: a named server, `-L aggregor`. The harness-foundation plan names psmux for native Windows later.
   - Other options for the multiplexer itself, not weighed in `decisions/`: GNU screen, Zellij, dtach or abduco.
 
@@ -206,9 +213,9 @@ heading there. Update this file in the same commit as a change that adds, remove
 
 - **What it is:** VS Code's built-in Git extension, `vscode.git`, and its API.
 - **What we use:** `activate()`, then `getAPI(1)`: `getRepository`, `state.indexChanges`, `diff(true)` for the staged
-  diff, `inputBox.value`, `commit` and `status()` (`infrastructure/services/vscode/git.infraService.ts`). Its types are
-  `packages/typings/src/git.d.ts`, fetched by `pnpm --filter=@pkg/typings sync:git-types`. Agents get its credential
-  helper through tmux's `update-environment`.
+  diff, `inputBox.value`, `commit`, `state.HEAD` and `state.remotes` to find where a push goes, `push` and `status()`
+  (`infrastructure/services/vscode/git.infraService.ts`). Its types are `packages/typings/src/git.d.ts`, fetched by
+  `pnpm --filter=@pkg/typings sync:git-types`. Agents get its credential helper through tmux's `update-environment`.
 - **Why:** "Review agent edits with git": Source Control and its diffs already exist.
 - **Alternatives:** Not weighed in `decisions/`.
   - Other options: the `git` CLI, simple-git, or isomorphic-git.
@@ -277,15 +284,12 @@ heading there. Update this file in the same commit as a change that adds, remove
 - **What we use:** `effect` 4.1.4: `Effect.fn` for every function, which gives it its span; `Context.Service` classes in
   the form Effect's docs use, for ports and for units (`make` and a static `layer`); `Layer` for each implementation's
   and unit's own dependencies, and `Layer.mergeAll` with `Layer.withSpan` for each level
-  (`infrastructure/di/app.layer.ts`, `extension.ts`); `Effect.annotateSpans`, and `Effect.updateService` on
-  `References.TracerSpanAnnotations`, in `@pkg/trace`'s `ownSpans`, which marks a unit's spans with its name and keeps
-  the caller's on an effect, a stream or a callback handed to the unit as an argument; `ManagedRuntime` in
-  `extension.ts`; `Schema` for tagged errors (`Schema.TaggedError`, one per key of a file's errors class, through
-  `@pkg/errors`' `TaggedErrors`), entities, enum value objects and argument decoding; `Result`; `Stream`,
-  `SubscriptionRef`, `PubSub` and `Schedule`; `Config`; `Tracer` and `Logger` for the trace log
-  (`infrastructure/logger/traceLog.layer.ts`); and the unstable `effect/sql`, `effect/process` (`ChildProcess`),
-  `effect/FileSystem`, `effect/Path`, `effect/crypto` (`SecureRandom.uuidV7`) and `effect/reactivity`, each allowed by
-  name in `packages/tsconfigs/tsconfig.base.json`.
+  (`infrastructure/di/app.layer.ts`, `extension.ts`); `ManagedRuntime` in `extension.ts`; `Schema` for tagged errors
+  (`Schema.TaggedError`, one per key of a file's errors class, through `@pkg/errors`' `TaggedErrors`), entities, enum
+  value objects and argument decoding; `Result`; `Stream`, `SubscriptionRef`, `PubSub` and `Schedule`; `Config`;
+  `Tracer` and `Logger` for the trace log (`infrastructure/logger/traceLog.layer.ts`); and the unstable `effect/sql`,
+  `effect/process` (`ChildProcess`), `effect/FileSystem`, `effect/Path`, `effect/crypto` (`SecureRandom.uuidV7`) and
+  `effect/reactivity`, each allowed by name in `packages/tsconfigs/tsconfig.base.json`.
 - **Why:** "Effect 4" records no reason for the choice; it is what gives every function its span and every failure a
   typed error.
 - **Alternatives:** Not weighed in `decisions/`.
@@ -416,7 +420,7 @@ the theme and the base components.
 - **What it is:** the language and its type checker.
 - **What we use:** `tsc` is TypeScript 7.0.2's native compiler (`@typescript/native`, an alias of `typescript@7.0.2`),
   run as `tsc --noEmit` by `pnpm typecheck`. The `typescript` name resolves to 6.0.2 (`@typescript/typescript6`), a
-  dependency of `@pkg/eslint`. Options live in `packages/tsconfigs/tsconfig.base.json`, aliases in
+  dependency of `@pkg/lint`. Options live in `packages/tsconfigs/tsconfig.base.json`, aliases in
   `apps/extension/tsconfig.json`.
 - **Why:** "`@effect/tsgo` on TypeScript 7 native" records the native compiler; no reason for TypeScript 6 is recorded.
 - **Alternatives:** Not weighed in `decisions/`.
@@ -450,7 +454,8 @@ the theme and the base components.
 
 - **What it is:** a compiler that memoizes React components and hooks at build time.
 - **What we use:** `babel-plugin-react-compiler` 1.0.0 through `@vitejs/plugin-react`'s `reactCompilerPreset`, run by
-  `@rolldown/plugin-babel` 0.3.1 with `@babel/core` 8.1.0; `eslint-plugin-react-hooks` checks the code it compiles.
+  `@rolldown/plugin-babel` 0.3.1 with `@babel/core` 8.1.0; oxlint's React hooks and compiler rules check the code it
+  compiles.
 - **Why:** "The webview is React with shadcn on Base UI": no `useMemo` or `useCallback` by hand.
 - **Alternatives:** that decision: `@vitejs/plugin-react`'s Rust port of the compiler, which is experimental.
 
@@ -465,35 +470,43 @@ the theme and the base components.
 - **Alternatives:** "Every schema change is a migration on the user's database": `drizzle-kit check`, which checks the
   migrations folder, not that the models match it.
 
-### ESLint
+### oxlint
 
-- **What it is:** a JavaScript and TypeScript linter.
-- **What we use:** 10.15.0, `pnpm lint:check` with `--max-warnings 0`. `@pkg/eslint` (`packages/eslint/src`) holds
-  `base/` per file type, `layers/` for the DDD layering, `folderStructure/` for `apps/webview`, and `rules/`, the
-  aggregor plugin (`span-name`, `max-lines-per-function`, which replaces ESLint's own so a unit's `make` is exempt,
-  `constant-placement`, `type-placement`, `declaring-file`, `stem-folder`, and for the webview `file-role`,
-  `building-block`, `kind-folder`, `module-boundary`, `no-pass-through` and `single-consumer`). Plugins:
-  typescript-eslint, unicorn, perfectionist, import-x, e18e, `@eslint/markdown`, `@eslint/json`, eslint-package-json,
-  eslint-plugin-pnpm (the catalog checks), eslint-plugin-prettier, and eslint-plugin-react-hooks 7.1.1 for the webview.
-- **Why:** "Conventions are enforced by lint, not prose".
-- **Alternatives:** "The ESLint setup lives in `@pkg/eslint`": the base setup at the root, one file per category.
-  - Other options for the linter, not weighed in `decisions/`: Biome or oxlint.
+- **What it is:** a JavaScript and TypeScript linter written in Rust, with type-aware rules through `oxlint-tsgolint`
+  and ESLint-compatible JS plugins.
+- **What we use:** oxlint 1.94.0 and `oxlint-tsgolint` 7.0.2008 (type-aware rules on TypeScript 7). `pnpm lint:check` is
+  `oxlint`, which reads the root `oxlint.config.ts`, a re-export of `packages/lint/src/lint.config.ts`: the overrides in
+  `base/`, `layers/`, `folderStructure/` and `rules/`, `maxWarnings: 0`, unused disable directives as errors, and
+  type-aware rules on. It takes about 3 seconds and 1 GB. `base/typescriptPresetRules.ts` and
+  `folderStructure/reactRules.ts` hold the preset rule sets the repo has always run (ESLint's and typescript-eslint's
+  `all`, perfectionist's alphabetical, e18e's recommended, React's hooks and compiler rules), in oxlint's names. JS
+  plugins, for what oxlint has no rule for: the aggregor plugin (`rules/`), perfectionist, e18e, `oxlint-plugin-eslint`
+  1.94.0 (ESLint's own `no-restricted-syntax`, `newline-before-return` and others, as `eslint-js/…`), unicorn's
+  `name-replacements` (`unicorn-js/…`), and typescript-eslint's `naming-convention`, `member-ordering` and
+  `no-restricted-imports` (`typescript-js/…`, through `base/typescriptEslintRules.plugin.ts`, which hands them the
+  parser services they ask for without needing types). The aggregor rules are typed with `@oxlint/plugins` and tested
+  with oxlint's `RuleTester`. The `eslint` package is still installed, as a peer that perfectionist, e18e and
+  typescript-eslint's plugin name, but nothing runs ESLint and no `package.json` lists it.
+- **Why:** "Oxlint and oxfmt check everything".
+- **Alternatives:** "Oxlint and oxfmt check everything": ESLint, at about 8 GB per uncached run; Biome.
 
-### Prettier
+### oxfmt
 
-- **What it is:** a code formatter.
-- **What we use:** 3.10.1, `.prettierrc`: 120 columns, `proseWrap: always`. `pnpm format:check`, and staged files before
-  each commit.
-- **Why:** not recorded; "Lint and format on commit" records the setup.
-- **Alternatives:** Not weighed in `decisions/`.
-  - Other options: Biome or dprint.
+- **What it is:** a Prettier-compatible formatter written in Rust.
+- **What we use:** 0.79.0, `oxfmt.config.ts`: Prettier's old settings (120 columns, `proseWrap: always`, no bracket
+  spacing, no trailing commas) and its built-in sorting: `sortImports` with the repo's groups (values before types, each
+  by where it comes from, a blank line between groups, `@/` and `@pkg/` counted as internal), `sortPackageJson` (on by
+  default) and `sortTailwindcss` against `packages/ui/src/theme.css`, also inside `cn(…)` and `cva(…)`. It formats
+  TypeScript, JSON, YAML, Markdown and CSS natively. `pnpm format:check`, and staged files before each commit.
+- **Why:** "Oxlint and oxfmt check everything".
+- **Alternatives:** Prettier, which it replaced; Biome or dprint.
 
 ### vitest
 
 - **What it is:** a test runner built on Vite.
 - **What we use:** 5.1.0, `pnpm test`: `apps/extension/tests/migrations.test.ts`, which builds a database at each
   migration, fills it, migrates it to the newest and checks nothing was lost. `vitest.config.ts` resolves the tsconfig
-  aliases; each test runs its effect with `Effect.runPromise`. `packages/eslint/tests` runs the folder-structure lint
+  aliases; each test runs its effect with `Effect.runPromise`. `packages/lint/tests` runs the folder-structure lint
   rules on a small app it writes to a temporary folder.
 - **Why:** it resolves the extension's aliases, so the test runs the extension's own migration code.
 - **Alternatives:** "Every schema change is a migration on the user's database": Node's own test runner, which can't
@@ -503,7 +516,7 @@ the theme and the base components.
 
 - **What it is:** a git hooks installer, and a runner for checks on staged files.
 - **What we use:** husky 9.1.7, installed by `prepare`, runs `pnpm lint-staged` from `.husky/pre-commit`. lint-staged
-  17.6.0 (root `package.json`) runs `prettier --check` then `eslint --max-warnings 0` on every staged file, and
+  17.6.0 (root `package.json`) runs `oxfmt --check` and `oxlint` on every staged file, and
   `rustfmt --check --edition 2024` on `.rs` files. It checks the index, so a moved file edited after must be staged
   again. Renovate's abandoned-package warning is off for husky.
 - **Why:** not recorded; "Lint and format on commit" records the setup.
@@ -535,8 +548,8 @@ the theme and the base components.
 
 - `npm-run-all2` 9.0.4: `pnpm watch` runs `watch:vite` and `watch:tsc` together.
 - `@types/node` 26.6.6; `@types/vscode` 1.145.0, a plain version in `apps/extension` and `packages/vscode` because vsce
-  reads it to check `engines.vscode`; `@types/eslint-plugin-promise` 7.3.0; `@types/react` and `@types/react-dom`
-  19.3.0; `@types/vscode-webview` 1.57.5, for the webview's `acquireVsCodeApi`.
+  reads it to check `engines.vscode`; `@types/react` and `@types/react-dom` 19.3.0; `@types/vscode-webview` 1.57.5, for
+  the webview's `acquireVsCodeApi`.
 
 ## Releasing
 

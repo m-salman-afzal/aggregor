@@ -1,11 +1,12 @@
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Context, Effect, Layer} from "effect";
 
 export class AppErrorMessage extends Context.Service<AppErrorMessage>()(
   "aggregor-app/presentation/errorMessages/app.errorMessage/AppErrorMessage",
   {
-    make: Effect.fn("make")(function* () {
-      const getAppCommandErrorMessage = Effect.fn("getAppCommandErrorMessage")(function* (appCommandError: never) {
+    make: Effect.fn("AppErrorMessage.make")(function* () {
+      const getAppCommandErrorMessage = Effect.fn("AppErrorMessage.getAppCommandErrorMessage")(function* (
+        appCommandError: never
+      ) {
         return appCommandError;
       });
 
@@ -13,5 +14,5 @@ export class AppErrorMessage extends Context.Service<AppErrorMessage>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("AppErrorMessage", this.make()));
+  public static readonly layer = Layer.effect(this, this.make());
 }

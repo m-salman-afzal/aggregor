@@ -1,3 +1,5 @@
+import {TerminalIcon} from "lucide-react";
+
 import {AgentTerminalIcon} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdown/components/agentTerminalIcon.tsx";
 import {SessionTaskList} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdown/components/sessionTaskList/sessionTaskList.tsx";
 import {TerminalProcessList} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdown/components/terminalProcessList/terminalProcessList.tsx";
@@ -5,9 +7,8 @@ import {SESSION_DROPDOWN_LABELS} from "@/modules/sessions/components/sessionList
 import {useSessionDropdown} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdown/sessionDropdown.hook.ts";
 import {COLLAPSIBLE_PANEL} from "@/modules/sessions/components/sessionList/sessionList.constant.ts";
 import {CollapsibleContent} from "@pkg/ui/src/components/base/collapsible.tsx";
-import {TerminalIcon} from "lucide-react";
 
-import type {SessionTaskDto} from "@dtos/session.dto.ts";
+import type {SessionTaskDto} from "@/dtos/session.dto.ts";
 
 interface SessionDropdownProps {
   readonly agentIconUri?: string | undefined;

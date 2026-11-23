@@ -2,7 +2,7 @@ import {APPEARANCE} from "@/modules/sessions/sessions.constant.ts";
 import {SESSION_LISTS, SESSIONS_WEBVIEW_MESSAGE_TAGS} from "@pkg/constants/src/sessionsView.constant.ts";
 
 import type {SessionListId} from "@/modules/sessions/sessions.type.ts";
-import type {CommandRequest, SessionsViewMessage, SessionsWebviewMessage} from "@views/sessions/sessions.view.type.ts";
+import type {CommandRequest, SessionsViewMessage, SessionsWebviewMessage} from "@/views/sessions/sessions.view.type.ts";
 
 interface WebviewState {
   readonly collapsedListIds: readonly SessionListId[];

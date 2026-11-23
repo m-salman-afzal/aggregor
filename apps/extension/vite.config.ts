@@ -1,5 +1,6 @@
-/* eslint-disable no-console */
+/* oxlint-disable no-console */
 import {builtinModules} from "node:module";
+
 import {defineConfig} from "vite";
 
 import type {Plugin} from "vite";

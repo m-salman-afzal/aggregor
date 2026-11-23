@@ -1,20 +1,21 @@
 import {NodeServices} from "@effect/platform-node";
-import {FolderShellTerminalUtils} from "@infraServices/vscode/terminal/folderShellTerminal.utils.ts";
-import {TerminalUtils} from "@infraServices/vscode/terminal/terminal.utils.ts";
-import {ITerminalInfraService, ITerminalInfraServiceErrors} from "@interfaces/terminal.infraService.interface.ts";
+import {Array, Context, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
+
+import {FolderShellTerminalUtils} from "@/infraServices/vscode/terminal/folderShellTerminal.utils.ts";
+import {TerminalUtils} from "@/infraServices/vscode/terminal/terminal.utils.ts";
+import {ITerminalInfraService, ITerminalInfraServiceErrors} from "@/interfaces/terminal.infraService.interface.ts";
 import {AGENT_ICON} from "@pkg/constants/src/agent.constant.ts";
 import {SETUP_TERMINAL} from "@pkg/constants/src/requiredTools.constant.ts";
 import {SESSION_ID_ENV, VIEWED_SESSION_SETTLE_INTERVAL} from "@pkg/constants/src/terminal.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {Array, Context, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
 
-import type {SessionEntity} from "@entities/session/session.entity.ts";
-import type {SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {Terminal} from "vscode";
+
+import type {SessionEntity} from "@/entities/session/session.entity.ts";
+import type {SessionTabRequest} from "@/interfaces/terminal.infraService.interface.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
 
 class TerminalInfraServiceErrors extends TaggedErrors({
   NoActiveTerminalError: {},
@@ -25,14 +26,16 @@ class TerminalInfraServiceErrors extends TaggedErrors({
 export class TerminalInfraService extends Context.Service<TerminalInfraService>()(
   "aggregor-app/infrastructure/services/vscode/terminal/terminal.infraService/TerminalInfraService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("TerminalInfraService.make")(function* () {
       const vsCodeApi = yield* VsCodeApi;
       const vscodeUtils = yield* VscodeUtils;
       const terminalUtils = yield* TerminalUtils;
       const folderShellTerminalUtils = yield* FolderShellTerminalUtils;
       const sessionTerminals = terminalUtils.sessionTerminals;
 
-      const findSessionTerminal = Effect.fn("findSessionTerminal")(function* (sessionId: EntityIdValueObject) {
+      const findSessionTerminal = Effect.fn("TerminalInfraService.findSessionTerminal")(function* (
+        sessionId: EntityIdValueObject
+      ) {
         const openTerminals = yield* SubscriptionRef.get(sessionTerminals);
 
         return yield* Effect.fromResult(
@@ -43,7 +46,7 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
       });
 
       // The tab is transient: VS Code drops a reattached tab's file icon, so it isn't kept over a reload or restored.
-      const launchSessionTerminal = Effect.fn("launchSessionTerminal")(function* (
+      const launchSessionTerminal = Effect.fn("TerminalInfraService.launchSessionTerminal")(function* (
         session: SessionEntity,
         sessionTabRequest: SessionTabRequest
       ) {
@@ -65,13 +68,13 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
         });
       });
 
-      const showTerminal = Effect.fn("showTerminal")(function* (terminal: Terminal) {
+      const showTerminal = Effect.fn("TerminalInfraService.showTerminal")(function* (terminal: Terminal) {
         yield* Effect.sync(() => {
           terminal.show();
         });
       });
 
-      const openSetupTerminal = Effect.fn("openSetupTerminal")(function* (commandLine: string) {
+      const openSetupTerminal = Effect.fn("TerminalInfraService.openSetupTerminal")(function* (commandLine: string) {
         yield* Effect.annotateCurrentSpan({commandLine});
 
         yield* Effect.sync(() => {
@@ -85,27 +88,31 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
         });
       });
 
-      const focusSessionTerminal = Effect.fn("focusSessionTerminal")(function* (sessionId: EntityIdValueObject) {
+      const focusSessionTerminal = Effect.fn("TerminalInfraService.focusSessionTerminal")(function* (
+        sessionId: EntityIdValueObject
+      ) {
         const sessionTerminal = yield* findSessionTerminal(sessionId);
         yield* showTerminal(sessionTerminal);
       });
 
       // tmux can attach any open session tab to another session, so the first one is taken.
-      const findOpenSessionTerminalProcessId = Effect.fn("findOpenSessionTerminalProcessId")(function* () {
-        const openTerminals = yield* SubscriptionRef.get(sessionTerminals);
-        const openTerminal = yield* Effect.fromResult(
-          Result.fromOption(Array.head([...openTerminals.values()]), () =>
-            ITerminalInfraServiceErrors.NoSessionTabOpenError.make()
-          )
-        );
-        const terminalProcessId = yield* terminalUtils.readTerminalProcessId(openTerminal);
+      const findOpenSessionTerminalProcessId = Effect.fn("TerminalInfraService.findOpenSessionTerminalProcessId")(
+        function* () {
+          const openTerminals = yield* SubscriptionRef.get(sessionTerminals);
+          const openTerminal = yield* Effect.fromResult(
+            Result.fromOption(Array.head([...openTerminals.values()]), () =>
+              ITerminalInfraServiceErrors.NoSessionTabOpenError.make()
+            )
+          );
+          const terminalProcessId = yield* terminalUtils.readTerminalProcessId(openTerminal);
 
-        return yield* Effect.fromResult(
-          Result.fromNullishOr(terminalProcessId, () => ITerminalInfraServiceErrors.NoSessionTabOpenError.make())
-        );
-      });
+          return yield* Effect.fromResult(
+            Result.fromNullishOr(terminalProcessId, () => ITerminalInfraServiceErrors.NoSessionTabOpenError.make())
+          );
+        }
+      );
 
-      const findShownSessionTerminal = Effect.fn("findShownSessionTerminal")(function* (
+      const findShownSessionTerminal = Effect.fn("TerminalInfraService.findShownSessionTerminal")(function* (
         shownSessionIdsByTabProcessId: ReadonlyMap<number, EntityIdValueObject>,
         assignedSessionId: EntityIdValueObject,
         sessionTerminal: Terminal
@@ -118,7 +125,7 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
       });
 
       // Serialized on the map's permit, so a double-click shows the terminal the first click launched.
-      const openSessionTerminal = Effect.fn("openSessionTerminal")(function* (
+      const openSessionTerminal = Effect.fn("TerminalInfraService.openSessionTerminal")(function* (
         session: SessionEntity,
         sessionTabRequest: SessionTabRequest
       ) {
@@ -137,7 +144,7 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
         if (sessionTabRequest.isPinned) yield* terminalUtils.pinSessionTab(sessionTerminal);
       });
 
-      const closeOtherSessionTerminals = Effect.fn("closeOtherSessionTerminals")(function* (
+      const closeOtherSessionTerminals = Effect.fn("TerminalInfraService.closeOtherSessionTerminals")(function* (
         shownSessionId: EntityIdValueObject
       ) {
         const openTerminals = yield* SubscriptionRef.get(sessionTerminals);
@@ -149,7 +156,7 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
         });
       });
 
-      const forgetClosedTerminal = Effect.fn("forgetClosedTerminal")(
+      const forgetClosedTerminal = Effect.fn("TerminalInfraService.forgetClosedTerminal")(
         function* (closedTerminal: Terminal) {
           const sessionId = yield* terminalUtils.findTrackedSessionId(closedTerminal);
 
@@ -164,7 +171,9 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
       );
 
       // onDidCloseTerminal fires later, so the entry goes now, or a tab opened at once for the session would reuse the disposed one.
-      const closeSessionTerminal = Effect.fn("closeSessionTerminal")(function* (sessionId: EntityIdValueObject) {
+      const closeSessionTerminal = Effect.fn("TerminalInfraService.closeSessionTerminal")(function* (
+        sessionId: EntityIdValueObject
+      ) {
         const sessionTerminal = yield* findSessionTerminal(sessionId);
         yield* forgetClosedTerminal(sessionTerminal);
 
@@ -173,7 +182,7 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
         });
       });
 
-      const findActiveTerminalSessionId = Effect.fn("findActiveTerminalSessionId")(function* (
+      const findActiveTerminalSessionId = Effect.fn("TerminalInfraService.findActiveTerminalSessionId")(function* (
         activeTerminal: Terminal | undefined
       ) {
         const terminal = yield* Effect.fromResult(
@@ -183,7 +192,7 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
         return yield* terminalUtils.findTrackedSessionId(terminal);
       });
 
-      const watchActivatedSessionIds = Effect.fn("watchActivatedSessionIds")(function* () {
+      const watchActivatedSessionIds = Effect.fn("TerminalInfraService.watchActivatedSessionIds")(function* () {
         const activeTerminalChanges = yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.window.onDidChangeActiveTerminal);
 
         return Stream.filterMapEffect(activeTerminalChanges, (activeTerminal) =>
@@ -191,7 +200,7 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
         );
       });
 
-      const forgetClosedTerminals = Effect.fn("forgetClosedTerminals")(function* () {
+      const forgetClosedTerminals = Effect.fn("TerminalInfraService.forgetClosedTerminals")(function* () {
         const closedTerminals = yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.window.onDidCloseTerminal);
         yield* Effect.forkScoped(
           Stream.runForEach(closedTerminals, (closedTerminal) => forgetClosedTerminal(closedTerminal))
@@ -199,7 +208,7 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
       });
 
       // A tab does not say which terminal it holds, so the active terminal fills that in.
-      const readViewedSessionId = Effect.fn("readViewedSessionId")(function* () {
+      const readViewedSessionId = Effect.fn("TerminalInfraService.readViewedSessionId")(function* () {
         if (!vsCodeApi.window.state.focused) return yield* TerminalInfraServiceErrors.WindowUnfocusedError.make();
         if (
           vsCodeApi.window.tabGroups.activeTabGroup.activeTab === undefined ||
@@ -212,7 +221,7 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
         return yield* terminalUtils.findTrackedSessionId(vsCodeApi.window.activeTerminal);
       });
 
-      const findViewedSessionId = Effect.fn("findViewedSessionId")(
+      const findViewedSessionId = Effect.fn("TerminalInfraService.findViewedSessionId")(
         function* () {
           return yield* readViewedSessionId();
         },
@@ -222,7 +231,7 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
       const initialViewedSessionId = yield* Effect.result(findViewedSessionId());
       const viewedSessionId = yield* SubscriptionRef.make(initialViewedSessionId);
 
-      const updateViewedSessionId = Effect.fn("updateViewedSessionId")(function* () {
+      const updateViewedSessionId = Effect.fn("TerminalInfraService.updateViewedSessionId")(function* () {
         const nextViewedSessionId = yield* Effect.result(findViewedSessionId());
         const currentViewedSessionId = yield* SubscriptionRef.get(viewedSessionId);
         if (Result.getOrUndefined(nextViewedSessionId) === Result.getOrUndefined(currentViewedSessionId)) return;
@@ -231,7 +240,7 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
       });
 
       // The session in view is read at once, since the jobs that start next read it before the focus changes settle.
-      const assignShownSessions = Effect.fn("assignShownSessions")(function* (
+      const assignShownSessions = Effect.fn("TerminalInfraService.assignShownSessions")(function* (
         shownSessionIdsByTabProcessId: ReadonlyMap<number, EntityIdValueObject>
       ) {
         yield* SubscriptionRef.updateEffect(sessionTerminals, (currentTerminals) =>
@@ -246,7 +255,7 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
       });
 
       // Reading between the events of one tab switch could credit the tab being left.
-      const watchFocusChanges = Effect.fn("watchFocusChanges")(function* () {
+      const watchFocusChanges = Effect.fn("TerminalInfraService.watchFocusChanges")(function* () {
         const focusChangeSources: readonly Stream.Stream<unknown>[] = [
           yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.window.onDidChangeActiveTerminal),
           yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.window.onDidChangeWindowState),
@@ -261,12 +270,12 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
         );
       });
 
-      const trackViewedSessionId = Effect.fn("trackViewedSessionId")(function* () {
+      const trackViewedSessionId = Effect.fn("TerminalInfraService.trackViewedSessionId")(function* () {
         const focusChanges = yield* watchFocusChanges();
         yield* Effect.forkScoped(Stream.runForEach(focusChanges, () => updateViewedSessionId()));
       });
 
-      const watchClosedSetupTerminals = Effect.fn("watchClosedSetupTerminals")(function* () {
+      const watchClosedSetupTerminals = Effect.fn("TerminalInfraService.watchClosedSetupTerminals")(function* () {
         const closedTerminals = yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.window.onDidCloseTerminal);
 
         return Stream.as(
@@ -299,8 +308,7 @@ export class TerminalInfraService extends Context.Service<TerminalInfraService>(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(
-    ITerminalInfraService,
-    ownSpans("TerminalInfraService", this.make())
-  ).pipe(Layer.provide([TerminalUtils.layer, FolderShellTerminalUtils.layer, NodeServices.layer]));
+  public static readonly layer = Layer.effect(ITerminalInfraService, this.make()).pipe(
+    Layer.provide([TerminalUtils.layer, FolderShellTerminalUtils.layer, NodeServices.layer])
+  );
 }

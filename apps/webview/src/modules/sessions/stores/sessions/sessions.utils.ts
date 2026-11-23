@@ -1,12 +1,12 @@
 import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 import {SESSION_LISTS, SESSIONS_VIEW_MESSAGE_TAGS} from "@pkg/constants/src/sessionsView.constant.ts";
 
+import type {SessionPullRequestsDto} from "@/dtos/pullRequest.dto.ts";
+import type {ImportableSessionsDto} from "@/dtos/sessionImport.dto.ts";
+import type {ProjectBranchesDto, ProjectLeftoversDto} from "@/dtos/worktree.dto.ts";
 import type {SessionListId, UserInput} from "@/modules/sessions/sessions.type.ts";
 import type {HostMessagesByTag, SessionsData} from "@/modules/sessions/stores/sessions/sessions.type.ts";
-import type {SessionPullRequestsDto} from "@dtos/pullRequest.dto.ts";
-import type {ImportableSessionsDto} from "@dtos/sessionImport.dto.ts";
-import type {ProjectBranchesDto, ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
-import type {ProjectRowData, SessionRowData, SessionsViewMessage} from "@views/sessions/sessions.view.type.ts";
+import type {ProjectRowData, SessionRowData, SessionsViewMessage} from "@/views/sessions/sessions.view.type.ts";
 
 const replaceProjectRow = (projectRows: readonly ProjectRowData[], changedProjectRow: ProjectRowData) =>
   projectRows.map((projectRow) =>

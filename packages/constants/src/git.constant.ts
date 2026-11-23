@@ -1,6 +1,7 @@
 export const GIT_EXTENSION = {
   API_VERSION: 1,
-  ID: "vscode.git"
+  ID: "vscode.git",
+  PUBLISH_REMOTE_NAME: "origin"
 } as const;
 
 export const GIT_COMMAND = {
@@ -18,6 +19,7 @@ export const GIT_COMMAND = {
   HEAD_START_POINT: "HEAD",
   MAX_COUNTED_FILE_BYTES: 1_000_000,
   NEW_FILE_READ_CONCURRENCY: 8,
+  ORIGIN_BRANCH_PREFIX: "origin/",
   PORCELAIN_BRANCH_PREFIX: "branch refs/heads/",
   PORCELAIN_WORKTREE_PREFIX: "worktree ",
   // An unreachable origin, or an ssh key waiting for its passphrase, would hold the cleanup dialog.
@@ -27,7 +29,6 @@ export const GIT_COMMAND = {
 } as const;
 
 export const WORKTREES = {
-  BRANCH_PREFIX: "aggregor/",
   FOLDER_NAME: "worktrees",
   // The convention Claude Code, Conductor and Orca read: gitignore patterns of untracked files a new worktree gets.
   INCLUDE_FILE: ".worktreeinclude",

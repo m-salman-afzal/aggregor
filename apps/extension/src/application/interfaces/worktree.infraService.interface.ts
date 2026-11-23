@@ -1,8 +1,10 @@
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {Context, Schema} from "effect";
 
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
 import type {Effect} from "effect";
+
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 export interface GitWorktree {
   readonly branchName: string;
@@ -69,9 +71,6 @@ export class IWorktreeInfraService extends Context.Service<
     ) => Effect.Effect<void, IWorktreeInfraServiceErrors["BranchDeleteFailedError"]>;
     // Network: brings origin's branches up to date; offline, nothing changes.
     readonly fetchRemote: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;
-    readonly findBaseBranch: (
-      projectPath: ProjectPathValueObject
-    ) => Effect.Effect<string, IWorktreeInfraServiceErrors["NotGitRepositoryError"]>;
     readonly findFreeBranchName: (
       worktreePath: ProjectPathValueObject,
       branchName: string
@@ -84,12 +83,12 @@ export class IWorktreeInfraService extends Context.Service<
       worktreePath: ProjectPathValueObject,
       worktreesFolderPath: string
     ) => Effect.Effect<boolean>;
-    readonly listAggregorBranches: (
-      projectPath: ProjectPathValueObject
-    ) => Effect.Effect<readonly WorktreeBranch[], IWorktreeInfraServiceErrors["NotGitRepositoryError"]>;
     readonly listBranchNames: (
       projectPath: ProjectPathValueObject
     ) => Effect.Effect<ProjectBranchNames, IWorktreeInfraServiceErrors["NotGitRepositoryError"]>;
+    readonly listLocalBranches: (
+      projectPath: ProjectPathValueObject
+    ) => Effect.Effect<readonly WorktreeBranch[], IWorktreeInfraServiceErrors["NotGitRepositoryError"]>;
     readonly listWorktrees: (
       projectPath: ProjectPathValueObject
     ) => Effect.Effect<readonly GitWorktree[], IWorktreeInfraServiceErrors["NotGitRepositoryError"]>;

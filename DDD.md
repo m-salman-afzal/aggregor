@@ -10,7 +10,7 @@ The building blocks, as Evans (_Domain-Driven Design Reference_), Vernon (_Imple
 and Martin (_The Clean Architecture_) define them, and where each sits here.
 
 - **Entity:** an object "distinguished by its identity, rather than its attributes", whose identity runs through time:
-  `SessionEntity`, `ProjectEntity`, `AgentEntity`. Each entity is its own aggregate root.
+  `SessionEntity`, `ProjectEntity`, `ReviewCommentEntity`, `AgentEntity`. Each entity is its own aggregate root.
 - **Value object:** an object that describes or computes a characteristic of something and has no identity of its own;
   "when you care only about the attributes and logic of an element of the model, classify it as a value object". It is
   immutable and compared by value: a session's status, a project's path, an agent id, an entity's id. Anything that is
@@ -35,7 +35,7 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
 │ @pkg/constants  every constant outside the domain, one file a feature    │
 │ @pkg/vscode     VsCodeApi (the one runtime `vscode` import), VscodeUtils │
 │                 (the vscode helpers and argument decoding)               │
-│ @pkg/trace      ownSpans: marks a unit's spans with the unit's name      │
+
 │ @pkg/errors     TaggedErrors: builds a file's errors as one class        │
 └─────────▲──────────────── shared by FE and infra ────────────▲───────────┘
 ┌─ presentation (FE) ┴───────────────────────┐                 │
@@ -59,8 +59,8 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
 
 | Layer             | Holds                                                                                     | May import                                                                                                                    |
 | ----------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `domain/`         | Entities, value objects, domain services, repository interfaces and their errors          | `effect`, `@pkg/trace`'s `ownSpans`, `@pkg/errors`' `TaggedErrors`, domain                                                    |
-| `application/`    | Services (the use cases), DTOs, the interfaces of the infra services and config they use  | `effect`, `@pkg/constants`, `@pkg/trace`'s `ownSpans`, `@pkg/errors`' `TaggedErrors`, domain, application                     |
+| `domain/`         | Entities, value objects, domain services, repository interfaces and their errors          | `effect`, `@pkg/errors`' `TaggedErrors`, domain                                                                               |
+| `application/`    | Services (the use cases), DTOs, the interfaces of the infra services and config they use  | `effect`, `@pkg/constants`, `@pkg/errors`' `TaggedErrors`, domain, application                                                |
 | `infrastructure/` | Models, repositories, infra services, config, the layer graph, the trace log              | `effect`, `@effect/*`, `drizzle-orm`, `jsonc-parser`, `vscode` types, `node:*`, `@pkg/*`, domain, application, infrastructure |
 | `presentation/`   | Controllers, which register their commands, the command middleware, error messages, views | `effect`, `vscode` types, `@pkg/*`, and from the layers below only services and DTOs, each part as listed below               |
 | `extension.ts`    | `activate`: builds the runtime from the layer graph                                       | everything                                                                                                                    |
@@ -73,40 +73,43 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
 - Presentation imports nothing from the domain or infrastructure. What it shares with infrastructure (VsCodeApi, the
   vscode helpers, argument decoding) lives in `@pkg/vscode`; constants live in `@pkg/constants`.
 - Within presentation:
-  - **Controllers** import `@services`, `@dtos`, `@middlewares` and `@errorMessages`, to register their commands,
-    `@pkg/constants`, `@pkg/trace`'s `ownSpans`, `@pkg/errors`' `TaggedErrors` and `@pkg/vscode`'s `vscode.utils.ts`,
-    whose `VscodeUtils` decodes their input and opens the settings for Open Settings, which has no use case.
-  - **Error messages** import `@pkg/constants`, `@pkg/trace`'s `ownSpans`, `@pkg/errors`' `TaggedErrors`, and
-    `@services` for types only.
-  - **Views** import `@controllers`, their own files, `@pkg/*`, and `@dtos` for types only.
-  - **Middlewares** import `@middlewares` and `@pkg/*`: a middleware runs inside the controller that calls it, which
+  - **Controllers** import `@/services`, `@/dtos`, `@/middlewares` and `@/errorMessages`, to register their commands,
+    `@pkg/constants`, `@pkg/errors`' `TaggedErrors` and `@pkg/vscode`'s `vscode.utils.ts`, whose `VscodeUtils` decodes
+    their input and opens the settings for Open Settings, which has no use case.
+  - **Error messages** import `@pkg/constants`, `@pkg/errors`' `TaggedErrors`, and `@/services` for types only.
+  - **Views** import `@/controllers`, their own files, `@pkg/*`, and `@/dtos` for types only.
+  - **Middlewares** import `@/middlewares` and `@pkg/*`: a middleware runs inside the controller that calls it, which
     hands it everything else.
 - `presentation/` lives inside `src`, because the extension ships as one bundle. The Sessions view's webview is the
   exception: `apps/webview` draws it, in VS Code's page, apart from the extension, and follows the folder-structure
   skill instead of these layers. It imports only the view's `.view.type.ts` and DTOs, for types only (lint rejects a
   value import), `@pkg/constants`, and its design system, `@pkg/ui`; its build lands in the extension's `dist/webview`.
 
-Each folder directly under a layer has one import alias in `apps/extension/tsconfig.json`:
+Each folder directly under a layer has one import alias under `@/` in `apps/extension/tsconfig.json`. The webview's
+tsconfig maps `@/dtos`, `@/valueObjects` and `@/views` to the same folders, so its own `src` has no folders by those
+names:
 
-| Layer            | Aliases                                                                                                                             |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `domain`         | `@domainServices` (`services`), `@entities`, `@valueObjects`                                                                        |
-| `application`    | `@interfaces`, `@services`, `@dtos`                                                                                                 |
-| `infrastructure` | `@config`, `@models` (`database/models`), `@di`, `@logger`, `@repositories`, `@infraServices` (`services`), `@infraUtils` (`utils`) |
-| `presentation`   | `@controllers`, `@errorMessages`, `@middlewares`, `@views`                                                                          |
+| Layer            | Aliases                                                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `domain`         | `@/domainServices` (`services`), `@/entities`, `@/valueObjects`                                                                            |
+| `application`    | `@/interfaces`, `@/services`, `@/dtos`                                                                                                     |
+| `infrastructure` | `@/config`, `@/models` (`database/models`), `@/di`, `@/logger`, `@/repositories`, `@/infraServices` (`services`), `@/infraUtils` (`utils`) |
+| `presentation`   | `@/controllers`, `@/errorMessages`, `@/middlewares`, `@/views`                                                                             |
 
 Code is imported only through them, so each file has one import path, and by name: lint (`no-restricted-syntax`) bans
-`import * as`, `vscode` included. `packages/eslint/src/layers/importRules.ts` checks the import columns with a
-`@typescript-eslint/no-restricted-imports` regex allow-list per folder (`IMPORT_RULES`: each layer, then presentation's
-controllers, error messages and views), which also rejects relative imports.
+`import * as`, `vscode` included. `packages/lint/src/layers/importRules.ts` checks the import columns with a
+typescript-eslint's `no-restricted-imports` (run by oxlint as `typescript-js/no-restricted-imports`) regex allow-list
+per folder (`IMPORT_RULES`: each layer, then presentation's controllers, error messages and views), which also rejects
+relative imports.
 
 ## Naming
 
 Each file's suffix names its role, each role lives in one layer, and the file's main names carry the role.
-`packages/eslint/src/layers/roleNames.ts` checks the names with `@typescript-eslint/naming-convention`, one block per
+`packages/lint/src/layers/roleNames.ts` checks the names with typescript-eslint's `naming-convention`, one block per
 file suffix. A function's name starts with a verb that says what it does (`makeSessionRow`, `decodeStoredRow`,
 `runWithSourceControlProgress`): `VERB_FIRST_NAME_BANS` in `syntaxBans.ts` fails a name that starts with `to`, `as`,
-`from`, `with`, `of` or `into`, and a function whose name starts with `new`.
+`from`, `with`, `of` or `into`, a function whose name starts with `new`, and a function whose name ends with `Of`, `In`,
+`To`, `For`, `From`, `With`, `Into`, `On` or `By`.
 
 | Role                    | Layer                             | File                                                    | Names                                              |
 | ----------------------- | --------------------------------- | ------------------------------------------------------- | -------------------------------------------------- |
@@ -146,7 +149,7 @@ file suffix. A function's name starts with a verb that says what it does (`makeS
   object's or DTO's type right after its schema (`AgentListItemDtoSchema`, then `AgentListItemDto`), an error union
   after its errors class. An interface's own types (its inputs, which end in `Request`, and `Settings`) sit in its
   `.interface.ts`. Types several implementation files share live in a `.type.ts`, which holds nothing else.
-  `aggregor/type-placement` (`packages/eslint/src/rules/`) checks where types sit, and `no-restricted-syntax` the rest.
+  `aggregor/type-placement` (`packages/lint/src/rules/`) checks where types sit, and `no-restricted-syntax` the rest.
 - A DTO is a `Schema.Struct` (or `TaggedUnion`), so a controller validates its input by decoding into it. A request DTO
   is `<UseCase>RequestDto`, one per use case; a response DTO is named for what it is to the user (`SessionListItemDto`).
 - A controller function is named for its input, or for its caller when the caller is a view: `removeChosenSession`,
@@ -157,13 +160,13 @@ file suffix. A function's name starts with a verb that says what it does (`makeS
 - Every file with a role owns its spans, and the owner is its file name: a config, controller, domain service, error
   message, infra service, middleware, repository, service, transformer, utils or view file (`terminal.utils.ts` is
   `TerminalUtils`), and a layer file without the suffix (`backgroundJobs.layer.ts` is `BackgroundJobs`). A span is named
-  in one of two ways: a class's `make` is `make`, and every other `Effect.fn`, each a const inside a `make`, takes its
-  const's name alone. `ownSpans` gives them their owner (see Dependency injection), so the trace log prints
-  `SessionService.openSession`. A command's root span is its command ID.
-- The aggregor plugin (`packages/eslint/src/rules/`, one file per rule) checks the span names and the name each
-  `ownSpans` is given, the `.type.ts` placement, the stem folders, where constants live, that a comment is one line, and
-  each function's length (`max-lines-per-function`, ESLint's own with a unit's `make` exempt); it fixes span names; for
-  `apps/webview`, it also checks the folder-structure skill's rules (`packages/eslint/src/folderStructure/`).
+  in one of two ways: a class's `make` is `<Owner>.make`, and every other `Effect.fn`, each a const inside a `make`, is
+  `<Owner>.<const>`, its class and then its const, so the trace log prints `SessionService.openSession` as the source
+  writes it. A command's root span is its command ID.
+- The aggregor plugin (`packages/lint/src/rules/`, one file per rule) checks the span names and that each unit's class
+  is named after its file, the `.type.ts` placement, the stem folders, where constants live, that a comment is one line,
+  and each function's length (`max-lines-per-function`, ESLint's own with a unit's `make` exempt); it fixes span names;
+  for `apps/webview`, it also checks the folder-structure skill's rules (`packages/lint/src/folderStructure/`).
 - A constant lives in `@pkg/constants/src/<feature>.constant.ts`: ids, labels and texts, and also file and folder names,
   environment variables, external commands, VS Code's and other extensions' ids, timings and patterns. Constants that
   describe one thing share an object with a label per value (`TMUX.SOCKET_FILE_NAME`, `SESSIONS_VIEW.ID`). The domain,
@@ -183,17 +186,15 @@ file suffix. A function's name starts with a verb that says what it does (`makeS
 packages/
   constants/src/                           one file per feature, each with its command ids, labels, notices, error
                                            texts and the feature's other constants: app, commitMessage, database,
-                                           git, agent, process, project, session, sessionAlert, sessionsView,
-                                           terminal, tmux, vscode (VS Code's own command ids),
+                                           git, agent, process, project, reviewComment, session, sessionAlert,
+                                           sessionsView, terminal, tmux, vscode (VS Code's own command ids),
                                            workspace
   errors/src/taggedErrors.utils.ts         TaggedErrors: a file's errors as the keys of one class, each keeping its
                                            own tag and type, built when the file loads
-  eslint/src/                              the repo's ESLint setup: base/ per file type, layers/ the DDD layering
+  lint/src/                                the repo's lint setup: base/ per file type, layers/ the DDD layering
                                            checks, folderStructure/ apps/webview's checks, rules/ the aggregor
-                                           plugin (one file per rule), and eslint.config.ts composing them
-  trace/src/ownSpans.utils.ts              ownSpans: marks every span a unit makes, and every span made during a call
-                                           into it, with the unit's name, which the trace log prints in front; an
-                                           effect, stream or callback handed in as an argument keeps its caller's
+                                           plugin (one file per rule), and lint.config.ts, oxlint's config
+
   ui/src/                                  apps/webview's design system: theme.css (shadcn's tokens and the status
                                            colours from VS Code's theme) and components/base/, shadcn's components
                                            on Base UI, which shadcn's CLI writes (components.json)
@@ -224,6 +225,11 @@ apps/extension/src/
       project/
         project.entity.ts                  ProjectEntity (BaseEntity and path, isAdded, settings)
         project.repository.interface.ts    IProjectRepository: the base calls
+      reviewComment/
+        reviewComment.entity.ts            ReviewCommentEntity (BaseEntity and filePath, startLine, endLine, body;
+                                           lineRange: its lines as a prompt cites them)
+        reviewComment.repository.interface.ts
+                                           IReviewCommentRepository: the base calls
       agent/
         agent.entity.ts                  AgentEntity (id, name, command, args, resumeArgs, environmentVariables,
                                            icon): an agent CLI,
@@ -258,14 +264,16 @@ apps/extension/src/
                                            rows move within an order
       pagination.domainService.ts          makePagination: what a page is, from its request and the row counts
       worktree.domainService.ts            getWorktreeName, getWorktreeBranchName, getWorktreesFolderName,
-                                           getTitledBranchName, hasWorktreeBranchFirstName, formatTextAsNamePart: what a
-                                           session's worktree, its branch and its project's worktrees folder are
-                                           called
+                                           getTitledBranchName, hasWorktreeBranchFirstName, isWorktreeBranchName,
+                                           formatTextAsNamePart: what a session's worktree, its branch and its
+                                           project's worktrees folder are called
       folderShell.domainService.ts         getFolderShellName: what a folder's shell is called in tmux
       agentTask.domainService.ts           getAgentTaskKind: what an agent's task is, from its id
+      reviewComment.domainService.ts       findReviewCommentsInFolder, formatReviewPrompt: which review comments a
+                                           folder holds, and how they read in an agent's prompt
   application/
     services/
-      base.service.ts                      BaseService.makeFor(repository): addEntity, findEntityById,
+      base.service.ts                      BaseService.makeForRepository(repository): addEntity, findEntityById,
                                            findEntities, findEntityPage, updateEntity, upsertEntity, removeEntity,
                                            placeEntitiesAtEnd, bound to one repository
       session.service.ts                   createSession (in a project, with an agent or the default one, at the
@@ -310,6 +318,14 @@ apps/extension/src/
                                            shell run, read every 2 seconds while it is open
       workspace.service.ts                 startShownProjectSync: the viewed session's project as the only
                                            project folder; startSessionReopenAfterReload
+      reviewComment.service.ts             listReviewComments, watchReviewCommentChanges, addReviewComment,
+                                           editReviewComment, moveReviewComment (a thread's new lines),
+                                           removeReviewComment, sendReviewComments (pastes the comments under the
+                                           folder of the session last in view into its agent's prompt, removes them
+                                           and opens the session) and sendSessionReviewComments (the same for the
+                                           session whose row asked); NoReviewCommentsError,
+                                           NoSessionForReviewCommentsError, SessionAgentNotRunningError,
+                                           SessionNotShownError
     dtos/
       session.dto.ts                       SessionListItemDto, ProjectSessionsDto (a project's row with its sessions'
                                            rows, and its worktrees in the Sessions list), WorktreeListItemDto,
@@ -330,6 +346,8 @@ apps/extension/src/
       sessionProcess.dto.ts                SessionProcessesDto (TerminalProcessesDto, FolderShellProcessesDto,
                                            SessionProcessDto),
                                            WatchSessionProcessesRequestDto
+      reviewComment.dto.ts                 ReviewCommentDto, ReviewCommentChangeDto, and a request DTO per review
+                                           comment use case
     interfaces/                            each with the errors and types its signatures name
       terminal.infraService.interface.ts   openSessionTerminal, focusSessionTerminal, closeSessionTerminal,
                                            closeOtherSessionTerminals, findOpenSessionTerminalProcessId,
@@ -342,7 +360,8 @@ apps/extension/src/
                                            TerminalLaunchFailedError, NoSessionTabOpenError,
                                            NoFolderShellTerminalOpenError
       tmux.infraService.interface.ts       checkTmuxVersion; for a session's agent: prepareSessionTabCommand,
-                                           waitForSessionAgentStart, stopSessionAgent, runningSessionIds,
+                                           waitForSessionAgentStart, stopSessionAgent, pasteTextIntoSessionAgent,
+                                           runningSessionIds,
                                            refreshRunningSessionIds, startedOrStoppedSessionIds, showSessionInTab,
                                            readShownSessionIdsByTabProcessId; for a folder's shell:
                                            prepareFolderShellTerminalCommand, showFolderShellInTerminal,
@@ -370,8 +389,8 @@ apps/extension/src/
                                            openInSourceControl
       worktree.infraService.interface.ts   createWorktree, listWorktrees, copyIncludedFiles, readBranchName,
                                            hasUpstream, findFreeBranchName, renameBranch, hasChanges,
-                                           removeWorktree, isMadeByAggregor, listAggregorBranches, pruneRemote,
-                                           findBaseBranch, isBranchMerged, deleteBranch,
+                                           removeWorktree, isMadeByAggregor, listLocalBranches, pruneRemote,
+                                           isBranchMerged, deleteBranch,
                                            findWorktreesRootPath, readDiffStats; GitWorktree,
                                            WorktreeBranch, WorktreeDiffStats, NotGitRepositoryError, WorktreeCreateFailedError,
                                            BranchRenameFailedError, WorktreeHasChangesError,
@@ -390,7 +409,7 @@ apps/extension/src/
     database/models/                       a Drizzle table per file (SessionTableModel...); base.model.ts:
                                            BASE_COLUMNS, the shared columns
     repositories/
-      base/                                BaseRepository.makeFor(entityTable): the base calls on one table, on
+      base/                                BaseRepository.makeForTable(entityTable): the base calls on one table, on
                                            Drizzle's query builder; its types in base.repository.type.ts;
                                            RepositoryUtils its helpers (formatCurrentTimestamp, encodeStoredColumns,
                                            findUniqueColumns, makeFilterClauses, selectRows, selectRowPage,
@@ -398,6 +417,7 @@ apps/extension/src/
                                            startEntityChangeFeed, which reads the rows written since its last check
       session.repository.ts                SessionRepository: sessions with their project's path
       project.repository.ts                ProjectRepository: projects
+      reviewComment.repository.ts          ReviewCommentRepository: the review comments not sent yet
       agent.repository.ts                AgentRepository: the aggregorApp.agents setting, decoded with its
                                            defaults, read again when it changes
     services/
@@ -415,11 +435,13 @@ apps/extension/src/
                                            files share in tmux.infraService.type.ts. tmuxServer.utils.ts is tmux
                                            itself, in tmux's own terms: runs a command on Aggregor's server, lists
                                            its sessions, clients and a session's panes, attaches a terminal's
-                                           client to another session, kills a session, and builds the command a
-                                           terminal runs, in a scope of its own. On top of it, sessionAgent.utils.ts: the command a
+                                           client to another session, kills a session, pastes a text into a
+                                           session's pane, and builds the command a terminal runs, in a scope of
+                                           its own. On top of it, sessionAgent.utils.ts: the command a
                                            session's tab runs, which starts its agent under aggregor-pty in a tmux
-                                           session or attaches to it; stops it; attaches a tab to another session;
-                                           reads which sessions tmux runs and which one each tab shows. And
+                                           session or attaches to it; stops it; pastes a text into its prompt;
+                                           attaches a tab to another session; reads which sessions tmux runs and
+                                           which one each tab shows. And
                                            folderShell.utils.ts: the command the window's Aggregor terminal runs,
                                            which starts a folder's shell in a tmux session or attaches to it;
                                            attaches the terminal to another folder's shell, started first with the
@@ -467,12 +489,14 @@ apps/extension/src/
                                            RegisterCommandMiddleware.registerCommand: root span per command; shows
                                            the failure's message, and logs a crash
     controllers/                           session, sessionImport, sessionProcess, agent, sessionAlert, project,
-                                           folderShell, worktree, pullRequest, requiredTools, commitMessage: each
+                                           folderShell, worktree, pullRequest, requiredTools, commitMessage,
+                                           reviewComment: each
                                            registers its commands, decodes a command's input into a request DTO and
                                            calls one service; the views' reads. app: Open Settings, which goes
                                            straight to @pkg/vscode
     errorMessages/                         session, sessionImport, project, folderShell, worktree, pullRequest,
-                                           requiredTools, commitMessage: a failed command's message, and the setting
+                                           requiredTools, commitMessage, reviewComment: a failed command's message,
+                                           and the setting
                                            that fixes it; app: none, for commands that cannot fail
     views/sessions/                        SessionsView (sessions.view.ts): the webview view provider, the webview's
                                            messages and the commands it asks for; sessionsDrawing.utils.ts what it
@@ -489,6 +513,10 @@ apps/extension/src/
                                            Install button, or each tool's install page
     views/folderShellProfile/              FolderShellProfileView: the Aggregor terminal profile's provider, which
                                            VS Code calls for every terminal it opens itself in Aggregor's workspace
+    views/reviewComments/                  ReviewCommentsView: the comment controller, a thread per review comment
+                                           not sent yet, which it moves with its file's edits and whose new lines it
+                                           then saves, and the commands that need VS Code's draft thread or a
+                                           comment's editing mode
   extension.ts                             PresentationLayer: the controllers and views, merged under its span, on
                                            ApplicationLayer; activate, deactivate
 apps/extension/tests/
@@ -560,7 +588,17 @@ apps/extension/tests/
 - The webview asks the user before it sends a request: it picks the project and the agent for New Session, the name for
   Rename, and confirms Remove on a running agent and Stop on a turn in progress, from the rows and the agent list the
   view sent it. Its dialogs are its own; no layer below waits on the user.
-- Every command runs from the webview, the Source Control button or a notification; none is in the Command Palette.
+- Every command runs from the webview, the Source Control button, a notification or a comment thread's buttons. Only
+  Send Comments to Session is in the Command Palette, with a keybinding.
+- A button VS Code draws in a menu of its own runs a controller's command with the object VS Code hands it, which the
+  controller decodes as it does a webview's request: Source Control's button, and a comment's Save, Delete and Send
+  Comments to Session. When the gesture needs more of VS Code's object than reading it (a draft thread to dispose, a
+  comment's editing mode), the view registers the command, does that part, and runs the controller's command with a
+  complete request, as the Sessions view does for its webview: `ReviewCommentsView`'s Add Comment, Edit and Cancel
+  (`REVIEW_COMMENTS_VIEW_GESTURES`). The view draws nothing from its own gesture: the saved comment comes back through
+  `watchReviewCommentChanges`, which every window draws from. What only a view can see and a use case needs, such as the
+  lines a comment's thread has moved to, the view reports through a controller's command, so the database holds it and
+  no other view has to ask this one.
 - A display preference only the view uses, `aggregorApp.fontSize`, `aggregorApp.accentColor` and
   `aggregorApp.skipAgentPicker`, the view reads itself through `VsCodeApi`, as it draws, rather than through a
   controller and a service, since no use case needs it.
@@ -611,24 +649,23 @@ apps/extension/tests/
   `deterministicKeys` checks.
 - **Unit:** every file that holds functions exports one `Context.Service` class, in the form Effect's docs use, and
   every function is a const inside its `make`:
-  `class SessionService extends Context.Service<SessionService>()("<key>", {make: Effect.fn("make")(…)})` with
-  `public static readonly layer = Layer.effect(this, ownSpans("SessionService", this.make()))`. `make` yields the unit's
-  dependencies once, at its top, holds every function of the unit as a const, and returns the ones callers use, `{}` for
-  a view or `BackgroundJobs`, which nothing calls; a member that takes no arguments is an `Effect`, built once. A
-  function inside `make` yields no service, so nothing a unit does needs anything from its caller. A long `make` is
-  fine; a class is divided where its parts clearly belong apart. Only `activate` and `deactivate`, which VS Code calls
-  directly, `ownSpans`, which every `static layer` line calls outside any effect, and `TaggedErrors`, which builds a
-  file's errors class when the file loads, outside any effect, are plain functions; a file that holds only definitions
-  (value objects, entities, DTOs, ports, table models, types) has no unit class.
+  `class SessionService extends Context.Service<SessionService>()("<key>", {make: Effect.fn("SessionService.make")(…)})`
+  with `public static readonly layer = Layer.effect(this, this.make())`. `make` yields the unit's dependencies once, at
+  its top, holds every function of the unit as a const, and returns the ones callers use, `{}` for a view or
+  `BackgroundJobs`, which nothing calls; a member that takes no arguments is an `Effect`, built once. A function inside
+  `make` yields no service, so nothing a unit does needs anything from its caller. A long `make` is fine; a class is
+  divided where its parts clearly belong apart. Only `activate` and `deactivate`, which VS Code calls directly, and
+  `TaggedErrors`, which builds a file's errors class when the file loads, outside any effect, are plain functions; a
+  file that holds only definitions (value objects, entities, DTOs, ports, table models, types) has no unit class.
 - **Implementation:** a port's implementation is a class named after its interface without the `I`, such as
   `SessionRepository` or `TerminalInfraService`, whose layer provides the port:
-  `Layer.effect(ITerminalInfraService, ownSpans("TerminalInfraService", this.make()))`. Nothing yields the
-  implementation class itself. The backend shows in the folder (`services/vscode/`), not the name, and the port class
-  stays in its `.interface.ts`.
-- **Base classes:** `BaseService` and `BaseRepository` each have one member, `makeFor`, which binds a repository or an
-  entity table and returns the base functions through `ownSpans`, so they keep `BaseService` and `BaseRepository` as
-  owner. A service or repository yields the class at the top of its `make`, calls `makeFor` there
-  (`const projectBaseService = yield* baseService.makeFor(projectRepository)`), and its layer provides the base class's.
+  `Layer.effect(ITerminalInfraService, this.make())`. Nothing yields the implementation class itself. The backend shows
+  in the folder (`services/vscode/`), not the name, and the port class stays in its `.interface.ts`.
+- **Base classes:** `BaseService` has one member, `makeForRepository`, which binds a repository, and `BaseRepository`
+  one, `makeForTable`, which binds an entity table; each returns the base functions, each named `BaseService.…` or
+  `BaseRepository.…` like any other function of its class. A service or repository yields the class at the top of its
+  `make`, calls it there (`const projectBaseService = yield* baseService.makeForRepository(projectRepository)`), and its
+  layer provides the base class's.
 - **Nothing is passed as a dependency:** no function takes a service, a ref or a `…Dependencies` object as a parameter.
   State, such as a `Ref` or a cache, lives in the `make` of the unit whose functions own it, and another unit that needs
   it yields that unit and calls its members.
@@ -656,16 +693,14 @@ apps/extension/tests/
   rest together. `ApplicationLayer` merges `BackgroundJobs.layer`, so every job has started before a command or view
   exists. A watcher an implementation or a view runs starts in its own `make`. `decisions/backgroundJobs.md` lists them
   all.
-- **A unit's spans carry its name:** `ownSpans` (`@pkg/trace`) marks every span made inside the unit, and every span
-  made during a call into it, with the attribute `TRACE_LOGGING.SPAN_OWNER_ATTRIBUTE`; it marks effects, streams, and
-  what a member function returns. The trace log prints a marked span whose name has no dot as `<owner>.<name>` and
-  leaves the attribute out of the line, so a library's undotted span takes the unit it ran in (`BaseRepository.sqlite`).
-  An effect, a stream or a callback handed to a unit's member as an argument is the caller's work, so it keeps the
-  caller's mark while the unit runs it: `CommitMessageService`'s `writeCommitMessage`, which
-  `VscodeUtils.runWithProgressIndicator` runs, prints as `CommitMessageService.writeCommitMessage`, and a command
-  handler's spans stay its controller's although `RegisterCommandMiddleware` runs it. A tagged error or an exit passed
-  as an argument is a value, not work, and is left as it is. In a failure's stack the frame for a call into a unit
-  points at `ownSpans`, not at the calling line.
+- **A unit's spans carry its name:** every `Effect.fn` is named `<Owner>.<const>` in the source, and a class's `make`
+  `<Owner>.make`; `aggregor/span-name` checks each name and that the class is named after its file, and `pnpm lint:fix`
+  writes the names. Nothing is added while the extension runs, so a call into a unit is a plain call. The name is part
+  of the function, so an effect, a stream or a callback handed to another unit keeps it: `CommitMessageService`'s
+  `writeCommitMessage`, which `VscodeUtils.runWithProgressIndicator` runs, prints as
+  `CommitMessageService.writeCommitMessage`, and a command handler's spans stay its controller's although
+  `RegisterCommandMiddleware` runs it. A library's span keeps the name its library gave it (`sqlite`), under the span of
+  the unit that ran it. In a failure's stack the frame for a call into a unit is the calling line.
 - **Startup order is a dependency:** layers side by side are built at the same time, so a layer that must start after
   another is given it. `BaseRepository` is given `DatabaseLayer`, the SQL client with its migrations already run, and
   the commands and views are given all of `ApplicationLayer`.
@@ -689,7 +724,7 @@ apps/extension/tests/
 
 ## Repositories, models and transformers
 
-- Every repository is `BaseRepository.makeFor` on its table, with its own queries beside the base calls. Writes are
+- Every repository is `BaseRepository.makeForTable` on its table, with its own queries beside the base calls. Writes are
   column-scoped: `update` sets only the columns it is given, so the extension and `aggregor-pty` never overwrite each
   other's columns.
 - The database is the only copy of the data: every read is a query, and no repository, service or view keeps rows. Each
@@ -699,7 +734,7 @@ apps/extension/tests/
   or after the last one it read, skips those it already read unchanged at that instant, and counts a row placed (new, or
   moved by `placeAtEnd`) when its `sortId` is above every one it saw.
 - Each table model is a Drizzle `sqliteTable` that spreads `BASE_COLUMNS`; its unique columns are what `upsert` matches
-  on. A repository passes `makeFor` a join for the columns it reads from the rows it points at, such as a session's
+  on. A repository passes `makeForTable` a join for the columns it reads from the rows it points at, such as a session's
   `projectPath`. After changing a model, `pnpm db:generate --name <change>` writes its migration (see Tables and
   migrations). `storage.md` lists every stored table and key.
 - A list read a page at a time goes through `findPage(filter, pageRequest)`: newest first (highest `sortId` first), the

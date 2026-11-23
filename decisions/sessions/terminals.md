@@ -148,8 +148,8 @@ Where a session's agent runs, its tab, and resuming it.
   - One tmux client for every tab, through tmux control mode (`-CC`), with the extension drawing each tab as a
     Pseudoterminal: one process instead of a small tmux client (about 1.4 MB) per open tab, but all agent output would
     pass through the extension host, and tabs would no longer survive a reload by themselves.
-  - Bundling tmux in the VSIX: it means shipping and patching tmux, and macOS has no fully static build. The README's M6
-    plans to bundle it after all, with libevent and ncurses linked in.
+  - Bundling tmux in the VSIX: it means shipping and patching tmux, and macOS has no fully static build. `ROADMAP.md`'s
+    M6 plans to bundle it after all, with libevent and ncurses linked in.
 
 ## tmux keeps a terminal running and shows it, nothing more
 

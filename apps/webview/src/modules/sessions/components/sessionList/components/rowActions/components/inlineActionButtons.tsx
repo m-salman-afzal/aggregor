@@ -1,10 +1,11 @@
+import {cn} from "cn";
+
 import {
   ACTION_BUTTON,
   ACTION_ICON,
   ATTENTION_DOT
 } from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.constant.ts";
 import {Button} from "@pkg/ui/src/components/base/button.tsx";
-import {cn} from "cn";
 
 import type {RowAction} from "@/modules/sessions/sessions.type.ts";
 

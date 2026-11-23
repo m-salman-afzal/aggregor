@@ -1,8 +1,8 @@
-import {WorktreeDomainService} from "@domainServices/worktree.domainService.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Array, Context, Effect, Layer, String} from "effect";
 
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+import {WorktreeDomainService} from "@/domainServices/worktree.domainService.ts";
+
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 const FOLDER_SHELL_NAME_PREFIX = "shell-";
 const PATH_HASH_MULTIPLIER = 31;
@@ -12,11 +12,13 @@ const PATH_HASH_MODULUS = 16 ** PATH_HASH_HEX_LENGTH;
 export class FolderShellDomainService extends Context.Service<FolderShellDomainService>()(
   "aggregor-app/domain/services/folderShell.domainService/FolderShellDomainService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("FolderShellDomainService.make")(function* () {
       const worktreeDomainService = yield* WorktreeDomainService;
 
       // Written out here, so no library update gives a shell that is still running another name.
-      const hashFolderPath = Effect.fn("hashFolderPath")(function* (folderPath: ProjectPathValueObject) {
+      const hashFolderPath = Effect.fn("FolderShellDomainService.hashFolderPath")(function* (
+        folderPath: ProjectPathValueObject
+      ) {
         const pathHash = Array.reduce(
           [...new TextEncoder().encode(folderPath)],
           0,
@@ -27,7 +29,7 @@ export class FolderShellDomainService extends Context.Service<FolderShellDomainS
       });
 
       // tmux takes no dots or colons in a session name, and the hash keeps same-named folders apart.
-      const getFolderShellName = Effect.fn("getFolderShellName")(function* (
+      const getFolderShellName = Effect.fn("FolderShellDomainService.getFolderShellName")(function* (
         folderName: string,
         folderPath: ProjectPathValueObject
       ) {
@@ -38,7 +40,5 @@ export class FolderShellDomainService extends Context.Service<FolderShellDomainS
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("FolderShellDomainService", this.make())).pipe(
-    Layer.provide(WorktreeDomainService.layer)
-  );
+  public static readonly layer = Layer.effect(this, this.make()).pipe(Layer.provide(WorktreeDomainService.layer));
 }

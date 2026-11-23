@@ -1,13 +1,5 @@
-import {
-  APP_NAME,
-  OUTPUT_CHANNEL_LOG_METHODS,
-  SETTINGS_SECTION,
-  TRACE_LOGGING,
-  TRACE_LOGGING_SETTING_ID
-} from "@pkg/constants/src/app.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
-import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
+import {format, inspect} from "node:util";
+
 import {
   Array,
   Cause,
@@ -26,7 +18,16 @@ import {
   String,
   Tracer
 } from "effect";
-import {format, inspect} from "node:util";
+
+import {
+  APP_NAME,
+  OUTPUT_CHANNEL_LOG_METHODS,
+  SETTINGS_SECTION,
+  TRACE_LOGGING,
+  TRACE_LOGGING_SETTING_ID
+} from "@pkg/constants/src/app.constant.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
+import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 
 import type {LogLevel} from "vscode";
 
@@ -35,11 +36,11 @@ type OutputChannelLogMethod = (typeof OUTPUT_CHANNEL_LOG_METHODS)[keyof typeof O
 export class TraceLog extends Context.Service<TraceLog>()(
   "aggregor-app/infrastructure/logger/traceLog.layer/TraceLog",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("TraceLog.make")(function* () {
       const vsCodeApi = yield* VsCodeApi;
       const vscodeUtils = yield* VscodeUtils;
 
-      const readTraceLoggingSetting = Effect.fn("readTraceLoggingSetting")(function* () {
+      const readTraceLoggingSetting = Effect.fn("TraceLog.readTraceLoggingSetting")(function* () {
         const configuredSettings = yield* vsCodeApi.getConfiguration(SETTINGS_SECTION);
 
         return configuredSettings.get(TRACE_LOGGING.SETTING) === true;
@@ -60,15 +61,6 @@ export class TraceLog extends Context.Service<TraceLog>()(
 
       // The formatters run while a span ends, so they stay plain functions: a span of their own would end inside the tracer.
 
-      // A unit's span is named by its const alone; ownSpans marks it with the unit, which a dotted name already carries.
-      const formatSpanName = (localSpan: Tracer.Span) => {
-        const spanOwner = localSpan.attributes.get(TRACE_LOGGING.SPAN_OWNER_ATTRIBUTE);
-
-        return Predicate.isString(spanOwner) && !String.includes(".")(localSpan.name)
-          ? `${spanOwner}.${localSpan.name}`
-          : localSpan.name;
-      };
-
       const formatSpanPath = (span: Tracer.AnySpan): string =>
         Match.valueTags(span, {
           ExternalSpan: () => "external",
@@ -76,8 +68,8 @@ export class TraceLog extends Context.Service<TraceLog>()(
             Result.match(
               Result.fromOption(localSpan.parent, () => "root"),
               {
-                onFailure: () => formatSpanName(localSpan),
-                onSuccess: (parentSpan) => `${formatSpanPath(parentSpan)} > ${formatSpanName(localSpan)}`
+                onFailure: () => localSpan.name,
+                onSuccess: (parentSpan) => `${formatSpanPath(parentSpan)} > ${localSpan.name}`
               }
             )
         });
@@ -122,10 +114,7 @@ export class TraceLog extends Context.Service<TraceLog>()(
       const formatSpanAttributes = (span: Tracer.Span) =>
         Array.join(
           Array.map(
-            Array.filter(
-              [...span.attributes],
-              ([attributeName]) => attributeName !== TRACE_LOGGING.SPAN_OWNER_ATTRIBUTE
-            ),
+            [...span.attributes],
             ([attributeName, attributeValue]) => ` ${attributeName}=${formatTraceValue(attributeValue)}`
           ),
           ""
@@ -139,7 +128,7 @@ export class TraceLog extends Context.Service<TraceLog>()(
         outputChannel.info(TRACE_LOGGING.FORCED_LINE(logMethod, logLine));
       };
 
-      const makeSpanLineTracer = Effect.fn("makeSpanLineTracer")(function* () {
+      const makeSpanLineTracer = Effect.fn("TraceLog.makeSpanLineTracer")(function* () {
         return Tracer.make({
           span(spanOptions) {
             const span = new Tracer.NativeSpan(spanOptions);
@@ -161,7 +150,7 @@ export class TraceLog extends Context.Service<TraceLog>()(
         });
       });
 
-      const makeOutputChannelLogger = Effect.fn("makeOutputChannelLogger")(function* () {
+      const makeOutputChannelLogger = Effect.fn("TraceLog.makeOutputChannelLogger")(function* () {
         return Logger.make((logCall) => {
           const messageParts: readonly unknown[] = Array.isArray(logCall.message) ? logCall.message : [logCall.message];
           const causeLines =
@@ -177,7 +166,7 @@ export class TraceLog extends Context.Service<TraceLog>()(
         });
       });
 
-      const watchTraceLoggingSetting = Effect.fn("watchTraceLoggingSetting")(function* () {
+      const watchTraceLoggingSetting = Effect.fn("TraceLog.watchTraceLoggingSetting")(function* () {
         const configChanges = yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.workspace.onDidChangeConfiguration);
         const traceLoggingChanges = Stream.filter(configChanges, (configChange) =>
           configChange.affectsConfiguration(TRACE_LOGGING_SETTING_ID)
@@ -196,9 +185,7 @@ export class TraceLog extends Context.Service<TraceLog>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("TraceLog", this.make())).pipe(
-    Layer.provide(VscodeUtils.layer)
-  );
+  public static readonly layer = Layer.effect(this, this.make()).pipe(Layer.provide(VscodeUtils.layer));
 }
 
 export const TraceLogLayer = Layer.unwrap(

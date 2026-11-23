@@ -1,4 +1,6 @@
-import {SessionAlertController} from "@controllers/sessionAlert.controller.ts";
+import {Clock, Context, Duration, Effect, FiberMap, Layer, Result, Stream, SubscriptionRef} from "effect";
+
+import {SessionAlertController} from "@/controllers/sessionAlert.controller.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {
   DESKTOP_NOTIFICATION,
@@ -7,13 +9,12 @@ import {
   SESSION_ALERT_LABELS,
   SESSION_LINK
 } from "@pkg/constants/src/sessionAlert.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {Clock, Context, Duration, Effect, FiberMap, Layer, Result, Stream, SubscriptionRef} from "effect";
 
-import type {SessionAlertDto} from "@dtos/sessionAlert.dto.ts";
 import type {Uri} from "vscode";
+
+import type {SessionAlertDto} from "@/dtos/sessionAlert.dto.ts";
 
 type WindowFocusedAt = SubscriptionRef.SubscriptionRef<number>;
 
@@ -22,14 +23,16 @@ type ShownAlerts = FiberMap.FiberMap<string>;
 export class SessionAlertsView extends Context.Service<SessionAlertsView>()(
   "aggregor-app/presentation/views/sessionAlerts/sessionAlerts.view/SessionAlertsView",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("SessionAlertsView.make")(function* () {
       const sessionAlertController = yield* SessionAlertController;
       const vsCodeApi = yield* VsCodeApi;
       const vscodeUtils = yield* VscodeUtils;
       const windowFocusedAt: WindowFocusedAt = yield* SubscriptionRef.make(0);
       const shownAlerts: ShownAlerts = yield* FiberMap.make<string>();
 
-      const getSessionAlertHeadline = Effect.fn("getSessionAlertHeadline")(function* (sessionAlert: SessionAlertDto) {
+      const getSessionAlertHeadline = Effect.fn("SessionAlertsView.getSessionAlertHeadline")(function* (
+        sessionAlert: SessionAlertDto
+      ) {
         if (sessionAlert.statusKind !== undefined)
           return SESSION_ALERT_BLOCKED_HEADLINES[sessionAlert.statusKind](sessionAlert.displayName);
 
@@ -37,12 +40,15 @@ export class SessionAlertsView extends Context.Service<SessionAlertsView>()(
       });
 
       // Opens the session as its row's click does, so a failure shows the same way.
-      const openAlertedSession = Effect.fn("openAlertedSession")(function* (sessionId: string) {
+      const openAlertedSession = Effect.fn("SessionAlertsView.openAlertedSession")(function* (sessionId: string) {
         yield* Effect.promise(() => vsCodeApi.commands.executeCommand(SESSION_COMMANDS.OPEN, {sessionId}));
       });
 
       // VS Code can't close the notification later, so it can outlive the state it tells about.
-      const showInWindow = Effect.fn("showInWindow")(function* (sessionAlert: SessionAlertDto, headline: string) {
+      const showInWindow = Effect.fn("SessionAlertsView.showInWindow")(function* (
+        sessionAlert: SessionAlertDto,
+        headline: string
+      ) {
         const alertText =
           sessionAlert.statusMessage === undefined ? headline : `${headline}: ${sessionAlert.statusMessage}`;
         const pickedAction = yield* Effect.promise(() =>
@@ -53,7 +59,7 @@ export class SessionAlertsView extends Context.Service<SessionAlertsView>()(
       });
 
       // asExternalUri adds this window's id, so the window that sent the notification opens the session and comes forward.
-      const makeSessionLink = Effect.fn("makeSessionLink")(function* (sessionId: string) {
+      const makeSessionLink = Effect.fn("SessionAlertsView.makeSessionLink")(function* (sessionId: string) {
         const sessionLink = vsCodeApi.Uri.from({
           authority: vsCodeApi.extensionId,
           path: SESSION_LINK.OPEN_SESSION_PATH,
@@ -66,7 +72,7 @@ export class SessionAlertsView extends Context.Service<SessionAlertsView>()(
       });
 
       // Focus arriving as the notification closes means it was clicked; GNOME closes them all, so the first alert uses it up.
-      const wasDesktopNotificationOpened = Effect.fn("wasDesktopNotificationOpened")(function* () {
+      const wasDesktopNotificationOpened = Effect.fn("SessionAlertsView.wasDesktopNotificationOpened")(function* () {
         const notificationClosedAt = yield* Clock.currentTimeMillis;
         const isClickFocus = (focusedAt: number) =>
           focusedAt >= notificationClosedAt - DESKTOP_NOTIFICATION.CLICK_FOCUS_MS;
@@ -81,7 +87,10 @@ export class SessionAlertsView extends Context.Service<SessionAlertsView>()(
         );
       });
 
-      const showOnDesktop = Effect.fn("showOnDesktop")(function* (sessionAlert: SessionAlertDto, headline: string) {
+      const showOnDesktop = Effect.fn("SessionAlertsView.showOnDesktop")(function* (
+        sessionAlert: SessionAlertDto,
+        headline: string
+      ) {
         const openLink = yield* makeSessionLink(sessionAlert.sessionId);
 
         yield* sessionAlertController.notifyOnDesktopForSessionAlertsView({
@@ -94,7 +103,9 @@ export class SessionAlertsView extends Context.Service<SessionAlertsView>()(
         if (yield* wasDesktopNotificationOpened()) yield* openAlertedSession(sessionAlert.sessionId);
       });
 
-      const showSessionAlert = Effect.fn("showSessionAlert")(function* (sessionAlert: SessionAlertDto) {
+      const showSessionAlert = Effect.fn("SessionAlertsView.showSessionAlert")(function* (
+        sessionAlert: SessionAlertDto
+      ) {
         const headline = yield* getSessionAlertHeadline(sessionAlert);
         const shownAlert = vsCodeApi.window.state.focused
           ? showInWindow(sessionAlert, headline)
@@ -107,7 +118,7 @@ export class SessionAlertsView extends Context.Service<SessionAlertsView>()(
         );
       });
 
-      const openLinkedSession = Effect.fn("openLinkedSession")(function* (sessionLink: Uri) {
+      const openLinkedSession = Effect.fn("SessionAlertsView.openLinkedSession")(function* (sessionLink: Uri) {
         const sessionId = new URLSearchParams(sessionLink.query).get(SESSION_LINK.SESSION_ID_PARAMETER);
         if (sessionLink.path === SESSION_LINK.OPEN_SESSION_PATH && sessionId !== null)
           return yield* openAlertedSession(sessionId);
@@ -115,7 +126,7 @@ export class SessionAlertsView extends Context.Service<SessionAlertsView>()(
         return yield* Effect.logWarning("Ignored a link that opens no session", sessionLink.toString(true));
       });
 
-      const registerSessionLinkHandler = Effect.fn("registerSessionLinkHandler")(function* () {
+      const registerSessionLinkHandler = Effect.fn("SessionAlertsView.registerSessionLinkHandler")(function* () {
         const viewContext = yield* Effect.context<VsCodeApi>();
         const runPromise = Effect.runPromiseWith(viewContext);
 
@@ -125,7 +136,7 @@ export class SessionAlertsView extends Context.Service<SessionAlertsView>()(
       });
 
       // A change of only `active` while focused isn't a new focus.
-      const trackWindowFocus = Effect.fn("trackWindowFocus")(function* () {
+      const trackWindowFocus = Effect.fn("SessionAlertsView.trackWindowFocus")(function* () {
         const windowStateChanges = yield* vscodeUtils.streamVsCodeEvent(vsCodeApi.window.onDidChangeWindowState);
         const focusChanges = Stream.changesWith(
           Stream.map(windowStateChanges, (windowState) => windowState.focused),
@@ -149,7 +160,5 @@ export class SessionAlertsView extends Context.Service<SessionAlertsView>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("SessionAlertsView", this.make())).pipe(
-    Layer.provide(SessionAlertController.layer)
-  );
+  public static readonly layer = Layer.effect(this, this.make()).pipe(Layer.provide(SessionAlertController.layer));
 }

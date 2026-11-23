@@ -5,9 +5,9 @@ import {
 import {SESSIONS_LABELS} from "@/modules/sessions/sessions.constant.ts";
 import {SESSION_IMPORT_LABELS} from "@pkg/constants/src/agentHistory.constant.ts";
 
+import type {ImportableSessionDto, ImportableSessionsDto, ImportedSessionDto} from "@/dtos/sessionImport.dto.ts";
 import type {ChecklistRowData} from "@/modules/sessions/components/userInputDialog/components/checklistSection/checklistSection.type.ts";
 import type {ImportChecklistSection} from "@/modules/sessions/components/userInputDialog/components/importSessionsInput/components/importChecklist/importChecklist.type.ts";
-import type {ImportableSessionDto, ImportableSessionsDto, ImportedSessionDto} from "@dtos/sessionImport.dto.ts";
 
 const describeImportableSession = (importableSession: ImportableSessionDto) => {
   const updatedAtText = new Date(importableSession.updatedAt).toLocaleString(undefined, IMPORT_DATE_FORMAT);

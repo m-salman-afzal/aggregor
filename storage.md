@@ -33,8 +33,8 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 ### `projects`
 
 - **Holds:** `path`, unique: a folder sessions run in, `isAdded`: listed in the Sessions view, and `settings`: the
-  project's settings as one JSON object (`worktreeFolder`, `filesToCopy`, `setupScript`, `newSessionWorkingTree`), `{}`
-  until saved, each missing key read as its default. One list serves every window.
+  project's settings as one JSON object (`worktreeFolder`, `filesToCopy`, `setupScript`, `newSessionWorkingTree`,
+  `cleanUpBaseBranch`), `{}` until saved, each missing key read as its default. One list serves every window.
 - **Written by:** `ProjectService` through the base service. Add Project upserts the row with `isAdded` set, which puts
   it at the end of the list, removed before or not; Remove Project clears `isAdded`. A window's own folder that makes
   way for the shown project is added the same way; a project already added keeps its place, so switching projects never
@@ -77,6 +77,17 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
   `hasWorked` and `agentSessionId` when it opens a tab, so an agent started again resumes its conversation rather than
   starting a new one.
 
+### `reviewComments`
+
+- **Holds:** a comment the user wrote on code lines and hasn't sent to an agent yet: `filePath` (the file's absolute
+  path), `startLine` and `endLine` (the lines it is about, counted from 1) and `body` (its text). One list serves every
+  window.
+- **Written by:** `ReviewCommentService` through the base service: a row per Add Comment, `body` on Save, `startLine`
+  and `endLine` half a second after an edit of the file moved the comment's thread, and a soft delete on Delete and for
+  each comment a send pasted into an agent.
+- **Read by:** `ReviewCommentService`: every window draws each row as a comment thread on its file, and a send reads the
+  rows under the target session's folder. `SessionService` counts the rows under each session's folder for its row.
+
 ## `data/aggregor-pty.log`
 
 - **Holds:** one line per error `aggregor-pty` hits with the database, such as a locked file or a missing session row,
@@ -92,7 +103,7 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 - **Written by:** tmux, when a session tab starts the first agent or the Aggregor terminal the first shell; the server
   stops with its last session.
 - **Read by:** each session tab's and the Aggregor terminal's `tmux new-session -A`, which starts or attaches to its
-  tmux session, and `TmuxInfraService`, to list, switch and end them.
+  tmux session, and `TmuxInfraService`, to list, switch, paste into and end them.
 - **Why:** an agent, and a folder's shell, outlives its terminal, a reload and VS Code, and the server stays apart from
   the user's own tmux. In the Aggregor folder, a test's `AGGREGOR_HOME` gets a server of its own.
 - **Cleaned up:** by tmux; a stale socket left by a reboot is replaced when the next server starts.

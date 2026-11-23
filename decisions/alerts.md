@@ -41,7 +41,7 @@ How a session out of view gets the user's attention: notifications and badge cou
 - **Solution:** VS Code can't close a notification once shown, so one can outlive its state; Open still goes to the
   session. Each window sends its own, so two windows notify twice. With several VS Code windows, a click brings the most
   recently used one forward, which may not be the one that sent it; that one then opens nothing (see "If the users
-  asked" in the README). Focusing the window within 1.5 seconds of dismissing a notification with its X opens the
+  asked" in `ROADMAP.md`). Focusing the window within 1.5 seconds of dismissing a notification with its X opens the
   session too. A desktop notification waiting keeps a `notify-send` process until it is clicked or dismissed. A
   session's newer alert interrupts the fiber showing its older one (a `FiberMap` by session id in `SessionAlertsView`),
   and `extension.ts` exports `deactivate`, which returns the runtime's `dispose()`, since VS Code awaits that promise
@@ -57,8 +57,8 @@ How a session out of view gets the user's attention: notifications and badge cou
     program that sent the notification, `notify-send`. VS Code can't take one from outside: its code never reads
     `XDG_ACTIVATION_TOKEN`, and it doesn't use Electron's `requestSingleInstanceLock`, the way Chromium passes a token
     to a running instance. So the link opened the session, and GNOME kept VS Code in the background.
-  - Bringing the right window forward when several VS Code windows are open: kept for "If the users asked" in the
-    README, with the problem and a proposal.
+  - Bringing the right window forward when several VS Code windows are open: kept for "If the users asked" in
+    `ROADMAP.md`, with the problem and a proposal.
   - Only the Linux notification for now, macOS and WSL when someone runs them: dropped, so the release has them for
     contributors to try.
   - Removing `notifyOn` until it is wanted: kept, so the states can be picked.

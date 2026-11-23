@@ -1,4 +1,6 @@
-import {RequiredToolsController} from "@controllers/requiredTools.controller.ts";
+import {Array, Context, Effect, Layer, Result, Stream} from "effect";
+
+import {RequiredToolsController} from "@/controllers/requiredTools.controller.ts";
 import {
   REQUIRED_TOOL_NEEDS,
   REQUIRED_TOOLS,
@@ -7,20 +9,20 @@ import {
   REQUIRED_TOOLS_NOTICES,
   TOOL_INSTALL_PAGES
 } from "@pkg/constants/src/requiredTools.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {Array, Context, Effect, Layer, Result, Stream} from "effect";
 
-import type {MissingToolDto, MissingToolsDto} from "@dtos/requiredTools.dto.ts";
+import type {MissingToolDto, MissingToolsDto} from "@/dtos/requiredTools.dto.ts";
 
 export class RequiredToolsNoticesView extends Context.Service<RequiredToolsNoticesView>()(
   "aggregor-app/presentation/views/requiredToolsNotices/requiredToolsNotices.view/RequiredToolsNoticesView",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("RequiredToolsNoticesView.make")(function* () {
       const requiredToolsController = yield* RequiredToolsController;
       const vsCodeApi = yield* VsCodeApi;
 
-      const describeToolNeed = Effect.fn("describeToolNeed")(function* (missingTool: MissingToolDto) {
+      const describeToolNeed = Effect.fn("RequiredToolsNoticesView.describeToolNeed")(function* (
+        missingTool: MissingToolDto
+      ) {
         if (missingTool.toolName === REQUIRED_TOOLS.GITHUB_CLI) return REQUIRED_TOOL_NEEDS.gh;
 
         return missingTool.foundVersion === undefined
@@ -28,7 +30,7 @@ export class RequiredToolsNoticesView extends Context.Service<RequiredToolsNotic
           : REQUIRED_TOOL_NEEDS.tmuxTooOld(missingTool.foundVersion);
       });
 
-      const offerInstallPages = Effect.fn("offerInstallPages")(function* (
+      const offerInstallPages = Effect.fn("RequiredToolsNoticesView.offerInstallPages")(function* (
         missingToolsDto: MissingToolsDto,
         toolNeeds: string
       ) {
@@ -55,7 +57,9 @@ export class RequiredToolsNoticesView extends Context.Service<RequiredToolsNotic
         );
       });
 
-      const offerInstall = Effect.fn("offerInstall")(function* (missingToolsDto: MissingToolsDto) {
+      const offerInstall = Effect.fn("RequiredToolsNoticesView.offerInstall")(function* (
+        missingToolsDto: MissingToolsDto
+      ) {
         const toolNeedList = yield* Effect.forEach(missingToolsDto.missingTools, describeToolNeed);
         const toolNeeds = Array.join(toolNeedList, " and ");
         const installCommandLine = missingToolsDto.installCommandLine;
@@ -86,7 +90,5 @@ export class RequiredToolsNoticesView extends Context.Service<RequiredToolsNotic
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("RequiredToolsNoticesView", this.make())).pipe(
-    Layer.provide(RequiredToolsController.layer)
-  );
+  public static readonly layer = Layer.effect(this, this.make()).pipe(Layer.provide(RequiredToolsController.layer));
 }

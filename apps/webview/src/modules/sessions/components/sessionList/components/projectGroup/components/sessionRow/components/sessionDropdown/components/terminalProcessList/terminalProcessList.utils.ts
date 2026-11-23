@@ -1,5 +1,5 @@
+import type {SessionProcessDto} from "@/dtos/sessionProcess.dto.ts";
 import type {ProcessTreeItem} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdown/components/terminalProcessList/terminalProcessList.type.ts";
-import type {SessionProcessDto} from "@dtos/sessionProcess.dto.ts";
 
 export const buildProcessTree = (sessionProcesses: readonly SessionProcessDto[]): readonly ProcessTreeItem[] => {
   const listedProcessIds = new Set(sessionProcesses.map((sessionProcess) => sessionProcess.processId));

@@ -1,12 +1,12 @@
 import {NodeServices} from "@effect/platform-node";
-import {AgentHistoryUtils} from "@infraServices/agentHistory/agentHistory.utils.ts";
-import {CLAUDE_HISTORY, CLAUDE_HISTORY_LINE_TYPES} from "@pkg/constants/src/agentHistory.constant.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
 import {Array, Context, Effect, Layer, Result, Schema, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 
-import type {AgentConversation} from "@interfaces/agentHistory.infraService.interface.ts";
+import {AgentHistoryUtils} from "@/infraServices/agentHistory/agentHistory.utils.ts";
+import {CLAUDE_HISTORY, CLAUDE_HISTORY_LINE_TYPES} from "@pkg/constants/src/agentHistory.constant.ts";
+
+import type {AgentConversation} from "@/interfaces/agentHistory.infraService.interface.ts";
 
 const ClaudeHistoryLineJson = Schema.fromJsonString(
   Schema.Struct({
@@ -30,12 +30,14 @@ type ClaudeHistoryLine = typeof ClaudeHistoryLineJson.Type;
 export class ClaudeHistoryUtils extends Context.Service<ClaudeHistoryUtils>()(
   "aggregor-app/infrastructure/services/agentHistory/claudeHistory.utils/ClaudeHistoryUtils",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("ClaudeHistoryUtils.make")(function* () {
       const agentHistoryUtils = yield* AgentHistoryUtils;
       const fileSystem = yield* FileSystem;
       const path = yield* Path;
 
-      const findClaudeTitle = Effect.fn("findClaudeTitle")(function* (tailLines: readonly ClaudeHistoryLine[]) {
+      const findClaudeTitle = Effect.fn("ClaudeHistoryUtils.findClaudeTitle")(function* (
+        tailLines: readonly ClaudeHistoryLine[]
+      ) {
         const customTitles = Array.flatMap(tailLines, (historyLine) =>
           historyLine.customTitle === undefined ? [] : [historyLine.customTitle]
         );
@@ -50,7 +52,7 @@ export class ClaudeHistoryUtils extends Context.Service<ClaudeHistoryUtils>()(
         );
       });
 
-      const readPromptText = Effect.fn("readPromptText")(function* (historyLine: ClaudeHistoryLine) {
+      const readPromptText = Effect.fn("ClaudeHistoryUtils.readPromptText")(function* (historyLine: ClaudeHistoryLine) {
         if (historyLine.type !== CLAUDE_HISTORY_LINE_TYPES.USER || historyLine.isMeta === true) return "";
         if (historyLine.message === undefined) return "";
         const messageContent = historyLine.message.content;
@@ -68,7 +70,9 @@ export class ClaudeHistoryUtils extends Context.Service<ClaudeHistoryUtils>()(
         return String.startsWith(CLAUDE_HISTORY.COMMAND_MARKUP_PREFIX)(promptText) ? "" : promptText;
       });
 
-      const findFirstPrompt = Effect.fn("findFirstPrompt")(function* (headLines: readonly ClaudeHistoryLine[]) {
+      const findFirstPrompt = Effect.fn("ClaudeHistoryUtils.findFirstPrompt")(function* (
+        headLines: readonly ClaudeHistoryLine[]
+      ) {
         const promptTexts = yield* Effect.forEach(headLines, readPromptText);
 
         return Result.fromOption(
@@ -77,7 +81,9 @@ export class ClaudeHistoryUtils extends Context.Service<ClaudeHistoryUtils>()(
         );
       });
 
-      const readClaudeTitleText = Effect.fn("readClaudeTitleText")(function* (conversationFilePath: string) {
+      const readClaudeTitleText = Effect.fn("ClaudeHistoryUtils.readClaudeTitleText")(function* (
+        conversationFilePath: string
+      ) {
         const headText = yield* agentHistoryUtils.readFileSlice({
           byteCount: CLAUDE_HISTORY.HEAD_BYTES,
           filePath: conversationFilePath,
@@ -92,7 +98,9 @@ export class ClaudeHistoryUtils extends Context.Service<ClaudeHistoryUtils>()(
         return Result.orElse(claudeTitle, () => firstPrompt);
       });
 
-      const readClaudeConversation = Effect.fn("readClaudeConversation")(function* (conversationFilePath: string) {
+      const readClaudeConversation = Effect.fn("ClaudeHistoryUtils.readClaudeConversation")(function* (
+        conversationFilePath: string
+      ) {
         const fileInfo = yield* fileSystem.stat(conversationFilePath);
         const titleText = yield* readClaudeTitleText(conversationFilePath);
         if (Result.isFailure(titleText)) return Result.failVoid;
@@ -112,7 +120,9 @@ export class ClaudeHistoryUtils extends Context.Service<ClaudeHistoryUtils>()(
       });
 
       // Its subagents' transcripts sit in a folder per conversation, so only the files at the top are conversations.
-      const listClaudeConversations = Effect.fn("listClaudeConversations")(function* (folderPath: string) {
+      const listClaudeConversations = Effect.fn("ClaudeHistoryUtils.listClaudeConversations")(function* (
+        folderPath: string
+      ) {
         const configFolderPath = yield* agentHistoryUtils.readFolderFromEnvironment(
           CLAUDE_HISTORY.CONFIG_FOLDER_ENV,
           CLAUDE_HISTORY.DEFAULT_CONFIG_FOLDER
@@ -142,7 +152,7 @@ export class ClaudeHistoryUtils extends Context.Service<ClaudeHistoryUtils>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("ClaudeHistoryUtils", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([AgentHistoryUtils.layer, NodeServices.layer])
   );
 }

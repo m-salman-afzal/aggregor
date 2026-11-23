@@ -1,27 +1,28 @@
-import {ProjectBranchesDtoSchema, ProjectLeftoversDtoSchema} from "@dtos/worktree.dto.ts";
-import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
-import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
-import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
-import {IWorkspaceInfraService} from "@interfaces/workspace.infraService.interface.ts";
-import {IWorktreeInfraService} from "@interfaces/worktree.infraService.interface.ts";
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {ownSpans} from "@pkg/trace/src/ownSpans.utils.ts";
-import {BaseService} from "@services/base.service.ts";
-import {ProjectService} from "@services/project.service.ts";
-import {SESSION_LIFECYCLES} from "@valueObjects/sessionLifecycle.valueObject.ts";
 import {Array, Context, Effect, Layer, Result, Schema, Stream, SubscriptionRef} from "effect";
 import {Path} from "effect/Path";
 
-import type {ProjectListItemDto} from "@dtos/project.dto.ts";
+import {WorktreeDomainService} from "@/domainServices/worktree.domainService.ts";
+import {ProjectBranchesDtoSchema, ProjectLeftoversDtoSchema} from "@/dtos/worktree.dto.ts";
+import {IProjectRepository} from "@/entities/project/project.repository.interface.ts";
+import {ISessionRepository} from "@/entities/session/session.repository.interface.ts";
+import {ITmuxInfraService} from "@/interfaces/tmux.infraService.interface.ts";
+import {IWorkspaceInfraService} from "@/interfaces/workspace.infraService.interface.ts";
+import {IWorktreeInfraService} from "@/interfaces/worktree.infraService.interface.ts";
+import {BaseService} from "@/services/base.service.ts";
+import {ProjectService} from "@/services/project.service.ts";
+import {SESSION_LIFECYCLES} from "@/valueObjects/sessionLifecycle.valueObject.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
+import type {ProjectListItemDto} from "@/dtos/project.dto.ts";
 import type {
   CleanUpProjectLeftoversRequestDto,
   ListProjectBranchesRequestDto,
   ListProjectLeftoversRequestDto
-} from "@dtos/worktree.dto.ts";
-import type {SessionEntity} from "@entities/session/session.entity.ts";
-import type {GitWorktree, WorktreeBranch} from "@interfaces/worktree.infraService.interface.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+} from "@/dtos/worktree.dto.ts";
+import type {SessionEntity} from "@/entities/session/session.entity.ts";
+import type {GitWorktree, WorktreeBranch} from "@/interfaces/worktree.infraService.interface.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 interface ProjectLeftovers {
   readonly leftoverBranches: readonly WorktreeBranch[];
@@ -35,7 +36,7 @@ export class WorktreeServiceErrors extends TaggedErrors({
 export class WorktreeService extends Context.Service<WorktreeService>()(
   "aggregor-app/application/services/worktree.service/WorktreeService",
   {
-    make: Effect.fn("make")(function* () {
+    make: Effect.fn("WorktreeService.make")(function* () {
       const projectRepository = yield* IProjectRepository;
       const sessionRepository = yield* ISessionRepository;
       const tmuxInfraService = yield* ITmuxInfraService;
@@ -43,11 +44,12 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
       const worktreeInfraService = yield* IWorktreeInfraService;
       const path = yield* Path;
       const projectService = yield* ProjectService;
+      const worktreeDomainService = yield* WorktreeDomainService;
       const baseService = yield* BaseService;
-      const projectBaseService = yield* baseService.makeFor(projectRepository);
-      const sessionBaseService = yield* baseService.makeFor(sessionRepository);
+      const projectBaseService = yield* baseService.makeForRepository(projectRepository);
+      const sessionBaseService = yield* baseService.makeForRepository(sessionRepository);
 
-      const findUsedWorktreePaths = Effect.fn("findUsedWorktreePaths")(function* (
+      const findUsedWorktreePaths = Effect.fn("WorktreeService.findUsedWorktreePaths")(function* (
         runningSessionIds: ReadonlySet<EntityIdValueObject>
       ) {
         const storedSessions = yield* sessionBaseService.findEntities({});
@@ -60,7 +62,7 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         return new Set<string | undefined>(Array.map(usingSessions, (usingSession) => usingSession.worktreePath));
       });
 
-      const findLeftoverWorktrees = Effect.fn("findLeftoverWorktrees")(function* (
+      const findLeftoverWorktrees = Effect.fn("WorktreeService.findLeftoverWorktrees")(function* (
         projectListItem: ProjectListItemDto,
         runningSessionIds: ReadonlySet<EntityIdValueObject>
       ) {
@@ -76,7 +78,19 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         );
       });
 
-      const findProjectLeftovers = Effect.fn("findProjectLeftovers")(function* (
+      const isLeftoverBranch = Effect.fn("WorktreeService.isLeftoverBranch")(function* (
+        localBranch: WorktreeBranch,
+        leftoverWorktreePaths: ReadonlySet<string>,
+        cleanUpBaseBranch: string
+      ) {
+        if (localBranch.branchName === cleanUpBaseBranch) return false;
+        if (yield* worktreeDomainService.isWorktreeBranchName(localBranch.branchName))
+          return localBranch.worktreePath === "" || leftoverWorktreePaths.has(localBranch.worktreePath);
+
+        return localBranch.isUpstreamGone && localBranch.worktreePath === "";
+      });
+
+      const findProjectLeftovers = Effect.fn("WorktreeService.findProjectLeftovers")(function* (
         projectListItem: ProjectListItemDto,
         runningSessionIds: ReadonlySet<EntityIdValueObject>
       ) {
@@ -84,12 +98,10 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         const leftoverWorktreePaths = new Set<string>(
           Array.map(leftoverWorktrees, (leftoverWorktree) => leftoverWorktree.worktreePath)
         );
-        const aggregorBranches = yield* worktreeInfraService.listAggregorBranches(projectListItem.path);
+        const localBranches = yield* worktreeInfraService.listLocalBranches(projectListItem.path);
         const projectLeftovers: ProjectLeftovers = {
-          leftoverBranches: Array.filter(
-            aggregorBranches,
-            (aggregorBranch) =>
-              aggregorBranch.worktreePath === "" || leftoverWorktreePaths.has(aggregorBranch.worktreePath)
+          leftoverBranches: yield* Effect.filter(localBranches, (localBranch) =>
+            isLeftoverBranch(localBranch, leftoverWorktreePaths, projectListItem.settings.cleanUpBaseBranch)
           ),
           leftoverWorktrees
         };
@@ -98,7 +110,9 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
       });
 
       // Reads local refs only, so drawing a project never waits on the network.
-      const hasProjectLeftovers = Effect.fn("hasProjectLeftovers")(function* (projectListItem: ProjectListItemDto) {
+      const hasProjectLeftovers = Effect.fn("WorktreeService.hasProjectLeftovers")(function* (
+        projectListItem: ProjectListItemDto
+      ) {
         const runningSessionIds = yield* SubscriptionRef.get(tmuxInfraService.runningSessionIds);
         const projectLeftoversResult = yield* Effect.result(findProjectLeftovers(projectListItem, runningSessionIds));
 
@@ -109,7 +123,9 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         });
       });
 
-      const makeLeftoverWorktree = Effect.fn("makeLeftoverWorktree")(function* (leftoverWorktree: GitWorktree) {
+      const makeLeftoverWorktree = Effect.fn("WorktreeService.makeLeftoverWorktree")(function* (
+        leftoverWorktree: GitWorktree
+      ) {
         return {
           branchName: leftoverWorktree.branchName,
           hasChanges: yield* worktreeInfraService.hasChanges(leftoverWorktree.worktreePath),
@@ -118,7 +134,7 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         };
       });
 
-      const makeLeftoverBranch = Effect.fn("makeLeftoverBranch")(function* (
+      const makeLeftoverBranch = Effect.fn("WorktreeService.makeLeftoverBranch")(function* (
         projectPath: ProjectPathValueObject,
         leftoverBranch: WorktreeBranch,
         baseBranchName: string
@@ -133,14 +149,14 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
       });
 
       // Pruning first marks the branches whose pull request merged and whose remote branch was deleted.
-      const listProjectLeftovers = Effect.fn("listProjectLeftovers")(function* (
+      const listProjectLeftovers = Effect.fn("WorktreeService.listProjectLeftovers")(function* (
         request: ListProjectLeftoversRequestDto
       ) {
         const projectListItem = yield* projectService.findProjectListItem(request.projectPath);
         yield* worktreeInfraService.pruneRemote(projectListItem.path);
         const runningSessionIds = yield* tmuxInfraService.refreshRunningSessionIds;
         const projectLeftovers = yield* findProjectLeftovers(projectListItem, runningSessionIds);
-        const baseBranchName = yield* worktreeInfraService.findBaseBranch(projectListItem.path);
+        const baseBranchName = projectListItem.settings.cleanUpBaseBranch;
 
         return ProjectLeftoversDtoSchema.make({
           baseBranchName,
@@ -155,7 +171,7 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
       });
 
       // A deleted worktree still shown would be listed as a project of its own, and saved as one on the next switch.
-      const showProjectInPlaceOfWorktree = Effect.fn("showProjectInPlaceOfWorktree")(function* (
+      const showProjectInPlaceOfWorktree = Effect.fn("WorktreeService.showProjectInPlaceOfWorktree")(function* (
         projectPath: ProjectPathValueObject,
         worktreePath: ProjectPathValueObject
       ) {
@@ -168,7 +184,7 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         if (isWorktreeShown) yield* workspaceInfraService.showOnlyProjectFolder(projectPath, undefined);
       });
 
-      const removeLeftoverWorktree = Effect.fn("removeLeftoverWorktree")(function* (
+      const removeLeftoverWorktree = Effect.fn("WorktreeService.removeLeftoverWorktree")(function* (
         projectPath: ProjectPathValueObject,
         leftoverWorktree: GitWorktree
       ) {
@@ -188,7 +204,7 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         return keptNames;
       });
 
-      const deleteLeftoverBranch = Effect.fn("deleteLeftoverBranch")(
+      const deleteLeftoverBranch = Effect.fn("WorktreeService.deleteLeftoverBranch")(
         function* (projectPath: ProjectPathValueObject, leftoverBranch: WorktreeBranch) {
           yield* worktreeInfraService.deleteBranch(projectPath, leftoverBranch.branchName);
           const keptNames: readonly string[] = [];
@@ -200,7 +216,7 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
       );
 
       // Git changes reach no change feed, so touching the project redraws its row and its dot.
-      const redrawProject = Effect.fn("redrawProject")(
+      const redrawProject = Effect.fn("WorktreeService.redrawProject")(
         function* (projectPath: ProjectPathValueObject) {
           const storedProjects = yield* projectBaseService.findEntities({path: projectPath});
           yield* Effect.forEach(storedProjects, (storedProject) =>
@@ -211,7 +227,7 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
       );
 
       // Worktrees go first, freeing their branches.
-      const cleanUpProjectLeftovers = Effect.fn("cleanUpProjectLeftovers")(
+      const cleanUpProjectLeftovers = Effect.fn("WorktreeService.cleanUpProjectLeftovers")(
         function* (request: CleanUpProjectLeftoversRequestDto) {
           const projectListItem = yield* projectService.findProjectListItem(request.projectPath);
           const runningSessionIds = yield* tmuxInfraService.refreshRunningSessionIds;
@@ -238,7 +254,7 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         Effect.catchTag("ProjectNotListedError", () => Effect.void)
       );
 
-      const removeSessionWorktree = Effect.fn("removeSessionWorktree")(
+      const removeSessionWorktree = Effect.fn("WorktreeService.removeSessionWorktree")(
         function* (session: SessionEntity) {
           const worktreePath = session.worktreePath;
           if (worktreePath === undefined) return;
@@ -255,7 +271,7 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         Effect.catchTag("EntityNotFoundError", () => Effect.void)
       );
 
-      const readProjectBranches = Effect.fn("readProjectBranches")(function* (
+      const readProjectBranches = Effect.fn("WorktreeService.readProjectBranches")(function* (
         projectPath: ProjectPathValueObject,
         isFetchingRemote: boolean
       ) {
@@ -271,13 +287,17 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         });
       });
 
-      const fetchProjectBranches = Effect.fn("fetchProjectBranches")(function* (projectPath: ProjectPathValueObject) {
+      const fetchProjectBranches = Effect.fn("WorktreeService.fetchProjectBranches")(function* (
+        projectPath: ProjectPathValueObject
+      ) {
         yield* worktreeInfraService.fetchRemote(projectPath);
 
         return yield* readProjectBranches(projectPath, false);
       });
 
-      const listProjectBranches = Effect.fn("listProjectBranches")(function* (request: ListProjectBranchesRequestDto) {
+      const listProjectBranches = Effect.fn("WorktreeService.listProjectBranches")(function* (
+        request: ListProjectBranchesRequestDto
+      ) {
         const projectListItem = yield* projectService.findProjectListItem(request.projectPath);
 
         return Stream.concat(
@@ -296,7 +316,7 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
     })
   }
 ) {
-  public static readonly layer = Layer.effect(this, ownSpans("WorktreeService", this.make())).pipe(
+  public static readonly layer = Layer.effect(this, this.make()).pipe(
     Layer.provide([BaseService.layer, ProjectService.layer])
   );
 }

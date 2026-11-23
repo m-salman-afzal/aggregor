@@ -1,10 +1,12 @@
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
 import {Context} from "effect";
 
-import type {AgentEntity} from "@entities/agent/agent.entity.ts";
-import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
+import {AgentIdValueObjectSchema} from "@/valueObjects/agentId.valueObject.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
 import type {Effect} from "effect";
+
+import type {AgentEntity} from "@/entities/agent/agent.entity.ts";
+import type {AgentIdValueObject} from "@/valueObjects/agentId.valueObject.ts";
 
 export class IAgentRepositoryErrors extends TaggedErrors({
   AgentNotFoundError: {agentId: AgentIdValueObjectSchema}

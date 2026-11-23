@@ -35,7 +35,7 @@ How the extension uses Effect.
   `make`. Files have no length limit since (ESLint's `max-lines` was 300), so an entity's use cases stay in one service.
   Each function does one job and shows up as its own span.
 - **Solution:** `aggregor/max-lines-per-function` runs ESLint's own rule and drops its report on a class's `make`, or a
-  `make<Name>` const such as a base class's `makeFor`, that holds an `Effect.fn`.
+  `make<Name>` const such as a base class's `makeForTable`, that holds an `Effect.fn`.
 - **Alternatives considered:** helpers at module level that take their shared state as parameters, with a layer's `make`
   only creating state, starting watchers and wiring the service, which passed every helper's needs up to its callers.
 
@@ -61,9 +61,9 @@ How the extension uses Effect.
   `Schema.TaggedError` class in the extension's source, its tests or `@pkg/vscode`; checks that a `TaggedErrors` class
   is named `…Errors`, has an empty body and keys ending in `Error`, is the only one in its file and comes before the
   file's other classes; lets every layer and `@pkg/vscode` import `TaggedErrors`; and bans `.error.ts` files. Limits:
-  `TaggedErrors` is a house helper, not an Effect API, with one type assertion inside it; it is the fourth plain
-  top-level function, after `activate`, `deactivate` and `ownSpans`, since it builds classes when a file loads, outside
-  any effect; an error's class name at run time is no longer its tag, though its `_tag` and its `name` are.
+  `TaggedErrors` is a house helper, not an Effect API, with one type assertion inside it; it is the third plain
+  top-level function, after `activate` and `deactivate`, since it builds classes when a file loads, outside any effect;
+  an error's class name at run time is no longer its tag, though its `_tag` and its `name` are.
 - **Alternatives considered:** each compiled under the repo's typecheck before deciding.
   - Effect 4's own form, one `Schema.TaggedError` class per unit with a `reason` field holding a `Schema.TaggedUnion` of
     the cases, handled one at a time with `Effect.catchReason`. It is built in, but a handled reason stays in the error
@@ -86,7 +86,7 @@ How the extension uses Effect.
 - **Problem:** code branched on a tagged value by comparing `_tag`, as in the Sessions and Archive trees' node kinds and
   their change kinds, so a new kind would fall through an `if` unnoticed.
 - **Decision:** lint bans comparing `_tag` (use `Match.valueTags`, or `Match.value` and `Match.exhaustive` for a table
-  of cases), `switch` and `else`; ESLint already bans nested ternaries. The 17 comparisons are now `Match`, and the stop
+  of cases), `switch` and `else`; lint already bans nested ternaries. The 17 comparisons are now `Match`, and the stop
   question's four lines are a `Match` table on one agent or several and a turn running or not. An `if` that returns
   early and a ternary stay. A tag without a branch fails the typecheck, and the code keeps the early-return shape it
   already has.

@@ -1,7 +1,8 @@
-import {SESSION_STATUS_ICONS} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionStatusIcon/sessionStatusIcon.constant.ts";
 import {cn} from "cn";
 
-import type {SessionListItemDto} from "@dtos/session.dto.ts";
+import {SESSION_STATUS_ICONS} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionStatusIcon/sessionStatusIcon.constant.ts";
+
+import type {SessionListItemDto} from "@/dtos/session.dto.ts";
 
 interface SessionStatusIconProps {
   readonly status: SessionListItemDto["status"];

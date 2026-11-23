@@ -8,9 +8,10 @@ import {TextInput} from "@/modules/sessions/components/userInputDialog/component
 import {WorkingTreeInput} from "@/modules/sessions/components/userInputDialog/components/workingTreeInput/workingTreeInput.tsx";
 import {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 
-import type {ChosenLeftovers, UserInput} from "@/modules/sessions/sessions.type.ts";
-import type {CommandRequest} from "@views/sessions/sessions.view.type.ts";
 import type {SubmitEvent} from "react";
+
+import type {ChosenLeftovers, UserInput} from "@/modules/sessions/sessions.type.ts";
+import type {CommandRequest} from "@/views/sessions/sessions.view.type.ts";
 
 interface UserInputBodyProps {
   readonly onCancel: () => void;
