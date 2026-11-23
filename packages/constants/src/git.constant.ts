@@ -1,6 +1,7 @@
 export const GIT_EXTENSION = {
   API_VERSION: 1,
-  ID: "vscode.git"
+  ID: "vscode.git",
+  PUBLISH_REMOTE_NAME: "origin"
 } as const;
 
 export const GIT_COMMAND = {

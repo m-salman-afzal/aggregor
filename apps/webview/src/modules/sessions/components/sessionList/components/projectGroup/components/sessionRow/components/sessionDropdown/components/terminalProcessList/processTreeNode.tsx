@@ -16,7 +16,7 @@ export const ProcessTreeNode = (props: ProcessTreeNodeProps) => (
         <span className="truncate">{props.processTreeItem.sessionProcess.name}</span>
       </div>
     ) : (
-      <Collapsible defaultOpen>
+      <Collapsible>
         <CollapsibleTrigger className="group/process flex w-full min-w-0 items-center gap-1.5 rounded-md py-px text-left text-foreground/80 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
           <ChevronRightIcon
             aria-hidden

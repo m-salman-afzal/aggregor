@@ -267,30 +267,32 @@ The Sessions view drawn in a webview of our own.
 
 - **Problem:** a session's agent can run sub-agents and background shells that the row's one status hides, and the
   processes it starts (the next steps) need a place too.
-- **Decision:** a chevron under the row's status icon, on its second line, opens a panel under the row, inside its list
-  item, with a Tasks section: each task's status icon, an icon for what it is (a sub-agent, a background shell, a remote
-  agent, a teammate, a workflow, a monitor, an MCP task, or other), its title (or its id when it has none), and its
-  progress and message. The chevron shows while the session's agent runs, since its terminal always has processes to
-  show (see "A session's terminal processes show in its dropdown"). Which sessions have it open is kept with the folds,
-  in the webview's state, so a reload keeps them open.
+- **Decision:** a chevron in a box of its own, drawn and lit on hover as the row's other buttons are, under the row's
+  status icon, on its second line, opens a panel under the row, inside its list item, with a Tasks section: each task's
+  status icon, an icon for what it is (a sub-agent, a background shell, a remote agent, a teammate, a workflow, a
+  monitor, an MCP task, or other), its title (or its id when it has none), and its progress and message. The chevron
+  shows while the session's agent runs, since its terminal always has processes to show (see "A session's terminal
+  processes show in its dropdown"). Which sessions have it open is kept with the folds, in the webview's state, so a
+  reload keeps them open.
 - **Solution:** the session list item carries `tasks` as `SessionTaskDto`s, built by `SessionService` from the row's
   `tasks` column. `getAgentTaskKind` reads a task's kind from its id's first letter, Claude Code's own table (`a`
   sub-agent, `b` shell, `r` remote agent, `t` teammate, `w` workflow, `m` and `s` monitors, `k` MCP task), since OSC
   7501 carries no kind for a task; an id it doesn't list, or a change in Claude's ids, shows the other icon.
   `getSessionTasks` drops a task whose title is the one the agent reports for itself: OpenCode (2.3.2) reports its own
   conversation again as a task, under an id of its own (`ses_…`, not the one Aggregor starts it with). The row is a
-  `Collapsible` rendered as its `<li>`; `sessionDropdownToggle.tsx` is its trigger, beside the row's own button since a
-  button can't hold one, and `sessionDropdown/` its panel, which folds with the projects' `COLLAPSIBLE_PANEL` and draws
-  its sections from `components/sessionTaskList/` and `components/terminalProcessList/`. The row's open button moved
-  into `sessionOpenButton/` with its hook, the title and detail lines it draws and their constants, keeping the row and
-  its hook short. The store keeps `openDropdownSessionIds`.
+  `Collapsible` rendered as its `<li>`; `sessionDropdownToggle.tsx` is its trigger, the design system's soft icon
+  `Button`, beside the row's own button since a button can't hold one, and `sessionDropdown/` its panel, which folds
+  with the projects' `COLLAPSIBLE_PANEL` and draws its sections from `components/sessionTaskList/` and
+  `components/terminalProcessList/`. The row's open button moved into `sessionOpenButton/` with its hook, the title and
+  detail lines it draws and their constants, keeping the row and its hook short. The store keeps
+  `openDropdownSessionIds`.
 - **Alternatives considered:** dropping a task whose id holds the session's conversation id, which OpenCode's echo
   doesn't; dropping OpenCode's `ses_` ids, one agent's id format in the domain; the kind read only for the Claude agent,
   which its settings key can't tell apart; storing the report's `app` with each task, a pty and column change while
   Claude is the only agent that reports tasks; a popover beside the row, which covers the rows under it and closes on
   the first click elsewhere; the chevron in the row's left gutter, which crowds the brand bar of the row in front; the
   chevron inside the row's text, which nests a button in a button; the chevron only while the session has tasks, which
-  hid every other agent's terminal.
+  hid every other agent's terminal; the bare chevron (built first), a 16-pixel target with no edge to aim at.
 
 ## A session's terminal processes show in its dropdown
 
@@ -298,12 +300,13 @@ The Sessions view drawn in a webview of our own.
   terminal (its shells, dev servers, MCP servers, browsers) showed nowhere, for any agent.
 - **Decision:** the dropdown has an Agent terminal section: every process the agent's tmux session runs, by name, as a
   tree by parent, with its command line in its tooltip. The names are plain words; the section's header carries the
-  session's agent icon, and the section and every process with children fold, open at first. On Linux a pane in a
-  systemd scope of its own brings in its whole cgroup, so a process that left the agent's tree (a detached Chrome) still
-  shows; a pane in the tmux server's cgroup, as without a systemd user manager, and every pane elsewhere, as on macOS,
-  brings in its own tree. The list is read every 2 seconds, only for the dropdowns open in the webview for running
-  agents, and lives in memory: it reaches the webview as messages and is never stored. Each process's CPU and memory are
-  left for later (issue #204).
+  session's agent icon, and the section and every process with children fold, each closed at first, so the dropdown
+  opens as one line per terminal and the user unfolds only the level they want. On Linux a pane in a systemd scope of
+  its own brings in its whole cgroup, so a process that left the agent's tree (a detached Chrome) still shows; a pane in
+  the tmux server's cgroup, as without a systemd user manager, and every pane elsewhere, as on macOS, brings in its own
+  tree. The list is read every 2 seconds, only for the dropdowns open in the webview for running agents, and lives in
+  memory: it reaches the webview as messages and is never stored. Each process's CPU and memory are left for later
+  (issue #204).
 - **Solution:** the store sends `WatchSessionProcesses` with the open dropdowns of running sessions whenever that list
   changes; `SessionsView` keeps it in a `SubscriptionRef`, empties it when the webview is disposed, and draws each
   `SessionProcessesDto` that `SessionProcessService.watchSessionProcesses` streams, which switches to each new list and
@@ -317,7 +320,8 @@ The Sessions view drawn in a webview of our own.
   than the list needs now (issue #204); storing the list in the database, which every 2 seconds would churn it and its
   change feed; reading every running session all the time; the processes of the agent's tree alone on Linux, which
   misses what detached from it; an icon and a colour per process, by kind, read from a hand-kept list of program names
-  that would go stale.
+  that would go stale; every fold open at first (built first), which drew every terminal's whole tree as soon as the
+  dropdown opened.
 
 ## A session's folder shell shows in its dropdown too
 
