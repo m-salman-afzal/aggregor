@@ -15,7 +15,7 @@ interface TerminalProcessListProps {
 }
 
 export const TerminalProcessList = (props: TerminalProcessListProps) => (
-  <Collapsible defaultOpen render={<section aria-label={props.label} className="flex flex-col gap-1" />}>
+  <Collapsible render={<section aria-label={props.label} className="flex flex-col gap-1" />}>
     <h3 className="min-w-0 font-medium text-muted-foreground">
       <CollapsibleTrigger className="group/terminal flex w-full min-w-0 items-center gap-1.5 rounded-md text-left outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
         <ChevronRightIcon

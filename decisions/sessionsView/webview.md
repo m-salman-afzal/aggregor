@@ -298,12 +298,13 @@ The Sessions view drawn in a webview of our own.
   terminal (its shells, dev servers, MCP servers, browsers) showed nowhere, for any agent.
 - **Decision:** the dropdown has an Agent terminal section: every process the agent's tmux session runs, by name, as a
   tree by parent, with its command line in its tooltip. The names are plain words; the section's header carries the
-  session's agent icon, and the section and every process with children fold, open at first. On Linux a pane in a
-  systemd scope of its own brings in its whole cgroup, so a process that left the agent's tree (a detached Chrome) still
-  shows; a pane in the tmux server's cgroup, as without a systemd user manager, and every pane elsewhere, as on macOS,
-  brings in its own tree. The list is read every 2 seconds, only for the dropdowns open in the webview for running
-  agents, and lives in memory: it reaches the webview as messages and is never stored. Each process's CPU and memory are
-  left for later (issue #204).
+  session's agent icon, and the section and every process with children fold, each closed at first, so the dropdown
+  opens as one line per terminal and the user unfolds only the level they want. On Linux a pane in a systemd scope of
+  its own brings in its whole cgroup, so a process that left the agent's tree (a detached Chrome) still shows; a pane in
+  the tmux server's cgroup, as without a systemd user manager, and every pane elsewhere, as on macOS, brings in its own
+  tree. The list is read every 2 seconds, only for the dropdowns open in the webview for running agents, and lives in
+  memory: it reaches the webview as messages and is never stored. Each process's CPU and memory are left for later
+  (issue #204).
 - **Solution:** the store sends `WatchSessionProcesses` with the open dropdowns of running sessions whenever that list
   changes; `SessionsView` keeps it in a `SubscriptionRef`, empties it when the webview is disposed, and draws each
   `SessionProcessesDto` that `SessionProcessService.watchSessionProcesses` streams, which switches to each new list and
@@ -317,7 +318,8 @@ The Sessions view drawn in a webview of our own.
   than the list needs now (issue #204); storing the list in the database, which every 2 seconds would churn it and its
   change feed; reading every running session all the time; the processes of the agent's tree alone on Linux, which
   misses what detached from it; an icon and a colour per process, by kind, read from a hand-kept list of program names
-  that would go stale.
+  that would go stale; every fold open at first (built first), which drew every terminal's whole tree as soon as the
+  dropdown opened.
 
 ## A session's folder shell shows in its dropdown too
 
