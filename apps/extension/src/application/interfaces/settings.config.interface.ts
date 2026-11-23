@@ -25,6 +25,7 @@ export interface PullRequestSettings {
 
 export interface Settings {
   readonly autoCommit: boolean;
+  readonly autoPush: boolean;
   readonly commitCommand: string;
 }
 

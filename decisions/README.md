@@ -60,6 +60,7 @@ Alternatives considered with why it was dropped. Leave a field out rather than g
   menus, and the questions commands ask.
 - [sessionsView/webview.md](sessionsView/webview.md): The Sessions view drawn in a webview of our own.
 - [commitMessage.md](commitMessage.md): The Source Control button that writes a commit message.
+- [settings.md](settings.md): Aggregor's settings in VS Code's Settings editor.
 - [tracing.md](tracing.md): Span names, the trace log, and the skill that reads it.
 - [backgroundJobs.md](backgroundJobs.md): Every timer, poll, watcher and lasting process Aggregor runs, and what reaches
   the network, as one table kept current.
