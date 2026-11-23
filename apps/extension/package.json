@@ -54,243 +54,270 @@
     "onStartupFinished"
   ],
   "contributes": {
-    "configuration": {
-      "title": "Aggregor App",
-      "properties": {
-        "aggregorApp.commitCommand": {
-          "type": "string",
-          "default": "claude -p \"Write the commit message for this staged diff.\" --system-prompt \"You write git commit messages from a staged diff. Reply with the commit message only: no preamble, no code fences, no quotes. Start with a subject line <type>(<scope>): <subject>. type is one of feat, fix, refactor, perf, docs, test, build, ci or chore, whichever matches the main intent of the change. scope is the package or area most of the diff touches; leave out (<scope>) when the change spans several areas. subject is in the imperative mood ('add', not 'added'), lowercase, with no trailing period, at most 72 characters, and names the user-visible effect, not the files. Add a body after a blank line only when the subject cannot carry the change: say what changed and why, not how, break its lines so none is longer than 72 characters, and use '- ' bullets for separate changes. Leave the body out for small changes. Only when the diff breaks a public interface or stored data, add ! right before the colon and a 'BREAKING CHANGE: <what breaks>' footer. Describe only what the diff shows; do not guess at reasons it does not show. No issue numbers, trailers or sign-offs.\" --tools \"\" --strict-mcp-config --setting-sources \"\" --no-session-persistence --model claude-haiku-5-5 --effort low",
-          "markdownDescription": "Shell command that generates the commit message. It runs in the repository root, receives the staged diff on stdin and must print the message to stdout."
-        },
-        "aggregorApp.autoCommit": {
-          "type": "boolean",
-          "default": true,
-          "description": "Commit the staged changes right after generating the commit message."
-        },
-        "aggregorApp.autoPush": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "Push the commit `#aggregorApp.autoCommit#` makes. A branch with no upstream is published to `origin`, or to the repository's only remote; a repository with no remote is not pushed. Does nothing while `#aggregorApp.autoCommit#` is off."
-        },
-        "aggregorApp.agents": {
-          "type": "object",
-          "scope": "machine",
-          "default": {
-            "claude": {
-              "name": "Claude Code",
-              "args": [
-                "--session-id",
-                "${sessionId}"
-              ],
-              "resumeArgs": [
-                "--resume",
-                "${sessionId}"
-              ],
-              "env": {
-                "CLAUDE_CODE_TMUX_TRUECOLOR": "1"
-              },
-              "icon": "assets/agents/claude.svg"
-            },
-            "codex": {
-              "name": "Codex",
-              "args": [
-                "--no-daemon",
-                "-c",
-                "tui.terminal_title=[\"thread-title\"]"
-              ],
-              "resumeArgs": [
-                "resume",
-                "-C",
-                ".",
-                "--no-daemon",
-                "-c",
-                "tui.terminal_title=[\"thread-title\"]",
-                "${agentSessionId}"
-              ],
-              "icon": "assets/agents/codex.svg"
-            },
-            "agy": {
-              "name": "Antigravity",
-              "args": [],
-              "resumeArgs": [
-                "-c"
-              ],
-              "icon": "assets/agents/antigravity.svg"
-            },
-            "opencode": {
-              "name": "OpenCode",
-              "args": [
-                "--session",
-                "ses_${sessionId}"
-              ],
-              "resumeArgs": [
-                "--session",
-                "ses_${sessionId}"
-              ],
-              "icon": "assets/agents/opencode.svg"
-            },
-            "copilot": {
-              "name": "GitHub Copilot",
-              "args": [
-                "--session-id",
-                "${sessionId}"
-              ],
-              "resumeArgs": [
-                "--session-id",
-                "${sessionId}"
-              ],
-              "icon": "assets/agents/copilot.svg"
-            }
-          },
-          "additionalProperties": {
-            "type": [
-              "object",
-              "null"
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "Shown in the picker. Defaults to the key."
-              },
-              "command": {
-                "type": "string",
-                "description": "The CLI to run. Defaults to the key."
-              },
-              "args": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "Arguments for a new session. ${sessionId} is the session's id."
-              },
-              "resumeArgs": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "Arguments to reopen a session that has worked. Defaults to args. ${agentSessionId} is the id the agent last showed as its whole terminal title, for an agent that can't start under the session's id."
-              },
-              "env": {
-                "type": "object",
-                "propertyNames": {
-                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
-                },
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "description": "Environment variables the agent starts with, merged with the built-in's."
-              },
-              "icon": {
-                "type": "string",
-                "pattern": "\\.(?:[pP][nN][gG]|[sS][vV][gG])$",
-                "description": "The path of an SVG or PNG file, absolute or inside the extension. Defaults to Aggregor's logo."
-              }
-            }
-          },
-          "markdownDescription": "The agent CLIs a session can run, keyed by command name. Your entries merge with the built-ins: change a field of one, add your own, or set one to `null` to hide it. Only user settings can define them."
-        },
-        "aggregorApp.defaultAgent": {
-          "type": "string",
-          "default": "claude",
-          "markdownDescription": "The key in `#aggregorApp.agents#` that New Session lists first and selects."
-        },
-        "aggregorApp.skipAgentPicker": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "Start `#aggregorApp.defaultAgent#` straight away instead of asking which agent to use."
-        },
-        "aggregorApp.openSessionIn": {
-          "type": "string",
-          "enum": [
-            "ownTab",
-            "sharedTab"
-          ],
-          "enumDescriptions": [
-            "Every session opens in a tab of its own.",
-            "One tab shows the session opened last, and a running session switches into it in place; the other sessions' agents keep running."
-          ],
-          "default": "ownTab",
-          "markdownDescription": "Where a session opens when it starts or its row is clicked."
-        },
-        "aggregorApp.pinSessionTabs": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "Pin a session's tab when it opens, as **View: Pin Editor** does. A tab you unpin stays unpinned until it opens again."
-        },
-        "aggregorApp.openPullRequestIn": {
-          "type": "string",
-          "enum": [
-            "browser",
-            "vscode"
-          ],
-          "enumDescriptions": [
-            "Opens the pull request on GitHub in the browser.",
-            "Opens the pull request in the GitHub Pull Requests extension, or the browser without it."
-          ],
-          "default": "browser",
-          "markdownDescription": "Where a session's pull request opens when its number on the session's row is clicked."
-        },
-        "aggregorApp.sessionMemoryLimit": {
-          "type": "string",
-          "default": "",
-          "pattern": "^(?:[1-9]\\d*(?:\\.\\d+)?[KMGT]?|(?:100|[1-9]\\d?)%)?$",
-          "patternErrorMessage": "A size such as 8G or 512M, or a share of the machine's memory such as 25%.",
-          "markdownDescription": "The most memory one session's agent, with everything it starts, may use, such as `8G` or `25%`; over it, only that session is killed. Empty sets no limit. Applies to agents started after the change, on Linux with systemd."
-        },
-        "aggregorApp.notifyOn": {
-          "type": "array",
-          "items": {
+    "configuration": [
+      {
+        "title": "Sessions",
+        "properties": {
+          "aggregorApp.openSessionIn": {
             "type": "string",
             "enum": [
+              "ownTab",
+              "sharedTab"
+            ],
+            "enumDescriptions": [
+              "Every session opens in a tab of its own.",
+              "One tab shows the session opened last, and a running session switches into it in place; the other sessions' agents keep running."
+            ],
+            "default": "ownTab",
+            "markdownDescription": "Where a session opens when it starts or its row is clicked."
+          },
+          "aggregorApp.pinSessionTabs": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "Pin a session's tab when it opens, as **View: Pin Editor** does. A tab you unpin stays unpinned until it opens again."
+          },
+          "aggregorApp.sessionMemoryLimit": {
+            "type": "string",
+            "default": "",
+            "pattern": "^(?:[1-9]\\d*(?:\\.\\d+)?[KMGT]?|(?:100|[1-9]\\d?)%)?$",
+            "patternErrorMessage": "A size such as 8G or 512M, or a share of the machine's memory such as 25%.",
+            "markdownDescription": "The most memory one session's agent, with everything it starts, may use, such as `8G` or `25%`; over it, only that session is killed. Empty sets no limit. Applies to agents started after the change, on Linux with systemd."
+          }
+        }
+      },
+      {
+        "title": "Agents",
+        "properties": {
+          "aggregorApp.agents": {
+            "type": "object",
+            "scope": "machine",
+            "default": {
+              "claude": {
+                "name": "Claude Code",
+                "args": [
+                  "--session-id",
+                  "${sessionId}"
+                ],
+                "resumeArgs": [
+                  "--resume",
+                  "${sessionId}"
+                ],
+                "env": {
+                  "CLAUDE_CODE_TMUX_TRUECOLOR": "1"
+                },
+                "icon": "assets/agents/claude.svg"
+              },
+              "codex": {
+                "name": "Codex",
+                "args": [
+                  "--no-daemon",
+                  "-c",
+                  "tui.terminal_title=[\"thread-title\"]"
+                ],
+                "resumeArgs": [
+                  "resume",
+                  "-C",
+                  ".",
+                  "--no-daemon",
+                  "-c",
+                  "tui.terminal_title=[\"thread-title\"]",
+                  "${agentSessionId}"
+                ],
+                "icon": "assets/agents/codex.svg"
+              },
+              "agy": {
+                "name": "Antigravity",
+                "args": [],
+                "resumeArgs": [
+                  "-c"
+                ],
+                "icon": "assets/agents/antigravity.svg"
+              },
+              "opencode": {
+                "name": "OpenCode",
+                "args": [
+                  "--session",
+                  "ses_${sessionId}"
+                ],
+                "resumeArgs": [
+                  "--session",
+                  "ses_${sessionId}"
+                ],
+                "icon": "assets/agents/opencode.svg"
+              },
+              "copilot": {
+                "name": "GitHub Copilot",
+                "args": [
+                  "--session-id",
+                  "${sessionId}"
+                ],
+                "resumeArgs": [
+                  "--session-id",
+                  "${sessionId}"
+                ],
+                "icon": "assets/agents/copilot.svg"
+              }
+            },
+            "additionalProperties": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Shown in the picker. Defaults to the key."
+                },
+                "command": {
+                  "type": "string",
+                  "description": "The CLI to run. Defaults to the key."
+                },
+                "args": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Arguments for a new session. ${sessionId} is the session's id."
+                },
+                "resumeArgs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Arguments to reopen a session that has worked. Defaults to args. ${agentSessionId} is the id the agent last showed as its whole terminal title, for an agent that can't start under the session's id."
+                },
+                "env": {
+                  "type": "object",
+                  "propertyNames": {
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "description": "Environment variables the agent starts with, merged with the built-in's."
+                },
+                "icon": {
+                  "type": "string",
+                  "pattern": "\\.(?:[pP][nN][gG]|[sS][vV][gG])$",
+                  "description": "The path of an SVG or PNG file, absolute or inside the extension. Defaults to Aggregor's logo."
+                }
+              }
+            },
+            "markdownDescription": "The agent CLIs a session can run, keyed by command name. Your entries merge with the built-ins: change a field of one, add your own, or set one to `null` to hide it. Only user settings can define them."
+          },
+          "aggregorApp.defaultAgent": {
+            "type": "string",
+            "default": "claude",
+            "markdownDescription": "The key in `#aggregorApp.agents#` that New Session lists first and selects."
+          },
+          "aggregorApp.skipAgentPicker": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "Start `#aggregorApp.defaultAgent#` straight away instead of asking which agent to use."
+          }
+        }
+      },
+      {
+        "title": "Source Control",
+        "properties": {
+          "aggregorApp.commitCommand": {
+            "type": "string",
+            "default": "claude -p \"Write the commit message for this staged diff.\" --system-prompt \"You write git commit messages from a staged diff. Reply with the commit message only: no preamble, no code fences, no quotes. Start with a subject line <type>(<scope>): <subject>. type is one of feat, fix, refactor, perf, docs, test, build, ci or chore, whichever matches the main intent of the change. scope is the package or area most of the diff touches; leave out (<scope>) when the change spans several areas. subject is in the imperative mood ('add', not 'added'), lowercase, with no trailing period, at most 72 characters, and names the user-visible effect, not the files. Add a body after a blank line only when the subject cannot carry the change: say what changed and why, not how, break its lines so none is longer than 72 characters, and use '- ' bullets for separate changes. Leave the body out for small changes. Only when the diff breaks a public interface or stored data, add ! right before the colon and a 'BREAKING CHANGE: <what breaks>' footer. Describe only what the diff shows; do not guess at reasons it does not show. No issue numbers, trailers or sign-offs.\" --tools \"\" --strict-mcp-config --setting-sources \"\" --no-session-persistence --model claude-haiku-5-5 --effort low",
+            "markdownDescription": "Shell command that generates the commit message. It runs in the repository root, receives the staged diff on stdin and must print the message to stdout."
+          },
+          "aggregorApp.autoCommit": {
+            "type": "boolean",
+            "default": true,
+            "description": "Commit the staged changes right after generating the commit message."
+          },
+          "aggregorApp.autoPush": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "Push the commit `#aggregorApp.autoCommit#` makes. A branch with no upstream is published to `origin`, or to the repository's only remote; a repository with no remote is not pushed. Does nothing while `#aggregorApp.autoCommit#` is off."
+          },
+          "aggregorApp.openPullRequestIn": {
+            "type": "string",
+            "enum": [
+              "browser",
+              "vscode"
+            ],
+            "enumDescriptions": [
+              "Opens the pull request on GitHub in the browser.",
+              "Opens the pull request in the GitHub Pull Requests extension, or the browser without it."
+            ],
+            "default": "browser",
+            "markdownDescription": "Where a session's pull request opens when its number on the session's row is clicked."
+          }
+        }
+      },
+      {
+        "title": "Notifications",
+        "properties": {
+          "aggregorApp.notifyOn": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "blocked",
+                "done",
+                "error",
+                "exited",
+                "idle",
+                "unknown",
+                "working"
+              ],
+              "enumDescriptions": [
+                "The agent waits for you: a permission, a question or a sign-in.",
+                "The agent finished its turn, or went back to idle after working.",
+                "The agent reported an error.",
+                "The agent exited.",
+                "The agent is idle.",
+                "The agent stopped reporting its status.",
+                "The agent is working."
+              ]
+            },
+            "uniqueItems": true,
+            "default": [
               "blocked",
               "done",
               "error",
-              "exited",
-              "idle",
-              "unknown",
-              "working"
+              "idle"
             ],
-            "enumDescriptions": [
-              "The agent waits for you: a permission, a question or a sign-in.",
-              "The agent finished its turn, or went back to idle after working.",
-              "The agent reported an error.",
-              "The agent exited.",
-              "The agent is idle.",
-              "The agent stopped reporting its status.",
-              "The agent is working."
-            ]
+            "markdownDescription": "The states a session out of view notifies about, once it has held one for 3 seconds: inside VS Code when its window is focused, else as a system notification."
+          }
+        }
+      },
+      {
+        "title": "Appearance",
+        "properties": {
+          "aggregorApp.fontSize": {
+            "type": "number",
+            "default": 14,
+            "minimum": 10,
+            "maximum": 24,
+            "markdownDescription": "The Sessions view's text size, in pixels. Its spacing, buttons and icons scale with it."
           },
-          "uniqueItems": true,
-          "default": [
-            "blocked",
-            "done",
-            "error",
-            "idle"
-          ],
-          "markdownDescription": "The states a session out of view notifies about, once it has held one for 3 seconds: inside VS Code when its window is focused, else as a system notification."
-        },
-        "aggregorApp.traceLogging": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "Log every step Aggregor runs, with the fields of each error it meets, even one it handles, to the **Aggregor App** output channel and its log file, whatever log level the channel is set to (unless **Off**). Turn it on to report a problem, reproduce it, and attach the log; the `trace` skill in Aggregor's repository reads it and files the issue."
-        },
-        "aggregorApp.fontSize": {
-          "type": "number",
-          "default": 14,
-          "minimum": 10,
-          "maximum": 24,
-          "markdownDescription": "The Sessions view's text size, in pixels. Its spacing, buttons and icons scale with it."
-        },
-        "aggregorApp.accentColor": {
-          "type": "string",
-          "default": "neutral",
-          "pattern": "^(neutral|theme|palette|#[0-9a-fA-F]{6})$",
-          "patternErrorMessage": "Use neutral, theme, palette, or a colour such as #bd93f9.",
-          "markdownDescription": "The Sessions view's highlight colour. `neutral`: hover and selection in soft greys, the colour only in small marks, taken from the theme's focus colour. `theme`: the theme's activity-bar badge colour, which Peacock and similar extensions set per workspace. `palette`: the theme's terminal blue (Dracula's purple). Or any colour as `#rrggbb`."
+          "aggregorApp.accentColor": {
+            "type": "string",
+            "default": "neutral",
+            "pattern": "^(neutral|theme|palette|#[0-9a-fA-F]{6})$",
+            "patternErrorMessage": "Use neutral, theme, palette, or a colour such as #bd93f9.",
+            "markdownDescription": "The Sessions view's highlight colour. `neutral`: hover and selection in soft greys, the colour only in small marks, taken from the theme's focus colour. `theme`: the theme's activity-bar badge colour, which Peacock and similar extensions set per workspace. `palette`: the theme's terminal blue (Dracula's purple). Or any colour as `#rrggbb`."
+          }
+        }
+      },
+      {
+        "title": "Diagnostics",
+        "properties": {
+          "aggregorApp.traceLogging": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "Log every step Aggregor runs, with the fields of each error it meets, even one it handles, to the **Aggregor App** output channel and its log file, whatever log level the channel is set to (unless **Off**). Turn it on to report a problem, reproduce it, and attach the log; the `trace` skill in Aggregor's repository reads it and files the issue."
+          }
         }
       }
-    },
+    ],
     "menus": {
       "scm/title": [
         {
