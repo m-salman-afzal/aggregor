@@ -33,7 +33,7 @@ export class PullRequestService extends Context.Service<PullRequestService>()(
       const terminalInfraService = yield* ITerminalInfraService;
       const sessionService = yield* SessionService;
       const baseService = yield* BaseService;
-      const sessionBaseService = yield* baseService.makeFor(sessionRepository);
+      const sessionBaseService = yield* baseService.makeForRepository(sessionRepository);
 
       const openSessionPullRequest = Effect.fn("PullRequestService.openSessionPullRequest")(function* (
         request: OpenSessionPullRequestRequestDto

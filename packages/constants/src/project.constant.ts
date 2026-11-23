@@ -11,6 +11,8 @@ export const PROJECT_LABELS = {
 } as const;
 
 export const PROJECT_SETTINGS_LABELS = {
+  CLEAN_UP_BASE_BRANCH: "Base branch for Clean Up",
+  CLEAN_UP_BASE_BRANCH_HINT: "Branches merged into it count as merged in Clean Up Worktrees. Empty means dev.",
   FILES_TO_COPY: "Files to copy into a new worktree",
   FILES_TO_COPY_HINT: "Patterns, separated by commas. A .worktreeinclude in the project replaces them.",
   NEW_SESSION_WORKING_TREE: "New sessions start in",

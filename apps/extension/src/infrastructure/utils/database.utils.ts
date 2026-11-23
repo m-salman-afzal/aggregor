@@ -69,7 +69,7 @@ export class DatabaseUtils extends Context.Service<DatabaseUtils>()(
       });
 
       // A second, read-only connection: VACUUM can't run inside the migrations' transaction.
-      const vacuumDatabaseInto = Effect.fn("DatabaseUtils.vacuumDatabaseInto")(
+      const vacuumDatabaseIntoBackup = Effect.fn("DatabaseUtils.vacuumDatabaseIntoBackup")(
         function* (databaseFilePath: string, backupFilePath: string) {
           const readOnlySql = yield* SqliteClient.make({filename: databaseFilePath, readonly: true});
 
@@ -95,7 +95,7 @@ export class DatabaseUtils extends Context.Service<DatabaseUtils>()(
 
       const writeBackup = Effect.fn("DatabaseUtils.writeBackup")(
         function* (databaseFilePath: string, backupFilePath: string) {
-          yield* vacuumDatabaseInto(databaseFilePath, backupFilePath);
+          yield* vacuumDatabaseIntoBackup(databaseFilePath, backupFilePath);
         },
         (effect, databaseFilePath, backupFilePath) =>
           Effect.catch(effect, () => copyDatabaseFiles(databaseFilePath, backupFilePath))

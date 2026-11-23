@@ -1,3 +1,4 @@
+import {WorktreeDomainService} from "@domainServices/worktree.domainService.ts";
 import {ProjectBranchesDtoSchema, ProjectLeftoversDtoSchema} from "@dtos/worktree.dto.ts";
 import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
 import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
@@ -42,9 +43,10 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
       const worktreeInfraService = yield* IWorktreeInfraService;
       const path = yield* Path;
       const projectService = yield* ProjectService;
+      const worktreeDomainService = yield* WorktreeDomainService;
       const baseService = yield* BaseService;
-      const projectBaseService = yield* baseService.makeFor(projectRepository);
-      const sessionBaseService = yield* baseService.makeFor(sessionRepository);
+      const projectBaseService = yield* baseService.makeForRepository(projectRepository);
+      const sessionBaseService = yield* baseService.makeForRepository(sessionRepository);
 
       const findUsedWorktreePaths = Effect.fn("WorktreeService.findUsedWorktreePaths")(function* (
         runningSessionIds: ReadonlySet<EntityIdValueObject>
@@ -75,6 +77,18 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         );
       });
 
+      const isLeftoverBranch = Effect.fn("WorktreeService.isLeftoverBranch")(function* (
+        localBranch: WorktreeBranch,
+        leftoverWorktreePaths: ReadonlySet<string>,
+        cleanUpBaseBranch: string
+      ) {
+        if (localBranch.branchName === cleanUpBaseBranch) return false;
+        if (yield* worktreeDomainService.isWorktreeBranchName(localBranch.branchName))
+          return localBranch.worktreePath === "" || leftoverWorktreePaths.has(localBranch.worktreePath);
+
+        return localBranch.isUpstreamGone && localBranch.worktreePath === "";
+      });
+
       const findProjectLeftovers = Effect.fn("WorktreeService.findProjectLeftovers")(function* (
         projectListItem: ProjectListItemDto,
         runningSessionIds: ReadonlySet<EntityIdValueObject>
@@ -83,12 +97,10 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         const leftoverWorktreePaths = new Set<string>(
           Array.map(leftoverWorktrees, (leftoverWorktree) => leftoverWorktree.worktreePath)
         );
-        const aggregorBranches = yield* worktreeInfraService.listAggregorBranches(projectListItem.path);
+        const localBranches = yield* worktreeInfraService.listLocalBranches(projectListItem.path);
         const projectLeftovers: ProjectLeftovers = {
-          leftoverBranches: Array.filter(
-            aggregorBranches,
-            (aggregorBranch) =>
-              aggregorBranch.worktreePath === "" || leftoverWorktreePaths.has(aggregorBranch.worktreePath)
+          leftoverBranches: yield* Effect.filter(localBranches, (localBranch) =>
+            isLeftoverBranch(localBranch, leftoverWorktreePaths, projectListItem.settings.cleanUpBaseBranch)
           ),
           leftoverWorktrees
         };
@@ -143,7 +155,7 @@ export class WorktreeService extends Context.Service<WorktreeService>()(
         yield* worktreeInfraService.pruneRemote(projectListItem.path);
         const runningSessionIds = yield* tmuxInfraService.refreshRunningSessionIds;
         const projectLeftovers = yield* findProjectLeftovers(projectListItem, runningSessionIds);
-        const baseBranchName = yield* worktreeInfraService.findBaseBranch(projectListItem.path);
+        const baseBranchName = projectListItem.settings.cleanUpBaseBranch;
 
         return ProjectLeftoversDtoSchema.make({
           baseBranchName,

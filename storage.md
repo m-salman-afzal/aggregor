@@ -33,8 +33,8 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 ### `projects`
 
 - **Holds:** `path`, unique: a folder sessions run in, `isAdded`: listed in the Sessions view, and `settings`: the
-  project's settings as one JSON object (`worktreeFolder`, `filesToCopy`, `setupScript`, `newSessionWorkingTree`), `{}`
-  until saved, each missing key read as its default. One list serves every window.
+  project's settings as one JSON object (`worktreeFolder`, `filesToCopy`, `setupScript`, `newSessionWorkingTree`,
+  `cleanUpBaseBranch`), `{}` until saved, each missing key read as its default. One list serves every window.
 - **Written by:** `ProjectService` through the base service. Add Project upserts the row with `isAdded` set, which puts
   it at the end of the list, removed before or not; Remove Project clears `isAdded`. A window's own folder that makes
   way for the shown project is added the same way; a project already added keeps its place, so switching projects never

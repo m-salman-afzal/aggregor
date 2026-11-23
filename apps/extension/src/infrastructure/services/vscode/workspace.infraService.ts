@@ -897,21 +897,20 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
       });
 
       // The anchor folder's settings follow the project after a swap, so a swap that fails leaves them with the project shown.
-      const moveProjectFolderIn = Effect.fn("WorkspaceInfraService.moveProjectFolderIn")(function* (
-        projectPath: ProjectPathValueObject,
-        sessionToReopen: EntityIdValueObject | undefined
-      ) {
-        if (!(yield* isSavedAnchoredWorkspace())) {
-          yield* writeAnchorFolderSettings(projectPath);
+      const moveProjectFolderIntoWorkspace = Effect.fn("WorkspaceInfraService.moveProjectFolderIntoWorkspace")(
+        function* (projectPath: ProjectPathValueObject, sessionToReopen: EntityIdValueObject | undefined) {
+          if (!(yield* isSavedAnchoredWorkspace())) {
+            yield* writeAnchorFolderSettings(projectPath);
 
-          return yield* openAggregorWorkspace(projectPath, sessionToReopen);
+            return yield* openAggregorWorkspace(projectPath, sessionToReopen);
+          }
+          yield* Effect.catchTag(swapProjectFolderInWorkspaceFile(projectPath), "TimeoutError", () =>
+            reloadWindowForProject(projectPath, sessionToReopen)
+          );
+
+          return yield* writeAnchorFolderSettings(projectPath);
         }
-        yield* Effect.catchTag(swapProjectFolderInWorkspaceFile(projectPath), "TimeoutError", () =>
-          reloadWindowForProject(projectPath, sessionToReopen)
-        );
-
-        return yield* writeAnchorFolderSettings(projectPath);
-      });
+      );
 
       // Once per project and extension host: a restarted host's extensions start from folder 0 again.
       const selectProjectFolderInExtensions = Effect.fn("WorkspaceInfraService.selectProjectFolderInExtensions")(
@@ -937,7 +936,7 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
         sessionToReopen: EntityIdValueObject | undefined
       ) {
         yield* syncShownProjectSettings();
-        yield* moveProjectFolderIn(projectPath, sessionToReopen);
+        yield* moveProjectFolderIntoWorkspace(projectPath, sessionToReopen);
         yield* syncShownProjectSettings();
       });
 

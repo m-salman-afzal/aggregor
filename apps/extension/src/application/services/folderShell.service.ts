@@ -32,7 +32,7 @@ export class FolderShellService extends Context.Service<FolderShellService>()(
       const projectService = yield* ProjectService;
       const sessionService = yield* SessionService;
       const baseService = yield* BaseService;
-      const sessionBaseService = yield* baseService.makeFor(sessionRepository);
+      const sessionBaseService = yield* baseService.makeForRepository(sessionRepository);
 
       // The extension can restart under the open terminal, which shows the shell tmux last attached it to.
       const syncFolderShellTerminalWithTmux = Effect.fn("FolderShellService.syncFolderShellTerminalWithTmux")(

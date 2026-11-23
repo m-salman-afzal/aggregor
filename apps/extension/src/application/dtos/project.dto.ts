@@ -3,6 +3,7 @@ import {SessionWorkingTreeValueObjectSchema} from "@valueObjects/sessionWorkingT
 import {Schema} from "effect";
 
 export const ProjectSettingsDtoSchema = Schema.Struct({
+  cleanUpBaseBranch: Schema.String,
   filesToCopy: Schema.Array(Schema.String),
   newSessionWorkingTree: SessionWorkingTreeValueObjectSchema,
   setupScript: Schema.String,

@@ -38,8 +38,8 @@ export class ReviewCommentService extends Context.Service<ReviewCommentService>(
       const reviewCommentDomainService = yield* ReviewCommentDomainService;
       const sessionService = yield* SessionService;
       const baseService = yield* BaseService;
-      const reviewCommentBaseService = yield* baseService.makeFor(reviewCommentRepository);
-      const sessionBaseService = yield* baseService.makeFor(sessionRepository);
+      const reviewCommentBaseService = yield* baseService.makeForRepository(reviewCommentRepository);
+      const sessionBaseService = yield* baseService.makeForRepository(sessionRepository);
 
       const makeReviewCommentDto = Effect.fn("ReviewCommentService.makeReviewCommentDto")(function* (
         reviewComment: ReviewCommentEntity
