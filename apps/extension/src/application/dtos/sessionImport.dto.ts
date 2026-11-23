@@ -1,7 +1,8 @@
-import {WorktreeListItemDtoSchema} from "@dtos/session.dto.ts";
-import {AgentIdValueObjectSchema} from "@valueObjects/agentId.valueObject.ts";
-import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {Schema} from "effect";
+
+import {WorktreeListItemDtoSchema} from "@/dtos/session.dto.ts";
+import {AgentIdValueObjectSchema} from "@/valueObjects/agentId.valueObject.ts";
+import {ProjectPathValueObjectSchema} from "@/valueObjects/projectPath.valueObject.ts";
 
 export const ListImportableSessionsRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
 

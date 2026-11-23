@@ -1,7 +1,7 @@
+import type {SessionListItemDto} from "@/dtos/session.dto.ts";
+import type {ProjectBranchesDto} from "@/dtos/worktree.dto.ts";
 import type {UserInputOption} from "@/modules/sessions/sessions.type.ts";
-import type {SessionListItemDto} from "@dtos/session.dto.ts";
-import type {ProjectBranchesDto} from "@dtos/worktree.dto.ts";
-import type {AgentRowData, ProjectRowData} from "@views/sessions/sessions.view.type.ts";
+import type {AgentRowData, ProjectRowData} from "@/views/sessions/sessions.view.type.ts";
 
 export interface NewSessionChoices {
   readonly agentId: string;

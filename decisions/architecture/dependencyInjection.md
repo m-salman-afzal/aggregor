@@ -127,8 +127,8 @@ Which layer is given what, the units that yield it, the levels they merge into, 
   and its error message's function, so its layer is all its commands need, and it yields its error message itself.
 - **Solution:** each controller's `make` registers its commands, and `extension.ts` merges the controllers' layers into
   `PresentationLayer`. Open Settings only drives VS Code and has no use case, so `AppController` registers it and calls
-  `VscodeUtils`'s `openAggregorSettingsInSettingsEditor`. The controller's import rule allows `@middlewares`,
-  `@errorMessages` and `@pkg/constants` for registering, and `@pkg/vscode/src/vscode.utils.ts`, whose `VscodeUtils`
+  `VscodeUtils`'s `openAggregorSettingsInSettingsEditor`. The controller's import rule allows `@/middlewares`,
+  `@/errorMessages` and `@pkg/constants` for registering, and `@pkg/vscode/src/vscode.utils.ts`, whose `VscodeUtils`
   decodes a command's input and opens the settings.
 - **Alternatives considered:** `routes.ts` registering every command, as before, which gives every controller the needs
   of all of them.

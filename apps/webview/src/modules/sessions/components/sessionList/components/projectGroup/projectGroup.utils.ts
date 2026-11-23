@@ -1,8 +1,8 @@
 import {ROW_ACTIONS} from "@/modules/sessions/sessions.constant.ts";
 import {SESSION_LISTS} from "@pkg/constants/src/sessionsView.constant.ts";
 
+import type {ProjectListItemDto} from "@/dtos/project.dto.ts";
 import type {RowAction, SessionListId} from "@/modules/sessions/sessions.type.ts";
-import type {ProjectListItemDto} from "@dtos/project.dto.ts";
 
 export const keepApplyingActions = (actionGroups: readonly (readonly (false | RowAction)[])[]) =>
   actionGroups

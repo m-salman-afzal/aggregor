@@ -3,8 +3,8 @@ import {OptionPicker} from "@/modules/sessions/components/userInputDialog/compon
 import {usePullRequestPicker} from "@/modules/sessions/components/userInputDialog/components/pullRequestInput/components/pullRequestPicker/pullRequestPicker.hook.ts";
 import {GITHUB_CLI_LABELS} from "@pkg/constants/src/gitHubCli.constant.ts";
 
-import type {ListedPullRequestDto} from "@dtos/pullRequest.dto.ts";
-import type {SessionListItemDto} from "@dtos/session.dto.ts";
+import type {ListedPullRequestDto} from "@/dtos/pullRequest.dto.ts";
+import type {SessionListItemDto} from "@/dtos/session.dto.ts";
 
 interface PullRequestPickerProps {
   readonly linkedSession: SessionListItemDto;

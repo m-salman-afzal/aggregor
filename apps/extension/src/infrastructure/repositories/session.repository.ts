@@ -1,12 +1,13 @@
-import {SessionEntity} from "@entities/session/session.entity.ts";
-import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
-import {ProjectTableModel} from "@models/project.model.ts";
-import {SessionTableModel} from "@models/session.model.ts";
-import {BaseRepository} from "@repositories/base/base.repository.ts";
 import {eq} from "drizzle-orm";
 import {Context, Effect, Layer} from "effect";
 
-import type {AddSessionRequest} from "@entities/session/session.repository.interface.ts";
+import {SessionEntity} from "@/entities/session/session.entity.ts";
+import {ISessionRepository} from "@/entities/session/session.repository.interface.ts";
+import {ProjectTableModel} from "@/models/project.model.ts";
+import {SessionTableModel} from "@/models/session.model.ts";
+import {BaseRepository} from "@/repositories/base/base.repository.ts";
+
+import type {AddSessionRequest} from "@/entities/session/session.repository.interface.ts";
 
 const sessionProjectJoin = {
   joinCondition: eq(ProjectTableModel.id, SessionTableModel.projectId),

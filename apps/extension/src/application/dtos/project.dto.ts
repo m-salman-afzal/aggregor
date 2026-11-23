@@ -1,6 +1,7 @@
-import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
-import {SessionWorkingTreeValueObjectSchema} from "@valueObjects/sessionWorkingTree.valueObject.ts";
 import {Schema} from "effect";
+
+import {ProjectPathValueObjectSchema} from "@/valueObjects/projectPath.valueObject.ts";
+import {SessionWorkingTreeValueObjectSchema} from "@/valueObjects/sessionWorkingTree.valueObject.ts";
 
 export const ProjectSettingsDtoSchema = Schema.Struct({
   cleanUpBaseBranch: Schema.String,

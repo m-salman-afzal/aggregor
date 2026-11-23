@@ -1,19 +1,21 @@
+import {platform} from "node:os";
+
 import {NodeServices} from "@effect/platform-node";
-import {TmuxServerUtils} from "@infraServices/tmux/tmuxServer.utils.ts";
-import {DatabaseUtils} from "@infraUtils/database.utils.ts";
-import {ITmuxInfraServiceErrors} from "@interfaces/tmux.infraService.interface.ts";
+import {Array, Context, Effect, Layer, Record, Result, Schedule, Stream, String, SubscriptionRef} from "effect";
+import {FileSystem} from "effect/FileSystem";
+
+import {TmuxServerUtils} from "@/infraServices/tmux/tmuxServer.utils.ts";
+import {DatabaseUtils} from "@/infraUtils/database.utils.ts";
+import {ITmuxInfraServiceErrors} from "@/interfaces/tmux.infraService.interface.ts";
+import {decodeEntityId} from "@/valueObjects/entityId.valueObject.ts";
 import {PLATFORMS} from "@pkg/constants/src/process.constant.ts";
 import {PTY_BINARY} from "@pkg/constants/src/terminal.constant.ts";
 import {AGENT_START_WAIT, TMUX} from "@pkg/constants/src/tmux.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {decodeEntityId} from "@valueObjects/entityId.valueObject.ts";
-import {Array, Context, Effect, Layer, Record, Result, Schedule, Stream, String, SubscriptionRef} from "effect";
-import {FileSystem} from "effect/FileSystem";
-import {platform} from "node:os";
 
-import type {SessionTabCommandRequest} from "@interfaces/tmux.infraService.interface.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import type {SessionTabCommandRequest} from "@/interfaces/tmux.infraService.interface.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
 
 class SessionAgentUtilsErrors extends TaggedErrors({
   SessionAgentNotListedError: {}

@@ -11,7 +11,7 @@ import {
 import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.store.ts";
 
 import type {RowAction} from "@/modules/sessions/sessions.type.ts";
-import type {RowCommandArgument} from "@views/sessions/sessions.view.type.ts";
+import type {RowCommandArgument} from "@/views/sessions/sessions.view.type.ts";
 
 interface UseRowActionsProps {
   readonly actionGroups: readonly (readonly RowAction[])[];

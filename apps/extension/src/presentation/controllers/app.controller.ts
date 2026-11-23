@@ -1,8 +1,9 @@
-import {AppErrorMessage} from "@errorMessages/app.errorMessage.ts";
-import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
+import {Context, Effect, Layer} from "effect";
+
+import {AppErrorMessage} from "@/errorMessages/app.errorMessage.ts";
+import {RegisterCommandMiddleware} from "@/middlewares/registerCommand.middleware.ts";
 import {APP_COMMANDS} from "@pkg/constants/src/app.constant.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {Context, Effect, Layer} from "effect";
 
 export class AppController extends Context.Service<AppController>()(
   "aggregor-app/presentation/controllers/app.controller/AppController",

@@ -1,3 +1,5 @@
+import {Context, Effect, Layer} from "effect";
+
 import {
   ArchiveProjectSessionsRequestDtoSchema,
   ArchiveSessionRequestDtoSchema,
@@ -17,13 +19,12 @@ import {
   StopSessionAgentRequestDtoSchema,
   UnarchiveSessionRequestDtoSchema,
   UnlinkSessionWorktreeRequestDtoSchema
-} from "@dtos/session.dto.ts";
-import {SessionErrorMessage} from "@errorMessages/session.errorMessage.ts";
-import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
+} from "@/dtos/session.dto.ts";
+import {SessionErrorMessage} from "@/errorMessages/session.errorMessage.ts";
+import {RegisterCommandMiddleware} from "@/middlewares/registerCommand.middleware.ts";
+import {SessionService} from "@/services/session.service.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {SessionService} from "@services/session.service.ts";
-import {Context, Effect, Layer} from "effect";
 
 export class SessionController extends Context.Service<SessionController>()(
   "aggregor-app/presentation/controllers/session.controller/SessionController",

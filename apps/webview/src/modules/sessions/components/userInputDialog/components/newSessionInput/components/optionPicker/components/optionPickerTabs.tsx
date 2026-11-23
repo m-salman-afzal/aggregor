@@ -1,6 +1,7 @@
+import {LoaderCircleIcon} from "lucide-react";
+
 import {SESSION_LABELS} from "@pkg/constants/src/session.constant.ts";
 import {Tabs, TabsList, TabsTrigger} from "@pkg/ui/src/components/base/tabs.tsx";
-import {LoaderCircleIcon} from "lucide-react";
 
 import type {NewSessionOptionTab} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.type.ts";
 

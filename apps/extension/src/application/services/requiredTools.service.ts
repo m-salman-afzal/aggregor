@@ -1,12 +1,13 @@
-import {MissingToolDtoSchema, MissingToolsDtoSchema} from "@dtos/requiredTools.dto.ts";
-import {IShellCommandInfraService} from "@interfaces/shellCommand.infraService.interface.ts";
-import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
-import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
-import {REQUIRED_TOOLS, TOOL_INSTALL_COMMANDS} from "@pkg/constants/src/requiredTools.constant.ts";
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {Array, Context, Effect, Layer, Result, Stream} from "effect";
 
-import type {MissingToolDto} from "@dtos/requiredTools.dto.ts";
+import {MissingToolDtoSchema, MissingToolsDtoSchema} from "@/dtos/requiredTools.dto.ts";
+import {IShellCommandInfraService} from "@/interfaces/shellCommand.infraService.interface.ts";
+import {ITerminalInfraService} from "@/interfaces/terminal.infraService.interface.ts";
+import {ITmuxInfraService} from "@/interfaces/tmux.infraService.interface.ts";
+import {REQUIRED_TOOLS, TOOL_INSTALL_COMMANDS} from "@pkg/constants/src/requiredTools.constant.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
+import type {MissingToolDto} from "@/dtos/requiredTools.dto.ts";
 
 export class RequiredToolsServiceErrors extends TaggedErrors({
   NoPackageManagerError: {}

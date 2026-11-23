@@ -1,11 +1,12 @@
 import {NodeServices} from "@effect/platform-node";
-import {FolderShellUtils} from "@infraServices/tmux/folderShell.utils.ts";
-import {SessionAgentUtils} from "@infraServices/tmux/sessionAgent.utils.ts";
-import {TmuxServerUtils} from "@infraServices/tmux/tmuxServer.utils.ts";
-import {ITmuxInfraService} from "@interfaces/tmux.infraService.interface.ts";
+import {Context, Effect, Layer, Stream} from "effect";
+
+import {FolderShellUtils} from "@/infraServices/tmux/folderShell.utils.ts";
+import {SessionAgentUtils} from "@/infraServices/tmux/sessionAgent.utils.ts";
+import {TmuxServerUtils} from "@/infraServices/tmux/tmuxServer.utils.ts";
+import {ITmuxInfraService} from "@/interfaces/tmux.infraService.interface.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {Context, Effect, Layer, Stream} from "effect";
 
 // A server already running keeps the config it started with, so this window's tmux.conf is read into it again.
 export class TmuxInfraService extends Context.Service<TmuxInfraService>()(

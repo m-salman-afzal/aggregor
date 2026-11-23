@@ -1,6 +1,6 @@
 import {Array, Context, Effect, Layer} from "effect";
 
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
 
 export class SortOrderDomainService extends Context.Service<SortOrderDomainService>()(
   "aggregor-app/domain/services/sortOrder.domainService/SortOrderDomainService",

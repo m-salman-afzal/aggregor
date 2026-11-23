@@ -1,8 +1,10 @@
+import {homedir} from "node:os";
+
 import {NodeServices} from "@effect/platform-node";
-import {AGGREGOR_FOLDER} from "@pkg/constants/src/app.constant.ts";
 import {Config, Context, Effect, Layer, Schema} from "effect";
 import {Path} from "effect/Path";
-import {homedir} from "node:os";
+
+import {AGGREGOR_FOLDER} from "@pkg/constants/src/app.constant.ts";
 
 export class AggregorFolderUtils extends Context.Service<AggregorFolderUtils>()(
   "aggregor-app/infrastructure/utils/aggregorFolder.utils/AggregorFolderUtils",

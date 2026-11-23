@@ -1,11 +1,13 @@
+import {ChevronRightIcon} from "lucide-react";
+
 import {ProcessTreeNode} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdown/components/terminalProcessList/processTreeNode.tsx";
 import {buildProcessTree} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/components/sessionDropdown/components/terminalProcessList/terminalProcessList.utils.ts";
 import {COLLAPSIBLE_PANEL} from "@/modules/sessions/components/sessionList/sessionList.constant.ts";
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@pkg/ui/src/components/base/collapsible.tsx";
-import {ChevronRightIcon} from "lucide-react";
 
-import type {TerminalProcessesDto} from "@dtos/sessionProcess.dto.ts";
 import type {ReactNode} from "react";
+
+import type {TerminalProcessesDto} from "@/dtos/sessionProcess.dto.ts";
 
 interface TerminalProcessListProps {
   readonly label: string;

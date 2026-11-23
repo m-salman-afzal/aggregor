@@ -1,8 +1,10 @@
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {Context, Schema} from "effect";
 
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
 import type {Effect} from "effect";
+
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 export class IGitInfraServiceErrors extends TaggedErrors({
   CommitFailedError: {cause: Schema.Unknown},
@@ -17,7 +19,9 @@ export class IGitInfraServiceErrors extends TaggedErrors({
 }) {}
 
 export type GitUnavailableError = IGitInfraServiceErrors[
-  "GitExtensionDisabledError" | "GitExtensionUnavailableError" | "GitRepositoryUnavailableError"];
+  | "GitExtensionDisabledError"
+  | "GitExtensionUnavailableError"
+  | "GitRepositoryUnavailableError"];
 
 export class IGitInfraService extends Context.Service<
   IGitInfraService,

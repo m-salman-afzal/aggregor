@@ -1,13 +1,15 @@
+import {readdirSync} from "node:fs";
+import {join} from "node:path";
+
 import {NodeServices} from "@effect/platform-node";
 import {SqliteClient} from "@effect/sql-sqlite-node";
-import {DatabaseUtils} from "@infraUtils/database.utils.ts";
-import {DATABASE_BACKUP, DATABASE_FILE, MIGRATIONS} from "@pkg/constants/src/database.constant.ts";
 import {Array, Effect, Order, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {SqlClient} from "effect/sql/SqlClient";
-import {readdirSync} from "node:fs";
-import {join} from "node:path";
 import {describe, expect, it} from "vitest";
+
+import {DatabaseUtils} from "@/infraUtils/database.utils.ts";
+import {DATABASE_BACKUP, DATABASE_FILE, MIGRATIONS} from "@pkg/constants/src/database.constant.ts";
 
 import type {Path} from "effect/Path";
 

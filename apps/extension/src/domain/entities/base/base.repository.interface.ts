@@ -1,11 +1,13 @@
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {Schema} from "effect";
 
-import type {EntityChangeKindValueObject} from "@valueObjects/entityChangeKind.valueObject.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {PaginationValueObject} from "@valueObjects/pagination.valueObject.ts";
+import {EntityIdValueObjectSchema} from "@/valueObjects/entityId.valueObject.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
 import type {Effect, Stream} from "effect";
+
+import type {EntityChangeKindValueObject} from "@/valueObjects/entityChangeKind.valueObject.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
+import type {PaginationValueObject} from "@/valueObjects/pagination.valueObject.ts";
 
 export interface EntityChange<Entity> {
   readonly entity: Entity;

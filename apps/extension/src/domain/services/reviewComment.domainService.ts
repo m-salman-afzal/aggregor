@@ -1,7 +1,7 @@
 import {Array, Context, Effect, Layer, Order, String} from "effect";
 
-import type {ReviewCommentEntity} from "@entities/reviewComment/reviewComment.entity.ts";
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+import type {ReviewCommentEntity} from "@/entities/reviewComment/reviewComment.entity.ts";
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 const FOLDER_PATH_SEPARATOR = "/";
 const REVIEW_PROMPT_CITE_PREFIX = "cite: ";

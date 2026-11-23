@@ -1,8 +1,9 @@
-import {AgentIconValueObjectSchema} from "@valueObjects/agentIcon.valueObject.ts";
-import {AgentStatusValueObjectSchema} from "@valueObjects/agentStatus.valueObject.ts";
-import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
-import {StatusKindValueObjectSchema} from "@valueObjects/statusKind.valueObject.ts";
 import {Schema} from "effect";
+
+import {AgentIconValueObjectSchema} from "@/valueObjects/agentIcon.valueObject.ts";
+import {AgentStatusValueObjectSchema} from "@/valueObjects/agentStatus.valueObject.ts";
+import {EntityIdValueObjectSchema} from "@/valueObjects/entityId.valueObject.ts";
+import {StatusKindValueObjectSchema} from "@/valueObjects/statusKind.valueObject.ts";
 
 export const SessionAlertDtoSchema = Schema.Struct({
   displayName: Schema.String,

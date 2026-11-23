@@ -1,12 +1,14 @@
+import {Array, Context, Effect, Layer, Result, Schedule, SubscriptionRef} from "effect";
+
+import {decodeEntityId} from "@/valueObjects/entityId.valueObject.ts";
 import {SESSION_ID_ENV, SESSION_TAB_PIN_WAIT} from "@pkg/constants/src/terminal.constant.ts";
 import {VS_CODE_COMMANDS} from "@pkg/constants/src/vscode.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {decodeEntityId} from "@valueObjects/entityId.valueObject.ts";
-import {Array, Context, Effect, Layer, Result, Schedule, SubscriptionRef} from "effect";
 
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {Terminal} from "vscode";
+
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
 
 class TerminalUtilsErrors extends TaggedErrors({
   SessionTabNotInFrontError: {},

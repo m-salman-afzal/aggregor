@@ -1,7 +1,8 @@
-import {WorktreeDomainService} from "@domainServices/worktree.domainService.ts";
 import {Array, Context, Effect, Layer, String} from "effect";
 
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+import {WorktreeDomainService} from "@/domainServices/worktree.domainService.ts";
+
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 const FOLDER_SHELL_NAME_PREFIX = "shell-";
 const PATH_HASH_MULTIPLIER = 31;

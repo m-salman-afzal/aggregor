@@ -1,12 +1,5 @@
-import {
-  APP_NAME,
-  OUTPUT_CHANNEL_LOG_METHODS,
-  SETTINGS_SECTION,
-  TRACE_LOGGING,
-  TRACE_LOGGING_SETTING_ID
-} from "@pkg/constants/src/app.constant.ts";
-import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
+import {format, inspect} from "node:util";
+
 import {
   Array,
   Cause,
@@ -25,7 +18,16 @@ import {
   String,
   Tracer
 } from "effect";
-import {format, inspect} from "node:util";
+
+import {
+  APP_NAME,
+  OUTPUT_CHANNEL_LOG_METHODS,
+  SETTINGS_SECTION,
+  TRACE_LOGGING,
+  TRACE_LOGGING_SETTING_ID
+} from "@pkg/constants/src/app.constant.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
+import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 
 import type {LogLevel} from "vscode";
 

@@ -1,7 +1,8 @@
 import {GitMergeIcon, GitPullRequestClosedIcon, GitPullRequestDraftIcon, GitPullRequestIcon} from "lucide-react";
 
-import type {SessionPullRequestDto} from "@dtos/session.dto.ts";
 import type {LucideIcon} from "lucide-react";
+
+import type {SessionPullRequestDto} from "@/dtos/session.dto.ts";
 
 export const PULL_REQUEST_LINK_ATTRIBUTE = "data-pull-request-link";
 

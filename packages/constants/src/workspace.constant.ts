@@ -37,9 +37,9 @@ export const PROJECT_SETTINGS_SYNC = {
   TAB: "\t",
   TAB_SIZE: 4,
   WORKSPACE_FILE_SETTINGS_KEY: "settings",
-  // eslint-disable-next-line no-template-curly-in-string -- VS Code's variable, written as settings write it
+  // oxlint-disable-next-line no-template-curly-in-string -- VS Code's variable, written as settings write it
   WORKSPACE_FOLDER_BASENAME_VARIABLE: "${workspaceFolderBasename}",
-  // eslint-disable-next-line no-template-curly-in-string -- VS Code's variable, written as settings write it
+  // oxlint-disable-next-line no-template-curly-in-string -- VS Code's variable, written as settings write it
   WORKSPACE_FOLDER_VARIABLE: "${workspaceFolder}"
 } as const;
 

@@ -1,11 +1,12 @@
 import {NodeServices} from "@effect/platform-node";
-import {AgentHistoryUtils} from "@infraServices/agentHistory/agentHistory.utils.ts";
-import {CLAUDE_HISTORY, CLAUDE_HISTORY_LINE_TYPES} from "@pkg/constants/src/agentHistory.constant.ts";
 import {Array, Context, Effect, Layer, Result, Schema, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 
-import type {AgentConversation} from "@interfaces/agentHistory.infraService.interface.ts";
+import {AgentHistoryUtils} from "@/infraServices/agentHistory/agentHistory.utils.ts";
+import {CLAUDE_HISTORY, CLAUDE_HISTORY_LINE_TYPES} from "@pkg/constants/src/agentHistory.constant.ts";
+
+import type {AgentConversation} from "@/interfaces/agentHistory.infraService.interface.ts";
 
 const ClaudeHistoryLineJson = Schema.fromJsonString(
   Schema.Struct({

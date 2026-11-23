@@ -1,11 +1,12 @@
-import {IGitInfraService, IGitInfraServiceErrors} from "@interfaces/git.infraService.interface.ts";
+import {Array, Context, Effect, Layer, Result, Schema} from "effect";
+
+import {IGitInfraService, IGitInfraServiceErrors} from "@/interfaces/git.infraService.interface.ts";
 import {GIT_EXTENSION} from "@pkg/constants/src/git.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {Array, Context, Effect, Layer, Result, Schema} from "effect";
 
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 import type {API, Branch, GitExtension, Repository} from "@pkg/typings/src/git.js";
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
 
 class GitInfraServiceErrors extends TaggedErrors({
   GitRepositoryOpenFailedError: {cause: Schema.Unknown}

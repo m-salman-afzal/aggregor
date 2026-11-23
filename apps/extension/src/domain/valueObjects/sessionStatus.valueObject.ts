@@ -1,6 +1,7 @@
-import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
-import {SESSION_RUN_STATES} from "@valueObjects/sessionRunState.valueObject.ts";
 import {Schema} from "effect";
+
+import {AGENT_STATUSES} from "@/valueObjects/agentStatus.valueObject.ts";
+import {SESSION_RUN_STATES} from "@/valueObjects/sessionRunState.valueObject.ts";
 
 export const SessionStatusValueObjectSchema = Schema.Enum({
   BLOCKED: AGENT_STATUSES.BLOCKED,

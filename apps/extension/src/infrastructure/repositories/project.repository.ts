@@ -1,10 +1,11 @@
-import {ProjectEntity} from "@entities/project/project.entity.ts";
-import {IProjectRepository} from "@entities/project/project.repository.interface.ts";
-import {ProjectTableModel} from "@models/project.model.ts";
-import {BaseRepository} from "@repositories/base/base.repository.ts";
 import {Context, Effect, Layer} from "effect";
 
-import type {AddProjectRequest} from "@entities/project/project.repository.interface.ts";
+import {ProjectEntity} from "@/entities/project/project.entity.ts";
+import {IProjectRepository} from "@/entities/project/project.repository.interface.ts";
+import {ProjectTableModel} from "@/models/project.model.ts";
+import {BaseRepository} from "@/repositories/base/base.repository.ts";
+
+import type {AddProjectRequest} from "@/entities/project/project.repository.interface.ts";
 
 export class ProjectRepository extends Context.Service<ProjectRepository>()(
   "aggregor-app/infrastructure/repositories/project.repository/ProjectRepository",

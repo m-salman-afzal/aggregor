@@ -1,5 +1,6 @@
-import {BaseEntity} from "@entities/base/base.entity.ts";
 import {Schema} from "effect";
+
+import {BaseEntity} from "@/entities/base/base.entity.ts";
 
 export class ReviewCommentEntity extends BaseEntity.extend<ReviewCommentEntity>("ReviewComment")({
   body: Schema.String,

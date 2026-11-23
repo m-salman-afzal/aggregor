@@ -1,13 +1,14 @@
 import {NodeServices} from "@effect/platform-node";
 import {SqliteClient} from "@effect/sql-sqlite-node";
-import {AgentHistoryUtils} from "@infraServices/agentHistory/agentHistory.utils.ts";
-import {CODEX_HISTORY} from "@pkg/constants/src/agentHistory.constant.ts";
 import {Config, Context, Effect, Layer} from "effect";
 import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 import {make as makeReactivity, Reactivity} from "effect/reactivity/Reactivity";
 
-import type {AgentConversation} from "@interfaces/agentHistory.infraService.interface.ts";
+import {AgentHistoryUtils} from "@/infraServices/agentHistory/agentHistory.utils.ts";
+import {CODEX_HISTORY} from "@pkg/constants/src/agentHistory.constant.ts";
+
+import type {AgentConversation} from "@/interfaces/agentHistory.infraService.interface.ts";
 
 interface CodexThreadRow {
   readonly firstUserMessage: string;

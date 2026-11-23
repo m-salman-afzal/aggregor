@@ -1,10 +1,12 @@
-import {SESSIONS_WEBVIEW, SESSIONS_WEBVIEW_HTML} from "@pkg/constants/src/sessionsView.constant.ts";
-import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {Array, Config, Context, Effect, Layer, String} from "effect";
 import {SecureRandom} from "effect/crypto";
 
-import type {SessionListItemDto} from "@dtos/session.dto.ts";
+import {SESSIONS_WEBVIEW, SESSIONS_WEBVIEW_HTML} from "@pkg/constants/src/sessionsView.constant.ts";
+import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
+
 import type {Uri, Webview} from "vscode";
+
+import type {SessionListItemDto} from "@/dtos/session.dto.ts";
 
 export class SessionsPageUtils extends Context.Service<SessionsPageUtils>()(
   "aggregor-app/presentation/views/sessions/sessionsPage.utils/SessionsPageUtils",

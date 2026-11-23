@@ -420,7 +420,7 @@ the theme and the base components.
 - **What it is:** the language and its type checker.
 - **What we use:** `tsc` is TypeScript 7.0.2's native compiler (`@typescript/native`, an alias of `typescript@7.0.2`),
   run as `tsc --noEmit` by `pnpm typecheck`. The `typescript` name resolves to 6.0.2 (`@typescript/typescript6`), a
-  dependency of `@pkg/eslint`. Options live in `packages/tsconfigs/tsconfig.base.json`, aliases in
+  dependency of `@pkg/lint`. Options live in `packages/tsconfigs/tsconfig.base.json`, aliases in
   `apps/extension/tsconfig.json`.
 - **Why:** "`@effect/tsgo` on TypeScript 7 native" records the native compiler; no reason for TypeScript 6 is recorded.
 - **Alternatives:** Not weighed in `decisions/`.
@@ -454,7 +454,8 @@ the theme and the base components.
 
 - **What it is:** a compiler that memoizes React components and hooks at build time.
 - **What we use:** `babel-plugin-react-compiler` 1.0.0 through `@vitejs/plugin-react`'s `reactCompilerPreset`, run by
-  `@rolldown/plugin-babel` 0.3.1 with `@babel/core` 8.1.0; `eslint-plugin-react-hooks` checks the code it compiles.
+  `@rolldown/plugin-babel` 0.3.1 with `@babel/core` 8.1.0; oxlint's React hooks and compiler rules check the code it
+  compiles.
 - **Why:** "The webview is React with shadcn on Base UI": no `useMemo` or `useCallback` by hand.
 - **Alternatives:** that decision: `@vitejs/plugin-react`'s Rust port of the compiler, which is experimental.
 
@@ -469,35 +470,43 @@ the theme and the base components.
 - **Alternatives:** "Every schema change is a migration on the user's database": `drizzle-kit check`, which checks the
   migrations folder, not that the models match it.
 
-### ESLint
+### oxlint
 
-- **What it is:** a JavaScript and TypeScript linter.
-- **What we use:** 10.15.0, `pnpm lint:check` with `--max-warnings 0`. `@pkg/eslint` (`packages/eslint/src`) holds
-  `base/` per file type, `layers/` for the DDD layering, `folderStructure/` for `apps/webview`, and `rules/`, the
-  aggregor plugin (`span-name`, `max-lines-per-function`, which replaces ESLint's own so a unit's `make` is exempt,
-  `constant-placement`, `type-placement`, `declaring-file`, `stem-folder`, and for the webview `file-role`,
-  `building-block`, `kind-folder`, `module-boundary`, `no-pass-through` and `single-consumer`). Plugins:
-  typescript-eslint, unicorn, perfectionist, import-x, e18e, `@eslint/markdown`, `@eslint/json`, eslint-package-json,
-  eslint-plugin-pnpm (the catalog checks), eslint-plugin-prettier, and eslint-plugin-react-hooks 7.1.1 for the webview.
-- **Why:** "Conventions are enforced by lint, not prose".
-- **Alternatives:** "The ESLint setup lives in `@pkg/eslint`": the base setup at the root, one file per category.
-  - Other options for the linter, not weighed in `decisions/`: Biome or oxlint.
+- **What it is:** a JavaScript and TypeScript linter written in Rust, with type-aware rules through `oxlint-tsgolint`
+  and ESLint-compatible JS plugins.
+- **What we use:** oxlint 1.94.0 and `oxlint-tsgolint` 7.0.2008 (type-aware rules on TypeScript 7). `pnpm lint:check` is
+  `oxlint`, which reads the root `oxlint.config.ts`, a re-export of `packages/lint/src/lint.config.ts`: the overrides in
+  `base/`, `layers/`, `folderStructure/` and `rules/`, `maxWarnings: 0`, unused disable directives as errors, and
+  type-aware rules on. It takes about 3 seconds and 1 GB. `base/typescriptPresetRules.ts` and
+  `folderStructure/reactRules.ts` hold the preset rule sets the repo has always run (ESLint's and typescript-eslint's
+  `all`, perfectionist's alphabetical, e18e's recommended, React's hooks and compiler rules), in oxlint's names. JS
+  plugins, for what oxlint has no rule for: the aggregor plugin (`rules/`), perfectionist, e18e, `oxlint-plugin-eslint`
+  1.94.0 (ESLint's own `no-restricted-syntax`, `newline-before-return` and others, as `eslint-js/…`), unicorn's
+  `name-replacements` (`unicorn-js/…`), and typescript-eslint's `naming-convention`, `member-ordering` and
+  `no-restricted-imports` (`typescript-js/…`, through `base/typescriptEslintRules.plugin.ts`, which hands them the
+  parser services they ask for without needing types). The aggregor rules are typed with `@oxlint/plugins` and tested
+  with oxlint's `RuleTester`. The `eslint` package is still installed, as a peer that perfectionist, e18e and
+  typescript-eslint's plugin name, but nothing runs ESLint and no `package.json` lists it.
+- **Why:** "Oxlint and oxfmt check everything".
+- **Alternatives:** "Oxlint and oxfmt check everything": ESLint, at about 8 GB per uncached run; Biome.
 
-### Prettier
+### oxfmt
 
-- **What it is:** a code formatter.
-- **What we use:** 3.10.1, `.prettierrc`: 120 columns, `proseWrap: always`. `pnpm format:check`, and staged files before
-  each commit.
-- **Why:** not recorded; "Lint and format on commit" records the setup.
-- **Alternatives:** Not weighed in `decisions/`.
-  - Other options: Biome or dprint.
+- **What it is:** a Prettier-compatible formatter written in Rust.
+- **What we use:** 0.79.0, `oxfmt.config.ts`: Prettier's old settings (120 columns, `proseWrap: always`, no bracket
+  spacing, no trailing commas) and its built-in sorting: `sortImports` with the repo's groups (values before types, each
+  by where it comes from, a blank line between groups, `@/` and `@pkg/` counted as internal), `sortPackageJson` (on by
+  default) and `sortTailwindcss` against `packages/ui/src/theme.css`, also inside `cn(…)` and `cva(…)`. It formats
+  TypeScript, JSON, YAML, Markdown and CSS natively. `pnpm format:check`, and staged files before each commit.
+- **Why:** "Oxlint and oxfmt check everything".
+- **Alternatives:** Prettier, which it replaced; Biome or dprint.
 
 ### vitest
 
 - **What it is:** a test runner built on Vite.
 - **What we use:** 5.1.0, `pnpm test`: `apps/extension/tests/migrations.test.ts`, which builds a database at each
   migration, fills it, migrates it to the newest and checks nothing was lost. `vitest.config.ts` resolves the tsconfig
-  aliases; each test runs its effect with `Effect.runPromise`. `packages/eslint/tests` runs the folder-structure lint
+  aliases; each test runs its effect with `Effect.runPromise`. `packages/lint/tests` runs the folder-structure lint
   rules on a small app it writes to a temporary folder.
 - **Why:** it resolves the extension's aliases, so the test runs the extension's own migration code.
 - **Alternatives:** "Every schema change is a migration on the user's database": Node's own test runner, which can't
@@ -507,7 +516,7 @@ the theme and the base components.
 
 - **What it is:** a git hooks installer, and a runner for checks on staged files.
 - **What we use:** husky 9.1.7, installed by `prepare`, runs `pnpm lint-staged` from `.husky/pre-commit`. lint-staged
-  17.6.0 (root `package.json`) runs `prettier --check` then `eslint --max-warnings 0` on every staged file, and
+  17.6.0 (root `package.json`) runs `oxfmt --check` and `oxlint` on every staged file, and
   `rustfmt --check --edition 2024` on `.rs` files. It checks the index, so a moved file edited after must be staged
   again. Renovate's abandoned-package warning is off for husky.
 - **Why:** not recorded; "Lint and format on commit" records the setup.
@@ -539,8 +548,8 @@ the theme and the base components.
 
 - `npm-run-all2` 9.0.4: `pnpm watch` runs `watch:vite` and `watch:tsc` together.
 - `@types/node` 26.6.6; `@types/vscode` 1.145.0, a plain version in `apps/extension` and `packages/vscode` because vsce
-  reads it to check `engines.vscode`; `@types/eslint-plugin-promise` 7.3.0; `@types/react` and `@types/react-dom`
-  19.3.0; `@types/vscode-webview` 1.57.5, for the webview's `acquireVsCodeApi`.
+  reads it to check `engines.vscode`; `@types/react` and `@types/react-dom` 19.3.0; `@types/vscode-webview` 1.57.5, for
+  the webview's `acquireVsCodeApi`.
 
 ## Releasing
 

@@ -1,14 +1,15 @@
-import {FolderShellDomainService} from "@domainServices/folderShell.domainService.ts";
 import {NodeServices} from "@effect/platform-node";
-import {TmuxServerUtils} from "@infraServices/tmux/tmuxServer.utils.ts";
-import {ITmuxInfraServiceErrors} from "@interfaces/tmux.infraService.interface.ts";
-import {FOLDER_SHELL, TMUX, TMUX_CLIENT_WAIT} from "@pkg/constants/src/tmux.constant.ts";
-import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {Array, Context, Effect, Layer, Schedule, String} from "effect";
 import {Path} from "effect/Path";
 
-import type {FolderShellRequest} from "@interfaces/tmux.infraService.interface.ts";
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+import {FolderShellDomainService} from "@/domainServices/folderShell.domainService.ts";
+import {TmuxServerUtils} from "@/infraServices/tmux/tmuxServer.utils.ts";
+import {ITmuxInfraServiceErrors} from "@/interfaces/tmux.infraService.interface.ts";
+import {ProjectPathValueObjectSchema} from "@/valueObjects/projectPath.valueObject.ts";
+import {FOLDER_SHELL, TMUX, TMUX_CLIENT_WAIT} from "@pkg/constants/src/tmux.constant.ts";
+
+import type {FolderShellRequest} from "@/interfaces/tmux.infraService.interface.ts";
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 export class FolderShellUtils extends Context.Service<FolderShellUtils>()(
   "aggregor-app/infrastructure/services/tmux/folderShell.utils/FolderShellUtils",

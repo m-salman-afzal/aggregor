@@ -1,10 +1,11 @@
-import {SetDefaultAgentRequestDtoSchema} from "@dtos/agent.dto.ts";
-import {AppErrorMessage} from "@errorMessages/app.errorMessage.ts";
-import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
+import {Context, Effect, Layer} from "effect";
+
+import {SetDefaultAgentRequestDtoSchema} from "@/dtos/agent.dto.ts";
+import {AppErrorMessage} from "@/errorMessages/app.errorMessage.ts";
+import {RegisterCommandMiddleware} from "@/middlewares/registerCommand.middleware.ts";
+import {AgentService} from "@/services/agent.service.ts";
 import {AGENT_COMMANDS} from "@pkg/constants/src/agent.constant.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {AgentService} from "@services/agent.service.ts";
-import {Context, Effect, Layer} from "effect";
 
 export class AgentController extends Context.Service<AgentController>()(
   "aggregor-app/presentation/controllers/agent.controller/AgentController",

@@ -1,13 +1,15 @@
+import {useState} from "react";
+
 import {
   findDefaultPullRequestId,
   makePullRequestOptions
 } from "@/modules/sessions/components/userInputDialog/components/pullRequestInput/components/pullRequestPicker/pullRequestPicker.utils.ts";
 import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.store.ts";
-import {useState} from "react";
 
-import type {ListedPullRequestDto} from "@dtos/pullRequest.dto.ts";
-import type {SessionListItemDto} from "@dtos/session.dto.ts";
 import type {SubmitEvent} from "react";
+
+import type {ListedPullRequestDto} from "@/dtos/pullRequest.dto.ts";
+import type {SessionListItemDto} from "@/dtos/session.dto.ts";
 
 interface UsePullRequestPickerProps {
   readonly linkedSession: SessionListItemDto;

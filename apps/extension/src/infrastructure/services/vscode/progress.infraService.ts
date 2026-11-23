@@ -1,7 +1,8 @@
-import {IProgressInfraService} from "@interfaces/progress.infraService.interface.ts";
+import {Context, Effect, Layer} from "effect";
+
+import {IProgressInfraService} from "@/interfaces/progress.infraService.interface.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {Context, Effect, Layer} from "effect";
 
 interface SourceControlProgress {
   readonly busyContextKey: string;

@@ -1,10 +1,11 @@
+import {Context, Effect, Layer, Match} from "effect";
+
 import {DATABASE_ERRORS} from "@pkg/constants/src/database.constant.ts";
 import {WORKTREE_ERRORS} from "@pkg/constants/src/git.constant.ts";
 import {GITHUB_CLI_ERRORS} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {SESSION_ERRORS} from "@pkg/constants/src/session.constant.ts";
-import {Context, Effect, Layer, Match} from "effect";
 
-import type {PullRequestService} from "@services/pullRequest.service.ts";
+import type {PullRequestService} from "@/services/pullRequest.service.ts";
 
 type PullRequestCommandError = Effect.Error<
   | PullRequestService["Service"]["signInToGitHubCli"]

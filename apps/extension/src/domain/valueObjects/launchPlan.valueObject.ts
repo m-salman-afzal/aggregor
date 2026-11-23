@@ -1,5 +1,6 @@
-import {EnvironmentVariablesValueObjectSchema} from "@valueObjects/environmentVariables.valueObject.ts";
 import {Schema} from "effect";
+
+import {EnvironmentVariablesValueObjectSchema} from "@/valueObjects/environmentVariables.valueObject.ts";
 
 export const LaunchPlanValueObjectSchema = Schema.Struct({
   command: Schema.NonEmptyString,

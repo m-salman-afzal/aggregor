@@ -1,11 +1,12 @@
 import {NodeServices} from "@effect/platform-node";
-import {ProcessTreeUtils} from "@infraServices/process/processTree.utils.ts";
-import {LINUX_PROCESS_FILES} from "@pkg/constants/src/process.constant.ts";
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {Array, Context, Effect, Layer, Result, Schema, String} from "effect";
 import {FileSystem} from "effect/FileSystem";
 
-import type {ProcessGroupRequest} from "@interfaces/process.infraService.interface.ts";
+import {ProcessTreeUtils} from "@/infraServices/process/processTree.utils.ts";
+import {LINUX_PROCESS_FILES} from "@pkg/constants/src/process.constant.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
+import type {ProcessGroupRequest} from "@/interfaces/process.infraService.interface.ts";
 
 interface GroupSurroundings {
   readonly hostCgroupPath: string;

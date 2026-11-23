@@ -1,19 +1,21 @@
 import {NodeServices} from "@effect/platform-node";
-import {FolderShellTerminalUtils} from "@infraServices/vscode/terminal/folderShellTerminal.utils.ts";
-import {TerminalUtils} from "@infraServices/vscode/terminal/terminal.utils.ts";
-import {ITerminalInfraService, ITerminalInfraServiceErrors} from "@interfaces/terminal.infraService.interface.ts";
+import {Array, Context, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
+
+import {FolderShellTerminalUtils} from "@/infraServices/vscode/terminal/folderShellTerminal.utils.ts";
+import {TerminalUtils} from "@/infraServices/vscode/terminal/terminal.utils.ts";
+import {ITerminalInfraService, ITerminalInfraServiceErrors} from "@/interfaces/terminal.infraService.interface.ts";
 import {AGENT_ICON} from "@pkg/constants/src/agent.constant.ts";
 import {SETUP_TERMINAL} from "@pkg/constants/src/requiredTools.constant.ts";
 import {SESSION_ID_ENV, VIEWED_SESSION_SETTLE_INTERVAL} from "@pkg/constants/src/terminal.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {Array, Context, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
 
-import type {SessionEntity} from "@entities/session/session.entity.ts";
-import type {SessionTabRequest} from "@interfaces/terminal.infraService.interface.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
 import type {Terminal} from "vscode";
+
+import type {SessionEntity} from "@/entities/session/session.entity.ts";
+import type {SessionTabRequest} from "@/interfaces/terminal.infraService.interface.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
 
 class TerminalInfraServiceErrors extends TaggedErrors({
   NoActiveTerminalError: {},

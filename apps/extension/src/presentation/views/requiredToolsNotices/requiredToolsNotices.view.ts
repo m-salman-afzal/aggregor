@@ -1,4 +1,6 @@
-import {RequiredToolsController} from "@controllers/requiredTools.controller.ts";
+import {Array, Context, Effect, Layer, Result, Stream} from "effect";
+
+import {RequiredToolsController} from "@/controllers/requiredTools.controller.ts";
 import {
   REQUIRED_TOOL_NEEDS,
   REQUIRED_TOOLS,
@@ -8,9 +10,8 @@ import {
   TOOL_INSTALL_PAGES
 } from "@pkg/constants/src/requiredTools.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {Array, Context, Effect, Layer, Result, Stream} from "effect";
 
-import type {MissingToolDto, MissingToolsDto} from "@dtos/requiredTools.dto.ts";
+import type {MissingToolDto, MissingToolsDto} from "@/dtos/requiredTools.dto.ts";
 
 export class RequiredToolsNoticesView extends Context.Service<RequiredToolsNoticesView>()(
   "aggregor-app/presentation/views/requiredToolsNotices/requiredToolsNotices.view/RequiredToolsNoticesView",

@@ -1,15 +1,16 @@
 import {NodeServices} from "@effect/platform-node";
-import {AgentEntity} from "@entities/agent/agent.entity.ts";
-import {IAgentRepository, IAgentRepositoryErrors} from "@entities/agent/agent.repository.interface.ts";
+import {Array, Context, Effect, Layer, Predicate, Record, Ref, Result, Schema, Stream} from "effect";
+import {Path} from "effect/Path";
+
+import {AgentEntity} from "@/entities/agent/agent.entity.ts";
+import {IAgentRepository, IAgentRepositoryErrors} from "@/entities/agent/agent.repository.interface.ts";
+import {EnvironmentVariablesValueObjectSchema} from "@/valueObjects/environmentVariables.valueObject.ts";
 import {AGENT_ICON, AGENT_SETTINGS, AGENTS_SETTING_ID} from "@pkg/constants/src/agent.constant.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/app.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {EnvironmentVariablesValueObjectSchema} from "@valueObjects/environmentVariables.valueObject.ts";
-import {Array, Context, Effect, Layer, Predicate, Record, Ref, Result, Schema, Stream} from "effect";
-import {Path} from "effect/Path";
 
-import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
+import type {AgentIdValueObject} from "@/valueObjects/agentId.valueObject.ts";
 
 const AgentSettingSchema = Schema.Struct({
   args: Schema.optional(Schema.Array(Schema.String)),

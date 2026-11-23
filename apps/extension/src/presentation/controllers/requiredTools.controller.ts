@@ -1,8 +1,9 @@
-import {RequiredToolsErrorMessage} from "@errorMessages/requiredTools.errorMessage.ts";
-import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
-import {REQUIRED_TOOLS_COMMANDS} from "@pkg/constants/src/requiredTools.constant.ts";
-import {RequiredToolsService} from "@services/requiredTools.service.ts";
 import {Context, Effect, Layer} from "effect";
+
+import {RequiredToolsErrorMessage} from "@/errorMessages/requiredTools.errorMessage.ts";
+import {RegisterCommandMiddleware} from "@/middlewares/registerCommand.middleware.ts";
+import {RequiredToolsService} from "@/services/requiredTools.service.ts";
+import {REQUIRED_TOOLS_COMMANDS} from "@pkg/constants/src/requiredTools.constant.ts";
 
 export class RequiredToolsController extends Context.Service<RequiredToolsController>()(
   "aggregor-app/presentation/controllers/requiredTools.controller/RequiredToolsController",

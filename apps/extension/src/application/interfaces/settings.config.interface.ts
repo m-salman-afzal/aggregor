@@ -1,11 +1,13 @@
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {Context, Schema} from "effect";
 
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
+import type {Effect} from "effect";
+
+import type {AgentIdValueObject} from "@/valueObjects/agentId.valueObject.ts";
+import type {AgentStatusValueObject} from "@/valueObjects/agentStatus.valueObject.ts";
 import type {PULL_REQUEST_OPEN_PLACES} from "@pkg/constants/src/gitHubCli.constant.ts";
 import type {SESSION_OPEN_PLACES} from "@pkg/constants/src/terminal.constant.ts";
-import type {AgentIdValueObject} from "@valueObjects/agentId.valueObject.ts";
-import type {AgentStatusValueObject} from "@valueObjects/agentStatus.valueObject.ts";
-import type {Effect} from "effect";
 
 export interface AlertSettings {
   readonly notifyOnStatuses: readonly AgentStatusValueObject[];

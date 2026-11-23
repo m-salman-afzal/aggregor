@@ -1,13 +1,14 @@
+import {useState} from "react";
+
 import {toggleRowKey} from "@/modules/sessions/components/userInputDialog/components/checklistSection/checklistSection.utils.ts";
 import {
   makeLeftoverBranchRows,
   makeLeftoverWorktreeRows,
   takeChosenLeftovers
 } from "@/modules/sessions/components/userInputDialog/components/cleanUpInput/components/leftoverChecklist/leftoverChecklist.utils.ts";
-import {useState} from "react";
 
+import type {ProjectLeftoversDto} from "@/dtos/worktree.dto.ts";
 import type {ChosenLeftovers} from "@/modules/sessions/sessions.type.ts";
-import type {ProjectLeftoversDto} from "@dtos/worktree.dto.ts";
 
 interface UseLeftoverChecklistProps {
   readonly leftovers: ProjectLeftoversDto;

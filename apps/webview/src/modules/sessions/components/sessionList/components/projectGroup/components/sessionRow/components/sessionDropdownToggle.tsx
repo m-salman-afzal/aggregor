@@ -1,7 +1,8 @@
+import {ChevronRightIcon} from "lucide-react";
+
 import {SESSION_DROPDOWN_TOGGLE_LABEL} from "@/modules/sessions/components/sessionList/components/projectGroup/components/sessionRow/sessionRow.constant.ts";
 import {Button} from "@pkg/ui/src/components/base/button.tsx";
 import {CollapsibleTrigger} from "@pkg/ui/src/components/base/collapsible.tsx";
-import {ChevronRightIcon} from "lucide-react";
 
 // It lies over the row's button, under its status icon, rather than inside it, since a button can't hold one.
 export const SessionDropdownToggle = () => (

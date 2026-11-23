@@ -1,10 +1,11 @@
 import {NodeServices} from "@effect/platform-node";
-import {PROCESS_LISTING} from "@pkg/constants/src/process.constant.ts";
 import {Array, Context, Effect, Layer, Result, String} from "effect";
 import {ChildProcess} from "effect/process";
 import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 
-import type {RunningProcess} from "@interfaces/process.infraService.interface.ts";
+import {PROCESS_LISTING} from "@pkg/constants/src/process.constant.ts";
+
+import type {RunningProcess} from "@/interfaces/process.infraService.interface.ts";
 
 export class PsProcessUtils extends Context.Service<PsProcessUtils>()(
   "aggregor-app/infrastructure/services/process/psProcess.utils/PsProcessUtils",

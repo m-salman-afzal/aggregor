@@ -73,36 +73,39 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
 - Presentation imports nothing from the domain or infrastructure. What it shares with infrastructure (VsCodeApi, the
   vscode helpers, argument decoding) lives in `@pkg/vscode`; constants live in `@pkg/constants`.
 - Within presentation:
-  - **Controllers** import `@services`, `@dtos`, `@middlewares` and `@errorMessages`, to register their commands,
+  - **Controllers** import `@/services`, `@/dtos`, `@/middlewares` and `@/errorMessages`, to register their commands,
     `@pkg/constants`, `@pkg/errors`' `TaggedErrors` and `@pkg/vscode`'s `vscode.utils.ts`, whose `VscodeUtils` decodes
     their input and opens the settings for Open Settings, which has no use case.
-  - **Error messages** import `@pkg/constants`, `@pkg/errors`' `TaggedErrors`, and `@services` for types only.
-  - **Views** import `@controllers`, their own files, `@pkg/*`, and `@dtos` for types only.
-  - **Middlewares** import `@middlewares` and `@pkg/*`: a middleware runs inside the controller that calls it, which
+  - **Error messages** import `@pkg/constants`, `@pkg/errors`' `TaggedErrors`, and `@/services` for types only.
+  - **Views** import `@/controllers`, their own files, `@pkg/*`, and `@/dtos` for types only.
+  - **Middlewares** import `@/middlewares` and `@pkg/*`: a middleware runs inside the controller that calls it, which
     hands it everything else.
 - `presentation/` lives inside `src`, because the extension ships as one bundle. The Sessions view's webview is the
   exception: `apps/webview` draws it, in VS Code's page, apart from the extension, and follows the folder-structure
   skill instead of these layers. It imports only the view's `.view.type.ts` and DTOs, for types only (lint rejects a
   value import), `@pkg/constants`, and its design system, `@pkg/ui`; its build lands in the extension's `dist/webview`.
 
-Each folder directly under a layer has one import alias in `apps/extension/tsconfig.json`:
+Each folder directly under a layer has one import alias under `@/` in `apps/extension/tsconfig.json`. The webview's
+tsconfig maps `@/dtos`, `@/valueObjects` and `@/views` to the same folders, so its own `src` has no folders by those
+names:
 
-| Layer            | Aliases                                                                                                                             |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `domain`         | `@domainServices` (`services`), `@entities`, `@valueObjects`                                                                        |
-| `application`    | `@interfaces`, `@services`, `@dtos`                                                                                                 |
-| `infrastructure` | `@config`, `@models` (`database/models`), `@di`, `@logger`, `@repositories`, `@infraServices` (`services`), `@infraUtils` (`utils`) |
-| `presentation`   | `@controllers`, `@errorMessages`, `@middlewares`, `@views`                                                                          |
+| Layer            | Aliases                                                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `domain`         | `@/domainServices` (`services`), `@/entities`, `@/valueObjects`                                                                            |
+| `application`    | `@/interfaces`, `@/services`, `@/dtos`                                                                                                     |
+| `infrastructure` | `@/config`, `@/models` (`database/models`), `@/di`, `@/logger`, `@/repositories`, `@/infraServices` (`services`), `@/infraUtils` (`utils`) |
+| `presentation`   | `@/controllers`, `@/errorMessages`, `@/middlewares`, `@/views`                                                                             |
 
 Code is imported only through them, so each file has one import path, and by name: lint (`no-restricted-syntax`) bans
-`import * as`, `vscode` included. `packages/eslint/src/layers/importRules.ts` checks the import columns with a
-`@typescript-eslint/no-restricted-imports` regex allow-list per folder (`IMPORT_RULES`: each layer, then presentation's
-controllers, error messages and views), which also rejects relative imports.
+`import * as`, `vscode` included. `packages/lint/src/layers/importRules.ts` checks the import columns with a
+typescript-eslint's `no-restricted-imports` (run by oxlint as `typescript-js/no-restricted-imports`) regex allow-list
+per folder (`IMPORT_RULES`: each layer, then presentation's controllers, error messages and views), which also rejects
+relative imports.
 
 ## Naming
 
 Each file's suffix names its role, each role lives in one layer, and the file's main names carry the role.
-`packages/eslint/src/layers/roleNames.ts` checks the names with `@typescript-eslint/naming-convention`, one block per
+`packages/lint/src/layers/roleNames.ts` checks the names with typescript-eslint's `naming-convention`, one block per
 file suffix. A function's name starts with a verb that says what it does (`makeSessionRow`, `decodeStoredRow`,
 `runWithSourceControlProgress`): `VERB_FIRST_NAME_BANS` in `syntaxBans.ts` fails a name that starts with `to`, `as`,
 `from`, `with`, `of` or `into`, a function whose name starts with `new`, and a function whose name ends with `Of`, `In`,
@@ -146,7 +149,7 @@ file suffix. A function's name starts with a verb that says what it does (`makeS
   object's or DTO's type right after its schema (`AgentListItemDtoSchema`, then `AgentListItemDto`), an error union
   after its errors class. An interface's own types (its inputs, which end in `Request`, and `Settings`) sit in its
   `.interface.ts`. Types several implementation files share live in a `.type.ts`, which holds nothing else.
-  `aggregor/type-placement` (`packages/eslint/src/rules/`) checks where types sit, and `no-restricted-syntax` the rest.
+  `aggregor/type-placement` (`packages/lint/src/rules/`) checks where types sit, and `no-restricted-syntax` the rest.
 - A DTO is a `Schema.Struct` (or `TaggedUnion`), so a controller validates its input by decoding into it. A request DTO
   is `<UseCase>RequestDto`, one per use case; a response DTO is named for what it is to the user (`SessionListItemDto`).
 - A controller function is named for its input, or for its caller when the caller is a view: `removeChosenSession`,
@@ -160,10 +163,10 @@ file suffix. A function's name starts with a verb that says what it does (`makeS
   in one of two ways: a class's `make` is `<Owner>.make`, and every other `Effect.fn`, each a const inside a `make`, is
   `<Owner>.<const>`, its class and then its const, so the trace log prints `SessionService.openSession` as the source
   writes it. A command's root span is its command ID.
-- The aggregor plugin (`packages/eslint/src/rules/`, one file per rule) checks the span names and that each unit's class
+- The aggregor plugin (`packages/lint/src/rules/`, one file per rule) checks the span names and that each unit's class
   is named after its file, the `.type.ts` placement, the stem folders, where constants live, that a comment is one line,
   and each function's length (`max-lines-per-function`, ESLint's own with a unit's `make` exempt); it fixes span names;
-  for `apps/webview`, it also checks the folder-structure skill's rules (`packages/eslint/src/folderStructure/`).
+  for `apps/webview`, it also checks the folder-structure skill's rules (`packages/lint/src/folderStructure/`).
 - A constant lives in `@pkg/constants/src/<feature>.constant.ts`: ids, labels and texts, and also file and folder names,
   environment variables, external commands, VS Code's and other extensions' ids, timings and patterns. Constants that
   describe one thing share an object with a label per value (`TMUX.SOCKET_FILE_NAME`, `SESSIONS_VIEW.ID`). The domain,
@@ -188,9 +191,9 @@ packages/
                                            workspace
   errors/src/taggedErrors.utils.ts         TaggedErrors: a file's errors as the keys of one class, each keeping its
                                            own tag and type, built when the file loads
-  eslint/src/                              the repo's ESLint setup: base/ per file type, layers/ the DDD layering
+  lint/src/                                the repo's lint setup: base/ per file type, layers/ the DDD layering
                                            checks, folderStructure/ apps/webview's checks, rules/ the aggregor
-                                           plugin (one file per rule), and eslint.config.ts composing them
+                                           plugin (one file per rule), and lint.config.ts, oxlint's config
 
   ui/src/                                  apps/webview's design system: theme.css (shadcn's tokens and the status
                                            colours from VS Code's theme) and components/base/, shadcn's components

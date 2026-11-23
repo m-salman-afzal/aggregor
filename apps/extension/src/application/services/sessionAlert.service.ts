@@ -1,20 +1,21 @@
-import {SessionDomainService} from "@domainServices/session.domainService.ts";
-import {SessionAlertDtoSchema} from "@dtos/sessionAlert.dto.ts";
-import {IAgentRepository} from "@entities/agent/agent.repository.interface.ts";
-import {ISessionRepository} from "@entities/session/session.repository.interface.ts";
-import {IDesktopNotificationInfraService} from "@interfaces/desktopNotification.infraService.interface.ts";
-import {ISettingsConfig} from "@interfaces/settings.config.interface.ts";
-import {ITerminalInfraService} from "@interfaces/terminal.infraService.interface.ts";
-import {SESSION_ALERT_HOLD_MS} from "@pkg/constants/src/sessionAlert.constant.ts";
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {AGENT_STATUSES} from "@valueObjects/agentStatus.valueObject.ts";
-import {ENTITY_CHANGE_KINDS} from "@valueObjects/entityChangeKind.valueObject.ts";
 import {Context, DateTime, Duration, Effect, Layer, Result, Stream, SubscriptionRef} from "effect";
 
-import type {NotifyOnDesktopRequestDto} from "@dtos/sessionAlert.dto.ts";
-import type {SessionEntity} from "@entities/session/session.entity.ts";
-import type {AgentStatusValueObject} from "@valueObjects/agentStatus.valueObject.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
+import {SessionDomainService} from "@/domainServices/session.domainService.ts";
+import {SessionAlertDtoSchema} from "@/dtos/sessionAlert.dto.ts";
+import {IAgentRepository} from "@/entities/agent/agent.repository.interface.ts";
+import {ISessionRepository} from "@/entities/session/session.repository.interface.ts";
+import {IDesktopNotificationInfraService} from "@/interfaces/desktopNotification.infraService.interface.ts";
+import {ISettingsConfig} from "@/interfaces/settings.config.interface.ts";
+import {ITerminalInfraService} from "@/interfaces/terminal.infraService.interface.ts";
+import {AGENT_STATUSES} from "@/valueObjects/agentStatus.valueObject.ts";
+import {ENTITY_CHANGE_KINDS} from "@/valueObjects/entityChangeKind.valueObject.ts";
+import {SESSION_ALERT_HOLD_MS} from "@pkg/constants/src/sessionAlert.constant.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
+import type {NotifyOnDesktopRequestDto} from "@/dtos/sessionAlert.dto.ts";
+import type {SessionEntity} from "@/entities/session/session.entity.ts";
+import type {AgentStatusValueObject} from "@/valueObjects/agentStatus.valueObject.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
 
 interface ObservedStatusChange {
   readonly session: SessionEntity;

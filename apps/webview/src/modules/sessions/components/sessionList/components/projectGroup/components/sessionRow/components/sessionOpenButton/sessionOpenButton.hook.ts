@@ -13,8 +13,9 @@ import {GITHUB_CLI_COMMANDS} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {REVIEW_COMMENT_COMMANDS} from "@pkg/constants/src/reviewComment.constant.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 
-import type {SessionRowData} from "@views/sessions/sessions.view.type.ts";
 import type {MouseEvent} from "react";
+
+import type {SessionRowData} from "@/views/sessions/sessions.view.type.ts";
 
 interface UseSessionOpenButtonProps {
   readonly sessionRow: SessionRowData;

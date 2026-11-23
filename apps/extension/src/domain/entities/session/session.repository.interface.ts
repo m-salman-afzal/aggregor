@@ -1,7 +1,7 @@
 import {Context} from "effect";
 
-import type {IBaseRepository} from "@entities/base/base.repository.interface.ts";
-import type {SessionEntity} from "@entities/session/session.entity.ts";
+import type {IBaseRepository} from "@/entities/base/base.repository.interface.ts";
+import type {SessionEntity} from "@/entities/session/session.entity.ts";
 
 export type AddSessionRequest = Pick<
   SessionEntity,

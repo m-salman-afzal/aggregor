@@ -1,3 +1,5 @@
+import {useState} from "react";
+
 import {
   chooseNewSessionParts,
   findDefaultChoices,
@@ -7,12 +9,12 @@ import {
   makeOptionGroups
 } from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.utils.ts";
 import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.store.ts";
-import {useState} from "react";
 
-import type {NewSessionChoices} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.type.ts";
-import type {ProjectBranchesDto} from "@dtos/worktree.dto.ts";
-import type {CommandRequest} from "@views/sessions/sessions.view.type.ts";
 import type {SubmitEvent} from "react";
+
+import type {ProjectBranchesDto} from "@/dtos/worktree.dto.ts";
+import type {NewSessionChoices} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.type.ts";
+import type {CommandRequest} from "@/views/sessions/sessions.view.type.ts";
 
 interface UseNewSessionInputProps {
   readonly branches: ProjectBranchesDto | undefined;

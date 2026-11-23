@@ -1,7 +1,8 @@
-import {REQUIRED_TOOLS_ERRORS} from "@pkg/constants/src/requiredTools.constant.ts";
 import {Context, Effect, Layer, Match} from "effect";
 
-import type {RequiredToolsService} from "@services/requiredTools.service.ts";
+import {REQUIRED_TOOLS_ERRORS} from "@pkg/constants/src/requiredTools.constant.ts";
+
+import type {RequiredToolsService} from "@/services/requiredTools.service.ts";
 
 type RequiredToolsCommandError = Effect.Error<RequiredToolsService["Service"]["installRequiredTools"]>;
 

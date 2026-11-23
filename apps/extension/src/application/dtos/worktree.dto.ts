@@ -1,5 +1,6 @@
-import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {Schema} from "effect";
+
+import {ProjectPathValueObjectSchema} from "@/valueObjects/projectPath.valueObject.ts";
 
 export const LeftoverWorktreeDtoSchema = Schema.Struct({
   branchName: Schema.String,

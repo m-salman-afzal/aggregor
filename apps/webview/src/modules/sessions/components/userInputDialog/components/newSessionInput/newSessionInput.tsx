@@ -4,8 +4,8 @@ import {WorktreeTrustHint} from "@/modules/sessions/components/userInputDialog/c
 import {useNewSessionInput} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.hook.ts";
 import {SESSION_LABELS} from "@pkg/constants/src/session.constant.ts";
 
-import type {ProjectBranchesDto} from "@dtos/worktree.dto.ts";
-import type {CommandRequest} from "@views/sessions/sessions.view.type.ts";
+import type {ProjectBranchesDto} from "@/dtos/worktree.dto.ts";
+import type {CommandRequest} from "@/views/sessions/sessions.view.type.ts";
 
 interface NewSessionInputProps {
   readonly branches: ProjectBranchesDto | undefined;
@@ -19,7 +19,7 @@ export const NewSessionInput = (props: NewSessionInputProps) => {
 
   return (
     <form className="flex flex-col gap-4" onSubmit={newSessionView.start}>
-      <div className="scrollbar-minimal -mr-2 flex max-h-[60vh] flex-col gap-4 overflow-y-auto pr-2">
+      <div className="-mr-2 scrollbar-minimal flex max-h-[60vh] flex-col gap-4 overflow-y-auto pr-2">
         {newSessionView.optionGroups.map((optionGroup) => (
           <NewSessionField key={optionGroup.name} optionGroup={optionGroup} />
         ))}

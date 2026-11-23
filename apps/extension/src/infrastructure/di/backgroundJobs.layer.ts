@@ -1,8 +1,9 @@
-import {FolderShellService} from "@services/folderShell.service.ts";
-import {PullRequestService} from "@services/pullRequest.service.ts";
-import {SessionService} from "@services/session.service.ts";
-import {WorkspaceService} from "@services/workspace.service.ts";
 import {Context, Effect, Layer} from "effect";
+
+import {FolderShellService} from "@/services/folderShell.service.ts";
+import {PullRequestService} from "@/services/pullRequest.service.ts";
+import {SessionService} from "@/services/session.service.ts";
+import {WorkspaceService} from "@/services/workspace.service.ts";
 
 export class BackgroundJobs extends Context.Service<BackgroundJobs>()(
   "aggregor-app/infrastructure/di/backgroundJobs.layer/BackgroundJobs",

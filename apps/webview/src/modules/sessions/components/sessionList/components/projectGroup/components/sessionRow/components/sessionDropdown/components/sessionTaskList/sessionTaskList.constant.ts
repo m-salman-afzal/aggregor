@@ -9,8 +9,9 @@ import {
   WorkflowIcon
 } from "lucide-react";
 
-import type {SessionTaskDto} from "@dtos/session.dto.ts";
 import type {LucideIcon} from "lucide-react";
+
+import type {SessionTaskDto} from "@/dtos/session.dto.ts";
 
 export const SESSION_TASK_LIST_LABELS = {
   TASKS: "Tasks"

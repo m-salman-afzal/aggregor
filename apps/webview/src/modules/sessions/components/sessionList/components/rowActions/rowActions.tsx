@@ -1,13 +1,15 @@
+import {cn} from "cn";
+
 import {ActionMenuItems} from "@/modules/sessions/components/sessionList/components/rowActions/components/actionMenuItems.tsx";
 import {ActionsDropdownMenu} from "@/modules/sessions/components/sessionList/components/rowActions/components/actionsDropdownMenu.tsx";
 import {InlineActionButtons} from "@/modules/sessions/components/sessionList/components/rowActions/components/inlineActionButtons.tsx";
 import {useRowActions} from "@/modules/sessions/components/sessionList/components/rowActions/rowActions.hook.ts";
 import {ContextMenu, ContextMenuContent, ContextMenuTrigger} from "@pkg/ui/src/components/base/context-menu.tsx";
-import {cn} from "cn";
+
+import type {ReactNode} from "react";
 
 import type {RowAction} from "@/modules/sessions/sessions.type.ts";
-import type {RowCommandArgument} from "@views/sessions/sessions.view.type.ts";
-import type {ReactNode} from "react";
+import type {RowCommandArgument} from "@/views/sessions/sessions.view.type.ts";
 
 interface RowActionsProps {
   readonly actionGroups: readonly (readonly RowAction[])[];

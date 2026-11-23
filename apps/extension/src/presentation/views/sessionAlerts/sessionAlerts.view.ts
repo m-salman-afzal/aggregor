@@ -1,4 +1,6 @@
-import {SessionAlertController} from "@controllers/sessionAlert.controller.ts";
+import {Clock, Context, Duration, Effect, FiberMap, Layer, Result, Stream, SubscriptionRef} from "effect";
+
+import {SessionAlertController} from "@/controllers/sessionAlert.controller.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {
   DESKTOP_NOTIFICATION,
@@ -9,10 +11,10 @@ import {
 } from "@pkg/constants/src/sessionAlert.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {Clock, Context, Duration, Effect, FiberMap, Layer, Result, Stream, SubscriptionRef} from "effect";
 
-import type {SessionAlertDto} from "@dtos/sessionAlert.dto.ts";
 import type {Uri} from "vscode";
+
+import type {SessionAlertDto} from "@/dtos/sessionAlert.dto.ts";
 
 type WindowFocusedAt = SubscriptionRef.SubscriptionRef<number>;
 

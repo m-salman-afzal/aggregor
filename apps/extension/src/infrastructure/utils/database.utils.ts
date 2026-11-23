@@ -1,8 +1,5 @@
 import {NodeServices} from "@effect/platform-node";
 import {SqliteClient} from "@effect/sql-sqlite-node";
-import {AggregorFolderUtils} from "@infraUtils/aggregorFolder.utils.ts";
-import {DATABASE_BACKUP, DATABASE_FILE, MIGRATIONS} from "@pkg/constants/src/database.constant.ts";
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {makeWithDefaults} from "drizzle-orm/effect-sqlite-node";
 import {migrate} from "drizzle-orm/effect-sqlite-node/migrator";
 import {Array, Context, Effect, Layer, Order, String} from "effect";
@@ -10,6 +7,10 @@ import {FileSystem} from "effect/FileSystem";
 import {Path} from "effect/Path";
 import {make as makeReactivity, Reactivity} from "effect/reactivity/Reactivity";
 import {SqlClient} from "effect/sql/SqlClient";
+
+import {AggregorFolderUtils} from "@/infraUtils/aggregorFolder.utils.ts";
+import {DATABASE_BACKUP, DATABASE_FILE, MIGRATIONS} from "@pkg/constants/src/database.constant.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 
 class DatabaseUtilsErrors extends TaggedErrors({
   DatabaseFileNotFoundError: {},
@@ -37,7 +38,7 @@ export class DatabaseUtils extends Context.Service<DatabaseUtils>()(
       const findFirstPendingMigrationName = Effect.fn("DatabaseUtils.findFirstPendingMigrationName")(function* (
         migrationsFolderPath: string
       ) {
-        // eslint-disable-next-line no-restricted-syntax -- the caller opens the database, so its client comes with each call
+        // oxlint-disable-next-line eslint-js/no-restricted-syntax -- the caller opens the database, so its client comes with each call
         const sql = yield* SqlClient;
         const recordTables =
           yield* sql`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ${MIGRATIONS.RECORD_TABLE}`;
@@ -57,7 +58,7 @@ export class DatabaseUtils extends Context.Service<DatabaseUtils>()(
       });
 
       const readOpenDatabaseFilePath = Effect.fn("DatabaseUtils.readOpenDatabaseFilePath")(function* () {
-        // eslint-disable-next-line no-restricted-syntax -- the caller opens the database, so its client comes with each call
+        // oxlint-disable-next-line eslint-js/no-restricted-syntax -- the caller opens the database, so its client comes with each call
         const sql = yield* SqlClient;
         const [mainDatabase] = yield* sql<{
           readonly file: string;
@@ -145,7 +146,7 @@ export class DatabaseUtils extends Context.Service<DatabaseUtils>()(
       const applyPendingMigrations = Effect.fn("DatabaseUtils.applyPendingMigrations")(function* (
         migrationsFolderPath: string
       ) {
-        // eslint-disable-next-line no-restricted-syntax -- the caller opens the database, so its client comes with each call
+        // oxlint-disable-next-line eslint-js/no-restricted-syntax -- the caller opens the database, so its client comes with each call
         const sql = yield* SqlClient;
         const database = yield* makeWithDefaults();
         yield* sql`PRAGMA foreign_keys = OFF`;

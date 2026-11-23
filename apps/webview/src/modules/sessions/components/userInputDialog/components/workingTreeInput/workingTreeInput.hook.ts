@@ -1,3 +1,5 @@
+import {useState} from "react";
+
 import {
   chooseNewSessionParts,
   findMovedSessionChoices,
@@ -6,12 +8,12 @@ import {
   makeOptionGroups
 } from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.utils.ts";
 import {useSessionsStore} from "@/modules/sessions/stores/sessions/sessions.store.ts";
-import {useState} from "react";
+
+import type {SubmitEvent} from "react";
 
 import type {NewSessionChoices} from "@/modules/sessions/components/userInputDialog/components/newSessionInput/newSessionInput.type.ts";
 import type {USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 import type {UserInput} from "@/modules/sessions/sessions.type.ts";
-import type {SubmitEvent} from "react";
 
 interface UseWorkingTreeInputProps {
   readonly userInput: Extract<UserInput, {readonly _tag: typeof USER_INPUT_TAGS.WORKING_TREE}>;

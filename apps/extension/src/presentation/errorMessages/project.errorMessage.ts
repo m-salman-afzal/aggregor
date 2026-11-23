@@ -1,7 +1,8 @@
-import {DATABASE_ERRORS} from "@pkg/constants/src/database.constant.ts";
 import {Context, Effect, Layer, Match} from "effect";
 
-import type {ProjectService} from "@services/project.service.ts";
+import {DATABASE_ERRORS} from "@pkg/constants/src/database.constant.ts";
+
+import type {ProjectService} from "@/services/project.service.ts";
 
 type ProjectCommandError = Effect.Error<ProjectService["Service"]["addProject"]>;
 

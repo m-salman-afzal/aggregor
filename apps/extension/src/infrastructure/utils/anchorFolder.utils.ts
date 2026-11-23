@@ -1,8 +1,9 @@
 import {NodeServices} from "@effect/platform-node";
-import {AggregorFolderUtils} from "@infraUtils/aggregorFolder.utils.ts";
-import {AGGREGOR_WORKSPACE} from "@pkg/constants/src/workspace.constant.ts";
 import {Context, Effect, Layer} from "effect";
 import {Path} from "effect/Path";
+
+import {AggregorFolderUtils} from "@/infraUtils/aggregorFolder.utils.ts";
+import {AGGREGOR_WORKSPACE} from "@pkg/constants/src/workspace.constant.ts";
 
 export class AnchorFolderUtils extends Context.Service<AnchorFolderUtils>()(
   "aggregor-app/infrastructure/utils/anchorFolder.utils/AnchorFolderUtils",

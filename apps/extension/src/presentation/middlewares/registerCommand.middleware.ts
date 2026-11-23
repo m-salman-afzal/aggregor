@@ -1,7 +1,8 @@
+import {Context, Effect, Layer} from "effect";
+
 import {APP_ERRORS} from "@pkg/constants/src/app.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {Context, Effect, Layer} from "effect";
 
 import type {VscodeUtilsErrors} from "@pkg/vscode/src/vscode.utils.ts";
 
@@ -49,7 +50,7 @@ export class RegisterCommandMiddleware extends Context.Service<RegisterCommandMi
       ) {
         const commandContext = yield* Effect.context<R>();
         const runPromise = Effect.runPromiseWith(commandContext);
-        // eslint-disable-next-line aggregor/span-name -- a command's root span is named by its command ID
+        // oxlint-disable-next-line aggregor/span-name -- a command's root span is named by its command ID
         const runCommand = Effect.fn(commandId, {root: true})(
           function* (commandArguments: readonly unknown[]) {
             return yield* controller(...commandArguments);

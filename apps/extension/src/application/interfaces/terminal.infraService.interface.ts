@@ -1,12 +1,14 @@
-import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
-import {EntityIdValueObjectSchema} from "@valueObjects/entityId.valueObject.ts";
 import {Context, Schema} from "effect";
 
-import type {SessionEntity} from "@entities/session/session.entity.ts";
-import type {AgentIconValueObject} from "@valueObjects/agentIcon.valueObject.ts";
-import type {EntityIdValueObject} from "@valueObjects/entityId.valueObject.ts";
-import type {ProjectPathValueObject} from "@valueObjects/projectPath.valueObject.ts";
+import {EntityIdValueObjectSchema} from "@/valueObjects/entityId.valueObject.ts";
+import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
+
 import type {Effect, Result, Stream, SubscriptionRef} from "effect";
+
+import type {SessionEntity} from "@/entities/session/session.entity.ts";
+import type {AgentIconValueObject} from "@/valueObjects/agentIcon.valueObject.ts";
+import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
+import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 // Run as the terminal's process, with no shell around it.
 export interface TerminalCommand {

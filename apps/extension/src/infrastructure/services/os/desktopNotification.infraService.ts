@@ -1,15 +1,17 @@
-import {NodeServices} from "@effect/platform-node";
-import {IDesktopNotificationInfraService} from "@interfaces/desktopNotification.infraService.interface.ts";
-import {APP_NAME} from "@pkg/constants/src/app.constant.ts";
-import {PLATFORMS, WSL_KERNEL_RELEASE_MARKER} from "@pkg/constants/src/process.constant.ts";
-import {DESKTOP_NOTIFIERS} from "@pkg/constants/src/sessionAlert.constant.ts";
-import {Array, Config, Context, Effect, Layer, String} from "effect";
-import {ChildProcess} from "effect/process";
-import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
 import {Buffer} from "node:buffer";
 import {platform, release} from "node:os";
 
-import type {DesktopNotificationRequest} from "@interfaces/desktopNotification.infraService.interface.ts";
+import {NodeServices} from "@effect/platform-node";
+import {Array, Config, Context, Effect, Layer, String} from "effect";
+import {ChildProcess} from "effect/process";
+import {ChildProcessSpawner} from "effect/process/ChildProcessSpawner";
+
+import {IDesktopNotificationInfraService} from "@/interfaces/desktopNotification.infraService.interface.ts";
+import {APP_NAME} from "@pkg/constants/src/app.constant.ts";
+import {PLATFORMS, WSL_KERNEL_RELEASE_MARKER} from "@pkg/constants/src/process.constant.ts";
+import {DESKTOP_NOTIFIERS} from "@pkg/constants/src/sessionAlert.constant.ts";
+
+import type {DesktopNotificationRequest} from "@/interfaces/desktopNotification.infraService.interface.ts";
 
 export class DesktopNotificationInfraService extends Context.Service<DesktopNotificationInfraService>()(
   "aggregor-app/infrastructure/services/os/desktopNotification.infraService/DesktopNotificationInfraService",

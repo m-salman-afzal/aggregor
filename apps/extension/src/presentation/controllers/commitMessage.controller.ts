@@ -1,10 +1,11 @@
-import {GenerateCommitMessageRequestDtoSchema} from "@dtos/commitMessage.dto.ts";
-import {CommitMessageErrorMessage} from "@errorMessages/commitMessage.errorMessage.ts";
-import {RegisterCommandMiddleware} from "@middlewares/registerCommand.middleware.ts";
+import {Context, Effect, Layer, Schema} from "effect";
+
+import {GenerateCommitMessageRequestDtoSchema} from "@/dtos/commitMessage.dto.ts";
+import {CommitMessageErrorMessage} from "@/errorMessages/commitMessage.errorMessage.ts";
+import {RegisterCommandMiddleware} from "@/middlewares/registerCommand.middleware.ts";
+import {CommitMessageService} from "@/services/commitMessage.service.ts";
 import {COMMIT_MESSAGE_COMMANDS} from "@pkg/constants/src/commitMessage.constant.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {CommitMessageService} from "@services/commitMessage.service.ts";
-import {Context, Effect, Layer, Schema} from "effect";
 
 const SourceControlArgumentSchema = Schema.Struct({
   rootUri: Schema.optional(Schema.Struct({fsPath: Schema.String}))

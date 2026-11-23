@@ -1,5 +1,6 @@
-import {ProjectPathValueObjectSchema} from "@valueObjects/projectPath.valueObject.ts";
 import {Schema} from "effect";
+
+import {ProjectPathValueObjectSchema} from "@/valueObjects/projectPath.valueObject.ts";
 
 export const GenerateCommitMessageRequestDtoSchema = Schema.Struct({
   projectPath: Schema.optional(ProjectPathValueObjectSchema)

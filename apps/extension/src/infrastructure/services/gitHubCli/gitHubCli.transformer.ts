@@ -1,7 +1,8 @@
-import {PULL_REQUEST_STATES, PullRequestStateValueObjectSchema} from "@valueObjects/pullRequestState.valueObject.ts";
 import {Context, Effect, Layer, Schema, String} from "effect";
 
-import type {BranchPullRequest, ListedPullRequest} from "@interfaces/gitHubCli.infraService.interface.ts";
+import {PULL_REQUEST_STATES, PullRequestStateValueObjectSchema} from "@/valueObjects/pullRequestState.valueObject.ts";
+
+import type {BranchPullRequest, ListedPullRequest} from "@/interfaces/gitHubCli.infraService.interface.ts";
 
 const GitHubCliPullRequestJson = Schema.fromJsonString(
   Schema.Struct({

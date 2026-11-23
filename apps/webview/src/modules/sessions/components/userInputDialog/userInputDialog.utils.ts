@@ -5,9 +5,10 @@ import {
 } from "@/modules/sessions/components/userInputDialog/userInputDialog.constant.ts";
 import {SESSIONS_LABELS, USER_INPUT_TAGS} from "@/modules/sessions/sessions.constant.ts";
 
-import type {UserInput} from "@/modules/sessions/sessions.type.ts";
-import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
 import type {SubmitEvent} from "react";
+
+import type {ProjectSettingsDto} from "@/dtos/project.dto.ts";
+import type {UserInput} from "@/modules/sessions/sessions.type.ts";
 
 export const isDestructiveUserInput = (userInput: UserInput) =>
   userInput._tag === USER_INPUT_TAGS.QUESTION && userInput.answers.some((answer) => answer.isDestructive);

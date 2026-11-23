@@ -86,7 +86,7 @@ How the extension uses Effect.
 - **Problem:** code branched on a tagged value by comparing `_tag`, as in the Sessions and Archive trees' node kinds and
   their change kinds, so a new kind would fall through an `if` unnoticed.
 - **Decision:** lint bans comparing `_tag` (use `Match.valueTags`, or `Match.value` and `Match.exhaustive` for a table
-  of cases), `switch` and `else`; ESLint already bans nested ternaries. The 17 comparisons are now `Match`, and the stop
+  of cases), `switch` and `else`; lint already bans nested ternaries. The 17 comparisons are now `Match`, and the stop
   question's four lines are a `Match` table on one agent or several and a turn running or not. An `if` that returns
   early and a ternary stay. A tag without a branch fails the typecheck, and the code keeps the early-return shape it
   already has.

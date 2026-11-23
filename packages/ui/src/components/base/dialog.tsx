@@ -1,9 +1,9 @@
-import * as React from "react";
 import {Dialog as DialogPrimitive} from "@base-ui/react/dialog";
 import {cn} from "cn";
+import {XIcon} from "lucide-react";
+import * as React from "react";
 
 import {Button} from "@pkg/ui/src/components/base/button.tsx";
-import {XIcon} from "lucide-react";
 
 const Dialog = ({...props}: DialogPrimitive.Root.Props) => <DialogPrimitive.Root data-slot="dialog" {...props} />;
 
@@ -23,7 +23,7 @@ const DialogOverlay = ({className, ...props}: DialogPrimitive.Backdrop.Props) =>
   <DialogPrimitive.Backdrop
     data-slot="dialog-overlay"
     className={cn(
-      "fixed inset-0 isolate z-50 bg-black/45 backdrop-blur-sm transition-opacity duration-200 ease-out data-starting-style:opacity-0 data-ending-style:opacity-0",
+      "fixed inset-0 isolate z-50 bg-black/45 backdrop-blur-sm transition-opacity duration-200 ease-out data-ending-style:opacity-0 data-starting-style:opacity-0",
       className
     )}
     {...props}
@@ -43,7 +43,7 @@ const DialogContent = ({
     <DialogPrimitive.Popup
       data-slot="dialog-content"
       className={cn(
-        "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[min(24rem,calc(100%-1.5rem))] -translate-x-1/2 -translate-y-1/2 grid-cols-[minmax(0,1fr)] gap-4 rounded-2xl bg-level [--level:1] p-4 text-sm text-popover-foreground shadow-[0_24px_64px_-16px_var(--brand-glow),0_12px_32px_-12px_rgb(0_0_0/0.6)] ring-1 ring-brand/35 outline-none before:pointer-events-none before:absolute before:inset-x-8 before:top-0 before:h-px before:bg-linear-to-r before:from-brand before:via-brand-end before:to-transparent transition-[opacity,scale] duration-200 ease-out data-starting-style:opacity-0 data-ending-style:opacity-0 motion-ok:data-starting-style:scale-95 motion-ok:data-ending-style:scale-95",
+        "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[min(24rem,calc(100%-1.5rem))] -translate-x-1/2 -translate-y-1/2 grid-cols-[minmax(0,1fr)] gap-4 rounded-2xl bg-level p-4 text-sm text-popover-foreground shadow-[0_24px_64px_-16px_var(--brand-glow),0_12px_32px_-12px_rgb(0_0_0/0.6)] ring-1 ring-brand/35 transition-[opacity,scale] duration-200 ease-out outline-none [--level:1] before:pointer-events-none before:absolute before:inset-x-8 before:top-0 before:h-px before:bg-linear-to-r before:from-brand before:via-brand-end before:to-transparent data-ending-style:opacity-0 data-starting-style:opacity-0 motion-ok:data-ending-style:scale-95 motion-ok:data-starting-style:scale-95",
         className
       )}
       {...props}>

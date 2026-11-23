@@ -18,7 +18,7 @@ DDD.md's layers: what each holds and how they talk.
 - **Problem:** services called VS Code and Claude Code directly, so the use cases depended on both.
 - **Decision:** four layers with dependencies pointing inward; application declares the interfaces that infrastructure
   implements, and `vscode` is imported at runtime in one file, `vscode.api.ts` (in `@pkg/vscode`). DDD.md has the
-  details; `packages/eslint/src/layers/` checks imports and names. A use case never depends on VS Code or on one agent.
+  details; `packages/lint/src/layers/` checks imports and names. A use case never depends on VS Code or on one agent.
 
 ## The backend drives the Sessions view
 
@@ -84,7 +84,7 @@ DDD.md's layers: what each holds and how they talk.
 - **Problem:** services built and showed error messages, so the backend decided what the user reads.
 - **Decision:** a use case returns every failure the user should hear about as a typed error, and ends quietly on a
   cancelled pick or a row removed meanwhile. Each feature has an error message, a unit in
-  `presentation/errorMessages/<x>.errorMessage.ts` (`SessionErrorMessage`, alias `@errorMessages`), whose
+  `presentation/errorMessages/<x>.errorMessage.ts` (`SessionErrorMessage`, alias `@/errorMessages`), whose
   `get<X>CommandErrorMessage` takes every failure its services return, so a new failure fails to compile until it has a
   message. The controller registers each command with it, and `registerCommand` logs the failure and shows the
   `CommandErrorMessage` it returns. An error message may also name the setting that fixes the failure

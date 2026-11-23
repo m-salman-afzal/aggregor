@@ -1,13 +1,13 @@
+import type {ProjectSettingsDto} from "@/dtos/project.dto.ts";
+import type {ImportedSessionDto} from "@/dtos/sessionImport.dto.ts";
+import type {SessionProcessesDto} from "@/dtos/sessionProcess.dto.ts";
 import type {ChosenLeftovers, SessionListId, UserInput} from "@/modules/sessions/sessions.type.ts";
-import type {ProjectSettingsDto} from "@dtos/project.dto.ts";
-import type {ImportedSessionDto} from "@dtos/sessionImport.dto.ts";
-import type {SessionProcessesDto} from "@dtos/sessionProcess.dto.ts";
 import type {
   AgentRowData,
   CommandRequest,
   ProjectRowData,
   SessionsViewMessage
-} from "@views/sessions/sessions.view.type.ts";
+} from "@/views/sessions/sessions.view.type.ts";
 
 export type HostMessagesByTag = {[HostMessage in SessionsViewMessage as HostMessage["_tag"]]: HostMessage};
 

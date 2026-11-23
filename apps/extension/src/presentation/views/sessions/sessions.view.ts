@@ -1,5 +1,9 @@
-import {SessionController} from "@controllers/session.controller.ts";
-import {SessionProcessController} from "@controllers/sessionProcess.controller.ts";
+import {Array, Context, Effect, Layer, Match, Schema, Stream, SubscriptionRef} from "effect";
+
+import {SessionController} from "@/controllers/session.controller.ts";
+import {SessionProcessController} from "@/controllers/sessionProcess.controller.ts";
+import {SessionsDrawingUtils} from "@/views/sessions/sessionsDrawing.utils.ts";
+import {SessionsPageUtils} from "@/views/sessions/sessionsPage.utils.ts";
 import {AGENT_SETTINGS} from "@pkg/constants/src/agent.constant.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/app.constant.ts";
 import {
@@ -12,14 +16,12 @@ import {
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
-import {SessionsDrawingUtils} from "@views/sessions/sessionsDrawing.utils.ts";
-import {SessionsPageUtils} from "@views/sessions/sessionsPage.utils.ts";
-import {Array, Context, Effect, Layer, Match, Schema, Stream, SubscriptionRef} from "effect";
 
-import type {SessionListChangeDto} from "@dtos/session.dto.ts";
-import type {SessionProcessesDto} from "@dtos/sessionProcess.dto.ts";
-import type {CommandRequest, OpenDropdownSessionIds} from "@views/sessions/sessions.view.type.ts";
 import type {WebviewView} from "vscode";
+
+import type {SessionListChangeDto} from "@/dtos/session.dto.ts";
+import type {SessionProcessesDto} from "@/dtos/sessionProcess.dto.ts";
+import type {CommandRequest, OpenDropdownSessionIds} from "@/views/sessions/sessions.view.type.ts";
 
 class SessionsViewErrors extends TaggedErrors({
   RowCommandFailedError: {cause: Schema.Unknown, commandId: Schema.String}

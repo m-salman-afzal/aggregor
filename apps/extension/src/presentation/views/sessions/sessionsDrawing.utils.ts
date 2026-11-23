@@ -1,8 +1,11 @@
-import {AgentController} from "@controllers/agent.controller.ts";
-import {PullRequestController} from "@controllers/pullRequest.controller.ts";
-import {SessionController} from "@controllers/session.controller.ts";
-import {SessionImportController} from "@controllers/sessionImport.controller.ts";
-import {WorktreeController} from "@controllers/worktree.controller.ts";
+import {Array, Context, Effect, Layer, Match, Ref, Result, Schema, Stream} from "effect";
+
+import {AgentController} from "@/controllers/agent.controller.ts";
+import {PullRequestController} from "@/controllers/pullRequest.controller.ts";
+import {SessionController} from "@/controllers/session.controller.ts";
+import {SessionImportController} from "@/controllers/sessionImport.controller.ts";
+import {WorktreeController} from "@/controllers/worktree.controller.ts";
+import {SessionsPageUtils} from "@/views/sessions/sessionsPage.utils.ts";
 import {AGENT_SETTINGS} from "@pkg/constants/src/agent.constant.ts";
 import {SETTINGS_SECTION} from "@pkg/constants/src/app.constant.ts";
 import {SESSION_PAGES} from "@pkg/constants/src/session.constant.ts";
@@ -16,12 +19,12 @@ import {
 import {WORKSPACE_TRUST_SETTINGS} from "@pkg/constants/src/vscode.constant.ts";
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
-import {SessionsPageUtils} from "@views/sessions/sessionsPage.utils.ts";
-import {Array, Context, Effect, Layer, Match, Ref, Result, Schema, Stream} from "effect";
 
-import type {AgentListItemDto} from "@dtos/agent.dto.ts";
-import type {ProjectSessionsDto, SessionListChangeDto, SessionListItemDto} from "@dtos/session.dto.ts";
-import type {SessionProcessesDto} from "@dtos/sessionProcess.dto.ts";
+import type {WebviewView} from "vscode";
+
+import type {AgentListItemDto} from "@/dtos/agent.dto.ts";
+import type {ProjectSessionsDto, SessionListChangeDto, SessionListItemDto} from "@/dtos/session.dto.ts";
+import type {SessionProcessesDto} from "@/dtos/sessionProcess.dto.ts";
 import type {
   AgentRowData,
   ProjectRowData,
@@ -29,8 +32,7 @@ import type {
   SessionRowData,
   SessionsViewMessage,
   ShownSessionPages
-} from "@views/sessions/sessions.view.type.ts";
-import type {WebviewView} from "vscode";
+} from "@/views/sessions/sessions.view.type.ts";
 
 class SessionsDrawingUtilsErrors extends TaggedErrors({
   WebviewNotShownError: {}

@@ -1,4 +1,4 @@
-import type {SessionListItemDto} from "@dtos/session.dto.ts";
+import type {SessionListItemDto} from "@/dtos/session.dto.ts";
 
 export const ALWAYS_SHOWN_ACTION_BAR = "flex shrink-0 items-center gap-1 pr-2";
 
