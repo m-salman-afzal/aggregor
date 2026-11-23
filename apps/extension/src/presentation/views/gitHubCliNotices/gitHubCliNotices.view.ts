@@ -11,7 +11,7 @@ export class GitHubCliNoticesView extends Context.Service<GitHubCliNoticesView>(
       const pullRequestController = yield* PullRequestController;
       const vsCodeApi = yield* VsCodeApi;
 
-      const offerGitHubCliSignIn = Effect.fn("GitHubCliNoticesView.offerGitHubCliSignIn")(function* () {
+      const showGitHubCliSignInNotice = Effect.fn("GitHubCliNoticesView.showGitHubCliSignInNotice")(function* () {
         const pickedAction = yield* Effect.promise(() =>
           vsCodeApi.window.showInformationMessage(GITHUB_CLI_NOTICES.SIGNED_OUT, GITHUB_CLI_LABELS.SIGN_IN)
         );
@@ -24,7 +24,7 @@ export class GitHubCliNoticesView extends Context.Service<GitHubCliNoticesView>(
 
       // In the background, so a notice waiting for a click holds back no other.
       yield* Effect.forkScoped(
-        Stream.runForEach(gitHubCliSignedOutProblems, () => Effect.forkScoped(offerGitHubCliSignIn()))
+        Stream.runForEach(gitHubCliSignedOutProblems, () => Effect.forkScoped(showGitHubCliSignInNotice()))
       );
 
       return {};

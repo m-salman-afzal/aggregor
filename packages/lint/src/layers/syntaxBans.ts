@@ -92,6 +92,7 @@ export const ERRORS_CLASS_BANS = [
 ];
 
 const NON_VERB_FIRST_WORD = "/^(to|as|from|with|of|into)[A-Z]/";
+const TRAILING_PREPOSITION = "/[a-z](Of|In|To|For|From|With|Into|On|By)$/";
 const FUNCTION_VALUE =
   ":matches([init.type=/^(ArrowFunctionExpression|FunctionExpression)$/], [init.callee.callee.property.name='fn'])";
 const NON_VERB_NAME_MESSAGE =
@@ -108,6 +109,17 @@ export const VERB_FIRST_NAME_BANS = [
       `:matches(TSPropertySignature, TSMethodSignature, MethodDefinition, PropertyDefinition)` +
       `[key.name=${NON_VERB_FIRST_WORD}], ` +
       `Property[shorthand=false][key.name=${NON_VERB_FIRST_WORD}][value.type=/Function|CallExpression/]`
+  },
+  {
+    message:
+      "End a function's name with what it does or works on, not with of, in, to, for, from, with, into, on or by: " +
+      "`isBranchMergedIntoReference`, not `isAncestorOf`, and `makeForTable`, not `makeFor`. A trailing preposition " +
+      "leaves out the thing it points at, so a reader has to open the function to learn it.",
+    selector:
+      `VariableDeclarator[id.name=${TRAILING_PREPOSITION}]${FUNCTION_VALUE}, ` +
+      `FunctionDeclaration[id.name=${TRAILING_PREPOSITION}], ` +
+      `:matches(TSMethodSignature, MethodDefinition)[key.name=${TRAILING_PREPOSITION}], ` +
+      `TSPropertySignature[key.name=${TRAILING_PREPOSITION}][typeAnnotation.typeAnnotation.type='TSFunctionType']`
   },
   {
     message:

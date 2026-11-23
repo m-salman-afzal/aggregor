@@ -13,7 +13,7 @@ export class ReviewCommentRepository extends Context.Service<ReviewCommentReposi
     make: Effect.fn("ReviewCommentRepository.make")(function* () {
       const baseRepository = yield* BaseRepository;
 
-      return yield* baseRepository.makeFor<ReviewCommentEntity, AddReviewCommentRequest>({
+      return yield* baseRepository.makeForTable<ReviewCommentEntity, AddReviewCommentRequest>({
         entitySchema: ReviewCommentEntity,
         tableModel: ReviewCommentTableModel
       });

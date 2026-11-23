@@ -6,6 +6,10 @@ import {
 } from "@/valueObjects/sessionWorkingTree.valueObject.ts";
 
 export const ProjectSettingsValueObjectSchema = Schema.Struct({
+  cleanUpBaseBranch: Schema.NonEmptyString.pipe(
+    Schema.catchDecoding(() => Effect.succeedSome("dev")),
+    Schema.withDecodingDefaultKey(Effect.succeed("dev"))
+  ),
   filesToCopy: Schema.Array(Schema.String).pipe(
     Schema.catchDecoding(() => Effect.succeedSome([".env*"])),
     Schema.withDecodingDefaultKey(Effect.succeed([".env*"]))

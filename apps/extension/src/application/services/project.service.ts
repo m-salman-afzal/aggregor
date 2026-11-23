@@ -40,8 +40,8 @@ export class ProjectService extends Context.Service<ProjectService>()(
       const path = yield* Path;
       const sortOrderDomainService = yield* SortOrderDomainService;
       const baseService = yield* BaseService;
-      const projectBaseService = yield* baseService.makeFor(projectRepository);
-      const sessionBaseService = yield* baseService.makeFor(sessionRepository);
+      const projectBaseService = yield* baseService.makeForRepository(projectRepository);
+      const sessionBaseService = yield* baseService.makeForRepository(sessionRepository);
 
       const makeAddedProjectListItem = Effect.fn("ProjectService.makeAddedProjectListItem")(function* (
         addedProject: ProjectEntity,

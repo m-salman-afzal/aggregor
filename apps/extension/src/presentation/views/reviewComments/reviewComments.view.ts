@@ -182,7 +182,6 @@ export class ReviewCommentsView extends Context.Service<ReviewCommentsView>()(
         );
       });
 
-      // An edit that reaches past the thread's lines on either side can't say where they went, so it moves nothing.
       const shiftLineRangeWithContentChanges = Effect.fn("ReviewCommentsView.shiftLineRangeWithContentChanges")(
         function* (threadRange: Range, contentChanges: readonly TextDocumentContentChangeEvent[]) {
           const isAboveThread = (contentChange: TextDocumentContentChangeEvent) =>
@@ -280,7 +279,6 @@ export class ReviewCommentsView extends Context.Service<ReviewCommentsView>()(
         Effect.catch((readError) => Effect.logWarning("Could not draw the pending review comments", readError))
       );
 
-      // A controller's command shows its own failure and still resolves; the change stream draws what it saved.
       const runReviewCommentCommand = Effect.fn("ReviewCommentsView.runReviewCommentCommand")(function* (
         commandId: string,
         commandArgument: unknown

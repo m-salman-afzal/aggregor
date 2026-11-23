@@ -35,6 +35,12 @@ export const ProjectSettingsInput = (props: ProjectSettingsInputProps) => (
       name={PROJECT_SETTINGS_FIELDS.SETUP_SCRIPT}
       value={props.settings.setupScript}
     />
+    <SettingsTextField
+      hint={PROJECT_SETTINGS_LABELS.CLEAN_UP_BASE_BRANCH_HINT}
+      label={PROJECT_SETTINGS_LABELS.CLEAN_UP_BASE_BRANCH}
+      name={PROJECT_SETTINGS_FIELDS.CLEAN_UP_BASE_BRANCH}
+      value={props.settings.cleanUpBaseBranch}
+    />
     <FormButtons onCancel={props.onCancel} submitLabel={PROJECT_SETTINGS_LABELS.SAVE} />
   </form>
 );

@@ -29,7 +29,7 @@ export class SessionProcessService extends Context.Service<SessionProcessService
       const folderShellService = yield* FolderShellService;
       const sessionService = yield* SessionService;
       const baseService = yield* BaseService;
-      const sessionBaseService = yield* baseService.makeFor(sessionRepository);
+      const sessionBaseService = yield* baseService.makeForRepository(sessionRepository);
 
       const readTerminalProcesses = Effect.fn("SessionProcessService.readTerminalProcesses")(function* (
         tmuxSessionPanes: TmuxSessionPanes

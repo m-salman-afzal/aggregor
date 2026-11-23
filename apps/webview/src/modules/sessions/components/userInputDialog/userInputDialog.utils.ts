@@ -34,6 +34,7 @@ export const takeProjectSettings = (formEvent: SubmitEvent<HTMLFormElement>): Pr
   };
 
   return {
+    cleanUpBaseBranch: readText(PROJECT_SETTINGS_FIELDS.CLEAN_UP_BASE_BRANCH),
     filesToCopy: readText(PROJECT_SETTINGS_FIELDS.FILES_TO_COPY)
       .split(",")
       .map((pattern) => pattern.trim())

@@ -7,7 +7,7 @@ export class BaseService extends Context.Service<BaseService>()(
   "aggregor-app/application/services/base.service/BaseService",
   {
     make: Effect.fn("BaseService.make")(function* () {
-      const makeFor = Effect.fn("BaseService.makeFor")(function* <Entity, AddRequest>(
+      const makeForRepository = Effect.fn("BaseService.makeForRepository")(function* <Entity, AddRequest>(
         repository: IBaseRepository<Entity, AddRequest>
       ) {
         const addEntity = Effect.fn("BaseService.addEntity")(function* (addRequest: AddRequest) {
@@ -62,7 +62,7 @@ export class BaseService extends Context.Service<BaseService>()(
         };
       });
 
-      return {makeFor};
+      return {makeForRepository};
     })
   }
 ) {

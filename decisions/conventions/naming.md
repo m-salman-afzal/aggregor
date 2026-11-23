@@ -31,7 +31,10 @@ What things are called, and when a comment is worth it.
   makes a new thing, `find…` looks one up. A value is named for what it is (`settingTextWithProjectFolder`).
 - **Solution:** lint (`VERB_FIRST_NAME_BANS` in `packages/lint/src/layers/syntaxBans.ts`, on every TypeScript file)
   fails a variable, parameter, function or member whose name starts with `to`, `as`, `from`, `with`, `of` or `into`, and
-  a function whose name starts with `new`. React's `on…` callback props and a library's own option keys pass.
+  a function whose name starts with `new`. React's `on…` callback props and a library's own option keys pass. A
+  function's name also ends with what it does or works on: the same lint fails a function, method or port member whose
+  name ends with `Of`, `In`, `To`, `For`, `From`, `With`, `Into`, `On` or `By` (`isAncestorOf`, `makeFor`), since the
+  thing the preposition points at is left out. `At` passes, as the end of a time's name (`recordViewedAt`).
 - **Alternatives considered:** a list of allowed verbs, which would fail every verb not yet on it; prose only, which did
   not hold.
 

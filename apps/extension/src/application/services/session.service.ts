@@ -136,9 +136,9 @@ export class SessionService extends Context.Service<SessionService>()(
       const worktreeInfraService = yield* IWorktreeInfraService;
       const path = yield* Path;
       const baseService = yield* BaseService;
-      const projectBaseService = yield* baseService.makeFor(projectRepository);
-      const reviewCommentBaseService = yield* baseService.makeFor(reviewCommentRepository);
-      const sessionBaseService = yield* baseService.makeFor(sessionRepository);
+      const projectBaseService = yield* baseService.makeForRepository(projectRepository);
+      const reviewCommentBaseService = yield* baseService.makeForRepository(reviewCommentRepository);
+      const sessionBaseService = yield* baseService.makeForRepository(sessionRepository);
       const agentService = yield* AgentService;
       const projectService = yield* ProjectService;
       const worktreeService = yield* WorktreeService;

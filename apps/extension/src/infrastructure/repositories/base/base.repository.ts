@@ -31,7 +31,7 @@ export class BaseRepository extends Context.Service<BaseRepository>()(
       const entityIdDomainService = yield* EntityIdDomainService;
       const paginationDomainService = yield* PaginationDomainService;
 
-      const makeFor = Effect.fn("BaseRepository.makeFor")(function* <
+      const makeForTable = Effect.fn("BaseRepository.makeForTable")(function* <
         Entity extends BaseEntity,
         AddRequest extends StoredColumns
       >(entityTable: EntityTable<Entity>) {
@@ -234,7 +234,7 @@ export class BaseRepository extends Context.Service<BaseRepository>()(
         return baseRepository;
       });
 
-      return {makeFor};
+      return {makeForTable};
     })
   }
 ) {

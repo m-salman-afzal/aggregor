@@ -15,7 +15,8 @@ What a project remembers about how its sessions start.
 - **Solution:** the repository stores an object column as its JSON text, through `Schema.fromJsonString`. SQL can't
   query or constrain inside the column, which no read needs. Renaming a key needs the decoder to read the old one for a
   while, where a column rename needs two releases. New Session reads them when it starts a session in a worktree (see
-  `sessions/worktrees.md`).
+  `sessions/worktrees.md`); Clean Up Worktrees reads `cleanUpBaseBranch`, the branch whose merged branches it ticks,
+  `dev` until changed, since the user's repositories merge their work into `dev` and release from `main`.
 - **Alternatives considered:** a column per setting, a migration each. VS Code's resource-scoped settings, which would
   write into the project's `.vscode/settings.json`. A file in the repository (`aggregor.json`, like Conductor's
   `conductor.json` or Orca's `orca.yaml`) to share settings with a team: left until a team needs it; the one shared

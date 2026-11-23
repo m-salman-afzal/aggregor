@@ -55,13 +55,20 @@ export class WorktreeDomainService extends Context.Service<WorktreeDomainService
         return branchName === `${WORKTREE_BRANCH_PREFIX}${worktreeFolderName}`;
       });
 
+      const isWorktreeBranchName = Effect.fn("WorktreeDomainService.isWorktreeBranchName")(function* (
+        branchName: string
+      ) {
+        return String.startsWith(WORKTREE_BRANCH_PREFIX)(branchName);
+      });
+
       return {
         formatTextAsNamePart,
         getTitledBranchName,
         getWorktreeBranchName,
         getWorktreeName,
         getWorktreesFolderName,
-        hasWorktreeBranchFirstName
+        hasWorktreeBranchFirstName,
+        isWorktreeBranchName
       };
     })
   }

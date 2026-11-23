@@ -40,8 +40,9 @@ that no scope covers, add its scope in that PR, to `pr-title.yaml` and with what
   reference. Name a thing by what it is to the user, not by the gesture that reached it (`chosenProject`, not
   `clickedProject`), and give each word one meaning: a "prompt" is an LLM's, so asking the user is a user-input prompt
   (`IUserInputPromptInfraService`). A function's name starts with a verb that says what it does (`makeSessionRow`,
-  `decodeStoredRow`, `runWithSourceControlProgress`), never with `to`, `as`, `from`, `with`, `of`, `into` or `new`; lint
-  fails those.
+  `decodeStoredRow`, `runWithSourceControlProgress`), never with `to`, `as`, `from`, `with`, `of`, `into` or `new`, and
+  ends with what it does or works on, never with a preposition (`isBranchMergedIntoReference`, not `isAncestorOf`); lint
+  fails both.
 - **Comments only for what the code hides.** Write a comment only for a hidden side effect or a behaviour a reader can't
   see in the code: a platform limit, a workaround, a constraint from outside the file. Never one that says what a file,
   type, function or line is or does; the names say that. One line, about the code as it is now, updated or deleted with
@@ -100,8 +101,8 @@ Effect here is `4.1.4`. Most Effect material online is v3 and the names differ (
   service, and none takes a service, a ref or a `…Dependencies` object as a parameter: state lives in the `make` of the
   unit that owns it. Lint bans a top-level `Effect.fn` everywhere in the extension and `@pkg/vscode`; only `activate`,
   `deactivate` and `TaggedErrors` are plain functions. `BaseService` and `BaseRepository` bind a repository or a table
-  with `makeFor`, called at the top of a `make`. DDD.md's Dependency injection has the rest, and the levels each layer
-  is merged into.
+  with `makeForRepository` and `makeForTable`, called at the top of a `make`. DDD.md's Dependency injection has the
+  rest, and the levels each layer is merged into.
 - **A file's errors are one class.** `<Owner>Errors extends TaggedErrors({...})` (`@pkg/errors`), above the file's other
   classes, with each error's tag as a key: `ITmuxInfraServiceErrors.TmuxUnavailableError.make({})` makes one, and
   `ITmuxInfraServiceErrors["TmuxUnavailableError"]` is its type. Each keeps its own tag and type, so `Effect.catchTag`
@@ -116,9 +117,9 @@ Effect here is `4.1.4`. Most Effect material online is v3 and the names differ (
   says why it is missing. Turn an `Option` that an Effect API returns into a `Result` right there with
   `Result.fromOption`. Lint bans importing `Option`.
 - **Small functions.** Give each function one job, so each shows up as its own span; lint caps a function at 30 lines. A
-  `make`, or a `make<Name>` const such as `makeFor`, that holds its unit's functions is exempt, and they read the state
-  they share (refs, VS Code handles, the unit's dependencies) from it; a long `make` is fine, and a class is divided
-  where its parts clearly belong apart.
+  `make`, or a `make<Name>` const such as `makeForTable`, that holds its unit's functions is exempt, and they read the
+  state they share (refs, VS Code handles, the unit's dependencies) from it; a long `make` is fine, and a class is
+  divided where its parts clearly belong apart.
 
 ## Traces
 

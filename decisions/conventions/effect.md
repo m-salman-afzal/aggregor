@@ -35,7 +35,7 @@ How the extension uses Effect.
   `make`. Files have no length limit since (ESLint's `max-lines` was 300), so an entity's use cases stay in one service.
   Each function does one job and shows up as its own span.
 - **Solution:** `aggregor/max-lines-per-function` runs ESLint's own rule and drops its report on a class's `make`, or a
-  `make<Name>` const such as a base class's `makeFor`, that holds an `Effect.fn`.
+  `make<Name>` const such as a base class's `makeForTable`, that holds an `Effect.fn`.
 - **Alternatives considered:** helpers at module level that take their shared state as parameters, with a layer's `make`
   only creating state, starting watchers and wiring the service, which passed every helper's needs up to its callers.
 

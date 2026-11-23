@@ -21,7 +21,7 @@ export class SessionRepository extends Context.Service<SessionRepository>()(
     make: Effect.fn("SessionRepository.make")(function* () {
       const baseRepository = yield* BaseRepository;
 
-      return yield* baseRepository.makeFor<SessionEntity, AddSessionRequest>({
+      return yield* baseRepository.makeForTable<SessionEntity, AddSessionRequest>({
         entitySchema: SessionEntity,
         join: sessionProjectJoin,
         tableModel: SessionTableModel

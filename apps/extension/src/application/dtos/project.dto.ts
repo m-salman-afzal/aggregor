@@ -4,6 +4,7 @@ import {ProjectPathValueObjectSchema} from "@/valueObjects/projectPath.valueObje
 import {SessionWorkingTreeValueObjectSchema} from "@/valueObjects/sessionWorkingTree.valueObject.ts";
 
 export const ProjectSettingsDtoSchema = Schema.Struct({
+  cleanUpBaseBranch: Schema.String,
   filesToCopy: Schema.Array(Schema.String),
   newSessionWorkingTree: SessionWorkingTreeValueObjectSchema,
   setupScript: Schema.String,

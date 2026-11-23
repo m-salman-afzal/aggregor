@@ -13,7 +13,7 @@ export class ProjectRepository extends Context.Service<ProjectRepository>()(
     make: Effect.fn("ProjectRepository.make")(function* () {
       const baseRepository = yield* BaseRepository;
 
-      return yield* baseRepository.makeFor<ProjectEntity, AddProjectRequest>({
+      return yield* baseRepository.makeForTable<ProjectEntity, AddProjectRequest>({
         entitySchema: ProjectEntity,
         tableModel: ProjectTableModel
       });

@@ -45,7 +45,7 @@ export class SessionImportService extends Context.Service<SessionImportService>(
       const worktreeInfraService = yield* IWorktreeInfraService;
       const projectService = yield* ProjectService;
       const baseService = yield* BaseService;
-      const sessionBaseService = yield* baseService.makeFor(sessionRepository);
+      const sessionBaseService = yield* baseService.makeForRepository(sessionRepository);
 
       // A session Aggregor started gave the agent its own id.
       const findKnownAgentSessionIds = Effect.fn("SessionImportService.findKnownAgentSessionIds")(function* () {
