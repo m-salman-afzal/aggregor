@@ -258,7 +258,7 @@ const expectBackupOfRowsBefore = Effect.fn("expectBackupOfRowsBefore")(function*
   expect(yield* Effect.provide(readTableSnapshots(), backupLayer)).toStrictEqual(snapshotsBefore);
 });
 
-const checkUpgradeFrom = Effect.fn("checkUpgradeFrom")(function* (
+const checkUpgradeFromAppliedMigrations = Effect.fn("checkUpgradeFromAppliedMigrations")(function* (
   testFolderPath: string,
   appliedMigrationCount: number
 ) {
@@ -310,5 +310,7 @@ describe("migrations", () => {
 
   for (const [migrationIndex, migrationName] of MIGRATION_NAMES.entries())
     it(`a database at ${migrationName} keeps every row when it migrates to the newest`, () =>
-      Effect.runPromise(runInTestFolder((testFolderPath) => checkUpgradeFrom(testFolderPath, migrationIndex + 1))));
+      Effect.runPromise(
+        runInTestFolder((testFolderPath) => checkUpgradeFromAppliedMigrations(testFolderPath, migrationIndex + 1))
+      ));
 });
