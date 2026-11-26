@@ -1,6 +1,6 @@
 import {Context, Effect, Layer, Stream} from "effect";
 
-import {WatchSessionProcessesRequestDtoSchema} from "@/dtos/sessionProcess.dto.ts";
+import {GetSessionProcessesRequestDtoSchema, WatchSessionProcessesRequestDtoSchema} from "@/dtos/sessionProcess.dto.ts";
 import {SessionProcessService} from "@/services/sessionProcess.service.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 
@@ -24,7 +24,15 @@ export class SessionProcessController extends Context.Service<SessionProcessCont
         return yield* sessionProcessService.watchSessionProcesses(watchRequests);
       });
 
-      return {watchSessionProcessesForSessionsView};
+      const getSessionProcessesForAgentApi = Effect.fn("SessionProcessController.getSessionProcessesForAgentApi")(
+        function* (sessionId: string) {
+          const request = yield* vscodeUtils.decodeVsCodeArgument(GetSessionProcessesRequestDtoSchema, {sessionId});
+
+          return yield* sessionProcessService.getSessionProcesses(request);
+        }
+      );
+
+      return {getSessionProcessesForAgentApi, watchSessionProcessesForSessionsView};
     })
   }
 ) {

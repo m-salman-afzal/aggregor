@@ -5,7 +5,8 @@ import {AppErrorMessage} from "@/errorMessages/app.errorMessage.ts";
 import {RegisterCommandMiddleware} from "@/middlewares/registerCommand.middleware.ts";
 import {AgentService} from "@/services/agent.service.ts";
 import {AGENT_COMMANDS} from "@pkg/constants/src/agent.constant.ts";
-import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
+
+import type {SetDefaultAgentRequestDto} from "@/dtos/agent.dto.ts";
 
 export class AgentController extends Context.Service<AgentController>()(
   "aggregor-app/presentation/controllers/agent.controller/AgentController",
@@ -14,12 +15,10 @@ export class AgentController extends Context.Service<AgentController>()(
       const registerCommandMiddleware = yield* RegisterCommandMiddleware;
       const agentService = yield* AgentService;
       const appErrorMessage = yield* AppErrorMessage;
-      const vscodeUtils = yield* VscodeUtils;
 
       const setChosenAgentAsDefault = Effect.fn("AgentController.setChosenAgentAsDefault")(function* (
-        chosenAgent: unknown
+        request: SetDefaultAgentRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(SetDefaultAgentRequestDtoSchema, chosenAgent);
         yield* agentService.setDefaultAgent(request);
       });
 
@@ -27,11 +26,12 @@ export class AgentController extends Context.Service<AgentController>()(
         return yield* agentService.listAgents;
       });
 
-      yield* registerCommandMiddleware.registerCommand(
-        AGENT_COMMANDS.SET_DEFAULT,
-        setChosenAgentAsDefault,
-        appErrorMessage.getAppCommandErrorMessage
-      );
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: AGENT_COMMANDS.SET_DEFAULT,
+        controller: setChosenAgentAsDefault,
+        getCommandErrorMessage: appErrorMessage.getAppCommandErrorMessage,
+        requestSchema: SetDefaultAgentRequestDtoSchema
+      });
 
       return {listAgentsForSessionsView: listAgentsForSessionsView(), setChosenAgentAsDefault};
     })

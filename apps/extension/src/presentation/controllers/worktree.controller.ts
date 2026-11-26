@@ -11,6 +11,8 @@ import {WorktreeService} from "@/services/worktree.service.ts";
 import {WORKTREE_COMMANDS} from "@pkg/constants/src/git.constant.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 
+import type {CleanUpProjectLeftoversRequestDto} from "@/dtos/worktree.dto.ts";
+
 export class WorktreeController extends Context.Service<WorktreeController>()(
   "aggregor-app/presentation/controllers/worktree.controller/WorktreeController",
   {
@@ -21,12 +23,8 @@ export class WorktreeController extends Context.Service<WorktreeController>()(
       const vscodeUtils = yield* VscodeUtils;
 
       const cleanUpChosenProjectLeftovers = Effect.fn("WorktreeController.cleanUpChosenProjectLeftovers")(function* (
-        chosenLeftovers: unknown
+        request: CleanUpProjectLeftoversRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(
-          CleanUpProjectLeftoversRequestDtoSchema,
-          chosenLeftovers
-        );
         yield* worktreeService.cleanUpProjectLeftovers(request);
       });
 
@@ -46,11 +44,12 @@ export class WorktreeController extends Context.Service<WorktreeController>()(
         }
       );
 
-      yield* registerCommandMiddleware.registerCommand(
-        WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS,
-        cleanUpChosenProjectLeftovers,
-        worktreeErrorMessage.getWorktreeCommandErrorMessage
-      );
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: WORKTREE_COMMANDS.CLEAN_UP_LEFTOVERS,
+        controller: cleanUpChosenProjectLeftovers,
+        getCommandErrorMessage: worktreeErrorMessage.getWorktreeCommandErrorMessage,
+        requestSchema: CleanUpProjectLeftoversRequestDtoSchema
+      });
 
       return {cleanUpChosenProjectLeftovers, listProjectBranchesForSessionsView, listProjectLeftoversForSessionsView};
     })

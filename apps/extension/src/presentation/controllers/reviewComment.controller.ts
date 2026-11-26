@@ -11,7 +11,14 @@ import {ReviewCommentErrorMessage} from "@/errorMessages/reviewComment.errorMess
 import {RegisterCommandMiddleware} from "@/middlewares/registerCommand.middleware.ts";
 import {ReviewCommentService} from "@/services/reviewComment.service.ts";
 import {REVIEW_COMMENT_COMMANDS} from "@pkg/constants/src/reviewComment.constant.ts";
-import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
+
+import type {
+  AddReviewCommentRequestDto,
+  EditReviewCommentRequestDto,
+  MoveReviewCommentRequestDto,
+  RemoveReviewCommentRequestDto,
+  SendSessionReviewCommentsRequestDto
+} from "@/dtos/reviewComment.dto.ts";
 
 export class ReviewCommentController extends Context.Service<ReviewCommentController>()(
   "aggregor-app/presentation/controllers/reviewComment.controller/ReviewCommentController",
@@ -20,36 +27,28 @@ export class ReviewCommentController extends Context.Service<ReviewCommentContro
       const registerCommandMiddleware = yield* RegisterCommandMiddleware;
       const reviewCommentService = yield* ReviewCommentService;
       const reviewCommentErrorMessage = yield* ReviewCommentErrorMessage;
-      const vscodeUtils = yield* VscodeUtils;
 
       const addWrittenReviewComment = Effect.fn("ReviewCommentController.addWrittenReviewComment")(function* (
-        writtenReviewComment: unknown
+        request: AddReviewCommentRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(AddReviewCommentRequestDtoSchema, writtenReviewComment);
         yield* reviewCommentService.addReviewComment(request);
       });
 
       const editChosenReviewComment = Effect.fn("ReviewCommentController.editChosenReviewComment")(function* (
-        chosenReviewComment: unknown
+        request: EditReviewCommentRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(EditReviewCommentRequestDtoSchema, chosenReviewComment);
         yield* reviewCommentService.editReviewComment(request);
       });
 
       const removeChosenReviewComment = Effect.fn("ReviewCommentController.removeChosenReviewComment")(function* (
-        chosenReviewComment: unknown
+        request: RemoveReviewCommentRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(
-          RemoveReviewCommentRequestDtoSchema,
-          chosenReviewComment
-        );
         yield* reviewCommentService.removeReviewComment(request);
       });
 
       const moveShownReviewComment = Effect.fn("ReviewCommentController.moveShownReviewComment")(function* (
-        shownReviewComment: unknown
+        request: MoveReviewCommentRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(MoveReviewCommentRequestDtoSchema, shownReviewComment);
         yield* reviewCommentService.moveReviewComment(request);
       });
 
@@ -58,11 +57,7 @@ export class ReviewCommentController extends Context.Service<ReviewCommentContro
       });
 
       const sendChosenSessionReviewComments = Effect.fn("ReviewCommentController.sendChosenSessionReviewComments")(
-        function* (chosenSession: unknown) {
-          const request = yield* vscodeUtils.decodeVsCodeArgument(
-            SendSessionReviewCommentsRequestDtoSchema,
-            chosenSession
-          );
+        function* (request: SendSessionReviewCommentsRequestDto) {
           yield* reviewCommentService.sendSessionReviewComments(request);
         }
       );
@@ -79,36 +74,41 @@ export class ReviewCommentController extends Context.Service<ReviewCommentContro
         return yield* reviewCommentService.watchReviewCommentChanges;
       });
 
-      yield* registerCommandMiddleware.registerCommand(
-        REVIEW_COMMENT_COMMANDS.ADD,
-        addWrittenReviewComment,
-        reviewCommentErrorMessage.getReviewCommentCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        REVIEW_COMMENT_COMMANDS.EDIT,
-        editChosenReviewComment,
-        reviewCommentErrorMessage.getReviewCommentCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        REVIEW_COMMENT_COMMANDS.REMOVE,
-        removeChosenReviewComment,
-        reviewCommentErrorMessage.getReviewCommentCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        REVIEW_COMMENT_COMMANDS.MOVE,
-        moveShownReviewComment,
-        reviewCommentErrorMessage.getReviewCommentCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        REVIEW_COMMENT_COMMANDS.SEND,
-        sendPendingReviewComments,
-        reviewCommentErrorMessage.getReviewCommentCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        REVIEW_COMMENT_COMMANDS.SEND_TO_SESSION,
-        sendChosenSessionReviewComments,
-        reviewCommentErrorMessage.getReviewCommentCommandErrorMessage
-      );
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: REVIEW_COMMENT_COMMANDS.ADD,
+        controller: addWrittenReviewComment,
+        getCommandErrorMessage: reviewCommentErrorMessage.getReviewCommentCommandErrorMessage,
+        requestSchema: AddReviewCommentRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: REVIEW_COMMENT_COMMANDS.EDIT,
+        controller: editChosenReviewComment,
+        getCommandErrorMessage: reviewCommentErrorMessage.getReviewCommentCommandErrorMessage,
+        requestSchema: EditReviewCommentRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: REVIEW_COMMENT_COMMANDS.REMOVE,
+        controller: removeChosenReviewComment,
+        getCommandErrorMessage: reviewCommentErrorMessage.getReviewCommentCommandErrorMessage,
+        requestSchema: RemoveReviewCommentRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: REVIEW_COMMENT_COMMANDS.MOVE,
+        controller: moveShownReviewComment,
+        getCommandErrorMessage: reviewCommentErrorMessage.getReviewCommentCommandErrorMessage,
+        requestSchema: MoveReviewCommentRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommandWithoutRequest({
+        commandId: REVIEW_COMMENT_COMMANDS.SEND,
+        controller: sendPendingReviewComments,
+        getCommandErrorMessage: reviewCommentErrorMessage.getReviewCommentCommandErrorMessage
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: REVIEW_COMMENT_COMMANDS.SEND_TO_SESSION,
+        controller: sendChosenSessionReviewComments,
+        getCommandErrorMessage: reviewCommentErrorMessage.getReviewCommentCommandErrorMessage,
+        requestSchema: SendSessionReviewCommentsRequestDtoSchema
+      });
 
       return {
         addWrittenReviewComment,

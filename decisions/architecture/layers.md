@@ -62,10 +62,11 @@ DDD.md's layers: what each holds and how they talk.
 - **Decision:**
   - Request and response DTOs live in `application/dtos/<x>.dto.ts` as schemas: `<UseCase>RequestDto`, one per use case,
     and response DTOs named for what they are (`SessionListItemDto`, `ProjectListItemDto`).
-  - A controller decodes its input into the request DTO with `VscodeUtils`'s `decodeVsCodeArgument` and calls one
-    service; it imports only services, DTOs, the middleware and error messages it registers its commands with,
-    `@pkg/constants`, `TaggedErrors` and `VscodeUtils`. Error messages import services' types; views import controllers
-    and DTOs' types. Presentation imports nothing from the domain or infrastructure.
+  - A command's request is decoded into its request DTO by `registerCommand`, with the schema the controller registers
+    it with (see agentApi.md), and the controller calls one service with it; a view's read decodes its input with
+    `VscodeUtils`'s `decodeVsCodeArgument`. A controller imports only services, DTOs, the middleware and error messages
+    it registers its commands with, `@pkg/constants`, `TaggedErrors` and `VscodeUtils`. Error messages import services'
+    types; views import controllers and DTOs' types. Presentation imports nothing from the domain or infrastructure.
   - A value object is only a value: the list's rows and changes became DTOs.
   - Source Control progress and its context key moved into `CommitMessageService`, through a new
     `IProgressInfraService`; `scm.*` became `commitMessage.*`.
@@ -77,7 +78,8 @@ DDD.md's layers: what each holds and how they talk.
 
 - **Alternatives considered:** keep passing domain objects across, as Fowler advises inside one process unless the
   presentation model and the domain model differ; they differ here (rows against entities). One request DTO per shape
-  (`{sessionId}`) instead of one per use case.
+  (`{sessionId}`) instead of one per use case. Each controller decoding its command's argument itself, built first,
+  until the agent API needed every command's request schema in one table.
 
 ## A command's failure is shown by its error message
 

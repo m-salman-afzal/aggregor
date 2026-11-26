@@ -14,6 +14,7 @@ import {ProjectSettingsValueObjectSchema} from "@/valueObjects/projectSettings.v
 import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 
 import type {
+  AddProjectFolderRequestDto,
   MoveProjectDownRequestDto,
   MoveProjectUpRequestDto,
   RemoveProjectRequestDto,
@@ -25,6 +26,7 @@ import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
 
 export class ProjectServiceErrors extends TaggedErrors({
+  ProjectFolderNotFoundError: {projectPath: ProjectPathValueObjectSchema},
   ProjectNotListedError: {projectPath: ProjectPathValueObjectSchema}
 }) {}
 
@@ -159,22 +161,40 @@ export class ProjectService extends Context.Service<ProjectService>()(
         return yield* projectBaseService.addEntity({isAdded: false, path: projectPath});
       });
 
+      const addChosenFolderPaths = Effect.fn("ProjectService.addChosenFolderPaths")(function* (
+        chosenFolderPaths: readonly ProjectPathValueObject[]
+      ) {
+        const projectListItems = yield* listProjects();
+        const ownFolderProjects = Array.filter(projectListItems, (projectListItem) => !projectListItem.isAdded);
+        const projectPaths = new Set(Array.map(ownFolderProjects, (ownFolderProject) => ownFolderProject.path));
+        const newProjectPaths = Array.filter(
+          chosenFolderPaths,
+          (chosenFolderPath) => !projectPaths.has(chosenFolderPath)
+        );
+
+        yield* addProjectPaths(newProjectPaths);
+        yield* showFirstNewProject(newProjectPaths);
+      });
+
       const addProject = Effect.fn("ProjectService.addProject")(
         function* () {
           const pickedFolderPaths = yield* userInputPromptInfraService.pickProjectFolderPaths;
-          const projectListItems = yield* listProjects();
-          const ownFolderProjects = Array.filter(projectListItems, (projectListItem) => !projectListItem.isAdded);
-          const projectPaths = new Set(Array.map(ownFolderProjects, (ownFolderProject) => ownFolderProject.path));
-          const newProjectPaths = Array.filter(
-            pickedFolderPaths,
-            (pickedFolderPath) => !projectPaths.has(pickedFolderPath)
-          );
-
-          yield* addProjectPaths(newProjectPaths);
-          yield* showFirstNewProject(newProjectPaths);
+          yield* addChosenFolderPaths(pickedFolderPaths);
         },
         Effect.catchTag("FolderPickCancelledError", () => Effect.void)
       );
+
+      const addProjectFolder = Effect.fn("ProjectService.addProjectFolder")(function* (
+        request: AddProjectFolderRequestDto
+      ) {
+        const isExistingFolder = yield* workspaceInfraService.isExistingFolder(request.projectPath);
+        yield* Effect.annotateCurrentSpan({isExistingFolder, projectPath: request.projectPath});
+        if (!isExistingFolder) {
+          return yield* ProjectServiceErrors.ProjectFolderNotFoundError.make({projectPath: request.projectPath});
+        }
+
+        return yield* addChosenFolderPaths([request.projectPath]);
+      });
 
       const listAddedProjectOrder = Effect.fn("ProjectService.listAddedProjectOrder")(function* () {
         const storedProjects = yield* projectBaseService.findEntities({});
@@ -252,6 +272,7 @@ export class ProjectService extends Context.Service<ProjectService>()(
 
       return {
         addProject: addProject(),
+        addProjectFolder,
         addProjectPaths,
         findOrAddProject,
         findProjectListItem,

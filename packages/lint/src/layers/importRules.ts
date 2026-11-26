@@ -60,9 +60,10 @@ const ERROR_MESSAGE_IMPORTS = {
 
 const VIEW_IMPORTS = {
   message:
-    "A view imports only effect, vscode types, @pkg, the controllers and its own utils classes it yields, and DTOs' " +
-    "types: it draws what its controllers give it.",
-  regex: "^(?!effect(/|$)|vscode$|@pkg/|@/(controllers|views|dtos)/)"
+    "A view imports only effect, vscode types, @pkg, the controllers, the middlewares and its own utils classes it " +
+    "yields, and DTOs' types: it draws what its controllers give it, and the agent API runs commands through " +
+    "RegisterCommandMiddleware's table.",
+  regex: "^(?!effect(/|$)|vscode$|@pkg/|@/(controllers|middlewares|views|dtos)/)"
 };
 
 const SERVICE_TYPE_IMPORTS = {

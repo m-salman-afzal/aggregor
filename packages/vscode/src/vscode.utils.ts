@@ -14,7 +14,7 @@ interface ErrorButtons {
 }
 
 export class VscodeUtilsErrors extends TaggedErrors({
-  InvalidVsCodeArgumentError: {cause: Schema.Unknown}
+  InvalidVsCodeArgumentError: {cause: Schema.Unknown, message: Schema.String}
 }) {}
 
 export class VscodeUtils extends Context.Service<VscodeUtils>()("@pkg/vscode/vscode.utils/VscodeUtils", {
@@ -115,7 +115,7 @@ export class VscodeUtils extends Context.Service<VscodeUtils>()("@pkg/vscode/vsc
       ArgumentSchema extends Schema.Constraint
     >(argumentSchema: ArgumentSchema, vsCodeArgument: unknown) {
       return yield* Effect.mapError(Schema.decodeUnknownEffect(argumentSchema)(vsCodeArgument), (cause) =>
-        VscodeUtilsErrors.InvalidVsCodeArgumentError.make({cause})
+        VscodeUtilsErrors.InvalidVsCodeArgumentError.make({cause, message: cause.message})
       );
     });
 

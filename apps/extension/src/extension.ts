@@ -12,9 +12,11 @@ import {SessionController} from "@/controllers/session.controller.ts";
 import {SessionAlertController} from "@/controllers/sessionAlert.controller.ts";
 import {SessionImportController} from "@/controllers/sessionImport.controller.ts";
 import {SessionProcessController} from "@/controllers/sessionProcess.controller.ts";
+import {SettingsController} from "@/controllers/settings.controller.ts";
 import {WorktreeController} from "@/controllers/worktree.controller.ts";
 import {ApplicationLayer} from "@/di/app.layer.ts";
 import {TraceLogLayer} from "@/logger/traceLog.layer.ts";
+import {AgentApiView} from "@/views/agentApi/agentApi.view.ts";
 import {FolderShellProfileView} from "@/views/folderShellProfile/folderShellProfile.view.ts";
 import {GitHubCliNoticesView} from "@/views/gitHubCliNotices/gitHubCliNotices.view.ts";
 import {RequiredToolsNoticesView} from "@/views/requiredToolsNotices/requiredToolsNotices.view.ts";
@@ -39,13 +41,15 @@ const PresentationLayer = Layer.mergeAll(
   SessionAlertController.layer,
   SessionImportController.layer,
   SessionProcessController.layer,
+  SettingsController.layer,
   WorktreeController.layer,
   SessionsView.layer,
   SessionAlertsView.layer,
   GitHubCliNoticesView.layer,
   RequiredToolsNoticesView.layer,
   FolderShellProfileView.layer,
-  ReviewCommentsView.layer
+  ReviewCommentsView.layer,
+  AgentApiView.layer
 ).pipe(Layer.withSpan("Presentation"), Layer.provide([ApplicationLayer, VscodeUtils.layer]));
 
 let activeRuntime: {readonly dispose: () => Promise<void>} | undefined;

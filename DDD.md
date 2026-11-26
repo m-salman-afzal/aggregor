@@ -77,7 +77,9 @@ and Martin (_The Clean Architecture_) define them, and where each sits here.
     `@pkg/constants`, `@pkg/errors`' `TaggedErrors` and `@pkg/vscode`'s `vscode.utils.ts`, whose `VscodeUtils` decodes
     their input and opens the settings for Open Settings, which has no use case.
   - **Error messages** import `@pkg/constants`, `@pkg/errors`' `TaggedErrors`, and `@/services` for types only.
-  - **Views** import `@/controllers`, their own files, `@pkg/*`, and `@/dtos` for types only.
+  - **Views** import `@/controllers`, `@/middlewares`, their own files, `@pkg/*`, and `@/dtos` for types only. The agent
+    API view yields `RegisterCommandMiddleware` for its command table, and Effect's `HttpServer`, which infrastructure
+    implements.
   - **Middlewares** import `@/middlewares` and `@pkg/*`: a middleware runs inside the controller that calls it, which
     hands it everything else.
 - `presentation/` lives inside `src`, because the extension ships as one bundle. The Sessions view's webview is the
@@ -186,9 +188,9 @@ file suffix. A function's name starts with a verb that says what it does (`makeS
 packages/
   constants/src/                           one file per feature, each with its command ids, labels, notices, error
                                            texts and the feature's other constants: app, commitMessage, database,
-                                           git, agent, process, project, reviewComment, session, sessionAlert,
-                                           sessionsView, terminal, tmux, vscode (VS Code's own command ids),
-                                           workspace
+                                           git, agent, agentApi (and the agent skill's text), process, project,
+                                           reviewComment, session, sessionAlert, sessionsView, settings, terminal,
+                                           tmux, vscode (VS Code's own command ids and settings), workspace
   errors/src/taggedErrors.utils.ts         TaggedErrors: a file's errors as the keys of one class, each keeping its
                                            own tag and type, built when the file loads
   lint/src/                                the repo's lint setup: base/ per file type, layers/ the DDD layering
@@ -204,7 +206,7 @@ packages/
                                            setWhenClauseContextKey, runWithProgressIndicator,
                                            openAggregorSettingsInSettingsEditor, showErrorNotificationWithoutWaiting
                                            (with an Open Settings button when given a setting), decodeVsCodeArgument;
-                                           InvalidVsCodeArgumentError
+                                           InvalidVsCodeArgumentError, whose message is the decode issue
 apps/extension/src/
   domain/
     entities/
@@ -296,9 +298,9 @@ apps/extension/src/
       sessionAlert.service.ts              watchSessionAlerts: the states sessions out of view hold for 3 seconds,
                                            as notifyOn picks them; notifyOnDesktop
       project.service.ts                   listProjects, getProjectListItem, findProjectListItem, addProject
-                                           (asks for folders), addProjectPaths, findOrAddProject, removeProject,
-                                           moveProjectUp, moveProjectDown, saveProjectSettings;
-                                           ProjectNotListedError
+                                           (asks for folders), addProjectFolder (an agent's path), addProjectPaths,
+                                           findOrAddProject, removeProject, moveProjectUp, moveProjectDown,
+                                           saveProjectSettings; ProjectFolderNotFoundError, ProjectNotListedError
       folderShell.service.ts               openProjectTerminal, openSessionFolderTerminal (a row's Open Terminal:
                                            the window's Aggregor terminal on the shell of the project's folder, or
                                            of the session's), prepareSessionFolderShellRequest (the session's
@@ -315,7 +317,8 @@ apps/extension/src/
                                            removeSessionWorktree (Remove's first step); LeftoversKeptError
       commitMessage.service.ts             generateCommitMessage: writes the message with Source Control's progress
       sessionProcess.service.ts            watchSessionProcesses: what each open dropdown's agent terminal and folder
-                                           shell run, read every 2 seconds while it is open
+                                           shell run, read every 2 seconds while it is open; getSessionProcesses,
+                                           one reading of a session's, for the agent API
       workspace.service.ts                 startShownProjectSync: the viewed session's project as the only
                                            project folder; startSessionReopenAfterReload
       reviewComment.service.ts             listReviewComments, watchReviewCommentChanges, addReviewComment,
@@ -326,6 +329,10 @@ apps/extension/src/
                                            session whose row asked); NoReviewCommentsError,
                                            NoSessionForReviewCommentsError, SessionAgentNotRunningError,
                                            SessionNotShownError
+      settings.service.ts                  updateSetting (one aggregorApp setting in the user's settings, returning
+                                           its previous value), getSettings
+      agentSkill.service.ts                installAgentSkill: writes the agent skill's text for Claude Code and the
+                                           other agents
     dtos/
       session.dto.ts                       SessionListItemDto, ProjectSessionsDto (a project's row with its sessions'
                                            rows, and its worktrees in the Sessions list), WorktreeListItemDto,
@@ -343,6 +350,9 @@ apps/extension/src/
       worktree.dto.ts                      ProjectLeftoversDto (LeftoverWorktreeDto, LeftoverBranchDto), and a
                                            request DTO per worktree use case
       commitMessage.dto.ts                 GenerateCommitMessageRequestDto
+      settings.dto.ts                      AggregorSettingsDto (every aggregorApp setting, typed as package.json
+                                           declares it), UpdateSettingRequestDto (a member per setting),
+                                           SettingChangeDto
       sessionProcess.dto.ts                SessionProcessesDto (TerminalProcessesDto, FolderShellProcessesDto,
                                            SessionProcessDto),
                                            WatchSessionProcessesRequestDto
@@ -383,8 +393,8 @@ apps/extension/src/
                                            DesktopNotificationRequest
       progress.infraService.interface.ts   runWithSourceControlProgress
       workspace.infraService.interface.ts  listWorkspaceFolderProjects, workspaceFolderChanges,
-                                           showOnlyProjectFolder, removeProjectFolder, takeSessionToReopen;
-                                           WorkspaceFolderProject, NoSessionToReopenError
+                                           showOnlyProjectFolder, removeProjectFolder, takeSessionToReopen,
+                                           isExistingFolder; WorkspaceFolderProject, NoSessionToReopenError
       git.infraService.interface.ts        getStagedDiff, setCommitMessageInput, commit,
                                            openInSourceControl
       worktree.infraService.interface.ts   createWorktree, listWorktrees, copyIncludedFiles, readBranchName,
@@ -403,8 +413,10 @@ apps/extension/src/
                                            gitHubCliSignedOutProblems, openPullRequestInBrowser,
                                            openPullRequestInVsCode; PullRequestBranch, BranchPullRequest,
                                            GitHubCliSignedOutError, PullRequestNotFoundError
-      settings.config.interface.ts         readSettings, readSessionSettings, readAlertSettings,
-                                           saveDefaultAgentId; Settings, SessionSettings, AlertSettings
+      settings.config.interface.ts         readSettings, readSessionSettings, readAlertSettings, readAggregorSettings,
+                                           saveDefaultAgentId, saveUserSetting; Settings, SessionSettings,
+                                           AlertSettings, SettingSaveFailedError
+      agentSkill.infraService.interface.ts writeAgentSkill
   infrastructure/
     database/models/                       a Drizzle table per file (SessionTableModel...); base.model.ts:
                                            BASE_COLUMNS, the shared columns
@@ -425,6 +437,9 @@ apps/extension/src/
                                            line: add, list, remove, rename, merge checks and deletion, and the
                                            untracked files a new worktree gets
       os/shellCommand.infraService.ts      ShellCommandInfraService: looks commands up on PATH
+      os/agentSkill.infraService.ts        AgentSkillInfraService: writes skills/aggregor/SKILL.md in Claude Code's
+                                           folder (~/.claude, or $CLAUDE_CONFIG_DIR) and in ~/.agents, each only when
+                                           its text differs; a failed write is logged
       process/                             ProcessInfraService (process.infraService.ts): psProcess.utils.ts lists
                                            every process with one ps call, linuxProcess.utils.ts picks a pane's
                                            cgroup, processTree.utils.ts a root's descendants
@@ -460,16 +475,22 @@ apps/extension/src/
                                            store, read-only; a <agent>History.utils.ts per agent (Claude Code,
                                            Codex, OpenCode, Copilot), on what agentHistory.utils.ts shares
       commitCli/                           CommitCliInfraService: runs the configured commit command
+      http/agentApiServer.infraService.ts  AgentApiServerInfraService: Effect's HttpServer on api.sock in the
+                                           Aggregor folder (NodeHttpServer, mode 0600), unless another window's server
+                                           answers there; then, or when it can't listen, a server that serves nothing
       gitHubCli/                           GitHubCliInfraService: each worktree branch's pull request from gh, cached and
                                            looked up in the background, again when the setup terminal closes;
                                            GitHubCliTransformer (gitHubCli.transformer.ts) reads gh's JSON
     config/settings.config.ts              SettingsConfig
     di/
       app.layer.ts                         DomainLayer (the domain services), InfrastructureLayer (every port's
-                                           implementation) and ApplicationLayer (the application services and the
-                                           background jobs), each merged under its level's span
+                                           implementation, the agent API's HttpServer among them) and
+                                           ApplicationLayer (the application services and the background jobs, plus
+                                           infrastructure's HttpServer for the agent API view), each merged under
+                                           its level's span
       backgroundJobs.layer.ts              BackgroundJobs: its make starts every background job an application
-                                           service runs, syncSessionTabsWithTmux first, then the rest together
+                                           service runs, syncSessionTabsWithTmux first, then the rest together,
+                                           agentSkillService.installAgentSkill among them
       database.layer.ts                    Database (openDatabaseFile, migrateDatabase) and DatabaseLayer, built from
                                            them: opens ~/.aggregor/data/aggregor.db, foreign keys on, and applies the
                                            migrations in assets/migrations it hasn't run
@@ -484,20 +505,28 @@ apps/extension/src/
                                            applyPendingMigrations: backs the database up, then runs a folder's
                                            migrations it hasn't
     utils/tmuxSocket.utils.ts              getTmuxSocketPath: tmux.sock in it, Aggregor's own tmux server
+    utils/agentApiSocket.utils.ts          getAgentApiSocketPath: api.sock in it, the agent API's socket, which
+                                           every agent's and folder shell's tmux session gets as AGGREGOR_API_SOCKET
   presentation/
     middlewares/registerCommand.middleware.ts
-                                           RegisterCommandMiddleware.registerCommand: root span per command; shows
-                                           the failure's message, and logs a crash
+                                           RegisterCommandMiddleware: registerCommand (with the command's request
+                                           schema, which it decodes the argument with) and
+                                           registerCommandWithoutRequest; root span per command; shows the failure's
+                                           message, and logs a crash. Its
+                                           table of every registered command: listRegisteredCommands (each id with its
+                                           request's JSON Schema) and runCommandWithoutNotification, the agent API's
+                                           run, which hands the failure's message back instead of showing it
     controllers/                           session, sessionImport, sessionProcess, agent, sessionAlert, project,
                                            folderShell, worktree, pullRequest, requiredTools, commitMessage,
-                                           reviewComment: each
-                                           registers its commands, decodes a command's input into a request DTO and
-                                           calls one service; the views' reads. app: Open Settings, which goes
-                                           straight to @pkg/vscode
+                                           reviewComment, settings: each
+                                           registers its commands with their request DTOs' schemas, and each command
+                                           calls one service with its decoded request; the views' reads, which
+                                           decode their own input. app: Open Settings, which goes straight to
+                                           @pkg/vscode
     errorMessages/                         session, sessionImport, project, folderShell, worktree, pullRequest,
-                                           requiredTools, commitMessage, reviewComment: a failed command's message,
-                                           and the setting
-                                           that fixes it; app: none, for commands that cannot fail
+                                           requiredTools, commitMessage, reviewComment, settings: a failed command's
+                                           message, and the setting that fixes it; app: none, for commands that
+                                           cannot fail
     views/sessions/                        SessionsView (sessions.view.ts): the webview view provider, the webview's
                                            messages and the commands it asks for; sessionsDrawing.utils.ts what it
                                            sends apps/webview (the Sessions and Archive lists' rows and their
@@ -517,6 +546,12 @@ apps/extension/src/
                                            not sent yet, which it moves with its file's edits and whose new lines it
                                            then saves, and the commands that need VS Code's draft thread or a
                                            comment's editing mode
+    views/agentApi/                        AgentApiView: the agent API's routes on the HttpServer it is given:
+                                           GET /commands and POST /commands/<id> through the command table, and the
+                                           Sessions view's reads (projects, a project's next pages, archive,
+                                           agents, a project's importable sessions, branches and leftovers, a
+                                           session's pull requests and processes, review comments), and
+                                           GET /settings
   extension.ts                             PresentationLayer: the controllers and views, merged under its span, on
                                            ApplicationLayer; activate, deactivate
 apps/extension/tests/
@@ -571,25 +606,33 @@ apps/extension/tests/
 
 ## Presentation
 
-- A controller registers its own commands in its `make`, each with `RegisterCommandMiddleware`'s `registerCommand` and
-  its error message's function, so its layer is all a command needs. A command runs through `registerCommand` to its
-  controller, which decodes what VS Code passed into the request DTO and calls one service. A failure the service
-  returns goes to the command's error message, and the middleware shows it (`CommandErrorMessage`); the error message's
-  type covers every failure its services return, so a new one fails to compile until it has a message. A command that
-  only drives VS Code and reads no data, Open Settings, has no service: `AppController` calls `VscodeUtils`' helper.
+- A controller registers its own commands in its `make`, each with `RegisterCommandMiddleware`'s `registerCommand`, its
+  request DTO's schema and its error message's function (`registerCommandWithoutRequest` for a command that takes no
+  request), so its layer is all a command needs. A command runs through `registerCommand`, which decodes what VS Code
+  passed into the request DTO, to its controller, which calls one service with it. A failure the service returns goes to
+  the command's error message, and the middleware shows it (`CommandErrorMessage`); the error message's type covers
+  every failure its services return, so a new one fails to compile until it has a message. A command that only drives VS
+  Code and reads no data, Open Settings, has no service: `AppController` calls `VscodeUtils`' helper.
 - A view registers VS Code's providers and draws what its controllers return. It assembles nothing: a list arrives whole
   from one use case (`listProjectsWithSessions` returns each project's row with its sessions' rows), and the view adds
   only what VS Code alone can make, such as an agent icon's webview URI.
 - The Sessions view is a webview: the view reads the lists through its controllers and sends them to `apps/webview`,
   which keeps the rows it was sent and draws them. The webview asks the view to run a command on a row with the row's
   key as the request DTO's own field, `{sessionId}` or `{projectPath}`, and the view runs it with `executeCommand` when
-  `SESSIONS_WEBVIEW_COMMANDS` lists it, so it takes the menus' path: `registerCommand` and its controller, which decodes
-  that argument into the request DTO.
+  `SESSIONS_WEBVIEW_COMMANDS` lists it, so it takes the menus' path: `registerCommand`, which decodes that argument into
+  the request DTO, and its controller.
+- The agent API is a view too: `AgentApiView` serves HTTP on `api.sock` for agent CLIs, with a route per registered
+  command and the Sessions view's reads. `RegisterCommandMiddleware` keeps a table of every command it registered, with
+  its request's JSON Schema, and runs one from the table under the same root span as VS Code does, handing its failure's
+  message back instead of showing a notification. The socket, its file and the Node server are infrastructure's:
+  `AgentApiServerInfraService` provides Effect's `HttpServer` in `InfrastructureLayer`, `ApplicationLayer` hands that
+  one service on to presentation, and the view only adds its routes to it.
 - The webview asks the user before it sends a request: it picks the project and the agent for New Session, the name for
   Rename, and confirms Remove on a running agent and Stop on a turn in progress, from the rows and the agent list the
   view sent it. Its dialogs are its own; no layer below waits on the user.
-- Every command runs from the webview, the Source Control button, a notification or a comment thread's buttons. Only
-  Send Comments to Session is in the Command Palette, with a keybinding.
+- Every command runs from the webview, the Source Control button, a notification, a comment thread's buttons or the
+  agent API, which alone runs Update Setting. Only Send Comments to Session is in the Command Palette, with a
+  keybinding.
 - A button VS Code draws in a menu of its own runs a controller's command with the object VS Code hands it, which the
   controller decodes as it does a webview's request: Source Control's button, and a comment's Save, Delete and Send
   Comments to Session. When the gesture needs more of VS Code's object than reading it (a draft thread to dispose, a
@@ -676,7 +719,9 @@ apps/extension/tests/
   `RegisterCommandMiddleware.layer`, `TmuxInfraService` its tmux utils, and `SessionsPageUtils` the `SecureRandom` its
   page's nonce needs. It never provides a unit of a lower level.
 - **Two things are global:** `VsCodeApi`, which `activate` builds from its argument, and the trace log, which sits under
-  everything so that startup is traced. `extension.ts` provides both once.
+  everything so that startup is traced. `extension.ts` provides both once. `ApplicationLayer` also hands presentation
+  the one implementation a view uses: `AgentApiServerInfraService`'s `HttpServer`, built in `InfrastructureLayer` under
+  its span, a port Effect declares rather than application, since only the agent API view serves on it.
 - **Levels:** `infrastructure/di/app.layer.ts` holds `DomainLayer`, `InfrastructureLayer` and `ApplicationLayer`, and
   `extension.ts` holds `PresentationLayer`, each
   `Layer.mergeAll(...).pipe(Layer.withSpan("<Level>"), Layer.provide(<the levels below>))`: the domain is given

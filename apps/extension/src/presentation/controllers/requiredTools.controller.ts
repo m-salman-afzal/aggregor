@@ -25,11 +25,11 @@ export class RequiredToolsController extends Context.Service<RequiredToolsContro
         return yield* requiredToolsService.watchMissingTools;
       });
 
-      yield* registerCommandMiddleware.registerCommand(
-        REQUIRED_TOOLS_COMMANDS.INSTALL,
-        installRequiredToolsFromNotice,
-        requiredToolsErrorMessage.getRequiredToolsCommandErrorMessage
-      );
+      yield* registerCommandMiddleware.registerCommandWithoutRequest({
+        commandId: REQUIRED_TOOLS_COMMANDS.INSTALL,
+        controller: installRequiredToolsFromNotice,
+        getCommandErrorMessage: requiredToolsErrorMessage.getRequiredToolsCommandErrorMessage
+      });
 
       return {
         installRequiredToolsFromNotice: installRequiredToolsFromNotice(),

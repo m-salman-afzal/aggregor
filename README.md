@@ -22,6 +22,9 @@ which worktree it works in and its pull request.
 - **Alerts.** A notification when a session out of view needs you or finishes, a system one when VS Code is in the
   background, and a badge counting the sessions waiting on you.
 - **Import.** Bring a project's earlier Claude Code, Codex, OpenCode and Copilot conversations in as sessions.
+- **Agents can drive it.** An `aggregor` skill lets your agents do what the sidebar does: start and manage sessions, add
+  and configure projects, change settings and set VS Code up the way Aggregor is meant to look, over a local socket only
+  you can reach.
 - **Commit messages.** A Source Control button writes the commit message for the staged diff, then commits and pushes
   it; a setting turns each of the two off.
 

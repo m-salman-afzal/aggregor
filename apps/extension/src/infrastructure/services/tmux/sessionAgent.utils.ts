@@ -5,9 +5,11 @@ import {Array, Context, Effect, Layer, Record, Result, Schedule, Stream, String,
 import {FileSystem} from "effect/FileSystem";
 
 import {TmuxServerUtils} from "@/infraServices/tmux/tmuxServer.utils.ts";
+import {AgentApiSocketUtils} from "@/infraUtils/agentApiSocket.utils.ts";
 import {DatabaseUtils} from "@/infraUtils/database.utils.ts";
 import {ITmuxInfraServiceErrors} from "@/interfaces/tmux.infraService.interface.ts";
 import {decodeEntityId} from "@/valueObjects/entityId.valueObject.ts";
+import {AGENT_API} from "@pkg/constants/src/agentApi.constant.ts";
 import {PLATFORMS} from "@pkg/constants/src/process.constant.ts";
 import {PTY_BINARY} from "@pkg/constants/src/terminal.constant.ts";
 import {AGENT_START_WAIT, TMUX} from "@pkg/constants/src/tmux.constant.ts";
@@ -28,6 +30,7 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
       const fileSystem = yield* FileSystem;
       const vsCodeApi = yield* VsCodeApi;
       const databaseUtils = yield* DatabaseUtils;
+      const agentApiSocketUtils = yield* AgentApiSocketUtils;
       const tmuxServerUtils = yield* TmuxServerUtils;
 
       // An agent's tmux session is named by its session's id; a folder's shell, whose name is no id, is none.
@@ -54,6 +57,7 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
       const initialSessionIds = yield* readRunningSessionIds();
       const runningSessionIds = yield* SubscriptionRef.make(initialSessionIds);
       const databaseFilePath = yield* databaseUtils.getDatabaseFilePath;
+      const agentApiSocketPath = yield* agentApiSocketUtils.getAgentApiSocketPath;
       const foundPtyBinaryPath = yield* Effect.result(
         findPtyBinaryPath(vsCodeApi.Uri.joinPath(vsCodeApi.extensionUri, PTY_BINARY).fsPath)
       );
@@ -103,6 +107,7 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
         return [
           ...["new-session", "-A", "-s", sessionTabCommandRequest.sessionId],
           ...environmentFlags,
+          ...["-e", `${AGENT_API.SOCKET_ENVIRONMENT_VARIABLE}=${agentApiSocketPath}`],
           ...["-c", yield* tmuxServerUtils.escapeTmuxFormat(sessionTabCommandRequest.workingFolderPath)]
         ];
       });
@@ -224,6 +229,6 @@ export class SessionAgentUtils extends Context.Service<SessionAgentUtils>()(
   }
 ) {
   public static readonly layer = Layer.effect(this, this.make()).pipe(
-    Layer.provide([DatabaseUtils.layer, TmuxServerUtils.layer, NodeServices.layer])
+    Layer.provide([AgentApiSocketUtils.layer, DatabaseUtils.layer, TmuxServerUtils.layer, NodeServices.layer])
   );
 }

@@ -188,8 +188,9 @@ What lint checks, where its setup lives, and how its messages read.
     and the `Utils` name.
   - `importRules.ts` gives error messages their own allow-list (`effect`, `@pkg/constants`, and services' types), lets a
     controller import the middleware, error messages and `@pkg/constants` it registers its commands with, and
-    `@pkg/vscode`'s `vscode.utils.ts`, whose `VscodeUtils` decodes its input and opens the settings, and lets every
-    layer, and `@pkg/vscode`, import `@pkg/errors`' `TaggedErrors`, and nothing else from `@pkg/errors`.
+    `@pkg/vscode`'s `vscode.utils.ts`, whose `VscodeUtils` decodes its views' reads and opens the settings, lets a view
+    import the middlewares, for the agent API's command table, and lets every layer, and `@pkg/vscode`, import
+    `@pkg/errors`' `TaggedErrors`, and nothing else from `@pkg/errors`.
   - The rules on which class a role's file may hold, and its name, accept a file's `…Errors` class beside its unit class
     and don't take it for a unit. `packages/errors/src` is under the same code rules as `packages/vscode/src`, without
     the unit rules.

@@ -1,9 +1,14 @@
 export const PROJECT_COMMANDS = {
   ADD: "aggregorApp.addProject",
+  ADD_FOLDER: "aggregorApp.addProjectFolder",
   MOVE_DOWN: "aggregorApp.moveProjectDown",
   MOVE_UP: "aggregorApp.moveProjectUp",
   REMOVE: "aggregorApp.removeProject",
   SAVE_SETTINGS: "aggregorApp.saveProjectSettings"
+} as const;
+
+export const PROJECT_ERRORS = {
+  FOLDER_NOT_FOUND: (projectPath: string) => `${projectPath} is not a folder.`
 } as const;
 
 export const PROJECT_LABELS = {

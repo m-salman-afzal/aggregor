@@ -1,5 +1,5 @@
 import {NodeServices} from "@effect/platform-node";
-import {Layer} from "effect";
+import {Effect, Layer} from "effect";
 import {SecureRandom} from "effect/crypto";
 
 import {SettingsConfig} from "@/config/settings.config.ts";
@@ -16,6 +16,8 @@ import {AgentHistoryInfraService} from "@/infraServices/agentHistory/agentHistor
 import {CommitCliInfraService} from "@/infraServices/commitCli/commitCli.infraService.ts";
 import {WorktreeInfraService} from "@/infraServices/git/worktree.infraService.ts";
 import {GitHubCliInfraService} from "@/infraServices/gitHubCli/gitHubCli.infraService.ts";
+import {AgentApiServerInfraService} from "@/infraServices/http/agentApiServer.infraService.ts";
+import {AgentSkillInfraService} from "@/infraServices/os/agentSkill.infraService.ts";
 import {DesktopNotificationInfraService} from "@/infraServices/os/desktopNotification.infraService.ts";
 import {ShellCommandInfraService} from "@/infraServices/os/shellCommand.infraService.ts";
 import {ProcessInfraService} from "@/infraServices/process/process.infraService.ts";
@@ -30,6 +32,7 @@ import {ProjectRepository} from "@/repositories/project.repository.ts";
 import {ReviewCommentRepository} from "@/repositories/reviewComment.repository.ts";
 import {SessionRepository} from "@/repositories/session.repository.ts";
 import {AgentService} from "@/services/agent.service.ts";
+import {AgentSkillService} from "@/services/agentSkill.service.ts";
 import {CommitMessageService} from "@/services/commitMessage.service.ts";
 import {FolderShellService} from "@/services/folderShell.service.ts";
 import {ProjectService} from "@/services/project.service.ts";
@@ -40,9 +43,12 @@ import {SessionService} from "@/services/session.service.ts";
 import {SessionAlertService} from "@/services/sessionAlert.service.ts";
 import {SessionImportService} from "@/services/sessionImport.service.ts";
 import {SessionProcessService} from "@/services/sessionProcess.service.ts";
+import {SettingsService} from "@/services/settings.service.ts";
 import {WorkspaceService} from "@/services/workspace.service.ts";
 import {WorktreeService} from "@/services/worktree.service.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
+
+import type {HttpServer} from "effect/http";
 
 import type {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 
@@ -58,8 +64,10 @@ const DomainLayer = Layer.mergeAll(
 ).pipe(Layer.withSpan("Domain"), Layer.provide(SecureRandom.layerWebCrypto));
 
 const InfrastructureLayer = Layer.mergeAll(
+  AgentApiServerInfraService.layer,
   AgentHistoryInfraService.layer,
   AgentRepository.layer,
+  AgentSkillInfraService.layer,
   CommitCliInfraService.layer,
   DesktopNotificationInfraService.layer,
   GitHubCliInfraService.layer,
@@ -82,8 +90,9 @@ const InfrastructureLayer = Layer.mergeAll(
   VsCodeApi
 >;
 
-export const ApplicationLayer = Layer.mergeAll(
+const ApplicationServicesLayer = Layer.mergeAll(
   AgentService.layer,
+  AgentSkillService.layer,
   CommitMessageService.layer,
   FolderShellService.layer,
   ProjectService.layer,
@@ -94,7 +103,15 @@ export const ApplicationLayer = Layer.mergeAll(
   SessionAlertService.layer,
   SessionImportService.layer,
   SessionProcessService.layer,
+  SettingsService.layer,
   WorkspaceService.layer,
   WorktreeService.layer,
   BackgroundJobs.layer
 ).pipe(Layer.withSpan("Application"), Layer.provide([DomainLayer, InfrastructureLayer, NodeServices.layer]));
+
+// The same InfrastructureLayer value as ApplicationServicesLayer's, so the runtime builds it, and the socket, once.
+const HttpServerLayer = Layer.effectContext(Effect.context<HttpServer.HttpServer>()).pipe(
+  Layer.provide(InfrastructureLayer)
+);
+
+export const ApplicationLayer = Layer.merge(ApplicationServicesLayer, HttpServerLayer);

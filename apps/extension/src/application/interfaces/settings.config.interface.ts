@@ -4,6 +4,7 @@ import {TaggedErrors} from "@pkg/errors/src/taggedErrors.utils.ts";
 
 import type {Effect} from "effect";
 
+import type {AggregorSettingsDto} from "@/dtos/settings.dto.ts";
 import type {AgentIdValueObject} from "@/valueObjects/agentId.valueObject.ts";
 import type {AgentStatusValueObject} from "@/valueObjects/agentStatus.valueObject.ts";
 import type {PULL_REQUEST_OPEN_PLACES} from "@pkg/constants/src/gitHubCli.constant.ts";
@@ -32,16 +33,23 @@ export interface Settings {
 }
 
 export class ISettingsConfigErrors extends TaggedErrors({
-  InvalidSettingsError: {reason: Schema.String}
+  InvalidSettingsError: {reason: Schema.String},
+  SettingSaveFailedError: {cause: Schema.Unknown, settingKey: Schema.String, settingsSection: Schema.String}
 }) {}
 
 export class ISettingsConfig extends Context.Service<
   ISettingsConfig,
   {
+    readonly readAggregorSettings: Effect.Effect<AggregorSettingsDto, ISettingsConfigErrors["InvalidSettingsError"]>;
     readonly readAlertSettings: Effect.Effect<AlertSettings, ISettingsConfigErrors["InvalidSettingsError"]>;
     readonly readPullRequestSettings: Effect.Effect<PullRequestSettings, ISettingsConfigErrors["InvalidSettingsError"]>;
     readonly readSessionSettings: Effect.Effect<SessionSettings, ISettingsConfigErrors["InvalidSettingsError"]>;
     readonly readSettings: Effect.Effect<Settings, ISettingsConfigErrors["InvalidSettingsError"]>;
     readonly saveDefaultAgentId: (agentId: AgentIdValueObject) => Effect.Effect<void>;
+    readonly saveUserSetting: (
+      settingsSection: string,
+      settingKey: string,
+      settingValue: unknown
+    ) => Effect.Effect<unknown, ISettingsConfigErrors["SettingSaveFailedError"]>;
   }
 >()("aggregor-app/application/interfaces/settings.config.interface/ISettingsConfig") {}

@@ -31,6 +31,10 @@ export const SaveProjectSettingsRequestDtoSchema = Schema.Struct({
 
 export type SaveProjectSettingsRequestDto = typeof SaveProjectSettingsRequestDtoSchema.Type;
 
+export const AddProjectFolderRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
+
+export type AddProjectFolderRequestDto = typeof AddProjectFolderRequestDtoSchema.Type;
+
 export const RemoveProjectRequestDtoSchema = Schema.Struct({projectPath: ProjectPathValueObjectSchema});
 
 export type RemoveProjectRequestDto = typeof RemoveProjectRequestDtoSchema.Type;

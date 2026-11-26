@@ -138,7 +138,9 @@ export const SESSIONS_VIEW_SETTINGS = {
   ACCENT_COLOR_PATTERN: /^(?:neutral|theme|palette|#[\dA-Fa-f]{6})$/u,
   DEFAULT_ACCENT_COLOR: "neutral",
   DEFAULT_FONT_SIZE: 14,
-  FONT_SIZE: "fontSize"
+  FONT_SIZE: "fontSize",
+  FONT_SIZE_MAXIMUM: 24,
+  FONT_SIZE_MINIMUM: 10
 } as const;
 
 export const STATUS_LABELS = {

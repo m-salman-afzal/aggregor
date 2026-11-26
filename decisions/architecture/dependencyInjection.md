@@ -79,7 +79,9 @@ Which layer is given what, the units that yield it, the levels they merge into, 
     `makeForTable`, which binds an entity table; each returns the base functions, each named `BaseService.…` or
     `BaseRepository.…` like any other function of its class. A service or repository yields the class at the top of its
     `make`, calls it there, and its layer provides the base class's layer.
-  - `RegisterCommandMiddleware` has one member, `registerCommand`; a controller yields it and its layer provides it. A
+  - `RegisterCommandMiddleware` has `registerCommand` and `registerCommandWithoutRequest`, which a controller calls, and
+    its command table's `listRegisteredCommands` and `runCommandWithoutNotification`, which `AgentApiView` calls; a
+    controller or the view yields it and its layer provides it, one layer value, so the runtime builds one table. A
     span's name is written in its function, so a command handler's spans stay its controller's although the middleware
     runs it.
   - `BackgroundJobs`, `Database` and `TraceLog` are the classes of the layer files that held functions; `DatabaseLayer`
@@ -129,7 +131,7 @@ Which layer is given what, the units that yield it, the levels they merge into, 
   `PresentationLayer`. Open Settings only drives VS Code and has no use case, so `AppController` registers it and calls
   `VscodeUtils`'s `openAggregorSettingsInSettingsEditor`. The controller's import rule allows `@/middlewares`,
   `@/errorMessages` and `@pkg/constants` for registering, and `@pkg/vscode/src/vscode.utils.ts`, whose `VscodeUtils`
-  decodes a command's input and opens the settings.
+  decodes a view's read input and opens the settings; `registerCommand` decodes a command's.
 - **Alternatives considered:** `routes.ts` registering every command, as before, which gives every controller the needs
   of all of them.
 

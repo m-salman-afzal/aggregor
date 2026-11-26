@@ -33,9 +33,9 @@ The Sessions view drawn in a webview of our own.
 - **Decision:** the webview asks the view to run a command with the row's key as the request DTO's own field,
   `{sessionId}` or `{projectPath}`, and the view runs it with `executeCommand` when it is one of
   `SESSIONS_WEBVIEW_COMMANDS`, every command a row's or a list's menu offers, Open Session and Add Project. Each runs as
-  the menus' do: the registration its controller made, `registerCommand`'s root span and error message, and the
-  controller, which decodes the argument straight into the request DTO. No new controller or layer, and a webview action
-  and a menu item stay one path.
+  the menus' do: the registration its controller made, `registerCommand`'s root span, decoding of the argument straight
+  into the request DTO and error message, and the controller. No new controller or layer, and a webview action and a
+  menu item stay one path.
 - **Solution:** the webview is a page in another process, so it can't call a controller itself; it can only post a
   message, and the view is the extension's end of that.
 - **Alternatives considered:** RPC handlers calling the controllers; a message per action, each with its own controller;

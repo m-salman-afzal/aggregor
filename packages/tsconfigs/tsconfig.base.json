@@ -76,12 +76,15 @@
         "ignoreEffectSuggestionsInTscExitCode": false,
         // Unstable Effect APIs we use on purpose; any other unstable API still fails typecheck.
         "allowedUnstableApis": [
+          "@effect/platform-node/NodeHttpServer",
           "@effect/platform-node/NodeServices",
           "@effect/sql-sqlite-node/SqliteClient",
           "effect/ByteSize",
           "effect/crypto/SecureRandom",
           "effect/FileSystem",
+          "effect/http",
           "effect/LayerMap",
+          "effect/net/NetAddress",
           "effect/Path",
           "effect/process",
           "effect/reactivity/Reactivity",

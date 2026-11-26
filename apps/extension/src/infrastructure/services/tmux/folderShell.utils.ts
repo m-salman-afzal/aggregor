@@ -4,8 +4,10 @@ import {Path} from "effect/Path";
 
 import {FolderShellDomainService} from "@/domainServices/folderShell.domainService.ts";
 import {TmuxServerUtils} from "@/infraServices/tmux/tmuxServer.utils.ts";
+import {AgentApiSocketUtils} from "@/infraUtils/agentApiSocket.utils.ts";
 import {ITmuxInfraServiceErrors} from "@/interfaces/tmux.infraService.interface.ts";
 import {ProjectPathValueObjectSchema} from "@/valueObjects/projectPath.valueObject.ts";
+import {AGENT_API} from "@pkg/constants/src/agentApi.constant.ts";
 import {FOLDER_SHELL, TMUX, TMUX_CLIENT_WAIT} from "@pkg/constants/src/tmux.constant.ts";
 
 import type {FolderShellRequest} from "@/interfaces/tmux.infraService.interface.ts";
@@ -18,6 +20,8 @@ export class FolderShellUtils extends Context.Service<FolderShellUtils>()(
       const path = yield* Path;
       const folderShellDomainService = yield* FolderShellDomainService;
       const tmuxServerUtils = yield* TmuxServerUtils;
+      const agentApiSocketUtils = yield* AgentApiSocketUtils;
+      const agentApiSocketPath = yield* agentApiSocketUtils.getAgentApiSocketPath;
 
       const nameFolderShell = Effect.fn("FolderShellUtils.nameFolderShell")(function* (
         folderPath: ProjectPathValueObject
@@ -42,6 +46,7 @@ export class FolderShellUtils extends Context.Service<FolderShellUtils>()(
 
         return [
           ...["new-session", ...newSessionFlags, "-s", folderShellName],
+          ...["-e", `${AGENT_API.SOCKET_ENVIRONMENT_VARIABLE}=${agentApiSocketPath}`],
           ...["-c", yield* tmuxServerUtils.escapeTmuxFormat(folderShellRequest.folderPath)],
           ...(yield* prepareShellArguments()),
           ...[...sessionOptionArguments, "status", "on"],
@@ -159,6 +164,6 @@ export class FolderShellUtils extends Context.Service<FolderShellUtils>()(
   }
 ) {
   public static readonly layer = Layer.effect(this, this.make()).pipe(
-    Layer.provide([TmuxServerUtils.layer, NodeServices.layer])
+    Layer.provide([AgentApiSocketUtils.layer, TmuxServerUtils.layer, NodeServices.layer])
   );
 }
