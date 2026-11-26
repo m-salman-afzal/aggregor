@@ -3,10 +3,10 @@
 What the extension stores, where, and why. Add an entry whenever something new is stored, and keep every entry to what
 is stored now.
 
-Everything but one user setting and the Sessions view's webview state lives in the Aggregor folder, `~/.aggregor` (or
-`$AGGREGOR_HOME`), which only its owner can read. Every window and every VS Code profile shares it, and it survives
-reloads, restarts and extension updates. The build F5 runs keeps its own, `~/.aggregorDev`, and
-`$AGGREGOR_DATABASE_FILE` puts the database elsewhere, with `aggregor-pty.log` beside it.
+Everything but the user settings it writes, its agent skill files and the Sessions view's webview state lives in the
+Aggregor folder, `~/.aggregor` (or `$AGGREGOR_HOME`), which only its owner can read. Every window and every VS Code
+profile shares it, and it survives reloads, restarts and extension updates. The build F5 runs keeps its own,
+`~/.aggregorDev`, and `$AGGREGOR_DATABASE_FILE` puts the database elsewhere, with `aggregor-pty.log` beside it.
 
 ## `data/aggregor.db`
 
@@ -108,6 +108,17 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
   the user's own tmux. In the Aggregor folder, a test's `AGGREGOR_HOME` gets a server of its own.
 - **Cleaned up:** by tmux; a stale socket left by a reboot is replaced when the next server starts.
 
+## `api.sock`
+
+- **Holds:** the Unix socket the agent API's HTTP server listens on, mode 0600, so only its owner can connect.
+- **Written by:** `AgentApiServerInfraService`, when a window starts and no other window's server answers on it; a stale
+  socket that refuses connections is removed first.
+- **Read by:** agent CLIs, through the agent skill's `curl --unix-socket`, and each window that starts, which connects
+  once to learn whether another window serves it.
+- **Why:** agents run Aggregor's commands through it; a file only its owner can open needs no port, token or Host check.
+- **Cleaned up:** Node removes it when the serving window's runtime closes; one a crash leaves behind is removed by the
+  next window that starts.
+
 ## `worktrees/`
 
 - **Holds:** a folder per project, `<project folder name>-<the project id's last 6 characters>`, and in it a git
@@ -159,11 +170,26 @@ table as a Drizzle table, one file per table, and `base.model.ts` the shared col
 
 ## User settings
 
-- **Holds:** `aggregorApp.defaultAgent`, the agent New Session offers first.
+- **Holds:** `aggregorApp.defaultAgent`, the agent New Session offers first; any `aggregorApp.*` setting an agent
+  changes.
 - **Written by:** `SettingsConfig.saveDefaultAgentId`, when the user clicks an agent's **Set as Default** in the picker,
-  into the user's `settings.json`.
-- **Read by:** `SessionService`, through `ISettingsConfig.readSessionSettings`, each time New Session runs.
+  and `SettingsConfig.saveUserSetting`, when the agent API runs `aggregorApp.updateSetting`, into the user's
+  `settings.json` through VS Code.
+- **Read by:** `SessionService`, through `ISettingsConfig.readSessionSettings`, each time New Session runs; VS Code and
+  each feature for the rest, and `GET /settings`.
 - **Cleaned up:** by the user, like any setting.
+
+## Agent skill files
+
+- **Holds:** `skills/aggregor/SKILL.md` in Claude Code's folder (`~/.claude`, or `$CLAUDE_CONFIG_DIR`) and in
+  `~/.agents`: the `aggregor` skill, which tells an agent how to call the agent API. Its text is the same for every
+  build, and reads the socket from `$AGGREGOR_API_SOCKET`.
+- **Written by:** `AgentSkillInfraService`, each time a window starts, only when a file's text differs; a failed write
+  is logged.
+- **Read by:** Claude Code, and Codex and the other agents that read `~/.agents/skills`.
+- **Why:** outside the Aggregor folder, since each agent reads skills only from its own folder.
+- **Cleaned up:** never; an uninstalled Aggregor leaves them, and deleting them is safe, since the next start writes
+  them again.
 
 ## The Sessions view's webview state
 

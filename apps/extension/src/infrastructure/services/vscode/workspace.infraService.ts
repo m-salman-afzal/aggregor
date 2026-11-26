@@ -1023,7 +1023,17 @@ export class WorkspaceInfraService extends Context.Service<WorkspaceInfraService
 
       yield* Effect.forkScoped(watchProjectSettingsChanges());
 
+      const isExistingFolder = Effect.fn("WorkspaceInfraService.isExistingFolder")(
+        function* (folderPath: ProjectPathValueObject) {
+          const folderInfo = yield* fileSystem.stat(folderPath);
+
+          return folderInfo.type === "Directory";
+        },
+        Effect.orElseSucceed(() => false)
+      );
+
       return {
+        isExistingFolder,
         listWorkspaceFolderProjects: listWorkspaceFolderProjects(),
         removeProjectFolder,
         showOnlyProjectFolder,

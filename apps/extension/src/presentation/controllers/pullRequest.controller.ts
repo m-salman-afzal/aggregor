@@ -12,6 +12,12 @@ import {PullRequestService} from "@/services/pullRequest.service.ts";
 import {GITHUB_CLI_COMMANDS} from "@pkg/constants/src/gitHubCli.constant.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 
+import type {
+  LinkSessionPullRequestRequestDto,
+  OpenSessionPullRequestRequestDto,
+  UnlinkSessionPullRequestRequestDto
+} from "@/dtos/pullRequest.dto.ts";
+
 export class PullRequestController extends Context.Service<PullRequestController>()(
   "aggregor-app/presentation/controllers/pullRequest.controller/PullRequestController",
   {
@@ -22,28 +28,19 @@ export class PullRequestController extends Context.Service<PullRequestController
       const vscodeUtils = yield* VscodeUtils;
 
       const openChosenSessionPullRequest = Effect.fn("PullRequestController.openChosenSessionPullRequest")(function* (
-        chosenSession: unknown
+        request: OpenSessionPullRequestRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(OpenSessionPullRequestRequestDtoSchema, chosenSession);
         yield* pullRequestService.openSessionPullRequest(request);
       });
 
       const linkChosenSessionPullRequest = Effect.fn("PullRequestController.linkChosenSessionPullRequest")(function* (
-        chosenPullRequest: unknown
+        request: LinkSessionPullRequestRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(
-          LinkSessionPullRequestRequestDtoSchema,
-          chosenPullRequest
-        );
         yield* pullRequestService.linkSessionPullRequest(request);
       });
 
       const unlinkChosenSessionPullRequest = Effect.fn("PullRequestController.unlinkChosenSessionPullRequest")(
-        function* (chosenSession: unknown) {
-          const request = yield* vscodeUtils.decodeVsCodeArgument(
-            UnlinkSessionPullRequestRequestDtoSchema,
-            chosenSession
-          );
+        function* (request: UnlinkSessionPullRequestRequestDto) {
           yield* pullRequestService.unlinkSessionPullRequest(request);
         }
       );
@@ -66,26 +63,29 @@ export class PullRequestController extends Context.Service<PullRequestController
         return yield* pullRequestService.watchGitHubCliSignedOut;
       });
 
-      yield* registerCommandMiddleware.registerCommand(
-        GITHUB_CLI_COMMANDS.OPEN_SESSION_PULL_REQUEST,
-        openChosenSessionPullRequest,
-        pullRequestErrorMessage.getPullRequestCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        GITHUB_CLI_COMMANDS.LINK_SESSION_PULL_REQUEST,
-        linkChosenSessionPullRequest,
-        pullRequestErrorMessage.getPullRequestCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        GITHUB_CLI_COMMANDS.SIGN_IN,
-        signInToGitHubCliFromNotice,
-        pullRequestErrorMessage.getPullRequestCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        GITHUB_CLI_COMMANDS.UNLINK_SESSION_PULL_REQUEST,
-        unlinkChosenSessionPullRequest,
-        pullRequestErrorMessage.getPullRequestCommandErrorMessage
-      );
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: GITHUB_CLI_COMMANDS.OPEN_SESSION_PULL_REQUEST,
+        controller: openChosenSessionPullRequest,
+        getCommandErrorMessage: pullRequestErrorMessage.getPullRequestCommandErrorMessage,
+        requestSchema: OpenSessionPullRequestRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: GITHUB_CLI_COMMANDS.LINK_SESSION_PULL_REQUEST,
+        controller: linkChosenSessionPullRequest,
+        getCommandErrorMessage: pullRequestErrorMessage.getPullRequestCommandErrorMessage,
+        requestSchema: LinkSessionPullRequestRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommandWithoutRequest({
+        commandId: GITHUB_CLI_COMMANDS.SIGN_IN,
+        controller: signInToGitHubCliFromNotice,
+        getCommandErrorMessage: pullRequestErrorMessage.getPullRequestCommandErrorMessage
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: GITHUB_CLI_COMMANDS.UNLINK_SESSION_PULL_REQUEST,
+        controller: unlinkChosenSessionPullRequest,
+        getCommandErrorMessage: pullRequestErrorMessage.getPullRequestCommandErrorMessage,
+        requestSchema: UnlinkSessionPullRequestRequestDtoSchema
+      });
 
       return {
         linkChosenSessionPullRequest,

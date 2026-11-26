@@ -8,7 +8,8 @@ import {FolderShellErrorMessage} from "@/errorMessages/folderShell.errorMessage.
 import {RegisterCommandMiddleware} from "@/middlewares/registerCommand.middleware.ts";
 import {FolderShellService} from "@/services/folderShell.service.ts";
 import {TERMINAL_COMMANDS} from "@pkg/constants/src/terminal.constant.ts";
-import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
+
+import type {OpenProjectTerminalRequestDto, OpenSessionFolderTerminalRequestDto} from "@/dtos/folderShell.dto.ts";
 
 export class FolderShellController extends Context.Service<FolderShellController>()(
   "aggregor-app/presentation/controllers/folderShell.controller/FolderShellController",
@@ -17,21 +18,15 @@ export class FolderShellController extends Context.Service<FolderShellController
       const registerCommandMiddleware = yield* RegisterCommandMiddleware;
       const folderShellService = yield* FolderShellService;
       const folderShellErrorMessage = yield* FolderShellErrorMessage;
-      const vscodeUtils = yield* VscodeUtils;
 
       const openChosenProjectTerminal = Effect.fn("FolderShellController.openChosenProjectTerminal")(function* (
-        chosenProject: unknown
+        request: OpenProjectTerminalRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(OpenProjectTerminalRequestDtoSchema, chosenProject);
         yield* folderShellService.openProjectTerminal(request);
       });
 
       const openChosenSessionFolderTerminal = Effect.fn("FolderShellController.openChosenSessionFolderTerminal")(
-        function* (chosenSession: unknown) {
-          const request = yield* vscodeUtils.decodeVsCodeArgument(
-            OpenSessionFolderTerminalRequestDtoSchema,
-            chosenSession
-          );
+        function* (request: OpenSessionFolderTerminalRequestDto) {
           yield* folderShellService.openSessionFolderTerminal(request);
         }
       );
@@ -42,16 +37,18 @@ export class FolderShellController extends Context.Service<FolderShellController
         return yield* folderShellService.prepareProfileTerminal;
       });
 
-      yield* registerCommandMiddleware.registerCommand(
-        TERMINAL_COMMANDS.OPEN_PROJECT_TERMINAL,
-        openChosenProjectTerminal,
-        folderShellErrorMessage.getFolderShellCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        TERMINAL_COMMANDS.OPEN_SESSION_FOLDER_TERMINAL,
-        openChosenSessionFolderTerminal,
-        folderShellErrorMessage.getFolderShellCommandErrorMessage
-      );
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: TERMINAL_COMMANDS.OPEN_PROJECT_TERMINAL,
+        controller: openChosenProjectTerminal,
+        getCommandErrorMessage: folderShellErrorMessage.getFolderShellCommandErrorMessage,
+        requestSchema: OpenProjectTerminalRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: TERMINAL_COMMANDS.OPEN_SESSION_FOLDER_TERMINAL,
+        controller: openChosenSessionFolderTerminal,
+        getCommandErrorMessage: folderShellErrorMessage.getFolderShellCommandErrorMessage,
+        requestSchema: OpenSessionFolderTerminalRequestDtoSchema
+      });
 
       return {
         openChosenProjectTerminal,

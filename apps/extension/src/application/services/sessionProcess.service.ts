@@ -14,7 +14,7 @@ import {SessionService} from "@/services/session.service.ts";
 import {SESSION_LIFECYCLES} from "@/valueObjects/sessionLifecycle.valueObject.ts";
 import {PROCESS_SAMPLING} from "@pkg/constants/src/process.constant.ts";
 
-import type {WatchSessionProcessesRequestDto} from "@/dtos/sessionProcess.dto.ts";
+import type {GetSessionProcessesRequestDto, WatchSessionProcessesRequestDto} from "@/dtos/sessionProcess.dto.ts";
 import type {SessionEntity} from "@/entities/session/session.entity.ts";
 import type {TmuxSessionPanes} from "@/interfaces/tmux.infraService.interface.ts";
 import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
@@ -84,6 +84,12 @@ export class SessionProcessService extends Context.Service<SessionProcessService
         });
       });
 
+      const getSessionProcesses = Effect.fn("SessionProcessService.getSessionProcesses")(function* (
+        request: GetSessionProcessesRequestDto
+      ) {
+        return yield* readSessionProcesses(request.sessionId);
+      });
+
       const readWatchedSessionProcesses = Effect.fn("SessionProcessService.readWatchedSessionProcesses")(function* (
         watchRequest: WatchSessionProcessesRequestDto
       ) {
@@ -109,7 +115,7 @@ export class SessionProcessService extends Context.Service<SessionProcessService
         );
       });
 
-      return {watchSessionProcesses};
+      return {getSessionProcesses, watchSessionProcesses};
     })
   }
 ) {

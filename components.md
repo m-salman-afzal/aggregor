@@ -288,8 +288,10 @@ heading there. Update this file in the same commit as a change that adds, remove
   (`Schema.TaggedError`, one per key of a file's errors class, through `@pkg/errors`' `TaggedErrors`), entities, enum
   value objects and argument decoding; `Result`; `Stream`, `SubscriptionRef`, `PubSub` and `Schedule`; `Config`;
   `Tracer` and `Logger` for the trace log (`infrastructure/logger/traceLog.layer.ts`); and the unstable `effect/sql`,
-  `effect/process` (`ChildProcess`), `effect/FileSystem`, `effect/Path`, `effect/crypto` (`SecureRandom.uuidV7`) and
-  `effect/reactivity`, each allowed by name in `packages/tsconfigs/tsconfig.base.json`.
+  `effect/process` (`ChildProcess`), `effect/FileSystem`, `effect/Path`, `effect/crypto` (`SecureRandom.uuidV7`),
+  `effect/reactivity`, and `effect/http` (`HttpServer`, `HttpRouter`, `HttpServerRequest`, `HttpServerResponse`) with
+  `effect/net`'s `NetAddress` for the agent API, each allowed by name in `packages/tsconfigs/tsconfig.base.json`;
+  `Schema.toJsonSchemaDocument` writes each command's request JSON Schema for the agent API's `GET /commands`.
 - **Why:** "Effect 4" records no reason for the choice; it is what gives every function its span and every failure a
   typed error.
 - **Alternatives:** Not weighed in `decisions/`.
@@ -300,8 +302,11 @@ heading there. Update this file in the same commit as a change that adds, remove
 - **What it is:** Effect's Node.js implementations of its platform services.
 - **What we use:** 4.1.4: `NodeServices.layer`, for `FileSystem`, `Path` and `ChildProcessSpawner`: each infrastructure
   layer that reads one gives it to itself, and `infrastructure/di/app.layer.ts` gives it to the application services,
-  for `Path`.
-- **Why:** the code asks for Effect's platform services, and this layer provides them in the extension host.
+  for `Path`. `NodeHttpServer.make`, on a `node:http` server listening on `api.sock`, is the agent API's `HttpServer`
+  (`infrastructure/services/http/agentApiServer.infraService.ts`).
+- **Why:** the code asks for Effect's platform services, and this layer provides them in the extension host. The agent
+  API's routes are an `HttpRouter`, so the server that runs them is Effect's too (see "The agent API is HTTP on a Unix
+  socket the first window owns").
 - **Alternatives:** Not weighed in `decisions/`.
   - Other options: `node:fs` and `node:child_process` directly, or execa.
 

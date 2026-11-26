@@ -22,7 +22,7 @@ jobs:
         run: |
           types='feat|fix|refactor|perf|docs|test|build|ci|chore'
           # The commit prompt in .vscode/settings.json lists the same scopes, each with what it covers.
-          scopes='sessions|projects|agents|status|alerts|review|workspace|commit-message|storage|lint|deps|release|repo'
+          scopes='sessions|projects|agents|status|alerts|review|workspace|commit-message|api|storage|lint|deps|release|repo'
           pattern="^($types)\(($scopes)\)!?: [^ ]"
           if [[ ! $PR_TITLE =~ $pattern ]]; then
             echo "::error::'$PR_TITLE' isn't '<type>(<scope>): <subject>', with type one of ${types//|/, } and scope one of ${scopes//|/, }"

@@ -20,6 +20,7 @@ export class IWorkspaceInfraServiceErrors extends TaggedErrors({
 export class IWorkspaceInfraService extends Context.Service<
   IWorkspaceInfraService,
   {
+    readonly isExistingFolder: (folderPath: ProjectPathValueObject) => Effect.Effect<boolean>;
     readonly listWorkspaceFolderProjects: Effect.Effect<readonly WorkspaceFolderProject[]>;
     // Best effort: a failure only logs a warning, and folder 0 stays.
     readonly removeProjectFolder: (projectPath: ProjectPathValueObject) => Effect.Effect<void>;

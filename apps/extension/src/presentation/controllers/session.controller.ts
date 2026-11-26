@@ -26,6 +26,24 @@ import {SessionService} from "@/services/session.service.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 
+import type {
+  ArchiveProjectSessionsRequestDto,
+  ArchiveSessionRequestDto,
+  ChangeSessionWorkingTreeRequestDto,
+  MoveSessionDownRequestDto,
+  MoveSessionUpRequestDto,
+  NewSessionRequestDto,
+  OpenSessionRequestDto,
+  RemoveSessionRequestDto,
+  RenameSessionBranchRequestDto,
+  RenameSessionRequestDto,
+  StopArchivedProjectSessionAgentsRequestDto,
+  StopProjectSessionAgentsRequestDto,
+  StopSessionAgentRequestDto,
+  UnarchiveSessionRequestDto,
+  UnlinkSessionWorktreeRequestDto
+} from "@/dtos/session.dto.ts";
+
 export class SessionController extends Context.Service<SessionController>()(
   "aggregor-app/presentation/controllers/session.controller/SessionController",
   {
@@ -36,69 +54,56 @@ export class SessionController extends Context.Service<SessionController>()(
       const vscodeUtils = yield* VscodeUtils;
 
       const createSessionInChosenProject = Effect.fn("SessionController.createSessionInChosenProject")(function* (
-        chosenProject: unknown
+        request: NewSessionRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(NewSessionRequestDtoSchema, chosenProject);
         yield* sessionService.createSession(request);
       });
 
-      const openChosenSession = Effect.fn("SessionController.openChosenSession")(function* (chosenSession: unknown) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(OpenSessionRequestDtoSchema, chosenSession);
+      const openChosenSession = Effect.fn("SessionController.openChosenSession")(function* (
+        request: OpenSessionRequestDto
+      ) {
         yield* sessionService.openSession(request);
       });
 
       const removeChosenSession = Effect.fn("SessionController.removeChosenSession")(function* (
-        chosenSession: unknown
+        request: RemoveSessionRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(RemoveSessionRequestDtoSchema, chosenSession);
         yield* sessionService.removeSession(request);
       });
 
       const archiveChosenSession = Effect.fn("SessionController.archiveChosenSession")(function* (
-        chosenSession: unknown
+        request: ArchiveSessionRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(ArchiveSessionRequestDtoSchema, chosenSession);
         yield* sessionService.archiveSession(request);
       });
 
       const unarchiveChosenSession = Effect.fn("SessionController.unarchiveChosenSession")(function* (
-        chosenSession: unknown
+        request: UnarchiveSessionRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(UnarchiveSessionRequestDtoSchema, chosenSession);
         yield* sessionService.unarchiveSession(request);
       });
 
       const stopChosenSessionAgent = Effect.fn("SessionController.stopChosenSessionAgent")(function* (
-        chosenSession: unknown
+        request: StopSessionAgentRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(StopSessionAgentRequestDtoSchema, chosenSession);
         yield* sessionService.stopSessionAgent(request);
       });
 
       const stopChosenProjectSessionAgents = Effect.fn("SessionController.stopChosenProjectSessionAgents")(function* (
-        chosenProject: unknown
+        request: StopProjectSessionAgentsRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(
-          StopProjectSessionAgentsRequestDtoSchema,
-          chosenProject
-        );
         yield* sessionService.stopProjectSessionAgents(request);
       });
 
       const stopChosenArchivedProjectSessionAgents = Effect.fn(
         "SessionController.stopChosenArchivedProjectSessionAgents"
-      )(function* (chosenProject: unknown) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(
-          StopArchivedProjectSessionAgentsRequestDtoSchema,
-          chosenProject
-        );
+      )(function* (request: StopArchivedProjectSessionAgentsRequestDto) {
         yield* sessionService.stopArchivedProjectSessionAgents(request);
       });
 
       const archiveChosenProjectSessions = Effect.fn("SessionController.archiveChosenProjectSessions")(function* (
-        chosenProject: unknown
+        request: ArchiveProjectSessionsRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(ArchiveProjectSessionsRequestDtoSchema, chosenProject);
         yield* sessionService.archiveProjectSessions(request);
       });
 
@@ -115,47 +120,38 @@ export class SessionController extends Context.Service<SessionController>()(
       });
 
       const renameChosenSession = Effect.fn("SessionController.renameChosenSession")(function* (
-        chosenSession: unknown
+        request: RenameSessionRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(RenameSessionRequestDtoSchema, chosenSession);
         yield* sessionService.renameSession(request);
       });
 
       const renameChosenSessionBranch = Effect.fn("SessionController.renameChosenSessionBranch")(function* (
-        chosenSession: unknown
+        request: RenameSessionBranchRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(RenameSessionBranchRequestDtoSchema, chosenSession);
         yield* sessionService.renameSessionBranch(request);
       });
 
       const changeChosenSessionWorkingTree = Effect.fn("SessionController.changeChosenSessionWorkingTree")(function* (
-        chosenSession: unknown
+        request: ChangeSessionWorkingTreeRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(
-          ChangeSessionWorkingTreeRequestDtoSchema,
-          chosenSession
-        );
         yield* sessionService.changeSessionWorkingTree(request);
       });
 
       const unlinkChosenSessionWorktree = Effect.fn("SessionController.unlinkChosenSessionWorktree")(function* (
-        chosenSession: unknown
+        request: UnlinkSessionWorktreeRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(UnlinkSessionWorktreeRequestDtoSchema, chosenSession);
         yield* sessionService.unlinkSessionWorktree(request);
       });
 
       const moveChosenSessionUp = Effect.fn("SessionController.moveChosenSessionUp")(function* (
-        chosenSession: unknown
+        request: MoveSessionUpRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(MoveSessionUpRequestDtoSchema, chosenSession);
         yield* sessionService.moveSessionUp(request);
       });
 
       const moveChosenSessionDown = Effect.fn("SessionController.moveChosenSessionDown")(function* (
-        chosenSession: unknown
+        request: MoveSessionDownRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(MoveSessionDownRequestDtoSchema, chosenSession);
         yield* sessionService.moveSessionDown(request);
       });
 
@@ -218,96 +214,111 @@ export class SessionController extends Context.Service<SessionController>()(
         }
       );
 
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.ARCHIVE,
-        archiveChosenSession,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.ARCHIVE_ONGOING,
-        archiveAllOngoingSessions,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.ARCHIVE_PROJECT_SESSIONS,
-        archiveChosenProjectSessions,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.CHANGE_WORKING_TREE,
-        changeChosenSessionWorkingTree,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.MOVE_DOWN,
-        moveChosenSessionDown,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.MOVE_UP,
-        moveChosenSessionUp,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT,
-        createSessionInChosenProject,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.OPEN,
-        openChosenSession,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.REMOVE,
-        removeChosenSession,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.RENAME,
-        renameChosenSession,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.RENAME_BRANCH,
-        renameChosenSessionBranch,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.STOP_AGENT,
-        stopChosenSessionAgent,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.STOP_ARCHIVED_AGENTS,
-        stopAllArchivedSessionAgents,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.STOP_ARCHIVED_PROJECT_AGENTS,
-        stopChosenArchivedProjectSessionAgents,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.STOP_ONGOING_AGENTS,
-        stopAllOngoingSessionAgents,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.STOP_PROJECT_AGENTS,
-        stopChosenProjectSessionAgents,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.UNARCHIVE,
-        unarchiveChosenSession,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.UNLINK_WORKTREE,
-        unlinkChosenSessionWorktree,
-        sessionErrorMessage.getSessionCommandErrorMessage
-      );
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: SESSION_COMMANDS.ARCHIVE,
+        controller: archiveChosenSession,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage,
+        requestSchema: ArchiveSessionRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommandWithoutRequest({
+        commandId: SESSION_COMMANDS.ARCHIVE_ONGOING,
+        controller: archiveAllOngoingSessions,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: SESSION_COMMANDS.ARCHIVE_PROJECT_SESSIONS,
+        controller: archiveChosenProjectSessions,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage,
+        requestSchema: ArchiveProjectSessionsRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: SESSION_COMMANDS.CHANGE_WORKING_TREE,
+        controller: changeChosenSessionWorkingTree,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage,
+        requestSchema: ChangeSessionWorkingTreeRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: SESSION_COMMANDS.MOVE_DOWN,
+        controller: moveChosenSessionDown,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage,
+        requestSchema: MoveSessionDownRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: SESSION_COMMANDS.MOVE_UP,
+        controller: moveChosenSessionUp,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage,
+        requestSchema: MoveSessionUpRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: SESSION_COMMANDS.NEW_IN_CHOSEN_PROJECT,
+        controller: createSessionInChosenProject,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage,
+        requestSchema: NewSessionRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: SESSION_COMMANDS.OPEN,
+        controller: openChosenSession,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage,
+        requestSchema: OpenSessionRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: SESSION_COMMANDS.REMOVE,
+        controller: removeChosenSession,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage,
+        requestSchema: RemoveSessionRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: SESSION_COMMANDS.RENAME,
+        controller: renameChosenSession,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage,
+        requestSchema: RenameSessionRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: SESSION_COMMANDS.RENAME_BRANCH,
+        controller: renameChosenSessionBranch,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage,
+        requestSchema: RenameSessionBranchRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: SESSION_COMMANDS.STOP_AGENT,
+        controller: stopChosenSessionAgent,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage,
+        requestSchema: StopSessionAgentRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommandWithoutRequest({
+        commandId: SESSION_COMMANDS.STOP_ARCHIVED_AGENTS,
+        controller: stopAllArchivedSessionAgents,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: SESSION_COMMANDS.STOP_ARCHIVED_PROJECT_AGENTS,
+        controller: stopChosenArchivedProjectSessionAgents,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage,
+        requestSchema: StopArchivedProjectSessionAgentsRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommandWithoutRequest({
+        commandId: SESSION_COMMANDS.STOP_ONGOING_AGENTS,
+        controller: stopAllOngoingSessionAgents,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: SESSION_COMMANDS.STOP_PROJECT_AGENTS,
+        controller: stopChosenProjectSessionAgents,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage,
+        requestSchema: StopProjectSessionAgentsRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: SESSION_COMMANDS.UNARCHIVE,
+        controller: unarchiveChosenSession,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage,
+        requestSchema: UnarchiveSessionRequestDtoSchema
+      });
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: SESSION_COMMANDS.UNLINK_WORKTREE,
+        controller: unlinkChosenSessionWorktree,
+        getCommandErrorMessage: sessionErrorMessage.getSessionCommandErrorMessage,
+        requestSchema: UnlinkSessionWorktreeRequestDtoSchema
+      });
 
       return {
         archiveAllOngoingSessions: archiveAllOngoingSessions(),

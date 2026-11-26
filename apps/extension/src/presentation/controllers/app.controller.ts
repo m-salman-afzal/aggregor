@@ -17,11 +17,11 @@ export class AppController extends Context.Service<AppController>()(
         yield* vscodeUtils.openAggregorSettingsInSettingsEditor;
       });
 
-      yield* registerCommandMiddleware.registerCommand(
-        APP_COMMANDS.OPEN_SETTINGS,
-        openAggregorSettings,
-        appErrorMessage.getAppCommandErrorMessage
-      );
+      yield* registerCommandMiddleware.registerCommandWithoutRequest({
+        commandId: APP_COMMANDS.OPEN_SETTINGS,
+        controller: openAggregorSettings,
+        getCommandErrorMessage: appErrorMessage.getAppCommandErrorMessage
+      });
 
       return {openAggregorSettings: openAggregorSettings()};
     })

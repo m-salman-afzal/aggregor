@@ -11,6 +11,8 @@ const SourceControlArgumentSchema = Schema.Struct({
   rootUri: Schema.optional(Schema.Struct({fsPath: Schema.String}))
 });
 
+type SourceControlArgument = typeof SourceControlArgumentSchema.Type;
+
 export class CommitMessageController extends Context.Service<CommitMessageController>()(
   "aggregor-app/presentation/controllers/commitMessage.controller/CommitMessageController",
   {
@@ -22,22 +24,19 @@ export class CommitMessageController extends Context.Service<CommitMessageContro
 
       const generateCommitMessageForSourceControl = Effect.fn(
         "CommitMessageController.generateCommitMessageForSourceControl"
-      )(function* (sourceControlArgument: unknown) {
-        const vsCodeArgument = yield* vscodeUtils.decodeVsCodeArgument(
-          SourceControlArgumentSchema,
-          sourceControlArgument
-        );
+      )(function* (sourceControlArgument: SourceControlArgument) {
         const request = yield* vscodeUtils.decodeVsCodeArgument(GenerateCommitMessageRequestDtoSchema, {
-          projectPath: vsCodeArgument.rootUri === undefined ? undefined : vsCodeArgument.rootUri.fsPath
+          projectPath: sourceControlArgument.rootUri === undefined ? undefined : sourceControlArgument.rootUri.fsPath
         });
         yield* commitMessageService.generateCommitMessage(request);
       });
 
-      yield* registerCommandMiddleware.registerCommand(
-        COMMIT_MESSAGE_COMMANDS.GENERATE,
-        generateCommitMessageForSourceControl,
-        commitMessageErrorMessage.getCommitMessageCommandErrorMessage
-      );
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: COMMIT_MESSAGE_COMMANDS.GENERATE,
+        controller: generateCommitMessageForSourceControl,
+        getCommandErrorMessage: commitMessageErrorMessage.getCommitMessageCommandErrorMessage,
+        requestSchema: SourceControlArgumentSchema
+      });
 
       return {generateCommitMessageForSourceControl};
     })

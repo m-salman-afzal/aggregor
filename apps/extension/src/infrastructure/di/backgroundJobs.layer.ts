@@ -1,5 +1,6 @@
 import {Context, Effect, Layer} from "effect";
 
+import {AgentSkillService} from "@/services/agentSkill.service.ts";
 import {FolderShellService} from "@/services/folderShell.service.ts";
 import {PullRequestService} from "@/services/pullRequest.service.ts";
 import {SessionService} from "@/services/session.service.ts";
@@ -13,6 +14,7 @@ export class BackgroundJobs extends Context.Service<BackgroundJobs>()(
       const folderShellService = yield* FolderShellService;
       const pullRequestService = yield* PullRequestService;
       const workspaceService = yield* WorkspaceService;
+      const agentSkillService = yield* AgentSkillService;
 
       // Before the other jobs, which read the session in view as they start.
       yield* sessionService.syncSessionTabsWithTmux;
@@ -27,7 +29,8 @@ export class BackgroundJobs extends Context.Service<BackgroundJobs>()(
           folderShellService.syncFolderShellTerminalWithTmux,
           folderShellService.startFolderShellFollow,
           folderShellService.startFolderShellEndOnTerminalClose,
-          workspaceService.startSessionReopenAfterReload
+          workspaceService.startSessionReopenAfterReload,
+          agentSkillService.installAgentSkill
         ],
         {concurrency: "unbounded", discard: true}
       );
@@ -37,6 +40,12 @@ export class BackgroundJobs extends Context.Service<BackgroundJobs>()(
   }
 ) {
   public static readonly layer = Layer.effect(this, this.make()).pipe(
-    Layer.provide([SessionService.layer, FolderShellService.layer, PullRequestService.layer, WorkspaceService.layer])
+    Layer.provide([
+      SessionService.layer,
+      FolderShellService.layer,
+      PullRequestService.layer,
+      WorkspaceService.layer,
+      AgentSkillService.layer
+    ])
   );
 }

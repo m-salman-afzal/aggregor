@@ -33,6 +33,10 @@ export const SessionProcessesDtoSchema = Schema.Struct({
 
 export type SessionProcessesDto = typeof SessionProcessesDtoSchema.Type;
 
+export const GetSessionProcessesRequestDtoSchema = Schema.Struct({sessionId: EntityIdValueObjectSchema});
+
+export type GetSessionProcessesRequestDto = typeof GetSessionProcessesRequestDtoSchema.Type;
+
 export const WatchSessionProcessesRequestDtoSchema = Schema.Struct({
   sessionIds: Schema.Array(EntityIdValueObjectSchema)
 });

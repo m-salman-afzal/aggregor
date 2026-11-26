@@ -1,5 +1,6 @@
 import {Context, Effect, Layer, Schema} from "effect";
 
+import {AggregorSettingsDtoSchema} from "@/dtos/settings.dto.ts";
 import {ISettingsConfig, ISettingsConfigErrors} from "@/interfaces/settings.config.interface.ts";
 import {AgentIdValueObjectSchema} from "@/valueObjects/agentId.valueObject.ts";
 import {AgentStatusValueObjectSchema} from "@/valueObjects/agentStatus.valueObject.ts";
@@ -98,6 +99,31 @@ export class SettingsConfig extends Context.Service<SettingsConfig>()(
         Effect.mapError((schemaError) => ISettingsConfigErrors.InvalidSettingsError.make({reason: schemaError.message}))
       );
 
+      const readAggregorSettings = Effect.fn("SettingsConfig.readAggregorSettings")(
+        function* () {
+          const configuredSettings = yield* vsCodeApi.getConfiguration(SETTINGS_SECTION);
+
+          return yield* Schema.decodeUnknownEffect(AggregorSettingsDtoSchema)(configuredSettings);
+        },
+        Effect.mapError((schemaError) => ISettingsConfigErrors.InvalidSettingsError.make({reason: schemaError.message}))
+      );
+
+      // Returns the effective value from before, which a workspace or folder setting may have set rather than the user's.
+      const saveUserSetting = Effect.fn("SettingsConfig.saveUserSetting")(function* (
+        settingsSection: string,
+        settingKey: string,
+        settingValue: unknown
+      ) {
+        const config = yield* vsCodeApi.getConfiguration(settingsSection);
+        const previousSettingValue: unknown = config.get(settingKey);
+        yield* Effect.tryPromise({
+          catch: (cause) => ISettingsConfigErrors.SettingSaveFailedError.make({cause, settingKey, settingsSection}),
+          try: () => config.update(settingKey, settingValue, vsCodeApi.ConfigurationTarget.Global)
+        });
+
+        return previousSettingValue;
+      });
+
       const saveDefaultAgentId = Effect.fn("SettingsConfig.saveDefaultAgentId")(
         function* (agentId: AgentIdValueObject) {
           const config = yield* vsCodeApi.getConfiguration(SETTINGS_SECTION);
@@ -111,11 +137,13 @@ export class SettingsConfig extends Context.Service<SettingsConfig>()(
       );
 
       return {
+        readAggregorSettings: readAggregorSettings(),
         readAlertSettings: readAlertSettings(),
         readPullRequestSettings: readPullRequestSettings(),
         readSessionSettings: readSessionSettings(),
         readSettings: readSettings(),
-        saveDefaultAgentId
+        saveDefaultAgentId,
+        saveUserSetting
       };
     })
   }

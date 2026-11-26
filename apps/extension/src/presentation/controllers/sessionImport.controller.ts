@@ -7,6 +7,8 @@ import {SessionImportService} from "@/services/sessionImport.service.ts";
 import {SESSION_COMMANDS} from "@pkg/constants/src/session.constant.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 
+import type {ImportSessionsRequestDto} from "@/dtos/sessionImport.dto.ts";
+
 export class SessionImportController extends Context.Service<SessionImportController>()(
   "aggregor-app/presentation/controllers/sessionImport.controller/SessionImportController",
   {
@@ -17,9 +19,8 @@ export class SessionImportController extends Context.Service<SessionImportContro
       const vscodeUtils = yield* VscodeUtils;
 
       const importChosenSessions = Effect.fn("SessionImportController.importChosenSessions")(function* (
-        chosenSessions: unknown
+        request: ImportSessionsRequestDto
       ) {
-        const request = yield* vscodeUtils.decodeVsCodeArgument(ImportSessionsRequestDtoSchema, chosenSessions);
         yield* sessionImportService.importSessions(request);
       });
 
@@ -31,11 +32,12 @@ export class SessionImportController extends Context.Service<SessionImportContro
         return yield* sessionImportService.listImportableSessions(request);
       });
 
-      yield* registerCommandMiddleware.registerCommand(
-        SESSION_COMMANDS.IMPORT,
-        importChosenSessions,
-        sessionImportErrorMessage.getSessionImportCommandErrorMessage
-      );
+      yield* registerCommandMiddleware.registerCommand({
+        commandId: SESSION_COMMANDS.IMPORT,
+        controller: importChosenSessions,
+        getCommandErrorMessage: sessionImportErrorMessage.getSessionImportCommandErrorMessage,
+        requestSchema: ImportSessionsRequestDtoSchema
+      });
 
       return {importChosenSessions, listImportableSessionsForSessionsView};
     })
