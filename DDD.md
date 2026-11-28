@@ -381,20 +381,22 @@ apps/extension/src/
       desktopNotification.infraService.interface.ts
                                            notifyOnDesktop: the system's own notification, whose Open opens a link;
                                            DesktopNotificationRequest
-      progress.infraService.interface.ts   runWithSourceControlProgress
+      progress.infraService.interface.ts   runWithSourceControlProgress, runWithSessionsViewProgress
       workspace.infraService.interface.ts  listWorkspaceFolderProjects, workspaceFolderChanges,
                                            showOnlyProjectFolder, removeProjectFolder, takeSessionToReopen;
                                            WorkspaceFolderProject, NoSessionToReopenError
       git.infraService.interface.ts        getStagedDiff, setCommitMessageInput, commit,
                                            openInSourceControl
-      worktree.infraService.interface.ts   createWorktree, listWorktrees, copyIncludedFiles, readBranchName,
+      worktree.infraService.interface.ts   createWorktree, listWorktrees, listIncludedFiles, copyIncludedFiles,
+                                           readBranchName,
                                            hasUpstream, findFreeBranchName, renameBranch, hasChanges,
                                            removeWorktree, isMadeByAggregor, listLocalBranches, pruneRemote,
                                            isBranchMerged, deleteBranch,
                                            findWorktreesRootPath, readDiffStats; GitWorktree,
                                            WorktreeBranch, WorktreeDiffStats, NotGitRepositoryError, WorktreeCreateFailedError,
                                            BranchRenameFailedError, WorktreeHasChangesError,
-                                           WorktreeRemoveFailedError, BranchDeleteFailedError
+                                           WorktreeRemoveFailedError, BranchDeleteFailedError,
+                                           IncludedFilesListFailedError
       commitCli.infraService.interface.ts  generateCommitMessage; CommitMessageRequest
       agentHistory.infraService.interface.ts
                                            listAgentConversations; AgentConversation, AgentHistoryNotReadError,

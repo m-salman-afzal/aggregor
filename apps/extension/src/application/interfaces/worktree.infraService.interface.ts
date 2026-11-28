@@ -43,8 +43,13 @@ export interface WorktreeDiffStats {
   readonly insertionCount: number;
 }
 
-export interface CopyIncludedFilesRequest {
+export interface ListIncludedFilesRequest {
   readonly filePatterns: readonly string[];
+  readonly projectPath: ProjectPathValueObject;
+}
+
+export interface CopyIncludedFilesRequest {
+  readonly includedFilePaths: readonly string[];
   readonly projectPath: ProjectPathValueObject;
   readonly worktreePath: ProjectPathValueObject;
 }
@@ -52,6 +57,7 @@ export interface CopyIncludedFilesRequest {
 export class IWorktreeInfraServiceErrors extends TaggedErrors({
   BranchDeleteFailedError: {gitError: Schema.String},
   BranchRenameFailedError: {gitError: Schema.String},
+  IncludedFilesListFailedError: {cause: Schema.Unknown},
   NotGitRepositoryError: {},
   WorktreeCreateFailedError: {gitError: Schema.String},
   WorktreeHasChangesError: {worktreePath: Schema.String},
@@ -86,6 +92,9 @@ export class IWorktreeInfraService extends Context.Service<
     readonly listBranchNames: (
       projectPath: ProjectPathValueObject
     ) => Effect.Effect<ProjectBranchNames, IWorktreeInfraServiceErrors["NotGitRepositoryError"]>;
+    readonly listIncludedFiles: (
+      listIncludedFilesRequest: ListIncludedFilesRequest
+    ) => Effect.Effect<readonly string[], IWorktreeInfraServiceErrors["IncludedFilesListFailedError"]>;
     readonly listLocalBranches: (
       projectPath: ProjectPathValueObject
     ) => Effect.Effect<readonly WorktreeBranch[], IWorktreeInfraServiceErrors["NotGitRepositoryError"]>;
