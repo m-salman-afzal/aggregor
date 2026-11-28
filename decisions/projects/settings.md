@@ -21,3 +21,18 @@ What a project remembers about how its sessions start.
   write into the project's `.vscode/settings.json`. A file in the repository (`aggregor.json`, like Conductor's
   `conductor.json` or Orca's `orca.yaml`) to share settings with a team: left until a team needs it; the one shared
   convention, `.worktreeinclude`, is read from the repository as it is.
+
+## The setup script is a field of several lines
+
+- **Problem:** the setup script was a one-line input, and a browser drops the line breaks of text pasted into one. A
+  script of four commands was saved as one line, so its first command took the others as its arguments, and the script's
+  fallback built `aggregor-pty` with cargo, 40 s, before the agent of every new worktree started.
+- **Decision:** the setup script is typed and shown in a field of several lines, and stored as typed, line breaks
+  included. The shell already runs it as a script, so nothing else changes. Enter in the field starts a new line and no
+  longer saves the form, as in any such field.
+- **Solution:** `SettingsTextAreaField`, beside `SettingsTextField` in the project settings form, on `@pkg/ui`'s
+  `Textarea`, which grows with its text (`field-sizing: content`). A script saved as one line stays as it is until it is
+  entered again.
+- **Alternatives considered:** a `multiline` prop on `SettingsTextField`, one component drawing two different inputs.
+  Splitting a stored one-line script back into commands, which can't tell where a command ended. Asking for commands
+  joined by `;`, which keeps the trap for the next pasted script.

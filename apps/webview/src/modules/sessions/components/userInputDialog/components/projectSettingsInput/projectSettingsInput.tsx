@@ -1,4 +1,5 @@
 import {FormButtons} from "@/modules/sessions/components/userInputDialog/components/formButtons.tsx";
+import {SettingsTextAreaField} from "@/modules/sessions/components/userInputDialog/components/projectSettingsInput/components/settingsTextAreaField.tsx";
 import {SettingsTextField} from "@/modules/sessions/components/userInputDialog/components/projectSettingsInput/components/settingsTextField.tsx";
 import {WorkingTreeField} from "@/modules/sessions/components/userInputDialog/components/projectSettingsInput/components/workingTreeField.tsx";
 import {PROJECT_SETTINGS_FIELDS} from "@/modules/sessions/components/userInputDialog/userInputDialog.constant.ts";
@@ -29,7 +30,7 @@ export const ProjectSettingsInput = (props: ProjectSettingsInputProps) => (
       name={PROJECT_SETTINGS_FIELDS.FILES_TO_COPY}
       value={props.settings.filesToCopy.join(", ")}
     />
-    <SettingsTextField
+    <SettingsTextAreaField
       hint={PROJECT_SETTINGS_LABELS.SETUP_SCRIPT_HINT}
       label={PROJECT_SETTINGS_LABELS.SETUP_SCRIPT}
       name={PROJECT_SETTINGS_FIELDS.SETUP_SCRIPT}
