@@ -93,6 +93,34 @@ Where a session works: its project's root, or a git worktree of its own.
   The prune's 10 s timeout, which a big fetch outlasts and is then killed every time. Reading the branches on every
   project draw, a git process each time. A project setting for the default start point.
 
+## A new worktree's files to copy are listed while git makes it, and the view shows progress meanwhile
+
+- **Problem:** a new worktree session's tab opened 0.8 to 2.7 s after Start, with nothing on screen meanwhile: the
+  dialog had closed, and `git worktree add` and then the listing of the files to copy ran one after the other before the
+  tab. The listing is the slower one in a big repository, since `git ls-files --others --ignored` matches the patterns
+  against every untracked file, `node_modules` included: 1.0 to 1.6 s in a project with 157,000 ignored files, 3 s with
+  a cold disk cache.
+- **Decision:** the listing runs while git makes the worktree, since it reads only the project, and the copy follows
+  once both are done, so the tab waits for the slower of the two, not for both. The Sessions view shows VS Code's
+  progress bar from Start until the session's tab is open, for a session at the project's root too. Which files are
+  copied stays as it was.
+- **Solution:** `IWorktreeInfraService.listIncludedFiles` lists the project's files to copy, and `copyIncludedFiles`
+  copies the listed ones into the worktree; `SessionService.createSessionWorktree` runs `createWorktree` and the listing
+  together. A project with no patterns lists no files, which is its answer and no failure. A listing that fails does so
+  with `IncludedFilesListFailedError`, and the use case takes its outcome as a `Result`, so the failure can't end
+  `git worktree add` midway: `copyListedFiles` logs it and copies nothing, since whether a session starts without its
+  files is the use case's call. A worktree that fails ends the listing.
+  `IProgressInfraService.runWithSessionsViewProgress` runs `createSession` inside `window.withProgress` on the view's
+  id, which ends the bar however the use case ends.
+- **Alternatives considered:** leaving out the folders git ignores whole, which ends the walk through `node_modules` and
+  the copies it brings (33 of the 38 files matched in one project were from `node_modules` and `.next`), but also leaves
+  out a `.vscode/` or `.claude/` that is ignored whole, which is what the copy is for. Opening the tab before the copy
+  ends, which lets the setup script or the agent start without its `.env`. A pending row in the webview, which can't
+  tell when the command failed and would stay. A notification's progress, which is louder than a one-second wait. The
+  adapter logging a failed listing and returning no files, as first built: the use case couldn't tell a failure from
+  nothing matched, and the adapter decided what a session may start without. A failure for a project with no patterns,
+  which gives every caller a branch for a project that is missing nothing.
+
 ## A worktree's branch takes the session's first title, and its menu renames it
 
 - **Problem:** a new worktree's branch is named after the session's default name (`aggregor/jstester-8`), which says

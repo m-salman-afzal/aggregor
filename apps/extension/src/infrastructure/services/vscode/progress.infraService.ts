@@ -1,6 +1,7 @@
 import {Context, Effect, Layer} from "effect";
 
 import {IProgressInfraService} from "@/interfaces/progress.infraService.interface.ts";
+import {SESSIONS_VIEW} from "@pkg/constants/src/sessionsView.constant.ts";
 import {VsCodeApi} from "@pkg/vscode/src/vscode.api.ts";
 import {VscodeUtils} from "@pkg/vscode/src/vscode.utils.ts";
 
@@ -29,7 +30,16 @@ export class ProgressInfraService extends Context.Service<ProgressInfraService>(
           Effect.ensuring(effect, vscodeUtils.setWhenClauseContextKey(sourceControlProgress.busyContextKey, false))
       );
 
+      const runWithSessionsViewProgress = Effect.fn("ProgressInfraService.runWithSessionsViewProgress")(function* <
+        A,
+        E,
+        R
+      >(effect: Effect.Effect<A, E, R>) {
+        return yield* vscodeUtils.runWithProgressIndicator({location: {viewId: SESSIONS_VIEW.ID}}, effect);
+      });
+
       return {
+        runWithSessionsViewProgress,
         runWithSourceControlProgress: <A, E, R>(
           progressTitle: string,
           busyContextKey: string,

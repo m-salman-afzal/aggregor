@@ -19,6 +19,7 @@ import type {
   CopyIncludedFilesRequest,
   CreateWorktreeRequest,
   GitWorktree,
+  ListIncludedFilesRequest,
   ProjectBranchNames,
   WorktreeBranch,
   WorktreeDiffStats
@@ -281,24 +282,29 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
       });
 
       // git matches the patterns as .gitignore does, so `.env*` finds every .env file in the project, at any depth.
-      const copyIncludedFiles = Effect.fn("WorktreeInfraService.copyIncludedFiles")(
-        function* (copyIncludedFilesRequest: CopyIncludedFilesRequest) {
-          const includeFilePath = path.join(copyIncludedFilesRequest.projectPath, WORKTREES.INCLUDE_FILE);
+      const listIncludedFiles = Effect.fn("WorktreeInfraService.listIncludedFiles")(
+        function* (listIncludedFilesRequest: ListIncludedFilesRequest) {
+          const includeFilePath = path.join(listIncludedFilesRequest.projectPath, WORKTREES.INCLUDE_FILE);
           const hasIncludeFile = yield* fileSystem.exists(includeFilePath);
           const excludeArguments = hasIncludeFile
             ? [`--exclude-from=${includeFilePath}`]
-            : Array.map(copyIncludedFilesRequest.filePatterns, (filePattern) => `--exclude=${filePattern}`);
-          if (excludeArguments.length === 0) return;
-          const includedFilesOutput = yield* runGitCommand(copyIncludedFilesRequest.projectPath, [
+            : Array.map(listIncludedFilesRequest.filePatterns, (filePattern) => `--exclude=${filePattern}`);
+          if (excludeArguments.length === 0) return [];
+          const includedFilesOutput = yield* runGitCommand(listIncludedFilesRequest.projectPath, [
             "ls-files",
             "--others",
             "--ignored",
             ...excludeArguments
           ]);
 
-          const includedFilePaths = Array.filter(String.split("\n")(includedFilesOutput), String.isNonEmpty);
+          return Array.filter(String.split("\n")(includedFilesOutput), String.isNonEmpty);
+        },
+        Effect.mapError((cause) => IWorktreeInfraServiceErrors.IncludedFilesListFailedError.make({cause}))
+      );
 
-          yield* Effect.forEach(includedFilePaths, (includedFilePath) =>
+      const copyIncludedFiles = Effect.fn("WorktreeInfraService.copyIncludedFiles")(
+        function* (copyIncludedFilesRequest: CopyIncludedFilesRequest) {
+          yield* Effect.forEach(copyIncludedFilesRequest.includedFilePaths, (includedFilePath) =>
             copyIncludedFile(copyIncludedFilesRequest, includedFilePath)
           );
         },
@@ -555,6 +561,7 @@ export class WorktreeInfraService extends Context.Service<WorktreeInfraService>(
         isBranchMerged,
         isMadeByAggregor,
         listBranchNames,
+        listIncludedFiles,
         listLocalBranches,
         listWorktrees,
         pruneRemote,

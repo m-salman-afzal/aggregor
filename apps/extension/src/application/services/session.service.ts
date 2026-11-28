@@ -33,6 +33,7 @@ import {IProjectRepository} from "@/entities/project/project.repository.interfac
 import {IReviewCommentRepository} from "@/entities/reviewComment/reviewComment.repository.interface.ts";
 import {ISessionRepository} from "@/entities/session/session.repository.interface.ts";
 import {IGitHubCliInfraService} from "@/interfaces/gitHubCli.infraService.interface.ts";
+import {IProgressInfraService} from "@/interfaces/progress.infraService.interface.ts";
 import {ISettingsConfig} from "@/interfaces/settings.config.interface.ts";
 import {ITerminalInfraService} from "@/interfaces/terminal.infraService.interface.ts";
 import {ITmuxInfraService} from "@/interfaces/tmux.infraService.interface.ts";
@@ -82,6 +83,7 @@ import type {ReviewCommentEntity} from "@/entities/reviewComment/reviewComment.e
 import type {SessionEntity} from "@/entities/session/session.entity.ts";
 import type {PullRequestLookup} from "@/interfaces/gitHubCli.infraService.interface.ts";
 import type {SessionTabRequest} from "@/interfaces/terminal.infraService.interface.ts";
+import type {GitWorktree, IWorktreeInfraServiceErrors} from "@/interfaces/worktree.infraService.interface.ts";
 import type {AgentTaskValueObject} from "@/valueObjects/agentTask.valueObject.ts";
 import type {EntityIdValueObject} from "@/valueObjects/entityId.valueObject.ts";
 import type {ProjectPathValueObject} from "@/valueObjects/projectPath.valueObject.ts";
@@ -129,6 +131,7 @@ export class SessionService extends Context.Service<SessionService>()(
       const reviewCommentRepository = yield* IReviewCommentRepository;
       const sessionRepository = yield* ISessionRepository;
       const gitHubCliInfraService = yield* IGitHubCliInfraService;
+      const progressInfraService = yield* IProgressInfraService;
       const settingsConfig = yield* ISettingsConfig;
       const terminalInfraService = yield* ITerminalInfraService;
       const tmuxInfraService = yield* ITmuxInfraService;
@@ -181,13 +184,13 @@ export class SessionService extends Context.Service<SessionService>()(
           : Result.succeed(chosenBaseBranchName);
       });
 
-      const createSessionWorktree = Effect.fn("SessionService.createSessionWorktree")(function* (
+      const createProjectWorktree = Effect.fn("SessionService.createProjectWorktree")(function* (
         worktreeDraft: SessionWorktreeDraft,
         chosenBaseBranchName: string | undefined
       ) {
         const worktreeName = yield* worktreeDomainService.getWorktreeName(worktreeDraft.sessionName);
-        const baseBranchNameResult = yield* findBaseBranchName(worktreeDraft.project.path, chosenBaseBranchName);
-        const sessionWorktree = yield* worktreeInfraService.createWorktree({
+
+        return yield* worktreeInfraService.createWorktree({
           branchName: yield* worktreeDomainService.getWorktreeBranchName(worktreeName),
           projectPath: worktreeDraft.project.path,
           startPoint: chosenBaseBranchName === undefined ? GIT_COMMAND.HEAD_START_POINT : chosenBaseBranchName,
@@ -198,11 +201,48 @@ export class SessionService extends Context.Service<SessionService>()(
           ),
           worktreesFolderPath: worktreeDraft.project.settings.worktreeFolder
         });
-        yield* worktreeInfraService.copyIncludedFiles({
-          filePatterns: worktreeDraft.project.settings.filesToCopy,
-          projectPath: worktreeDraft.project.path,
-          worktreePath: sessionWorktree.worktreePath
+      });
+
+      // A session starts without its files to copy when they can't be listed.
+      const copyListedFiles = Effect.fn("SessionService.copyListedFiles")(function* (
+        project: ProjectEntity,
+        sessionWorktree: GitWorktree,
+        includedFilePathsResult: Result.Result<
+          readonly string[],
+          IWorktreeInfraServiceErrors["IncludedFilesListFailedError"]
+        >
+      ) {
+        yield* Result.match(includedFilePathsResult, {
+          onFailure: (includedFilesListFailed) =>
+            Effect.logWarning("Could not list the files to copy into the worktree", includedFilesListFailed),
+          onSuccess: (includedFilePaths) =>
+            worktreeInfraService.copyIncludedFiles({
+              includedFilePaths,
+              projectPath: project.path,
+              worktreePath: sessionWorktree.worktreePath
+            })
         });
+      });
+
+      // The files are listed while git makes the worktree; as a Result, so a failed listing can't end git midway.
+      const createSessionWorktree = Effect.fn("SessionService.createSessionWorktree")(function* (
+        worktreeDraft: SessionWorktreeDraft,
+        chosenBaseBranchName: string | undefined
+      ) {
+        const baseBranchNameResult = yield* findBaseBranchName(worktreeDraft.project.path, chosenBaseBranchName);
+        const [sessionWorktree, includedFilePathsResult] = yield* Effect.all(
+          [
+            createProjectWorktree(worktreeDraft, chosenBaseBranchName),
+            Effect.result(
+              worktreeInfraService.listIncludedFiles({
+                filePatterns: worktreeDraft.project.settings.filesToCopy,
+                projectPath: worktreeDraft.project.path
+              })
+            )
+          ],
+          {concurrency: "unbounded"}
+        );
+        yield* copyListedFiles(worktreeDraft.project, sessionWorktree, includedFilePathsResult);
 
         const sessionWorkingTree: SessionWorkingTree = {
           baseBranchName: Result.getOrUndefined(baseBranchNameResult),
@@ -421,7 +461,8 @@ export class SessionService extends Context.Service<SessionService>()(
 
           yield* launchNewSession(addedSession, sessionWorkingTree.setupScript);
         },
-        Effect.catchTag("ProjectNotListedError", () => Effect.void)
+        Effect.catchTag("ProjectNotListedError", () => Effect.void),
+        (effect) => progressInfraService.runWithSessionsViewProgress(effect)
       );
 
       const openSession = Effect.fn("SessionService.openSession")(
